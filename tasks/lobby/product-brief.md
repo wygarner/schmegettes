@@ -8,38 +8,38 @@ jira-title: "Host a game: create a room and run the lobby"
 
 **Outcomes:**
 
-- One press of **Host a game** creates a room and puts its code on the TV in under a second
-- The host sees players appear live as they join
-- The host can get their own phone into the game by scanning a QR code, with no typing
-- The host starts the game with one press, and joining closes
+- **Host a game** asks the host's name and creates a room with the code on the TV in under a second
+- The host sees contestants appear live, by display name, as they join
+- The host can join as a contestant from their own phone with the code
+- The host starts the game with one press once 2 contestants are in, and joining closes
 
 Durable docs: `docs/product-docs/features/lobby/feature-brief.md` and `interaction-design.md`.
 
 **Player flow:**
 
-1. **Host device:** Home → **Host a game** (spinner, no double create) → `/host/{code}`. The lobby shows the code (largest element), a QR code to `/join/{code}`, the join URL, the player list with "n / max", **Join from my phone**, and **Start**.
-2. **Join from my phone:** a modal with a large QR code. The host's phone joins as an ordinary contestant. The host device itself never plays (product overview).
-3. **Phone:** code (typed or from the QR) → name (1–20 characters, prefilled with the last one used) → "You're in, {name}. Look at the TV." with **Leave**.
-4. **Start:** enabled with 1 or more contestants. It sends `start_game`, joining closes, and the TV and phones go to `building_board` ("Shuffling a fresh board…").
+1. **Host device:** Home → **Host a game** → "What's your name?" (prefilled with the last name used) → **Create room** (spinner, no double create) → `/host/{code}`. The lobby shows the code (largest element), the join URL, "Hosted by {name}" (editable), the contestant list with "n / max", **Join from my phone**, and **Start**.
+2. **Join from my phone:** a modal with the join URL and code shown large. The host's phone joins as an ordinary contestant. The host device itself never plays. It's mirrored to the TV, so it can't have a private buzzer.
+3. **Phone:** code → "What's your name?" (prefilled) → "You're in, {name}. Look at the TV. {host} will start the game." with **Edit name** and **Leave**.
+4. **Start:** enabled with 2 or more contestants. It sends `start_game`, joining closes, and the TV and phones go to `building_board` ("Shuffling a fresh board…").
 
 **Rules and edge cases:**
 
+- Display names: 1–20 characters, trimmed, prefilled from that device's last name, editable until Start. Duplicate contestant names get a suffix ("Alice 2"). The host isn't a contestant, so a contestant may share the host's name.
 - Codes: 5 characters, with no look-alikes (`0 O 1 I L`), unique among rooms that aren't closed
 - One open lobby per host. Creating a new room closes the host's earlier room that is still in `lobby`.
-- Reloading the TV or a phone returns to the same room as the same person
-- A disconnected player stays listed, dimmed. **Leave** removes them at once.
+- Reloading the TV or a phone returns to the same room as the same person, with no name prompt
+- A disconnected contestant stays listed, dimmed, and counts toward Start. **Leave** removes them at once. If the count drops below 2, Start disables again.
 - A lobby whose host has been disconnected for 30 minutes closes
 - Errors on the phone: unknown code, room full, already started, room closed. Each has its own message (see interaction-design.md).
-- Duplicate names get a suffix ("Alice 2")
 - A double press of Start counts once. A join still in progress when Start is handled gets "already started".
 - Anonymous sign-in happens silently on both host and player devices
 
 **Success Criteria:**
 
-- Host a game → code visible on `/host/{code}` with no further input
-- A phone joining with that code appears on the TV within 1 s, and its name is right
-- Scanning the QR code from a phone lands on `/join/{code}` with the code filled in
-- Start is disabled at 0 contestants. With 1 or more, pressing it moves the TV and every phone to `building_board`, and later joins are refused.
-- Reloading either device keeps the room and the player list
+- Host a game → name → code visible on `/host/{code}` with "Hosted by {name}"
+- A phone joining with that code and a name appears on the TV under that name within 1 s
+- Name edits on either device show on the TV live
+- Start is disabled with 0–1 contestants. With 2 or more, pressing it moves the TV and every phone to `building_board`, and later joins are refused.
+- Reloading either device keeps the room, the names, and the player list
 
-**Out of scope:** room settings UI (seasons, max players), kicking players, spectator join UI, the host device as a contestant, the board and gameplay after Start.
+**Out of scope:** QR code, room settings UI (seasons, max players), kicking players, spectator join UI, the host device as a contestant, linking the host's phone to the host device, the board and gameplay after Start.

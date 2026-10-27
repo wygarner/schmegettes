@@ -226,7 +226,7 @@ components:
         score: { type: integer, description: The caller's score }
         placement:
           type: [integer, "null"]
-          description: The caller's placement; ties share a place; null if they watched
+          description: The caller's placement; ties share a place; null if they hosted (the TV) or watched
         players:
           type: array
           items: { type: string }
@@ -242,17 +242,16 @@ components:
         finishedAt: { type: [string, "null"], format: date-time }
         results:
           type: array
-          description: Contestants and host ordered by placement; spectators are not listed
+          description: Contestants ordered by placement; the host (the TV) and spectators are not listed
           items: { $ref: "#/components/schemas/GameResult" }
       required: [gameId, status, startedAt, finishedAt, results]
     GameResult:
       type: object
       properties:
         displayName: { type: string, description: Name as it was in that game, or "Former player" }
-        role: { $ref: "./schemas/domain.schema.json#/$defs/PlayerRole" }
         score: { type: integer }
         placement: { type: integer, description: Ties share a place }
-      required: [displayName, role, score, placement]
+      required: [displayName, score, placement]
     Problem:
       type: object
       properties:

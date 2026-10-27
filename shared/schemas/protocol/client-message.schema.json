@@ -47,7 +47,7 @@
         "type": { "const": "submit_answer" },
         "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
         "answer": { "type": "string", "maxLength": 200 },
-        "source": { "type": "string", "enum": ["typed", "voice"] }
+        "source": { "type": "string", "enum": ["voice"], "description": "Answers are spoken; there is no typed input." }
       },
       "required": ["type", "clueId", "answer", "source"],
       "additionalProperties": false

@@ -7,7 +7,7 @@ A multiplayer Jeopardy!-style party game: share a room code, buzz from your phon
 | [`shared/`](shared/) | JSON Schema / OpenAPI | Contracts and domain vocabulary. Builds first. |
 | [`web/`](web/) | TypeScript, React, Mantine | Player and host UI |
 | [`devtools/`](devtools/) | TypeScript | Internal prototype host |
-| [`api/`](api/SETUP.md) | Ruby on Rails | REST: profiles, rooms, boards, history |
+| [`api/`](api/SETUP.md) | Go | REST: profiles, rooms, game history |
 | [`game/`](game/) | Go | Realtime game server (WebSockets) |
 | [`worker/`](worker/) | Python | Jobs: clue imports, boards, appeal judging |
 | [`supabase/`](supabase/) | SQL | Migrations, row-level security, tests |

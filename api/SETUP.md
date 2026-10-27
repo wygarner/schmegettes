@@ -1,33 +1,36 @@
-# api/ — Rails 8 API (not generated yet)
+# api/ — Go REST server
 
-This package is generated once Ruby 3.4 is installed (`mise install`). It is the first bootstrap task, `tasks/scaffold-services/`.
+Profiles, rooms (create, join by code, settings), and game history. Contract: [`shared/openapi.yaml`](../shared/openapi.yaml). Stack decisions: [`docs/system-docs/engineering/stack.md`](../docs/system-docs/engineering/stack.md).
 
-## Generate
-
-From the repo root:
+Stateless and separate from `game/`, so REST deploys never drop live game sockets.
 
 ```bash
-gem install rails -v '~> 8.0'
-rails new api --api --database=postgresql \
-  --skip-git --skip-docker --skip-kamal --skip-thruster --skip-solid \
-  --skip-action-cable --skip-action-mailer --skip-action-mailbox --skip-action-text \
-  --skip-active-storage --skip-jbuilder --skip-ci
+mise run dev:api                                  # :3001
+mise run test:api -- ./internal/rooms/...         # targeted tests
 ```
 
-`rails new` keeps this file. It also writes its own `README.md`; replace that with a short pointer to this file and to `docs/system-docs/engineering/stack.md`.
+## Layout
 
-## Then configure
-
-| Concern | Change |
+| Path | What |
 |---|---|
-| Migrations | Supabase CLI owns the schema. Delete `db/migrate/`, set `config.active_record.schema_format = :sql`, and add `config.active_record.dump_schema_after_migration = false`. Never run `rails db:migrate`. |
-| Database role | `DATABASE_URL` is the `app_service` role. Add `Db.as_user(claims) { ... }` (in `app/lib/db.rb`): it opens a transaction, runs `set local role authenticated` and `select set_config('request.jwt.claims', ?, true)`, then yields. Every controller action that reads user data goes through it. |
-| Auth | Gem `jwt`. A `before_action` verifies `Authorization: Bearer` against `SUPABASE_JWKS_URL` (cache the JWKS), checks `aud = authenticated` and `exp`, and stores the claims for `Db.as_user`. |
-| Contract | Gem `json_schemer`. Request specs validate responses against `../shared/openapi.yaml`. |
-| CORS | Gem `rack-cors`, origins from `ALLOWED_ORIGINS` only. |
-| Logging | Gems `lograge` + JSON formatter, fields per `docs/system-docs/operations/logging-conventions.md`. Filter `authorization`, `token`, `password` in `filter_parameter_logging.rb`. |
-| Health | `GET /healthz` (checks the DB connection) and `GET /version` returning `{ service: "api", commit: ENV["GIT_SHA"] }`. |
-| Jobs | Enqueue with `select pgmq.send('jobs', ?::jsonb)` inside the same transaction as the data it relates to. Validate the payload against `../shared/schemas/jobs/job.schema.json` first. |
+| `cmd/api/` | Entry point: routes, `/healthz`, `/version`, graceful shutdown |
+| `internal/contracts/` | Types and server interface generated from `shared/openapi.yaml` (`oapi-codegen`, via `mise run gen`). Never edited by hand. |
+| `internal/{resource}/` | Handlers per resource (`rooms`, `games`, `me`) |
+| `../golib/` | Go code shared with `game/` (JWT verification, `db.AsUser`, logger setup), imported with a `replace` directive. Created with the first helper both need. |
+
+## Rules
+
+| Concern | How |
+|---|---|
+| Migrations | The Supabase CLI owns the schema. This service never changes it. |
+| Database role | `DATABASE_URL` is the `app_service` role. Every handler that reads user data runs inside `db.AsUser(ctx, claims, fn)`: one transaction, `set local role authenticated`, `select set_config('request.jwt.claims', $1, true)`. |
+| Auth | Verify `Authorization: Bearer` against `SUPABASE_JWKS_URL` (cache the JWKS), check `aud = authenticated` and `exp`. Every route except `/healthz` and `/version`. |
+| Contract | Handlers implement the generated server interface. Handler tests validate responses against `../shared/openapi.yaml` (`kin-openapi`). |
+| Errors | RFC 9457 problem details (`application/problem+json`). |
+| CORS | Origins from `ALLOWED_ORIGINS` only. |
+| Logging | `log/slog` JSON, one line per request, fields per [logging-conventions.md](../docs/system-docs/operations/logging-conventions.md). Never log the `Authorization` header. |
+| Health | `GET /healthz` (checks the DB connection once the pool exists) and `GET /version` → `{ "service": "api", "commit": GIT_SHA }`. |
+| Jobs | Enqueue with `select pgmq.send('jobs', $1::jsonb)` in the same transaction as the data it relates to, after validating against `../shared/schemas/jobs/job.schema.json`. |
 | Port | `PORT=3001` (web expects it). |
 
 ## Environment

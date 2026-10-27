@@ -35,8 +35,6 @@
       "Bash(go vet*)",
       "Bash(go build*)",
       "Bash(gofmt*)",
-      "Bash(bundle exec rubocop*)",
-      "Bash(bin/rails test*)",
       "Bash(uv run pytest*)",
       "Bash(uv run ruff*)",
       "Bash(uv run mypy*)",

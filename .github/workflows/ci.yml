@@ -253,6 +253,12 @@ jobs:
       - uses: jdx/mise-action@v2
         with:
           install_args: aqua:supabase/cli
+      # config.toml points at this git-ignored file. CI gets a throwaway key; --yes skips the
+      # overwrite prompt that would otherwise block a non-interactive run.
+      - name: Generate a throwaway JWT signing key
+        run: |
+          echo '[]' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes > /dev/null
       - name: Apply every migration and the seed to a fresh database
         run: supabase db start
       - run: supabase db lint --level warning --fail-on error

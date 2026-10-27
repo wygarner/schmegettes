@@ -33,7 +33,10 @@ export interface SubmitAnswer {
   type: "submit_answer";
   clueId: string;
   answer: string;
-  source: "typed" | "voice";
+  /**
+   * Answers are spoken; there is no typed input.
+   */
+  source: "voice";
 }
 /**
  * Daily Double or Final round wager.

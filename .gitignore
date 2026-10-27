@@ -12,15 +12,7 @@ coverage/
 
 # Go
 game/bin/
-
-# Ruby / Rails
-api/log/*
-api/tmp/*
-api/storage/*
-!api/log/.keep
-!api/tmp/.keep
-!api/storage/.keep
-api/vendor/bundle/
+api/bin/
 
 # Python
 __pycache__/

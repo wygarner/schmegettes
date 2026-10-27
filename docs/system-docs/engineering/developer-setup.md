@@ -8,7 +8,7 @@ Everything is pinned in the root `mise.toml`.
 brew install mise            # or: curl https://mise.run | sh
 echo 'eval "$(mise activate zsh)"' >> ~/.zshrc && exec zsh
 cd ~/schmegettes
-mise trust && mise install   # node, bun, go, ruby, python, uv, supabase CLI
+mise trust && mise install   # node, bun, go, python, uv, supabase CLI
 ```
 
 Local Supabase also needs Docker (Docker Desktop, OrbStack, or Colima).
@@ -22,7 +22,10 @@ mise run setup
 ## 3. Local database
 
 ```bash
-supabase gen signing-key --algorithm ES256 > supabase/signing_keys.json   # once; git-ignored
+# once; git-ignored. config.toml points at this file, so the CLI writes it itself:
+# create a placeholder, then answer "Yes" when asked to overwrite it. Don't redirect with `>`.
+echo '[]' > supabase/signing_keys.json
+supabase gen signing-key --algorithm ES256
 mise run db:start      # prints the local URL and anon key
 mise run db:reset      # re-apply migrations + seed any time
 mise run db:test       # RLS tests
@@ -34,7 +37,9 @@ Copy each `.env.example` next to it (`web/.env.local`, `api/.env`, `game/.env`, 
 
 ## 5. Run
 
-In separate terminals:
+`bun run dev` starts web, game, and worker in one terminal (`mise run dev`). Start Redis first. The API is not in it yet; run it on its own.
+
+Or one service per terminal:
 
 ```bash
 redis-server

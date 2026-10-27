@@ -9,10 +9,10 @@ jira-title: "Scaffold api, game, and worker on the pinned toolchains"
 
 **Outcomes:**
 
-- `api/` (Go) builds and passes `gofmt`, `go vet`, `staticcheck`, and `go test -race`, and gets JWT verification and the `db.AsUser` helper per `api/SETUP.md` (shared with `game/` through `golib/`)
+- `api/` (Go) builds and passes `gofmt`, `go vet`, `staticcheck`, and `go test -race` (JWT verification, `db.AsUser`, and `golib/` shipped with the lobby task)
 - `game/` compiles with Go 1.25, passes `gofmt`, `go vet`, `staticcheck`, and `go test -race`
 - `worker/` has a committed `uv.lock` and passes `ruff`, `mypy --strict`, and `pytest`
-- `mise run gen` produces Go and Python contract code, committed
+- `mise run gen` produces Go and Python contract code, committed (done by the lobby task; keep it green)
 - `mise.toml` pins exact patch versions (`mise use --pin`)
 - `supabase db start` + `supabase test db` pass locally with the real Supabase stack
 

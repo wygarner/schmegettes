@@ -3,13 +3,43 @@
 /**
  * Every message a client may send on the game WebSocket. The server rejects anything that does not validate. The socket is authenticated at connect time (Supabase JWT); messages carry no identity.
  */
-export type ClientMessage = StartGame | SelectClue | Buzz | SubmitAnswer | SubmitWager | OverrideVerdict | Ping;
+export type ClientMessage =
+  | StartGame
+  | SetDisplayName
+  | SetHostPlays
+  | LeaveRoom
+  | SelectClue
+  | Buzz
+  | SubmitAnswer
+  | SubmitWager
+  | OverrideVerdict
+  | Ping;
 
 /**
  * Host only. Moves the room from lobby to the first board.
  */
 export interface StartGame {
   type: "start_game";
+}
+/**
+ * Lobby only. Renames the sender in this room; the server adds a suffix when the name is taken.
+ */
+export interface SetDisplayName {
+  type: "set_display_name";
+  displayName: string;
+}
+/**
+ * Host only, lobby only. Joins or leaves the game as a contestant on the host device.
+ */
+export interface SetHostPlays {
+  type: "set_host_plays";
+  plays: boolean;
+}
+/**
+ * Lobby only, not the host. Removes the sender from the room.
+ */
+export interface LeaveRoom {
+  type: "leave_room";
 }
 /**
  * Sent by the player who has control of the board.

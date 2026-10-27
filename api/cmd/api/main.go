@@ -4,41 +4,52 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
+
+	"schmegettes/api/internal/rooms"
+	"schmegettes/golib/auth"
+	"schmegettes/golib/db"
+	"schmegettes/golib/logging"
 )
 
 // commit is set at build time: go build -ldflags "-X main.commit=$GIT_SHA".
 var commit = "unknown"
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel()})).
-		With("service", "api", "env", getenv("APP_ENV", "local"))
-	slog.SetDefault(logger)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	})
-	mux.HandleFunc("GET /version", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"service": "api", "commit": buildCommit()})
-	})
-	// /v1 routes (shared/openapi.yaml) are added by the tasks that implement them.
-
-	srv := &http.Server{
-		Addr:              ":" + getenv("PORT", "3001"),
-		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
+	logging.Setup("api", getenv("APP_ENV", "local"), getenv("LOG_LEVEL", "info"))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	database, err := db.Open(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		slog.Error("database unavailable", "err", err)
+		os.Exit(1)
+	}
+	defer database.Close()
+
+	verifier, err := auth.NewVerifier(ctx, os.Getenv("SUPABASE_JWKS_URL"))
+	if err != nil {
+		slog.Error("jwks unavailable", "err", err)
+		os.Exit(1)
+	}
+
+	rt := routes{
+		rooms: rooms.Handler{Store: rooms.PGStore{DB: database}, SocketBase: getenv("GAME_SOCKET_BASE_URL", "ws://localhost:3002")},
+		ping:  database.Ping,
+	}
+	srv := &http.Server{
+		Addr:              ":" + getenv("PORT", "3001"),
+		Handler:           handler(rt, verifier, strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",")),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 
 	go func() {
 		slog.Info("listening", "addr", srv.Addr, "commit", buildCommit())
@@ -64,23 +75,9 @@ func buildCommit() string {
 	return getenv("GIT_SHA", commit)
 }
 
-func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(body)
-}
-
 func getenv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
 	return fallback
-}
-
-func logLevel() slog.Level {
-	var level slog.Level
-	if err := level.UnmarshalText([]byte(getenv("LOG_LEVEL", "info"))); err != nil {
-		return slog.LevelInfo
-	}
-	return level
 }

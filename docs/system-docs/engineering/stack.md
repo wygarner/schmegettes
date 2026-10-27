@@ -48,5 +48,5 @@ Two goals shape the stack:
 
 - **Data access always runs as the user.** Use the per-language helper (`Db.as_user(claims) { ... }` in Rails, `db.AsUser(ctx, claims, fn)` in Go, `with as_user(conn, claims):` in Python). It opens a transaction and sets the role and JWT claims. Never query tenant-scoped tables outside it. Owner-role connections are only for migrations and worker import jobs, and are named `*_OWNER_URL`.
 - **Contracts are generated, not hand-written.** Change `shared/`, run `mise run gen`, commit the generated files. CI fails if generated code is stale.
-- **Game state changes only in `game/`.** Rails never mutates a live game. It creates the room; `game` builds the board and takes over when the host starts.
+- **Game state changes only in `game/`.** The api never mutates a live game. It creates the room; `game` builds the board and takes over when the host starts.
 - **Background work goes through pgmq** with an envelope from `shared/schemas/jobs/`, never a long request.

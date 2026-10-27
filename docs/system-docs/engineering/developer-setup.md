@@ -22,7 +22,10 @@ mise run setup
 ## 3. Local database
 
 ```bash
-supabase gen signing-key --algorithm ES256 > supabase/signing_keys.json   # once; git-ignored
+# once; git-ignored. config.toml points at this file, so the CLI writes it itself:
+# create a placeholder, then answer "Yes" when asked to overwrite it. Don't redirect with `>`.
+echo '[]' > supabase/signing_keys.json
+supabase gen signing-key --algorithm ES256
 mise run db:start      # prints the local URL and anon key
 mise run db:reset      # re-apply migrations + seed any time
 mise run db:test       # RLS tests

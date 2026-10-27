@@ -176,3 +176,6 @@ Never log: JWTs, the `Authorization` header, `Sec-WebSocket-Protocol`, display n
 ## Docs to update
 
 Listed in subtask 7.
+
+## Branch
+`new-feature/lobby`, from and into `daily/2026-10-27`. There is no Jira key: Jira isn't configured (`.github/jira.json` issue types are `REPLACE_ME`, and the secrets are unset).

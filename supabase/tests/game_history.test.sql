@@ -8,6 +8,12 @@ select plan(47);
 -- ---------------------------------------------------------------------------
 -- Fixtures (all rolled back)
 -- ---------------------------------------------------------------------------
+-- The test runner (postgres) is not a superuser on Supabase and created game_engine without
+-- joining it, so it must join to `set local role game_engine`. Rolled back with the rest.
+grant game_engine to current_user;
+-- pgTAP lives in the extensions schema, which game_engine can't otherwise see.
+grant usage on schema extensions to game_engine;
+
 create schema tests;
 grant usage on schema tests to public;
 

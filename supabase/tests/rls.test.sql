@@ -32,7 +32,7 @@ select throws_ok(
 );
 
 -- Alice joins Bob's room by code.
-select is(public.join_room('bobby'), 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid, 'join_room finds a room by code');
+select is(public.join_room('bobby', 'Alice'), 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid, 'join_room finds a room by code');
 select is((select count(*)::int from public.rooms), 2, 'after joining, the room is visible');
 select is(
   (select count(*)::int from public.profiles where user_id = '22222222-2222-4222-8222-222222222222'),

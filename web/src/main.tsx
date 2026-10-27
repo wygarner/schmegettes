@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { Home } from "./pages/Home";
 import { HostLobby } from "./pages/HostLobby";
+import { JoinCode } from "./pages/JoinCode";
 import { JoinRoom } from "./pages/JoinRoom";
 
 // Shared with devtools/ prototypes via the same values; see docs/product-docs/architecture/design-system.md.
@@ -38,6 +39,7 @@ createRoot(root).render(
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/host/:code" element={<HostLobby />} />
+          <Route path="/join" element={<JoinCode />} />
           <Route path="/join/:code" element={<JoinRoom />} />
         </Routes>
       </BrowserRouter>

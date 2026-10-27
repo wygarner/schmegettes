@@ -67,7 +67,7 @@ export function JoinRoom() {
           <Title order={2}>Join {code}</Title>
           {problem && <Alert color="red">{JOIN_ERRORS[problem]}</Alert>}
           {problem === "room-not-found" && (
-            <Anchor component={Link} to="/">
+            <Anchor component={Link} to="/join">
               Try another code
             </Anchor>
           )}

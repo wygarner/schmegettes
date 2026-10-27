@@ -53,11 +53,13 @@ run = "bun run --cwd devtools dev"
 
 [tasks."dev:game"]
 dir = "game"
-run = "go run ./cmd/game"
+# Go doesn't read env files, so load game/.env (copied from .env.example) first.
+run = "test -f .env || { echo 'game/.env missing: cp game/.env.example game/.env' >&2; exit 1; }; set -a; . ./.env; set +a; go run ./cmd/game"
 
 [tasks."dev:api"]
 dir = "api"
-run = "go run ./cmd/api"
+# Go doesn't read env files, so load api/.env (copied from .env.example) first.
+run = "test -f .env || { echo 'api/.env missing: cp api/.env.example api/.env' >&2; exit 1; }; set -a; . ./.env; set +a; go run ./cmd/api"
 
 [tasks."dev:worker"]
 dir = "worker"

@@ -38,7 +38,7 @@ commit;
 |---|---|
 | `profiles` | read own and fellow room members'; insert/update own |
 | `clues` | **nothing**: correct responses never reach a user role |
-| `rooms` | read if host or member; create via `create_room(name)` (or as host directly); host updates status/size, never `host_plays` |
+| `rooms` | read if host or member; create only via `create_room(name)`; no direct writes (status, `host_plays`, and settings change only through functions) |
 | `room_members` | read fellow members; leave (non-host); join only via `join_room(code, name)`; never rename directly |
 | `board_clues`, `games`, `game_players`, `answers`, `game_results` (view) | read if they played or watched that game (`is_game_member`); no writes |
 | `seen_clues` | **nothing**: only used to build boards |

@@ -3,7 +3,7 @@
 -- lobby changes run as game_engine, as game/ calls them.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(38);
+select plan(39);
 
 grant game_engine to current_user;
 grant usage on schema extensions to game_engine;
@@ -151,6 +151,10 @@ select set_config('tests.g', public.start_game(tests.room('r'))::text, true);
 select is(
   (select role from public.game_players where game_id = tests.room('g') and user_id = '11111111-1111-4111-8111-111111111111'),
   'contestant'::public.player_role, 'a playing host is a contestant in the game'
+);
+select ok(
+  (select placement from public.game_results where game_id = tests.room('g') and user_id = '11111111-1111-4111-8111-111111111111') is not null,
+  'a playing host gets a placement'
 );
 select is(
   (select array_agg(display_name order by display_name) from public.game_players where game_id = tests.room('g')),

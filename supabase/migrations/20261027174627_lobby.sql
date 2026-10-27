@@ -320,3 +320,13 @@ begin
   return new_game;
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Rooms change only through the functions above. Direct writes would let a host skip the
+-- lobby rules: reopen a game in progress so contestants join mid-game, pick a look-alike
+-- code, or set host_plays past the player limit.
+-- ---------------------------------------------------------------------------
+revoke insert on public.rooms from authenticated;
+revoke update (status, max_players, seasons) on public.rooms from authenticated;
+drop policy rooms_insert on public.rooms;
+drop policy rooms_update on public.rooms;

@@ -9,6 +9,7 @@
       "type": "string",
       "enum": [
         "lobby",
+        "building_board",
         "board",
         "clue_reading",
         "buzzing_open",
@@ -33,6 +34,11 @@
     "RoomStatus": {
       "type": "string",
       "enum": ["open", "in_game", "closed"]
+    },
+    "GameStatus": {
+      "description": "A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).",
+      "type": "string",
+      "enum": ["in_progress", "finished", "abandoned"]
     },
     "ClueState": {
       "type": "string",

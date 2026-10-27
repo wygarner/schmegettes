@@ -74,7 +74,7 @@ paths:
               additionalProperties: false
       responses:
         "201":
-          description: Room created; board is built asynchronously
+          description: Room created. The board is built when the host starts the game.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Room" }
@@ -112,9 +112,34 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Room" }
         "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      summary: Change room settings before the game starts (host only)
+      parameters:
+        - { name: roomId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                seasons:
+                  type: [array, "null"]
+                  items: { type: integer, minimum: 1 }
+                  description: Seasons to build boards from; null means every season
+                maxPlayers: { type: integer, minimum: 2, maximum: 8 }
+              additionalProperties: false
+      responses:
+        "200":
+          description: Updated room
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Room" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
   /v1/games:
     get:
-      summary: The caller's finished games, newest first
+      summary: The caller's ended games (finished or abandoned), newest first
       parameters:
         - { name: cursor, in: query, schema: { type: string } }
       responses:
@@ -128,6 +153,18 @@ paths:
                   items: { type: array, items: { $ref: "#/components/schemas/GameSummary" } }
                   nextCursor: { type: [string, "null"] }
                 required: [items, nextCursor]
+  /v1/games/{gameId}:
+    get:
+      summary: A game's scoreboard (anyone who played or watched it)
+      parameters:
+        - { name: gameId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Game
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GameDetail" }
+        "404": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     supabaseJwt:
@@ -166,9 +203,12 @@ components:
         code: { $ref: "./schemas/domain.schema.json#/$defs/RoomCode" }
         status: { $ref: "./schemas/domain.schema.json#/$defs/RoomStatus" }
         hostUserId: { type: string, format: uuid }
-        boardReady: { type: boolean }
         maxPlayers: { type: integer }
-      required: [roomId, code, status, hostUserId, boardReady, maxPlayers]
+        seasons:
+          type: [array, "null"]
+          items: { type: integer }
+          description: Seasons boards are built from; null means every season
+      required: [roomId, code, status, hostUserId, maxPlayers, seasons]
     RoomJoin:
       type: object
       properties:
@@ -177,13 +217,42 @@ components:
       required: [room, gameSocketUrl]
     GameSummary:
       type: object
+      description: One of the caller's past games, from their point of view.
       properties:
         gameId: { type: string, format: uuid }
-        finishedAt: { type: string, format: date-time }
-        finalScore: { type: integer }
-        placement: { type: integer }
+        status: { $ref: "./schemas/domain.schema.json#/$defs/GameStatus" }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time, description: When the game ended, finished or abandoned }
+        score: { type: integer, description: The caller's score }
+        placement:
+          type: [integer, "null"]
+          description: The caller's placement; ties share a place; null if they watched
+        players:
+          type: array
+          items: { type: string }
+          description: Display names as they were in that game ("Former player" for deleted accounts)
         playerCount: { type: integer }
-      required: [gameId, finishedAt, finalScore, placement, playerCount]
+      required: [gameId, status, startedAt, finishedAt, score, placement, players, playerCount]
+    GameDetail:
+      type: object
+      properties:
+        gameId: { type: string, format: uuid }
+        status: { $ref: "./schemas/domain.schema.json#/$defs/GameStatus" }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: [string, "null"], format: date-time }
+        results:
+          type: array
+          description: Contestants and host ordered by placement; spectators are not listed
+          items: { $ref: "#/components/schemas/GameResult" }
+      required: [gameId, status, startedAt, finishedAt, results]
+    GameResult:
+      type: object
+      properties:
+        displayName: { type: string, description: Name as it was in that game, or "Former player" }
+        role: { $ref: "./schemas/domain.schema.json#/$defs/PlayerRole" }
+        score: { type: integer }
+        placement: { type: integer, description: Ties share a place }
+      required: [displayName, role, score, placement]
     Problem:
       type: object
       properties:

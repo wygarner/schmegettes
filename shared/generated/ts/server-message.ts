@@ -17,6 +17,7 @@ export interface RoomSnapshot {
    */
   phase:
     | "lobby"
+    | "building_board"
     | "board"
     | "clue_reading"
     | "buzzing_open"
@@ -62,6 +63,7 @@ export interface PhaseChanged {
    */
   phase:
     | "lobby"
+    | "building_board"
     | "board"
     | "clue_reading"
     | "buzzing_open"

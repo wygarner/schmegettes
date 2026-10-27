@@ -10,7 +10,7 @@
 |---|---|
 | **Room** | A lobby with a 5-character code. One host, up to 6 contestants (configurable 2–8), any number of spectators. |
 | **Host** | Creates the room, starts the game, can override any verdict. Plays as a contestant too unless they choose host-only. |
-| **Board** | 6 categories × 5 clues per round, drawn from the clue catalog (past seasons). Single and Double rounds, then Final. |
+| **Board** | 6 categories × 5 clues per round, drawn from the clue catalog (past seasons). Single and Double rounds, then Final. Built when the host presses Start, from categories nobody playing has seen ([game history](../features/game-history/feature-brief.md)). |
 | **Control** | The player who last answered correctly picks the next clue. |
 | **Buzzing** | Opens after the clue is read. Buzzing early earns a short lockout. First valid buzz answers. |
 | **Answer** | Typed or spoken. Judged instantly; wrong answers subtract the clue's value and reopen buzzing for the others. |
@@ -18,7 +18,7 @@
 
 ## Game phases
 
-`lobby → board → clue_reading → buzzing_open → answering → board …` with `daily_double_wager` for Daily Doubles and `final_category → final_wager → final_answer → final_reveal → finished` at the end. These names are the contract in `shared/schemas/domain.schema.json`.
+`lobby → building_board → board → clue_reading → buzzing_open → answering → board …` with `daily_double_wager` for Daily Doubles and `final_category → final_wager → final_answer → final_reveal → finished` at the end. These names are the contract in `shared/schemas/domain.schema.json`.
 
 ## Principles
 

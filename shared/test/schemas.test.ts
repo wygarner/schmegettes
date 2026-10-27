@@ -47,10 +47,16 @@ describe("server messages", () => {
     };
     expect(server(snapshot)).toBe(false);
   });
+  test("accepts the building_board phase", () => {
+    expect(server({ type: "phase_changed", roomId: ROOM, seq: 1, phase: "building_board" })).toBe(true);
+  });
 });
 
 describe("jobs", () => {
   test("accepts an import job", () => {
     expect(job({ kind: "import_clue_season", jobId: USER, enqueuedAt: "2026-10-26T12:00:00Z", season: 40 })).toBe(true);
+  });
+  test("rejects build_board: boards are built by start_game() in the database", () => {
+    expect(job({ kind: "build_board", jobId: USER, enqueuedAt: "2026-10-26T12:00:00Z", roomId: ROOM })).toBe(false);
   });
 });

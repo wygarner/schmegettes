@@ -164,6 +164,9 @@ func (r *Room) run(ctx context.Context, first *Client, onExit func()) {
 	defer close(r.done)
 	defer onExit()
 	if !r.load(ctx) {
+		// Tell the socket why before letting it go; a client that missed the original
+		// room_closed would otherwise keep reconnecting.
+		r.sendTo(first, contracts.RoomClosed{Type: "room_closed", RoomId: contracts.Uuid(r.id), Reason: contracts.RoomClosedReasonClosed})
 		close(first.Done)
 		return
 	}

@@ -445,6 +445,17 @@ func TestClosedElsewhere(t *testing.T) {
 	select {
 	case <-late.Done:
 	case <-time.After(2 * time.Second):
-		t.Error("a closed room accepted a socket")
+		t.Fatal("a closed room accepted a socket")
+	}
+	// A socket that missed the first room_closed is told why, so it stops reconnecting.
+	select {
+	case data := <-late.Out:
+		var m message
+		_ = json.Unmarshal(data, &m)
+		if m.Type != "room_closed" || m.Reason != "closed" {
+			t.Errorf("late socket got %s", data)
+		}
+	default:
+		t.Error("late socket was dropped without room_closed")
 	}
 }

@@ -53,7 +53,10 @@ export class GameSocket {
 
   private receive(message: ServerMessage) {
     if ("seq" in message) {
-      if (message.type !== "room_snapshot" && message.seq !== this.lastSeq + 1) {
+      // A snapshot resets the sequence. room_closed is final, so it is never treated as a gap
+      // (a socket that reconnects to a closed room gets one without a snapshot first).
+      const resets = message.type === "room_snapshot" || message.type === "room_closed";
+      if (!resets && message.seq !== this.lastSeq + 1) {
         this.close();
         void this.connect();
         return;

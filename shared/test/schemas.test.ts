@@ -52,6 +52,7 @@ describe("server messages", () => {
     };
     expect(server(lobby)).toBe(true);
     expect(server({ type: "room_closed", roomId: ROOM, seq: 3, reason: "replaced" })).toBe(true);
+    expect(server({ type: "room_closed", roomId: ROOM, seq: 0, reason: "closed" })).toBe(true);
     expect(server({ type: "room_closed", roomId: ROOM, seq: 3, reason: "bored" })).toBe(false);
   });
   test("accepts the lobby error codes", () => {

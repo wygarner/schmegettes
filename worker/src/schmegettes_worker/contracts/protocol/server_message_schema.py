@@ -68,6 +68,7 @@ class LobbyUpdated(BaseModel):
 class Reason(Enum):
     host_absent = 'host_absent'
     replaced = 'replaced'
+    closed = 'closed'
 
 
 class RoomClosed(BaseModel):

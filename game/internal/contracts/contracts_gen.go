@@ -286,7 +286,9 @@ type Pong struct {
 }
 
 // The room closed. host_absent: no host device for 30 minutes in the lobby.
-// replaced: the host created a new room.
+// replaced: the host created a new room. closed: it had already closed when this
+// socket connected. Clients stop reconnecting on any room_closed, whatever its
+// seq.
 type RoomClosed struct {
 	// Reason corresponds to the JSON schema field "reason".
 	Reason RoomClosedReason `json:"reason" yaml:"reason" mapstructure:"reason"`
@@ -303,6 +305,7 @@ type RoomClosed struct {
 
 type RoomClosedReason string
 
+const RoomClosedReasonClosed RoomClosedReason = "closed"
 const RoomClosedReasonHostAbsent RoomClosedReason = "host_absent"
 const RoomClosedReasonReplaced RoomClosedReason = "replaced"
 

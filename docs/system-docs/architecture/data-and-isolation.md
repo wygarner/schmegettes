@@ -38,12 +38,28 @@ commit;
 |---|---|
 | `profiles` | read own and fellow room members'; insert/update own |
 | `clues` | **nothing**: correct responses never reach a user role |
-| `rooms` | read if host or member; create as host; host updates status/size |
-| `room_members` | read fellow members; leave (non-host); join only via `join_room(code)` |
+| `rooms` | read if host or member; create via `create_room(name)` (or as host directly); host updates status/size, never `host_plays` |
+| `room_members` | read fellow members; leave (non-host); join only via `join_room(code, name)`; never rename directly |
 | `board_clues`, `games`, `game_players`, `answers`, `game_results` (view) | read if they played or watched that game (`is_game_member`); no writes |
 | `seen_clues` | **nothing**: only used to build boards |
 
 Supabase's default grants to `anon`/`authenticated` are revoked, including default privileges for future tables. **Every new table needs an explicit grant, `enable row level security`, policies, and a test in `supabase/tests/`.**
+
+## Lobby functions
+
+Lobby changes go through `security definer` functions so names, capacity, and the start/join race are settled in one place ([lobby](../../product-docs/features/lobby/feature-brief.md)).
+
+| Function | Caller | Does |
+|---|---|---|
+| `create_room(name)` | `authenticated` (api) | Closes the caller's other open lobbies, picks a code without look-alikes, adds the host's membership with their name |
+| `join_room(code, name, role)` | `authenticated` (api) | Locks the room; refuses contestants unless `status = 'open'` and there is room (a playing host counts); suffixes a taken name ("Alice 2"); a member joining again keeps their name |
+| `set_member_name(room, user, name)` | `game_engine` | Lobby only; same suffix rule |
+| `set_host_plays(room, plays)` | `game_engine` | Lobby only; the host joins or leaves the game on the host device |
+| `leave_room(room, user)` | `game_engine` | Removes a non-host member |
+
+- `room_members.display_name` is the name in that room; `profiles.display_name` is the last name used. `start_game()` snapshots the room name into `game_players`.
+- A host with `rooms.host_plays` is recorded in `game_players` as a `contestant`, so they count for fresh boards and placement.
+- Room codes are unique only among rooms that aren't closed (`rooms_live_code_idx`).
 
 ## History outlives rooms and accounts
 

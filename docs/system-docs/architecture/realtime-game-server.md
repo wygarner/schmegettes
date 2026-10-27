@@ -1,5 +1,7 @@
 # Realtime Game Server (`game/`)
 
+> **Current state (lobby):** rooms run on a single `game/` instance with no Redis yet. Lobby state is rebuilt from Postgres (members, names, `host_plays`, status), and presence is per socket, so a restart costs a reconnect and nothing else. Room ownership, Redis fan-out, and snapshots below arrive with the first gameplay task.
+
 ## Principles
 
 - **Server-authoritative.** Clients send intents (`buzz`, `select_clue`, `submit_answer`). The server decides what happened and broadcasts the result. The prototype let clients run timers and add their own score; that is not allowed here.
@@ -23,6 +25,22 @@ Proxies may log `Sec-WebSocket-Protocol`. If the chosen host does, switch to a s
 - Intents arriving at a non-owner instance are forwarded on `room:{id}:intents`.
 - If the lease expires (crash, deploy), the next instance to receive an intent takes it over, loads the snapshot, and continues. Timers restart from the snapshot's `deadlineAt`.
 - On SIGTERM an instance releases its leases after a final snapshot, so a deploy hands rooms over within a second.
+
+## Lobby
+
+`internal/room` runs one goroutine per room; sockets talk to it through channels, so intents are handled one at a time.
+
+| Intent | Who | Effect |
+|---|---|---|
+| `set_display_name` | any member | `set_member_name()`, then `lobby_updated` |
+| `set_host_plays` | host | `set_host_plays()`, then `lobby_updated` (the host appears in `players` with role `host`) |
+| `leave_room` | non-host | `leave_room()`, the leaver's sockets close, then `lobby_updated` |
+| `start_game` | host, 2+ contestants (a playing host counts) | see Recording. Fewer than 2 → `error: not_enough_players`; a second press while starting is ignored |
+
+- Joining is REST (`POST /v1/rooms/join`), because membership must exist before the socket connects. Every new socket makes the room reload its members, which is how a join reaches the TV.
+- Presence: a member is `connected` while any of their sockets is open. A disconnected contestant stays listed and counts toward Start.
+- Every 30 s a room checks whether it was closed elsewhere (the host created a new room) and sends `room_closed: replaced`. A lobby whose host device has been gone 30 minutes is closed with `room_closed: host_absent`.
+- **Start vs. join:** `join_room()` and `start_game()` both lock the room row, so a join in flight when Start commits gets "game started"; if `start_game()` fails, the room stays open.
 
 ## Buzzing
 

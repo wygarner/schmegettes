@@ -12,6 +12,7 @@
     "devtools"
   ],
   "scripts": {
+    "dev": "mise run dev",
     "build": "bun run --cwd shared build && bun run --cwd web build && bun run --cwd devtools build",
     "lint": "biome check .",
     "format": "biome format --write ."

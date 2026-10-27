@@ -34,7 +34,9 @@ Copy each `.env.example` next to it (`web/.env.local`, `api/.env`, `game/.env`, 
 
 ## 5. Run
 
-In separate terminals:
+`bun run dev` starts web, game, and worker in one terminal (`mise run dev`). Start Redis first. The API is not in it yet; run it on its own.
+
+Or one service per terminal:
 
 ```bash
 redis-server

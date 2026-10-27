@@ -17,7 +17,7 @@ Start with [docs/system-docs/engineering/stack.md](docs/system-docs/engineering/
 ```bash
 mise install && mise run setup
 mise run db:start
-mise run dev:web
+bun run dev             # web, game, and worker together
 ```
 
 Agents: `/product`, `/engineering`, `/implement`, `/designer`, `/marketing`, `/revenue` (in `.claude/commands/`). The lifecycle is in [development-workflow.md](docs/system-docs/engineering/development-workflow.md).

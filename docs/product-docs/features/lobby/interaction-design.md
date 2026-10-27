@@ -5,7 +5,7 @@
 | Route | Device | Shows |
 |---|---|---|
 | `/` | any | **Host a game**, code field + **Join** (exists today) |
-| `/host/{code}` | host device (TV) | Lobby: code, join URL, host name, contestants, **Join from my phone**, **Start** |
+| `/host/{code}` | host device (TV) | Lobby: code, join URL, host name, contestants, **Join the game**, **Start** |
 | `/join/{code}` | phone | Name entry, then "You're in" |
 
 ## States of a room (lobby part)
@@ -37,19 +37,19 @@ Host a game ─▶ name ─▶ creating ─▶ lobby ──Start──▶ buildi
 │                  K 7 R X M                               │
 │                                                          │
 │  Players  3 / 6                                          │
-│   ● Alice    ● Bob    ◌ Carol (reconnecting)             │
+│   ● Wyatt HOST   ● Alice   ◌ Bob (reconnecting)          │
 │                                                          │
-│  [ Join from my phone ]               [   Start   ]      │
+│  [ Leave the game ]                   [   Start   ]      │
 └──────────────────────────────────────────────────────────┘
 ```
 
 - The code is the biggest thing on screen (Oswald, readable at 3 m), letters spaced.
 - **✎** next to the host name edits it until Start.
 - A new player animates into the list. There is no sound in v1.
-- **Start**: primary button. While there are fewer than 2 contestants it is disabled, with the hint "Need at least 2 players".
-- **Join from my phone** opens a modal: "On your phone, go to {site}/join and enter **K7RXM**". The code is large. The modal closes on its own when a new player joins.
+- **Start**: primary button. While there are fewer than 2 contestants it is disabled, with the hint "Need at least 2 players". A playing host counts.
+- **Join the game** (secondary) adds the host to the list at once, under their host name, tagged HOST, and the button becomes **Leave the game**. Editing the host name with ✎ updates both places.
 
-### Join (phone, including the host's own phone)
+### Join (phone)
 
 1. Player enters the code on Home → `/join/K7RXM`.
 2. "What's your name?" with the last name used prefilled, then **Join**.
@@ -60,6 +60,28 @@ Host a game ─▶ name ─▶ creating ─▶ lobby ──Start──▶ buildi
 
 1. Host presses **Start** (2 or more contestants). The button shows a spinner, and joining closes immediately.
 2. TV and phones go to `building_board`.
+
+### Playing on the host device (in game)
+
+When the host joined, a player bar sits along the bottom of the TV view. It's visible to the room and only ever shows the host's own controls:
+
+```text
+┌──────────────────────────────────────────────────────────┐
+│                    (board / clue)                        │
+├──────────────────────────────────────────────────────────┤
+│  Wyatt  $1,200            [        BUZZ  (space)       ] │
+└──────────────────────────────────────────────────────────┘
+```
+
+| Phase | Player bar |
+|---|---|
+| `board`, host has control | "Your pick": tap the board or say it |
+| `clue_reading` | **Buzz** dimmed. Pressing it early gives the same lockout as on a phone. |
+| `buzzing_open` | **Buzz** lit |
+| `answering`, host buzzed | "Answer now" with a mic level meter |
+| `daily_double_wager` (host's) | Amount field |
+| `final_wager` | Masked field `$ •••••`. The TV shows "Wyatt is wagering…" |
+| `final_answer` | "Answer now" with a mic meter. No transcript shown. |
 
 ## Edge cases
 
@@ -72,7 +94,11 @@ Host a game ─▶ name ─▶ creating ─▶ lobby ──Start──▶ buildi
 | Join after Start | Phone: "This game has already started." |
 | Room closed | Phone: "This room has closed." with a link Home |
 | Duplicate contestant name | Shown as "Alice 2" |
-| Contestant has the same name as the host | Allowed with no suffix. The host isn't in the player list. |
+| Host joins and a contestant has the same name | The later of the two gets the suffix ("Wyatt 2") |
+| Host joins when the room is full | **Join the game** is disabled: "Room is full" |
+| Host leaves the game so the count drops below 2 | Start disables again |
+| Host device disconnects mid-game while playing | Same as any contestant dropping: their buzzer is gone until reconnect. The game pauses only per the room rules. |
+| Host overrides a verdict on their own answer | Allowed. The TV labels it "Host override". |
 | A player edits their name in the lobby | The TV list updates live |
 | Host reloads the TV | Returns to the same lobby with the same players and host name |
 | Host opens `/host/{code}` on a second device | That device is the same account only if it's the same browser session. Otherwise "Only the host can open this screen" and a link to join |

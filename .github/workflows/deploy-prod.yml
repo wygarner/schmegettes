@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v5
         with:
           install_args: aqua:supabase/cli
       # Migrations must work with the code already running: old and new code overlap during a

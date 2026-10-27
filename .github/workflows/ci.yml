@@ -111,7 +111,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v5
         with:
           install_args: node python
       - run: mise run test:scripts
@@ -125,7 +125,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v5
         with:
           install_args: node bun go uv python
       - run: bun install --frozen-lockfile
@@ -148,7 +148,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v5
         with:
           install_args: node bun
       - run: bun install --frozen-lockfile
@@ -171,7 +171,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v5
         with:
           install_args: node bun
       - run: bun install --frozen-lockfile
@@ -189,7 +189,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v5
         with:
           install_args: go
       - name: gofmt
@@ -211,7 +211,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v5
         with:
           install_args: ruby aqua:supabase/cli
       - run: bundle install --jobs 4
@@ -238,7 +238,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v5
         with:
           install_args: python uv
       - run: uv sync --locked
@@ -257,7 +257,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v5
         with:
           install_args: aqua:supabase/cli
       - name: Apply every migration and the seed to a fresh database
@@ -276,7 +276,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v5
         with:
           install_args: python uv
       - name: Run evals
@@ -293,7 +293,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v5
         with:
           install_args: bun
       - run: bun install --frozen-lockfile

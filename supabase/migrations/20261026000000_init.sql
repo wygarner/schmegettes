@@ -21,7 +21,8 @@ create type public.player_role as enum ('host', 'contestant', 'spectator');
 create type public.room_status as enum ('open', 'in_game', 'closed');
 create type public.clue_state as enum ('unplayed', 'active', 'answered', 'unanswered');
 create type public.verdict as enum ('correct', 'incorrect', 'overridden_correct', 'overridden_incorrect', 'appeal_pending');
-create type public.answer_source as enum ('typed', 'voice');
+-- Answers are spoken into a phone; there is no typed input (in-room play, see product-overview.md).
+create type public.answer_source as enum ('voice');
 create type public.game_status as enum ('in_progress', 'finished', 'abandoned');
 
 -- ---------------------------------------------------------------------------
@@ -162,7 +163,8 @@ create table public.seen_clues (
 );
 
 -- One row per person in a game. score is the sum of their answers, so it can't drift.
--- Tied scores share a placement; spectators have none.
+-- Only contestants place; tied scores share a placement. The host (the TV device) and
+-- spectators have none.
 create view public.game_results with (security_invoker = true) as
 select
   gp.game_id,
@@ -172,9 +174,9 @@ select
   case when gp.user_id is null then 'Former player' else coalesce(gp.display_name, 'Former player') end
     as display_name,
   coalesce(s.score, 0)::integer as score,
-  case when gp.role <> 'spectator' then
+  case when gp.role = 'contestant' then
     (rank() over (
-      partition by gp.game_id, gp.role = 'spectator'
+      partition by gp.game_id, gp.role = 'contestant'
       order by coalesce(s.score, 0) desc
     ))::integer
   end as placement
@@ -397,10 +399,11 @@ begin
   join public.profiles p on p.user_id = m.user_id
   where m.room_id = target_room;
 
-  -- The host counts as a contestant: there is no host-only option yet.
+  -- Only contestants limit the board. The host is the TV device; a host who wants to play
+  -- joins from their phone as a contestant.
   select coalesce(array_agg(gp.user_id), '{}') into contestants
   from public.game_players gp
-  where gp.game_id = new_game and gp.role in ('host', 'contestant');
+  where gp.game_id = new_game and gp.role = 'contestant';
 
   perform public.build_board_round(new_game, 'single', contestants, room.seasons);
   perform public.build_board_round(new_game, 'double', contestants, room.seasons);
@@ -481,12 +484,13 @@ begin
   insert into public.answers (id, game_id, board_clue_id, game_player_id, answer, source, verdict, score_delta)
   select answer_id, b.game_id, b.id, gp.id, answer_text, answer_source, answer_verdict, answer_score_delta
   from public.board_clues b
-  join public.game_players gp on gp.game_id = b.game_id and gp.user_id = target_user
+  join public.game_players gp
+    on gp.game_id = b.game_id and gp.user_id = target_user and gp.role = 'contestant'
   where b.id = target_board_clue
   on conflict (id) do nothing;
 
   if not found then
-    raise exception 'player not in game' using errcode = 'P0002';
+    raise exception 'not a contestant in this game' using errcode = 'P0002';
   end if;
 end;
 $$;

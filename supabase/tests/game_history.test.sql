@@ -3,7 +3,7 @@
 -- users run as authenticated with request.jwt.claims, as in rls.test.sql.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(47);
+select plan(48);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (all rolled back)
@@ -81,7 +81,8 @@ insert into auth.users (id, email) values
   ('44444444-4444-4444-8444-444444444444', 'dave@example.test'),
   ('55555555-5555-4555-8555-555555555555', 'sam@example.test'),
   ('66666666-6666-4666-8666-666666666666', 'xena@example.test'),
-  ('77777777-7777-4777-8777-777777777777', 'eve@example.test');
+  ('77777777-7777-4777-8777-777777777777', 'eve@example.test'),
+  ('88888888-8888-4888-8888-888888888888', 'fay@example.test');
 insert into public.profiles (user_id, display_name) values
   ('11111111-1111-4111-8111-111111111111', 'Alice'),
   ('22222222-2222-4222-8222-222222222222', 'Bob'),
@@ -89,10 +90,12 @@ insert into public.profiles (user_id, display_name) values
   ('44444444-4444-4444-8444-444444444444', 'Dave'),
   ('55555555-5555-4555-8555-555555555555', 'Sam'),
   ('66666666-6666-4666-8666-666666666666', 'Xena'),
-  ('77777777-7777-4777-8777-777777777777', 'Eve');
+  ('77777777-7777-4777-8777-777777777777', 'Eve'),
+  ('88888888-8888-4888-8888-888888888888', 'Fay');
 
--- R1: Alice hosts Bob, Sam watches. R2: Carol hosts Dave, Alice watches.
--- R3: Carol hosts Dave on season 5. R4: a season with no clues.
+-- The host is the TV device and never plays.
+-- R1: Alice hosts, Bob plays, Sam watches. R2: Carol hosts, Dave and Fay play, Alice watches.
+-- R3: Carol hosts Dave and Fay on season 5. R4: a season with no clues.
 insert into public.rooms (id, code, host_id, seasons) values
   ('a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1', 'ROOM1', '11111111-1111-4111-8111-111111111111', '{1}'),
   ('a2a2a2a2-a2a2-4a2a-8a2a-a2a2a2a2a2a2', 'ROOM2', '33333333-3333-4333-8333-333333333333', '{2}'),
@@ -102,17 +105,21 @@ insert into public.room_members (room_id, user_id, role) values
   ('a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1', '22222222-2222-4222-8222-222222222222', 'contestant'),
   ('a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1', '55555555-5555-4555-8555-555555555555', 'spectator'),
   ('a2a2a2a2-a2a2-4a2a-8a2a-a2a2a2a2a2a2', '44444444-4444-4444-8444-444444444444', 'contestant'),
+  ('a2a2a2a2-a2a2-4a2a-8a2a-a2a2a2a2a2a2', '88888888-8888-4888-8888-888888888888', 'contestant'),
   ('a2a2a2a2-a2a2-4a2a-8a2a-a2a2a2a2a2a2', '11111111-1111-4111-8111-111111111111', 'spectator'),
   ('a3a3a3a3-a3a3-4a3a-8a3a-a3a3a3a3a3a3', '44444444-4444-4444-8444-444444444444', 'contestant'),
+  ('a3a3a3a3-a3a3-4a3a-8a3a-a3a3a3a3a3a3', '88888888-8888-4888-8888-888888888888', 'contestant'),
   ('a4a4a4a4-a4a4-4a4a-8a4a-a4a4a4a4a4a4', '44444444-4444-4444-8444-444444444444', 'contestant');
 
--- Season 2: Alice (spectator in R2) saw SPEC yesterday; Dave (contestant) saw DSEEN long ago.
+-- Season 2: Alice (spectator in R2) saw SPEC yesterday and Carol (host of R2) two days ago;
+-- Dave (contestant) saw DSEEN long ago.
 select tests.see('11111111-1111-4111-8111-111111111111', 2, 'SPEC%', now() - interval '1 day');
+select tests.see('33333333-3333-4333-8333-333333333333', 2, 'SPEC%', now() - interval '2 days');
 select tests.see('44444444-4444-4444-8444-444444444444', 2, 'DSEEN%', now() - interval '30 days');
--- Season 5: Dave saw OLD long ago, Carol saw NEW just now, both saw BOTH a year ago.
+-- Season 5: Dave saw OLD long ago, Fay saw NEW just now, both saw BOTH a year ago.
 select tests.see('44444444-4444-4444-8444-444444444444', 5, 'OLD%', now() - interval '60 days');
-select tests.see('33333333-3333-4333-8333-333333333333', 5, 'NEW%', now());
-select tests.see('33333333-3333-4333-8333-333333333333', 5, 'BOTH%', now() - interval '365 days');
+select tests.see('88888888-8888-4888-8888-888888888888', 5, 'NEW%', now());
+select tests.see('88888888-8888-4888-8888-888888888888', 5, 'BOTH%', now() - interval '365 days');
 select tests.see('44444444-4444-4444-8444-444444444444', 5, 'BOTH%', now() - interval '365 days');
 
 -- ---------------------------------------------------------------------------
@@ -224,7 +231,7 @@ reset role;
 select is(
   (select count(distinct category)::integer from public.board_clues
    where game_id = tests.game('g3') and round = 'single' and category like 'SPEC%'),
-  6, 'a spectator''s seen clues do not limit the board they watch'
+  6, 'the host''s and spectators'' seen clues do not limit the board'
 );
 select is(
   (select count(distinct category)::integer from public.board_clues
@@ -238,7 +245,7 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- Scores, overrides, retries (game 3: Carol hosts, Dave plays, Alice watches)
+-- Scores, overrides, retries (game 3: Carol hosts, Dave and Fay play, Alice watches)
 -- ---------------------------------------------------------------------------
 do $$ begin perform set_config('tests.b1', (select id::text from public.board_clues
   where game_id = tests.game('g3') and round = 'single' order by column_index, row_index limit 1), true); end $$;
@@ -247,26 +254,26 @@ set local role game_engine;
 select lives_ok($$ select public.reveal_clue(current_setting('tests.b1')::uuid) $$, 'reveal a clue');
 select lives_ok($$
   select public.record_answer('b0b0b0b0-0000-4000-8000-000000000001', current_setting('tests.b1')::uuid,
-    '33333333-3333-4333-8333-333333333333', 'what is x', 'typed', 'correct', 200);
+    '88888888-8888-4888-8888-888888888888', 'what is x', 'voice', 'correct', 200);
   select public.record_answer('b0b0b0b0-0000-4000-8000-000000000002', current_setting('tests.b1')::uuid,
     '44444444-4444-4444-8444-444444444444', 'what is y', 'voice', 'correct', 200);
 $$, 'record two answers');
 select is(
   (select array_agg(placement order by display_name) from public.game_results
-   where game_id = tests.game('g3') and role <> 'spectator'),
+   where game_id = tests.game('g3') and role = 'contestant'),
   array[1, 1], 'tied scores share first place'
 );
 select is(
-  (select placement from public.game_results where game_id = tests.game('g3') and role = 'spectator'),
-  null, 'spectators have no placement'
+  (select array_agg(placement) from public.game_results where game_id = tests.game('g3') and role <> 'contestant'),
+  array[null, null]::integer[], 'the host and spectators have no placement'
 );
 select lives_ok($$
   select public.update_verdict('b0b0b0b0-0000-4000-8000-000000000002', 'overridden_correct', 600)
 $$, 'override a verdict');
 select is(
   (select array_agg(display_name || ':' || score || ':' || placement order by placement) from public.game_results
-   where game_id = tests.game('g3') and role <> 'spectator'),
-  array['Dave:600:1', 'Carol:200:2'], 'an override changes the score and placement'
+   where game_id = tests.game('g3') and role = 'contestant'),
+  array['Dave:600:1', 'Fay:200:2'], 'an override changes the score and placement'
 );
 select ok(
   (select bool_and(r.score = (select coalesce(sum(a.score_delta), 0) from public.answers a
@@ -278,18 +285,23 @@ select ok(
 -- Retries change nothing.
 select lives_ok($$
   select public.record_answer('b0b0b0b0-0000-4000-8000-000000000001', current_setting('tests.b1')::uuid,
-    '33333333-3333-4333-8333-333333333333', 'what is x', 'typed', 'correct', 200);
+    '88888888-8888-4888-8888-888888888888', 'what is x', 'voice', 'correct', 200);
   select public.reveal_clue(current_setting('tests.b1')::uuid);
 $$, 'retry an answer and a reveal');
 select is(
   (select array[(select count(*) from public.answers where game_id = tests.game('g3')),
                 (select count(*) from public.seen_clues where game_id = tests.game('g3'))]::integer[]),
-  array[2, 3], 'retried writes are no-ops'
+  array[2, 4], 'retried writes are no-ops'
 );
 select throws_ok(
   $$ select public.record_answer(gen_random_uuid(), current_setting('tests.b1')::uuid,
-       '66666666-6666-4666-8666-666666666666', 'nope', 'typed', 'correct', 200) $$,
-  'P0002', 'player not in game', 'an answer from someone outside the game is rejected'
+       '66666666-6666-4666-8666-666666666666', 'nope', 'voice', 'correct', 200) $$,
+  'P0002', 'not a contestant in this game', 'an answer from someone outside the game is rejected'
+);
+select throws_ok(
+  $$ select public.record_answer(gen_random_uuid(), current_setting('tests.b1')::uuid,
+       '33333333-3333-4333-8333-333333333333', 'nope', 'voice', 'correct', 200) $$,
+  'P0002', 'not a contestant in this game', 'the host (the TV) cannot answer'
 );
 
 -- Abandon game 3, then try to finish it.
@@ -314,7 +326,7 @@ reset role;
 
 select is(
   (select array[g.status::text, (g.finished_at is not null)::text,
-                (select score::text from public.game_results where game_id = g.id and display_name = 'Carol'),
+                (select score::text from public.game_results where game_id = g.id and display_name = 'Fay'),
                 (select count(*)::text from public.seen_clues where game_id = g.id
                    and user_id = '11111111-1111-4111-8111-111111111111')]
    from public.games g where g.id = tests.game('g3')),
@@ -327,7 +339,7 @@ select is(
    left join public.seen_clues s on s.user_id = gp.user_id and s.game_id = gp.game_id
    where gp.game_id = tests.game('g4')),
   array['33333333-3333-4333-8333-333333333333:true', '44444444-4444-4444-8444-444444444444:false',
-        '77777777-7777-4777-8777-777777777777:true'],
+        '77777777-7777-4777-8777-777777777777:true', '88888888-8888-4888-8888-888888888888:true'],
   'clues revealed after a player leaves are not seen by them; a late spectator''s are'
 );
 
@@ -391,8 +403,8 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}', true);
 select is(
   (select array_agg(display_name || ':' || score order by score desc) from public.game_results
-   where game_id = tests.game('g3') and role <> 'spectator'),
-  array['Former player:600', 'Carol:200'], 'a deleted player stays on the scoreboard as "Former player"'
+   where game_id = tests.game('g3') and role = 'contestant'),
+  array['Former player:600', 'Fay:200'], 'a deleted player stays on the scoreboard as "Former player"'
 );
 reset role;
 select is(

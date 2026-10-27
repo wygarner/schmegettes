@@ -430,7 +430,7 @@ export interface components {
             finishedAt: string;
             /** @description The caller's score */
             score: number;
-            /** @description The caller's placement; ties share a place; null if they watched */
+            /** @description The caller's placement; ties share a place; null if they hosted (the TV) or watched */
             placement: number | null;
             /** @description Display names as they were in that game ("Former player" for deleted accounts) */
             players: string[];
@@ -444,13 +444,12 @@ export interface components {
             startedAt: string;
             /** Format: date-time */
             finishedAt: string | null;
-            /** @description Contestants and host ordered by placement; spectators are not listed */
+            /** @description Contestants ordered by placement; the host (the TV) and spectators are not listed */
             results: components["schemas"]["GameResult"][];
         };
         GameResult: {
             /** @description Name as it was in that game */
             displayName: string;
-            role: components["schemas"]["PlayerRole"];
             score: number;
             /** @description Ties share a place */
             placement: number;
@@ -470,11 +469,6 @@ export interface components {
          * @enum {string}
          */
         GameStatus: "in_progress" | "finished" | "abandoned";
-        /**
-         * @description host runs the board and can override verdicts; contestants buzz and answer; spectators watch.
-         * @enum {string}
-         */
-        PlayerRole: "host" | "contestant" | "spectator";
     };
     responses: {
         /** @description Error (RFC 9457 problem details) */

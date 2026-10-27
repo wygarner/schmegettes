@@ -10,29 +10,60 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
+
+	"schmegettes/game/internal/room"
+	"schmegettes/game/internal/socket"
+	"schmegettes/golib/auth"
+	"schmegettes/golib/db"
+	"schmegettes/golib/logging"
 )
 
 // commit is set at build time: go build -ldflags "-X main.commit=$GIT_SHA".
 var commit = "unknown"
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel()})).
-		With("service", "game", "env", getenv("APP_ENV", "local"))
-	slog.SetDefault(logger)
+	logging.Setup("game", getenv("APP_ENV", "local"), getenv("LOG_LEVEL", "info"))
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	database, err := db.Open(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		slog.Error("database unavailable", "err", err)
+		os.Exit(1)
+	}
+	defer database.Close()
+
+	verifier, err := auth.NewVerifier(ctx, os.Getenv("SUPABASE_JWKS_URL"))
+	if err != nil {
+		slog.Error("jwks unavailable", "err", err)
+		os.Exit(1)
+	}
+
+	// Rooms stop with roomsCtx, which ends at shutdown so sockets close cleanly.
+	roomsCtx, stopRooms := context.WithCancel(context.Background())
+	defer stopRooms()
+	hub := room.NewHub(roomsCtx, room.PGStore{DB: database}, room.DefaultConfig())
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		status, code := "ok", http.StatusOK
+		if err := database.Ping(r.Context()); err != nil {
+			status, code = "degraded", http.StatusServiceUnavailable
+		}
+		writeJSON(w, code, map[string]string{"status": status})
 	})
 	mux.HandleFunc("GET /version", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"service": "game", "commit": buildCommit()})
 	})
-	mux.HandleFunc("GET /rooms/{roomID}/ws", func(w http.ResponseWriter, r *http.Request) {
-		// Implemented by the first gameplay task: verify the Supabase JWT, check room
-		// membership, upgrade, and attach the connection to the room's state machine.
-		http.Error(w, "not implemented", http.StatusNotImplemented)
+	mux.Handle("GET /rooms/{roomID}/ws", socket.Handler{
+		Verifier: verifier,
+		Members:  socket.PGMembership{DB: database},
+		Hub:      hub,
+		Origins:  strings.Split(os.Getenv("ALLOWED_ORIGINS"), ","),
 	})
 
 	srv := &http.Server{
@@ -40,9 +71,6 @@ func main() {
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	go func() {
 		slog.Info("listening", "addr", srv.Addr, "commit", buildCommit())
@@ -53,7 +81,8 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	// Give open rooms time to hand off ownership before the instance exits.
+	// Close every room's sockets (clients reconnect to the next instance), then stop serving.
+	stopRooms()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
@@ -79,12 +108,4 @@ func getenv(key, fallback string) string {
 		return v
 	}
 	return fallback
-}
-
-func logLevel() slog.Level {
-	var level slog.Level
-	if err := level.UnmarshalText([]byte(getenv("LOG_LEVEL", "info"))); err != nil {
-		return slog.LevelInfo
-	}
-	return level
 }

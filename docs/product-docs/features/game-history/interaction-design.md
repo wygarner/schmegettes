@@ -10,10 +10,10 @@ lobby ──Start──▶ building_board ──ready──▶ board … final_r
 
 | State | What players see |
 |---|---|
-| `lobby` | Player list, host's **Start** button |
-| `building_board` | "Shuffling a fresh board…" for everyone. Target under 3 s. Joining is closed from here. |
+| `lobby` | TV: room code and player list, **Start** on the host device. Phones: "You're in" and their name. |
+| `building_board` | "Shuffling a fresh board…" on the TV and phones. Target under 3 s. Joining is closed from here. |
 | `board` onward | Normal play (product-overview.md, "Game phases") |
-| `finished` | Final scoreboard, **Rematch** (host) and **Leave** |
+| `finished` | Final scoreboard on the TV, **Rematch** on the host device, **Leave** on phones |
 | `abandoned` | Nobody is in the room to see it; it appears in history with an "Unfinished" tag |
 
 ## Flows
@@ -34,7 +34,7 @@ If the board can't be built (server error), everyone returns to the lobby with "
 
 ### Look back at past games (any player)
 
-**My games** (from the home screen):
+**My games** (from the home screen on a phone):
 
 | Date | Placement | Score | Players |
 |---|---|---|---|
@@ -53,7 +53,7 @@ Oct 26, 2026 · 8:14 PM · 41 min
 4th  Former player  −$400
 ```
 
-Names are as they were in that game. Spectators who watched can open it but aren't listed in the scoreboard.
+Names are as they were in that game. The host device and spectators can open it but aren't listed in the scoreboard.
 
 ## Edge cases
 
@@ -62,7 +62,7 @@ Names are as they were in that game. Spectators who watched can open it but aren
 | A player disconnects while a clue is revealed | It counts as seen for them. They were in the game. |
 | A player joins after Start | Not allowed. Joining closes when the board starts building. Spectators can still join and their seen clues are recorded from then. |
 | A contestant leaves mid-game | Their score so far stays in the game. Clues revealed after they left don't count as seen for them. |
-| The host leaves mid-game | Unchanged by this feature. Game continues or is abandoned per the room rules. |
+| The host device disconnects mid-game | Unchanged by this feature. Game continues or is abandoned per the room rules. |
 | Two players tie | Shared placement (both 2nd; next is 4th) |
 | Host overrides a verdict after scoring | The answer's score changes, so the final score changes with it |
 | Not enough fresh categories | Fill with longest-ago, least-seen categories. No message to players. |

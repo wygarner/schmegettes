@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schmegettes.dev/schemas/domain.schema.json",
+  "title": "Domain",
+  "description": "Core game vocabulary shared by every package. Adding a value is a reviewed contract change; removing or renaming one is a breaking change.",
+  "$defs": {
+    "GamePhase": {
+      "description": "Where a live game is in its state machine. Only game/ moves a game between phases.",
+      "type": "string",
+      "enum": [
+        "lobby",
+        "board",
+        "clue_reading",
+        "buzzing_open",
+        "answering",
+        "daily_double_wager",
+        "final_category",
+        "final_wager",
+        "final_answer",
+        "final_reveal",
+        "finished"
+      ]
+    },
+    "Round": {
+      "type": "string",
+      "enum": ["single", "double", "final"]
+    },
+    "PlayerRole": {
+      "description": "host runs the board and can override verdicts; contestants buzz and answer; spectators watch.",
+      "type": "string",
+      "enum": ["host", "contestant", "spectator"]
+    },
+    "RoomStatus": {
+      "type": "string",
+      "enum": ["open", "in_game", "closed"]
+    },
+    "ClueState": {
+      "type": "string",
+      "enum": ["unplayed", "active", "answered", "unanswered"]
+    },
+    "Verdict": {
+      "description": "correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.",
+      "type": "string",
+      "enum": ["correct", "incorrect", "overridden_correct", "overridden_incorrect", "appeal_pending"]
+    },
+    "Uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "RoomCode": {
+      "description": "Short code players type to join a room.",
+      "type": "string",
+      "pattern": "^[A-Z0-9]{5}$"
+    }
+  }
+}

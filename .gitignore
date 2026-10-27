@@ -1,0 +1,42 @@
+# Secrets and machine-specific settings
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Go
+game/bin/
+
+# Ruby / Rails
+api/log/*
+api/tmp/*
+api/storage/*
+!api/log/.keep
+!api/tmp/.keep
+!api/storage/.keep
+api/vendor/bundle/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Supabase local state
+supabase/.branches/
+supabase/.temp/
+
+# OS / editor
+.DS_Store
+.idea/
+
+# Supabase local JWT signing key
+supabase/signing_keys.json

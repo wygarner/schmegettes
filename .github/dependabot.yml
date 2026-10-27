@@ -1,0 +1,34 @@
+version: 2
+updates:
+  # A major upgrade is a deliberate task with its own ticket, never a Dependabot PR.
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    groups:
+      patch: { update-types: ["patch"] }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: "gomod"
+    directory: "/game"
+    schedule: { interval: "weekly" }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: "bundler"
+    directory: "/api"
+    schedule: { interval: "weekly" }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: "uv"
+    directory: "/worker"
+    schedule: { interval: "weekly" }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+  # Actions not pinned to a commit SHA (jdx/mise-action) are kept current here.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule: { interval: "weekly" }

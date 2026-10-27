@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schmegettes.dev/schemas/jobs/job.schema.json",
+  "title": "Job",
+  "description": "Envelope for every message on a pgmq queue. Producers (api, game) and the consumer (worker) validate against this schema. Jobs must be idempotent: pgmq redelivers a message whose visibility timeout expires.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ImportClueSeason"
+    },
+    {
+      "$ref": "#/$defs/BuildBoard"
+    },
+    {
+      "$ref": "#/$defs/AppealAnswer"
+    }
+  ],
+  "$defs": {
+    "ImportClueSeason": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "import_clue_season"
+        },
+        "jobId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "enqueuedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Correlation id of the request that enqueued the job."
+        },
+        "season": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": ["kind", "jobId", "enqueuedAt", "season"],
+      "additionalProperties": false
+    },
+    "BuildBoard": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "build_board"
+        },
+        "jobId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "enqueuedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Correlation id of the request that enqueued the job."
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "options": {
+          "type": "object",
+          "properties": {
+            "seasons": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "includeFinal": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["kind", "jobId", "enqueuedAt", "roomId"],
+      "additionalProperties": false
+    },
+    "AppealAnswer": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "appeal_answer"
+        },
+        "jobId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "enqueuedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Correlation id of the request that enqueued the job."
+        },
+        "answerId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        }
+      },
+      "required": ["kind", "jobId", "enqueuedAt", "answerId"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,86 @@
+# Toolchain versions for every package, used by local machines and CI (jdx/mise-action).
+# After the first `mise install`, run `mise use --pin <tool>` to replace any prefix
+# below with the exact patch version, and commit the change.
+# Changing a version here is a stack change: update docs/system-docs/engineering/stack.md too.
+
+[tools]
+node = "24"          # web, devtools, shared codegen, repo scripts
+bun = "1.3.14"       # package manager + workspace for the TypeScript packages
+go = "1.25"          # game/
+ruby = "3.4"         # api/
+python = "3.13"      # worker/, evals/, .github/scripts
+uv = "latest"        # Python package manager (pin after first install)
+"aqua:supabase/cli" = "latest" # database migrations, local Supabase (pin after first install)
+
+# ---------------------------------------------------------------------------
+# Tasks: `mise run <task>`. Test tasks take paths so you only run what you touched.
+# ---------------------------------------------------------------------------
+
+[tasks.setup]
+description = "Install every package's dependencies and generate contract code"
+run = [
+  "bun install",
+  "mise run gen",
+  "cd game && go mod download",
+  "cd api && bundle install",
+  "cd worker && uv sync",
+]
+
+[tasks.gen]
+description = "Regenerate code from shared/ contracts (TS, Go, Python)"
+run = "bun run --cwd shared gen"
+
+[tasks."db:start"]
+description = "Start local Supabase (needs Docker)"
+run = "supabase start"
+
+[tasks."db:reset"]
+description = "Recreate the local database from supabase/migrations and seed.sql"
+run = "supabase db reset"
+
+[tasks."db:test"]
+description = "Run pgTAP tests in supabase/tests (row-level security)"
+run = "supabase test db"
+
+[tasks."dev:web"]
+run = "bun run --cwd web dev"
+
+[tasks."dev:devtools"]
+run = "bun run --cwd devtools dev"
+
+[tasks."dev:game"]
+dir = "game"
+run = "go run ./cmd/game"
+
+[tasks."dev:api"]
+dir = "api"
+run = "bin/rails server -p 3001"
+
+[tasks."dev:worker"]
+dir = "worker"
+run = "uv run python -m schmegettes_worker"
+
+[tasks."test:web"]
+description = "Usage: mise run test:web -- src/path/to/file.test.tsx"
+run = "bun run --cwd web test"
+
+[tasks."test:game"]
+description = "Usage: mise run test:game -- ./internal/room/..."
+dir = "game"
+run = "go test -race"
+
+[tasks."test:api"]
+description = "Usage: mise run test:api -- test/controllers/rooms_controller_test.rb"
+dir = "api"
+run = "bin/rails test"
+
+[tasks."test:worker"]
+description = "Usage: mise run test:worker -- tests/test_judging.py"
+dir = "worker"
+run = "uv run pytest"
+
+[tasks."test:scripts"]
+run = [
+  "node --test scripts/*.test.cjs",
+  "cd .github/scripts && python3 -m unittest discover -s tests -t .",
+]

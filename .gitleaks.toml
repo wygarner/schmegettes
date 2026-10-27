@@ -1,0 +1,12 @@
+[extend]
+useDefault = true
+
+# Add an [[allowlists]] entry only for a test fixture that is provably not a credential.
+# Each entry names the exact path (and, where possible, the exact value) and says why.
+
+[[allowlists]]
+description = "Local-only app_service password set by supabase/seed.sql"
+# Works only against a developer's local Supabase; real environments set their own (deployment.md).
+condition = "AND"
+paths = ['''^supabase/seed\.sql$''', '''^[a-z]+/\.env\.example$''', '''^\.github/workflows/ci\.yml$''']
+regexes = ['''app-service-local-only''']

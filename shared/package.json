@@ -1,0 +1,26 @@
+{
+  "name": "@schmegettes/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared contracts: domain vocabulary, REST (OpenAPI) and WebSocket (JSON Schema) protocols, job envelopes. No runtime dependencies on other repo packages.",
+  "exports": {
+    ".": "./generated/ts/index.ts",
+    "./schemas/*": "./schemas/*"
+  },
+  "scripts": {
+    "gen": "bun scripts/gen.ts",
+    "gen:ts": "bun scripts/gen.ts --only=ts",
+    "build": "bun scripts/gen.ts --only=ts && tsc --noEmit -p .",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "json-schema-to-typescript": "16.0.0",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3",
+    "yaml": "2.9.1",
+    "@types/bun": "1.4.4"
+  }
+}

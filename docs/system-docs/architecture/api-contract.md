@@ -1,0 +1,18 @@
+# Contracts
+
+All contracts live in `shared/`. That package builds first and depends on nothing in the repo.
+
+| Contract | File | Consumers | How each consumes it |
+|---|---|---|---|
+| Domain vocabulary | `shared/schemas/domain.schema.json` | all | generated types; Postgres enums mirror it |
+| REST | `shared/openapi.yaml` | web (client), api (server) | TS: `openapi-typescript` + `openapi-fetch`. Rails: response validation in request tests (`json_schemer`) |
+| WebSocket | `shared/schemas/protocol/*.schema.json` | web, game | TS types; Go structs (`go-jsonschema`) in `game/internal/contracts` |
+| Jobs | `shared/schemas/jobs/job.schema.json` | api, game (produce), worker (consume) | Python models (`datamodel-code-generator`); Ruby validates at enqueue |
+
+## Rules
+
+- **A contract change is an explicit, reviewed change.** The task spec says so, and the PR touches `shared/` and every consumer together.
+- **Generated code is committed.** Run `mise run gen` after editing `shared/`. CI regenerates and fails on any diff.
+- **Additive by default.** New optional fields and new message types are compatible. Removing or renaming a field, or adding a required one, is breaking: it needs a version bump of the socket subprotocol (`schmegettes.v2`) or REST path (`/v2`) and a period where both are served.
+- REST errors use RFC 9457 problem details (`application/problem+json`).
+- Every endpoint except `/healthz` and `/version` requires a Supabase JWT.

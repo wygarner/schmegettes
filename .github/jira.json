@@ -1,0 +1,15 @@
+{
+  "_comment": "Instance-specific Jira values. Look these up for the real Jira project; do not copy them from another repo. See docs/system-docs/engineering/development-workflow.md, 'Jira setup'.",
+  "projectKey": "SCH",
+  "issueTypes": {
+    "new-feature": { "issuetypeId": "REPLACE_ME", "label": "new-feature" },
+    "enhancement": { "issuetypeId": "REPLACE_ME", "label": "enhancement" },
+    "improvement": { "issuetypeId": "REPLACE_ME", "label": "improvement" },
+    "bug-fix": { "issuetypeId": "REPLACE_ME", "label": "bug-fix" }
+  },
+  "transitions": {
+    "inProgress": "In Progress",
+    "inReview": "In Review",
+    "done": "Done"
+  }
+}

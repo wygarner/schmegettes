@@ -1,0 +1,136 @@
+# Development Workflow
+
+How work goes from a request to merged code. Branch names and merge rules are in [branch-strategy.md](./branch-strategy.md); releases are in [release-strategy.md](../operations/release-strategy.md). The stack is in [stack.md](./stack.md).
+
+The Jira project key is `SCH` (set in [`.github/jira.json`](../../../.github/jira.json)). Docs write it as `SCH-{N}`.
+
+---
+
+## Lifecycle at a glance
+
+```mermaid
+flowchart TB
+  product[Product brief] --> plan[Task spec]
+  plan --> progress[Jira: In Progress]
+  progress --> impl[Implementation PR]
+  impl --> review[Jira: In Review]
+  review --> done[Jira: Done]
+  done --> daily[Daily PR]
+  daily --> ci[CI]
+  ci --> develop[develop]
+```
+
+Every task branch starts from and targets `daily/YYYY-MM-DD`. The end-of-day daily PR is the only route to `develop` and the only place CI runs.
+
+| Step | Owner | What happens | Jira |
+|---|---|---|---|
+| 1. Scope | `/product` | Writes `tasks/{task-name}/product-brief.md`; PR to the daily branch | — |
+| 2. Plan | `/engineering` | Writes `task-brief.md` in the same folder; PR to the daily branch | Ticket **created** when the PR opens; **In Progress** when it merges |
+| 3. Implement | Implementation agent (`/implement`, or any coding agent reading [AGENTS.md](../../../AGENTS.md)) | Fresh branch from the daily branch; one PR; final commit deletes the task folder | **In Review** when the PR opens |
+| 4. Done | Human merges | — | **Done** when the PR merges |
+| 5. Daily close | `/engineering` | Opens the daily PR, waits for CI, human approves, merge commit | — |
+| 6. Release | `/engineering`, human-triggered | See [release-strategy.md](../operations/release-strategy.md) | — |
+
+**No agent calls the Jira API.** Every Jira write happens in GitHub Actions, triggered by PR events.
+
+### The task folder is the state machine
+
+| Path in git | Ticket state |
+|---|---|
+| `tasks/{name}/product-brief.md` | No ticket yet |
+| `tasks/{name}-SCH-{N}/task-brief.md` added (spec PR merged) | In Progress |
+| that `task-brief.md` removed (implementation PR opened) | In Review |
+| that removal merged | Done |
+
+The workflows pattern-match on the PR's file-status list (added, renamed, removed). There is no Jira webhook.
+
+---
+
+## Step 1 — Scope with `/product`
+
+Output: one PR to the daily branch adding `tasks/{task-name}/product-brief.md`, with Jira frontmatter (`jira-type`, `jira-title`). Merging it does not create a ticket. New features and enhancements first update the durable docs in `docs/product-docs/features/{name}/` in their own PR.
+
+## Step 2 — Plan with `/engineering`
+
+`/engineering` writes `task-brief.md` and opens a PR to the daily branch. When the PR **opens**, `create-jira-ticket.yml`:
+
+1. creates the ticket from the frontmatter and the markdown body (keep `task-brief.md` under about 30,000 characters, Jira's description limit)
+2. writes `.jira-meta.yml` into the folder
+3. renames the folder to `tasks/{task-name}-SCH-{N}/`
+
+`/engineering` pulls the branch, adds the branch table, gets human approval, and merges. On merge the ticket moves to **In Progress** and its description is replaced with the merged spec.
+
+## Step 3 — Implement
+
+The implementation agent branches fresh from the daily branch as `{task-type}/SCH-{N}-{task-name}` and reads, before editing:
+
+- `tasks/{task-name}-SCH-{N}/task-brief.md` and `product-brief.md`
+- [stack.md](./stack.md) "Access patterns"
+- this file and [branch-strategy.md](./branch-strategy.md)
+
+Rules: preserve the contracts in `shared/` unless the spec says to change them; never weaken types; update docs when behavior changes; run validation for every package touched.
+
+### Validation: targeted tests only
+
+**Never run a full test suite locally as routine validation.** Run the tests for the files you touched. No CI runs on task PRs, so these targeted runs are the only check before code reaches the daily branch. CI runs everything on the daily PR.
+
+```bash
+mise run test:web -- src/pages/Home.test.tsx
+mise run test:game -- ./internal/judge/...
+mise run test:api -- test/controllers/rooms_controller_test.rb
+mise run test:worker -- tests/test_clue_import.py
+mise run db:test                       # only when supabase/ changed
+mise run gen                           # only when shared/ changed; commit the output
+```
+
+## Step 4 — Implementation PR
+
+One PR to the daily branch. Its final commit:
+
+```bash
+git rm -r "tasks/{task-name}-SCH-{N}/"
+git commit -m "chore: delete task folder for SCH-{N}"
+```
+
+Title: `[{Task Type}] SCH-{N}: {brief description}`. Opening it moves the ticket to **In Review**; merging moves it to **Done**. The implementation agent never merges.
+
+**Merge the daily branch into the task branch before opening the PR.** GitHub returns no file list for a PR opened with conflicts, so the In Review transition would never fire.
+
+## Step 5 — Daily close
+
+At the end of the day, `/engineering` opens `daily/YYYY-MM-DD` → `develop` titled `[Daily] YYYY-MM-DD`. CI green + human approval → **merge commit, never squash**. A CI failure is fixed on a branch cut from the daily branch and merged back. No Jira transition fires on this PR.
+
+## Step 6 — Release
+
+See [release-strategy.md](../operations/release-strategy.md).
+
+---
+
+## Automation map
+
+| Workflow | Trigger | Result |
+|---|---|---|
+| `create-jira-ticket.yml` | PR opened into `daily/**` or `develop` touching `tasks/**/task-brief.md` | Creates the ticket, commits `.jira-meta.yml`, renames the folder. Task names must match `^[a-z0-9-]+$`. One ticket per spec PR. |
+| `jira-transitions.yml` | PR opened / merged | Spec merged → In Progress; implementation opened → In Review; merged → Done. Skips `daily/*` heads. |
+| `ci.yml` | PR into `develop` or `production`; weekly; manual | Path-filtered checks per package. Docs/task-only PRs skip. |
+| `daily-merge-guard.yml` | Push to `develop` | Fails when a daily PR was squashed. |
+| `deploy-prod.yml` | Push to `production`; manual | Migrations, deploy, and deployed-commit verification. |
+
+## Jira setup (once per Jira project)
+
+These values are instance-specific. Look them up; never copy them from another repo. All of them live in `.github/jira.json`.
+
+1. Create the Jira project. Put its key in `projectKey`.
+2. Issue type IDs: `GET /rest/api/3/issuetype/project?projectId={id}`. Map `new-feature`, `enhancement`, `improvement`, `bug-fix` to IDs in `issueTypes`.
+3. Make sure the Jira workflow has transitions named exactly `In Progress`, `In Review`, `Done` (or change `transitions`). A transition not reachable from the current status is logged and skipped.
+4. Repo secrets: `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`.
+
+## Parallel work
+
+One git worktree per task, as siblings of the main checkout:
+
+```text
+~/schmegettes/
+~/schmegettes-SCH-12/
+~/schmegettes-SCH-13/
+```

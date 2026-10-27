@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schmegettes.dev/schemas/protocol/client-message.schema.json",
+  "title": "ClientMessage",
+  "description": "Every message a client may send on the game WebSocket. The server rejects anything that does not validate. The socket is authenticated at connect time (Supabase JWT); messages carry no identity.",
+  "oneOf": [
+    { "$ref": "#/$defs/StartGame" },
+    { "$ref": "#/$defs/SelectClue" },
+    { "$ref": "#/$defs/Buzz" },
+    { "$ref": "#/$defs/SubmitAnswer" },
+    { "$ref": "#/$defs/SubmitWager" },
+    { "$ref": "#/$defs/OverrideVerdict" },
+    { "$ref": "#/$defs/Ping" }
+  ],
+  "$defs": {
+    "StartGame": {
+      "description": "Host only. Moves the room from lobby to the first board.",
+      "type": "object",
+      "properties": { "type": { "const": "start_game" } },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    "SelectClue": {
+      "description": "Sent by the player who has control of the board.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "select_clue" },
+        "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" }
+      },
+      "required": ["type", "clueId"],
+      "additionalProperties": false
+    },
+    "Buzz": {
+      "description": "clientSentAt is advisory only; the server orders buzzes by its own receive time, with lockout for early buzzes.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "buzz" },
+        "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
+        "clientSentAt": { "type": "integer", "description": "Client clock, ms since epoch." }
+      },
+      "required": ["type", "clueId"],
+      "additionalProperties": false
+    },
+    "SubmitAnswer": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "submit_answer" },
+        "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
+        "answer": { "type": "string", "maxLength": 200 },
+        "source": { "type": "string", "enum": ["typed", "voice"] }
+      },
+      "required": ["type", "clueId", "answer", "source"],
+      "additionalProperties": false
+    },
+    "SubmitWager": {
+      "description": "Daily Double or Final round wager.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "submit_wager" },
+        "amount": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["type", "amount"],
+      "additionalProperties": false
+    },
+    "OverrideVerdict": {
+      "description": "Host only. Replaces the judge's verdict for one answer.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "override_verdict" },
+        "answerId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
+        "correct": { "type": "boolean" }
+      },
+      "required": ["type", "answerId", "correct"],
+      "additionalProperties": false
+    },
+    "Ping": {
+      "type": "object",
+      "properties": { "type": { "const": "ping" } },
+      "required": ["type"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,194 @@
+openapi: 3.1.0
+info:
+  title: Schmegettes API
+  version: 0.1.0
+  description: |
+    REST contract for api/ (Rails). Live gameplay is not here; it is the WebSocket
+    protocol in shared/schemas/protocol/. Every endpoint except /healthz and /version
+    requires a Supabase access token (Bearer). Changing this file is a reviewed
+    contract change; run `mise run gen` and commit the generated code.
+servers:
+  - url: http://localhost:3001
+security:
+  - supabaseJwt: []
+paths:
+  /healthz:
+    get:
+      security: []
+      summary: Liveness and dependency check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+  /version:
+    get:
+      security: []
+      summary: The commit this instance was built from (used by deploy verification)
+      responses:
+        "200":
+          description: Build info
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Version" }
+  /v1/me:
+    get:
+      summary: The caller's profile (created on first call)
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+    patch:
+      summary: Update display name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName: { type: string, minLength: 1, maxLength: 40 }
+              required: [displayName]
+              additionalProperties: false
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+  /v1/rooms:
+    post:
+      summary: Create a room; the caller becomes host
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                seasons: { type: array, items: { type: integer } }
+                maxPlayers: { type: integer, minimum: 2, maximum: 8, default: 6 }
+              additionalProperties: false
+      responses:
+        "201":
+          description: Room created; board is built asynchronously
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Room" }
+  /v1/rooms/join:
+    post:
+      summary: Join a room by code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { $ref: "./schemas/domain.schema.json#/$defs/RoomCode" }
+                role: { type: string, enum: [contestant, spectator], default: contestant }
+              required: [code]
+              additionalProperties: false
+      responses:
+        "200":
+          description: Joined
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoomJoin" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /v1/rooms/{roomId}:
+    get:
+      summary: Room details (members only)
+      parameters:
+        - { name: roomId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Room
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Room" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /v1/games:
+    get:
+      summary: The caller's finished games, newest first
+      parameters:
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Page of games
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/GameSummary" } }
+                  nextCursor: { type: [string, "null"] }
+                required: [items, nextCursor]
+components:
+  securitySchemes:
+    supabaseJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Problem:
+      description: Error (RFC 9457 problem details)
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+  schemas:
+    Health:
+      type: object
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+      required: [status]
+    Version:
+      type: object
+      properties:
+        service: { type: string }
+        commit: { type: string, description: Full git SHA the build was made from }
+      required: [service, commit]
+    Profile:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        isAnonymous: { type: boolean }
+      required: [userId, displayName, isAnonymous]
+    Room:
+      type: object
+      properties:
+        roomId: { type: string, format: uuid }
+        code: { $ref: "./schemas/domain.schema.json#/$defs/RoomCode" }
+        status: { $ref: "./schemas/domain.schema.json#/$defs/RoomStatus" }
+        hostUserId: { type: string, format: uuid }
+        boardReady: { type: boolean }
+        maxPlayers: { type: integer }
+      required: [roomId, code, status, hostUserId, boardReady, maxPlayers]
+    RoomJoin:
+      type: object
+      properties:
+        room: { $ref: "#/components/schemas/Room" }
+        gameSocketUrl: { type: string, format: uri, description: WebSocket URL for this room on game/ }
+      required: [room, gameSocketUrl]
+    GameSummary:
+      type: object
+      properties:
+        gameId: { type: string, format: uuid }
+        finishedAt: { type: string, format: date-time }
+        finalScore: { type: integer }
+        placement: { type: integer }
+        playerCount: { type: integer }
+      required: [gameId, finishedAt, finalScore, placement, playerCount]
+    Problem:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+      required: [title, status]

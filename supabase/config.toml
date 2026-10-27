@@ -1,0 +1,30 @@
+# Local Supabase settings (`supabase start`). Keys not listed use the CLI's defaults.
+# After installing the CLI, `supabase init --force` can regenerate a fully commented version;
+# keep the settings below when you do.
+project_id = "schmegettes"
+
+[api]
+port = 54321
+schemas = ["public"]
+
+[db]
+port = 54322
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[studio]
+port = 54323
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173"]
+jwt_expiry = 3600
+enable_signup = true
+# Players start anonymous (docs/system-docs/engineering/stack.md, Identity provider).
+enable_anonymous_sign_ins = true
+# Services verify JWTs against JWKS, which needs asymmetric keys. Generate once with
+# `supabase gen signing-key --algorithm ES256 > supabase/signing_keys.json` (git-ignored).
+signing_keys_path = "./signing_keys.json"

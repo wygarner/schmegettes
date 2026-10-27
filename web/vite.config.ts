@@ -35,5 +35,11 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
+    // Placeholders so modules that read env (src/lib/env.ts) can load; tests never call out.
+    env: {
+      VITE_SUPABASE_URL: "http://supabase.test",
+      VITE_SUPABASE_ANON_KEY: "test-anon-key",
+      VITE_API_URL: "http://api.test",
+    },
   },
 });

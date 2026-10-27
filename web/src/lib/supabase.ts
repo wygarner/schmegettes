@@ -13,3 +13,12 @@ export async function getAccessToken(): Promise<string> {
   if (error || !signedIn.session) throw error ?? new Error("Anonymous sign-in returned no session");
   return signedIn.session.access_token;
 }
+
+/** The signed-in user's id, signing in anonymously first if needed. */
+export async function getUserId(): Promise<string> {
+  await getAccessToken();
+  const { data } = await supabase.auth.getSession();
+  const id = data.session?.user.id;
+  if (!id) throw new Error("No session after sign-in");
+  return id;
+}

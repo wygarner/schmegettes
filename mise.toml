@@ -43,8 +43,7 @@ run = "supabase test db"
 
 [tasks.dev]
 description = "Run web, game, and worker in parallel (`bun run dev` calls this)"
-# Add "dev:api" once api/ is generated (tasks/scaffold-services).
-depends = ["dev:web", "dev:game", "dev:worker"]
+depends = ["dev:web", "dev:api", "dev:game", "dev:worker"]
 
 [tasks."dev:web"]
 run = "bun run --cwd web dev"

@@ -8,6 +8,12 @@
       "$ref": "#/$defs/RoomSnapshot"
     },
     {
+      "$ref": "#/$defs/LobbyUpdated"
+    },
+    {
+      "$ref": "#/$defs/RoomClosed"
+    },
+    {
       "$ref": "#/$defs/PhaseChanged"
     },
     {
@@ -74,7 +80,7 @@
       "additionalProperties": false
     },
     "RoomSnapshot": {
-      "description": "Full state, sent on connect and reconnect.",
+      "description": "Full state, sent on connect and reconnect. In the lobby, round is single, board is empty, and the lobby fields are present.",
       "type": "object",
       "properties": {
         "type": {
@@ -110,9 +116,78 @@
         },
         "activeClueId": {
           "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "hostDisplayName": {
+          "type": "string"
+        },
+        "hostPlays": {
+          "type": "boolean"
+        },
+        "maxPlayers": {
+          "type": "integer",
+          "minimum": 2
         }
       },
       "required": ["type", "roomId", "seq", "phase", "round", "players", "board"],
+      "additionalProperties": false
+    },
+    "LobbyUpdated": {
+      "description": "The lobby changed: someone joined, left, renamed, connected or disconnected, or the host joined or left the game. players is in join order; the host is listed only when hostPlays.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "lobby_updated"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hostUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "hostDisplayName": {
+          "type": "string"
+        },
+        "hostPlays": {
+          "type": "boolean"
+        },
+        "maxPlayers": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "players": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Player"
+          }
+        }
+      },
+      "required": ["type", "roomId", "seq", "hostUserId", "hostDisplayName", "hostPlays", "maxPlayers", "players"],
+      "additionalProperties": false
+    },
+    "RoomClosed": {
+      "description": "The room closed. host_absent: no host device for 30 minutes in the lobby. replaced: the host created a new room.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "room_closed"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["host_absent", "replaced"]
+        }
+      },
+      "required": ["type", "roomId", "seq", "reason"],
       "additionalProperties": false
     },
     "PhaseChanged": {
@@ -241,7 +316,17 @@
         },
         "code": {
           "type": "string",
-          "enum": ["invalid_message", "not_your_turn", "not_host", "wrong_phase", "room_full", "internal"]
+          "enum": [
+            "invalid_message",
+            "not_your_turn",
+            "not_host",
+            "wrong_phase",
+            "room_full",
+            "internal",
+            "not_enough_players",
+            "game_started",
+            "invalid_name"
+          ]
         },
         "message": {
           "type": "string"

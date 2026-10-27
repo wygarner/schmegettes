@@ -3,10 +3,11 @@
 /**
  * Every message the game server sends. seq increases by one per room; a client that sees a gap requests a fresh snapshot by reconnecting.
  */
-export type ServerMessage = RoomSnapshot | PhaseChanged | BuzzResult | AnswerJudged | TimerTick | Error | Pong;
+export type ServerMessage =
+  RoomSnapshot | LobbyUpdated | RoomClosed | PhaseChanged | BuzzResult | AnswerJudged | TimerTick | Error | Pong;
 
 /**
- * Full state, sent on connect and reconnect.
+ * Full state, sent on connect and reconnect. In the lobby, round is single, board is empty, and the lobby fields are present.
  */
 export interface RoomSnapshot {
   type: "room_snapshot";
@@ -33,6 +34,9 @@ export interface RoomSnapshot {
   board: BoardClue[];
   controllingUserId?: string;
   activeClueId?: string;
+  hostDisplayName?: string;
+  hostPlays?: boolean;
+  maxPlayers?: number;
 }
 export interface Player {
   userId: string;
@@ -53,6 +57,28 @@ export interface BoardClue {
   value: number;
   state: "unplayed" | "active" | "answered" | "unanswered";
   clueText?: string;
+}
+/**
+ * The lobby changed: someone joined, left, renamed, connected or disconnected, or the host joined or left the game. players is in join order; the host is listed only when hostPlays.
+ */
+export interface LobbyUpdated {
+  type: "lobby_updated";
+  roomId: string;
+  seq: number;
+  hostUserId: string;
+  hostDisplayName: string;
+  hostPlays: boolean;
+  maxPlayers: number;
+  players: Player[];
+}
+/**
+ * The room closed. host_absent: no host device for 30 minutes in the lobby. replaced: the host created a new room.
+ */
+export interface RoomClosed {
+  type: "room_closed";
+  roomId: string;
+  seq: number;
+  reason: "host_absent" | "replaced";
 }
 export interface PhaseChanged {
   type: "phase_changed";
@@ -119,7 +145,16 @@ export interface TimerTick {
 }
 export interface Error {
   type: "error";
-  code: "invalid_message" | "not_your_turn" | "not_host" | "wrong_phase" | "room_full" | "internal";
+  code:
+    | "invalid_message"
+    | "not_your_turn"
+    | "not_host"
+    | "wrong_phase"
+    | "room_full"
+    | "internal"
+    | "not_enough_players"
+    | "game_started"
+    | "invalid_name";
   message?: string;
 }
 export interface Pong {

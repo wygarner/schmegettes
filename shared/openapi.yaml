@@ -62,22 +62,24 @@ paths:
   /v1/rooms:
     post:
       summary: Create a room; the caller becomes host
+      description: Closes the caller's other rooms that are still in the lobby.
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
               properties:
-                seasons: { type: array, items: { type: integer } }
-                maxPlayers: { type: integer, minimum: 2, maximum: 8, default: 6 }
+                displayName: { $ref: "#/components/schemas/DisplayName" }
+              required: [displayName]
               additionalProperties: false
       responses:
         "201":
           description: Room created. The board is built when the host starts the game.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Room" }
+              schema: { $ref: "#/components/schemas/RoomJoin" }
+        "400": { $ref: "#/components/responses/Problem" }
   /v1/rooms/join:
     post:
       summary: Join a room by code
@@ -89,8 +91,9 @@ paths:
               type: object
               properties:
                 code: { $ref: "./schemas/domain.schema.json#/$defs/RoomCode" }
+                displayName: { $ref: "#/components/schemas/DisplayName" }
                 role: { type: string, enum: [contestant, spectator], default: contestant }
-              required: [code]
+              required: [code, displayName]
               additionalProperties: false
       responses:
         "200":
@@ -98,8 +101,29 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RoomJoin" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404":
+          description: No open room with that code (problem type `room-not-found`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "409":
+          description: The room is full (`room-full`) or its game has started (`game-started`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+  /v1/rooms/by-code/{code}:
+    get:
+      summary: A room the caller is already a member of, by code (used after a reload)
+      parameters:
+        - { name: code, in: path, required: true, schema: { $ref: "./schemas/domain.schema.json#/$defs/RoomCode" } }
+      responses:
+        "200":
+          description: Room and its socket URL
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoomJoin" }
         "404": { $ref: "#/components/responses/Problem" }
-        "409": { $ref: "#/components/responses/Problem" }
   /v1/rooms/{roomId}:
     get:
       summary: Room details (members only)
@@ -203,12 +227,19 @@ components:
         code: { $ref: "./schemas/domain.schema.json#/$defs/RoomCode" }
         status: { $ref: "./schemas/domain.schema.json#/$defs/RoomStatus" }
         hostUserId: { type: string, format: uuid }
+        hostDisplayName: { type: string }
+        hostPlays: { type: boolean, description: The host joined the game as a contestant on the host device }
         maxPlayers: { type: integer }
         seasons:
           type: [array, "null"]
           items: { type: integer }
           description: Seasons boards are built from; null means every season
-      required: [roomId, code, status, hostUserId, maxPlayers, seasons]
+      required: [roomId, code, status, hostUserId, hostDisplayName, hostPlays, maxPlayers, seasons]
+    DisplayName:
+      type: string
+      minLength: 1
+      maxLength: 20
+      description: Trimmed by the server; must not be blank
     RoomJoin:
       type: object
       properties:

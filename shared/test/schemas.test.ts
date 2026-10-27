@@ -19,6 +19,15 @@ const USER = "0b8a1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d";
 const CLUE = "9a8b7c6d-5e4f-4321-8765-0fedcba98765";
 
 describe("client messages", () => {
+  test("accepts lobby intents", () => {
+    expect(client({ type: "set_display_name", displayName: "Alice" })).toBe(true);
+    expect(client({ type: "set_host_plays", plays: true })).toBe(true);
+    expect(client({ type: "leave_room" })).toBe(true);
+  });
+  test("rejects empty or long display names", () => {
+    expect(client({ type: "set_display_name", displayName: "" })).toBe(false);
+    expect(client({ type: "set_display_name", displayName: "x".repeat(21) })).toBe(false);
+  });
   test("accepts a buzz", () => {
     expect(client({ type: "buzz", clueId: CLUE, clientSentAt: 1 })).toBe(true);
   });
@@ -29,6 +38,25 @@ describe("client messages", () => {
 });
 
 describe("server messages", () => {
+  test("accepts a lobby update and a room closure", () => {
+    const player = { userId: USER, displayName: "Alice", role: "contestant", score: 0, connected: true };
+    const lobby = {
+      type: "lobby_updated",
+      roomId: ROOM,
+      seq: 2,
+      hostUserId: USER,
+      hostDisplayName: "Wyatt",
+      hostPlays: false,
+      maxPlayers: 6,
+      players: [player],
+    };
+    expect(server(lobby)).toBe(true);
+    expect(server({ type: "room_closed", roomId: ROOM, seq: 3, reason: "replaced" })).toBe(true);
+    expect(server({ type: "room_closed", roomId: ROOM, seq: 3, reason: "bored" })).toBe(false);
+  });
+  test("accepts the lobby error codes", () => {
+    expect(server({ type: "error", code: "not_enough_players" })).toBe(true);
+  });
   test("accepts a buzz result", () => {
     expect(server({ type: "buzz_result", roomId: ROOM, seq: 3, userId: USER, outcome: "won" })).toBe(true);
   });

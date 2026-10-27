@@ -5,6 +5,9 @@
   "description": "Every message a client may send on the game WebSocket. The server rejects anything that does not validate. The socket is authenticated at connect time (Supabase JWT); messages carry no identity.",
   "oneOf": [
     { "$ref": "#/$defs/StartGame" },
+    { "$ref": "#/$defs/SetDisplayName" },
+    { "$ref": "#/$defs/SetHostPlays" },
+    { "$ref": "#/$defs/LeaveRoom" },
     { "$ref": "#/$defs/SelectClue" },
     { "$ref": "#/$defs/Buzz" },
     { "$ref": "#/$defs/SubmitAnswer" },
@@ -17,6 +20,33 @@
       "description": "Host only. Moves the room from lobby to the first board.",
       "type": "object",
       "properties": { "type": { "const": "start_game" } },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    "SetDisplayName": {
+      "description": "Lobby only. Renames the sender in this room; the server adds a suffix when the name is taken.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "set_display_name" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 20 }
+      },
+      "required": ["type", "displayName"],
+      "additionalProperties": false
+    },
+    "SetHostPlays": {
+      "description": "Host only, lobby only. Joins or leaves the game as a contestant on the host device.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "set_host_plays" },
+        "plays": { "type": "boolean" }
+      },
+      "required": ["type", "plays"],
+      "additionalProperties": false
+    },
+    "LeaveRoom": {
+      "description": "Lobby only, not the host. Removes the sender from the room.",
+      "type": "object",
+      "properties": { "type": { "const": "leave_room" } },
       "required": ["type"],
       "additionalProperties": false
     },

@@ -8,7 +8,7 @@ Everything is pinned in the root `mise.toml`.
 brew install mise            # or: curl https://mise.run | sh
 echo 'eval "$(mise activate zsh)"' >> ~/.zshrc && exec zsh
 cd ~/schmegettes
-mise trust && mise install   # node, bun, go, ruby, python, uv, supabase CLI
+mise trust && mise install   # node, bun, go, python, uv, supabase CLI
 ```
 
 Local Supabase also needs Docker (Docker Desktop, OrbStack, or Colima).

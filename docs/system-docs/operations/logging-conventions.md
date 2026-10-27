@@ -7,7 +7,7 @@ Structured JSON logs from every service, shipped to Grafana Cloud over OpenTelem
 | Package | Logger | Notes |
 |---|---|---|
 | `game` | `log/slog` with `slog.NewJSONHandler` | Base fields `service`, `env` set in `main.go` |
-| `api` | Rails logger + `lograge` (JSON) | One line per request |
+| `api` | Go `log/slog`, JSON handler | One line per request |
 | `worker` | `structlog` with `JSONRenderer` | |
 | `web` | `console.error` only where a failure is caught, then show it in the UI | Never print tokens or answers in the browser console |
 
@@ -19,9 +19,6 @@ Static message, variable data as fields:
 
 ```go
 slog.Error("buzz rejected", "err", err, "room_id", roomID, "user_id", userID)
-```
-```ruby
-Rails.logger.info({ msg: "room created", room_id: room.id })
 ```
 ```python
 log.info("season imported", season=season, clues=len(clues), duration_ms=elapsed)

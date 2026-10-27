@@ -5,11 +5,11 @@ jira-title: "Scaffold api, game, and worker on the pinned toolchains"
 
 **Task Type:** Improvement
 
-**Problem:** The bootstrap created `game/` and `worker/` by hand and left `api/` ungenerated, because Go, Ruby 3.4, Python 3.13, uv, and the Supabase CLI were not installed on the bootstrap machine. CI skips `api` and `worker` until their lockfiles exist, and the `shared` job's generated-code check fails until Go and Python contract code is committed.
+**Problem:** The bootstrap created `game/` and `worker/` by hand and left `api/` ungenerated, because Go, Python 3.13, uv, and the Supabase CLI were not installed on the bootstrap machine. CI skips `api` and `worker` until their lockfiles exist, and the `shared` job's generated-code check fails until Go and Python contract code is committed.
 
 **Outcomes:**
 
-- `api/` is a Rails 8 API app generated per `api/SETUP.md`, with `/healthz`, `/version`, JWT verification, and the `Db.as_user` helper
+- `api/` (Go) builds and passes `gofmt`, `go vet`, `staticcheck`, and `go test -race`, and gets JWT verification and the `db.AsUser` helper per `api/SETUP.md` (shared with `game/` through `golib/`)
 - `game/` compiles with Go 1.25, passes `gofmt`, `go vet`, `staticcheck`, and `go test -race`
 - `worker/` has a committed `uv.lock` and passes `ruff`, `mypy --strict`, and `pytest`
 - `mise run gen` produces Go and Python contract code, committed

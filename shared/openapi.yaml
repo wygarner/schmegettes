@@ -3,7 +3,7 @@ info:
   title: Schmegettes API
   version: 0.1.0
   description: |
-    REST contract for api/ (Rails). Live gameplay is not here; it is the WebSocket
+    REST contract for api/ (Go). Live gameplay is not here; it is the WebSocket
     protocol in shared/schemas/protocol/. Every endpoint except /healthz and /version
     requires a Supabase access token (Bearer). Changing this file is a reviewed
     contract change; run `mise run gen` and commit the generated code.

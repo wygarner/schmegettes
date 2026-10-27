@@ -117,5 +117,3 @@ if (only !== "ts") {
   genGo();
   genPython();
 }
-
-// Ruby validates against the JSON Schemas at runtime (json_schemer) rather than generating classes.

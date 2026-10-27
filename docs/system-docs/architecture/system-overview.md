@@ -6,7 +6,7 @@ flowchart LR
     web[web/ React]
   end
   web -- "auth (anonymous / Google)" --> sbauth[Supabase Auth]
-  web -- "REST + JWT" --> api[api/ Rails]
+  web -- "REST + JWT" --> api[api/ Go]
   web -- "WebSocket + JWT" --> game[game/ Go]
   api -- "as user (RLS)" --> db[(Supabase Postgres)]
   game -- "game_engine role" --> db

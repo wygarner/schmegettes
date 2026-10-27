@@ -5,9 +5,9 @@ All contracts live in `shared/`. That package builds first and depends on nothin
 | Contract | File | Consumers | How each consumes it |
 |---|---|---|---|
 | Domain vocabulary | `shared/schemas/domain.schema.json` | all | generated types; Postgres enums mirror it |
-| REST | `shared/openapi.yaml` | web (client), api (server) | TS: `openapi-typescript` + `openapi-fetch`. Rails: response validation in request tests (`json_schemer`) |
+| REST | `shared/openapi.yaml` | web (client), api (server) | TS: `openapi-typescript` + `openapi-fetch`. Go: types and server interface generated with `oapi-codegen` into `api/internal/contracts`; handler tests validate responses against the spec (`kin-openapi`) |
 | WebSocket | `shared/schemas/protocol/*.schema.json` | web, game | TS types; Go structs (`go-jsonschema`) in `game/internal/contracts` |
-| Jobs | `shared/schemas/jobs/job.schema.json` | api, game (produce), worker (consume) | Python models (`datamodel-code-generator`); Ruby validates at enqueue |
+| Jobs | `shared/schemas/jobs/job.schema.json` | api, game (produce), worker (consume) | Python models (`datamodel-code-generator`); Go structs (`go-jsonschema`), validated before enqueue |
 
 ## Rules
 

@@ -34,7 +34,6 @@ jobs:
       scripts: ${{ steps.detect.outputs.scripts }}
       evals: ${{ steps.detect.outputs.evals }}
       docs_only: ${{ steps.detect.outputs.docs_only }}
-      api_ready: ${{ steps.ready.outputs.api_ready }}
       worker_ready: ${{ steps.ready.outputs.worker_ready }}
       evals_ready: ${{ steps.ready.outputs.evals_ready }}
     steps:
@@ -46,7 +45,6 @@ jobs:
       - name: Detect generated packages
         id: ready
         run: |
-          echo "api_ready=$([ -f api/Gemfile.lock ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "worker_ready=$([ -f worker/uv.lock ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "evals_ready=$([ -f evals/pyproject.toml ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - name: Detect package changes
@@ -202,7 +200,7 @@ jobs:
   api:
     name: API
     needs: changes
-    if: needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.api == 'true' && needs.changes.outputs.api_ready == 'true'
+    if: needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -213,18 +211,13 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@v2
         with:
-          install_args: ruby aqua:supabase/cli
-      - run: bundle install --jobs 4
-      - run: bundle exec rubocop
-      - run: bundle exec bundler-audit check --update
-      - name: Start a throwaway database
-        working-directory: .
-        run: supabase db start
-      - name: Test
-        env:
-          RAILS_ENV: test
-          DATABASE_URL: postgresql://app_service:app-service-local-only@127.0.0.1:54322/postgres
-        run: bin/rails test
+          install_args: go
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; echo "::error::Run gofmt -w ."; exit 1; }
+      - run: go vet ./...
+      - run: go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
+      - run: go test -race -coverprofile=coverage.out ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
   worker:
     name: Worker

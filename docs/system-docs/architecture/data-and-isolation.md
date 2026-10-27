@@ -1,10 +1,10 @@
 # Data and Isolation
 
-Isolation is enforced by Postgres row-level security, not by `WHERE` clauses in application code. The first migration (`supabase/migrations/20261026000000_init.sql`) builds it, and `supabase/tests/rls.test.sql` proves it.
+Isolation is enforced by Postgres row-level security, not by `WHERE` clauses in application code. The first migration (`supabase/migrations/20261026000000_init.sql`) builds it, and the tests in `supabase/tests/` (`rls.test.sql`, `game_history.test.sql`) prove it.
 
 ## Scope
 
-Schmegettes has no organizations. A row belongs to **a user** (profile) or **a room**, and a user can see a room's data only while they are a member of it. Rooms are the "tenant".
+Schmegettes has no organizations. A row belongs to **a user** (profile), **a room**, or **a game**. A user can see a room's data only while they are a member of it. A game's data is visible to everyone who played or watched it, permanently, even after they leave the room or it is deleted.
 
 ## Roles
 
@@ -13,7 +13,7 @@ Schmegettes has no organizations. A row belongs to **a user** (profile) or **a r
 | `postgres` (owner) | yes | migrations (`supabase db push`), worker catalog imports | everything; bypasses RLS |
 | `app_service` | yes (password per environment) | api, game, worker connections | nothing directly; can only `set local role` to the two below |
 | `authenticated` | no | every user-facing query | what the RLS policies allow for `auth.uid()` |
-| `game_engine` | no | game server board loading and result writes | read everything incl. the clue catalog; write game state |
+| `game_engine` | no | game server, through the engine functions (`start_game`, `reveal_clue`, `record_answer`, ...) | read everything incl. the clue catalog; write game state; never delete |
 | `anon` | no | nothing (clients never query the database) | nothing |
 
 `app_service` holds no table rights, so a query that forgets to switch role fails with "permission denied" instead of leaking data.
@@ -40,9 +40,16 @@ commit;
 | `clues` | **nothing**: correct responses never reach a user role |
 | `rooms` | read if host or member; create as host; host updates status/size |
 | `room_members` | read fellow members; leave (non-host); join only via `join_room(code)` |
-| `board_clues`, `games`, `game_players`, `answers` | read if member; no writes |
+| `board_clues`, `games`, `game_players`, `answers`, `game_results` (view) | read if they played or watched that game (`is_game_member`); no writes |
+| `seen_clues` | **nothing**: only used to build boards |
 
 Supabase's default grants to `anon`/`authenticated` are revoked, including default privileges for future tables. **Every new table needs an explicit grant, `enable row level security`, policies, and a test in `supabase/tests/`.**
+
+## History outlives rooms and accounts
+
+- Deleting a room keeps its games (`games.room_id` becomes null).
+- Deleting an account deletes its `seen_clues`, nulls its name snapshots, and nulls `game_players.user_id`. Its results stay on other players' scoreboards as "Former player".
+- Scores are never stored: `game_results` sums each player's `answers.score_delta`, so an override can't leave a stale total.
 
 ## Migration rules
 

@@ -34,6 +34,22 @@ Proxies may log `Sec-WebSocket-Protocol`. If the chosen host does, switch to a s
 
 Defined in `shared/schemas/protocol/`. Every server message carries `roomId` and `seq` (+1 per room event). A client that sees a gap reconnects and gets a fresh snapshot. The correct response is sent only in `answer_judged`, never with a board clue.
 
+## Recording
+
+Game history and fresh boards are written through Postgres functions, called as `game_engine`. Each is one transaction and safe to call again, so a new room owner can replay the last step after a crash.
+
+| When | Call |
+|---|---|
+| Host presses Start | Send phase `building_board`, close joining, call `start_game(room)`. It records the game and its players and builds the board. On error, send the room back to `lobby` with "Couldn't build a board. Try again." |
+| A spectator joins mid-game | `add_spectator(game, user)` |
+| A clue's text is shown | `reveal_clue(board_clue)`: everyone in the game has now seen it |
+| An answer is judged | `record_answer(id, board_clue, user, answer, source, verdict, score_delta)`, with an `id` generated before the first attempt |
+| Host override or appeal result | `update_verdict(answer, verdict, score_delta)` |
+| A player leaves | `player_left(game, user)` |
+| Final revealed / room closed or empty | `end_game(game, 'finished' \| 'abandoned')`; the room reopens for a rematch |
+
+Scores shown live come from the room state; the stored score is the sum of answers (`game_results`), so the two match as long as every judged answer is recorded.
+
 ## Judging
 
 `internal/judge` normalizes both strings (case, punctuation, "What is", articles, parenthetical hints) and allows one edit per five characters. The host can override any verdict (`override_verdict`). Disputes can be appealed to the worker (`appeal_answer` job).

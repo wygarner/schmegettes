@@ -161,7 +161,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Room created; board is built asynchronously */
+                /** @description Room created. The board is built when the host starts the game. */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -263,7 +263,39 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Change room settings before the game starts (host only) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    roomId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Seasons to build boards from; null means every season */
+                        seasons?: number[] | null;
+                        maxPlayers?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated room */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Room"];
+                    };
+                };
+                403: components["responses"]["Problem"];
+                404: components["responses"]["Problem"];
+            };
+        };
         trace?: never;
     };
     "/v1/games": {
@@ -273,7 +305,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The caller's finished games, newest first */
+        /** The caller's ended games (finished or abandoned), newest first */
         get: {
             parameters: {
                 query?: {
@@ -297,6 +329,45 @@ export interface paths {
                         };
                     };
                 };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/games/{gameId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A game's scoreboard (anyone who played or watched it) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    gameId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Game */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GameDetail"];
+                    };
+                };
+                404: components["responses"]["Problem"];
             };
         };
         put?: never;
@@ -333,8 +404,9 @@ export interface components {
             status: components["schemas"]["RoomStatus"];
             /** Format: uuid */
             hostUserId: string;
-            boardReady: boolean;
             maxPlayers: number;
+            /** @description Seasons boards are built from; null means every season */
+            seasons: number[] | null;
         };
         RoomJoin: {
             room: components["schemas"]["Room"];
@@ -344,14 +416,44 @@ export interface components {
              */
             gameSocketUrl: string;
         };
+        /** @description One of the caller's past games, from their point of view. */
         GameSummary: {
             /** Format: uuid */
             gameId: string;
+            status: components["schemas"]["GameStatus"];
             /** Format: date-time */
+            startedAt: string;
+            /**
+             * Format: date-time
+             * @description When the game ended
+             */
             finishedAt: string;
-            finalScore: number;
-            placement: number;
+            /** @description The caller's score */
+            score: number;
+            /** @description The caller's placement; ties share a place; null if they watched */
+            placement: number | null;
+            /** @description Display names as they were in that game ("Former player" for deleted accounts) */
+            players: string[];
             playerCount: number;
+        };
+        GameDetail: {
+            /** Format: uuid */
+            gameId: string;
+            status: components["schemas"]["GameStatus"];
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            finishedAt: string | null;
+            /** @description Contestants and host ordered by placement; spectators are not listed */
+            results: components["schemas"]["GameResult"][];
+        };
+        GameResult: {
+            /** @description Name as it was in that game */
+            displayName: string;
+            role: components["schemas"]["PlayerRole"];
+            score: number;
+            /** @description Ties share a place */
+            placement: number;
         };
         Problem: {
             type?: string;
@@ -363,6 +465,16 @@ export interface components {
         RoomCode: string;
         /** @enum {string} */
         RoomStatus: "open" | "in_game" | "closed";
+        /**
+         * @description A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).
+         * @enum {string}
+         */
+        GameStatus: "in_progress" | "finished" | "abandoned";
+        /**
+         * @description host runs the board and can override verdicts; contestants buzz and answer; spectators watch.
+         * @enum {string}
+         */
+        PlayerRole: "host" | "contestant" | "spectator";
     };
     responses: {
         /** @description Error (RFC 9457 problem details) */

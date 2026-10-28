@@ -1,20 +1,23 @@
 // Browser speech: the TV reads clues aloud (speechSynthesis) and players answer out loud
 // (SpeechRecognition). Recognition runs on the device; only text is sent to the server.
 
-/** Reads text aloud. Resolves when speech ends, fails, or isn't available, so callers can
- * always continue (the server opens buzzing on its own timer if this never reports). */
-export function speak(text: string): Promise<void> {
+/** How a reading went. Only "ended" means the room heard the clue. */
+export type SpeakResult = "ended" | "failed" | "unavailable";
+
+/** Reads text aloud. "failed" usually means the browser blocked sound because the page
+ * hasn't been tapped since it loaded; a tap (speak again from the click) fixes it. */
+export function speak(text: string): Promise<SpeakResult> {
   return new Promise((resolve) => {
     const synth = typeof window !== "undefined" ? window.speechSynthesis : undefined;
     if (!synth || typeof SpeechSynthesisUtterance === "undefined") {
-      resolve();
+      resolve("unavailable");
       return;
     }
     synth.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1;
-    utterance.onend = () => resolve();
-    utterance.onerror = () => resolve();
+    utterance.onend = () => resolve("ended");
+    utterance.onerror = () => resolve("failed");
     synth.speak(utterance);
   });
 }

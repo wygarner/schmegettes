@@ -39,7 +39,11 @@ export function PlayerControls({
   }, [lockedUntil]);
 
   const tried = state.attemptedUserIds.includes(userId);
-  const buzzable = (state.phase === "clue_reading" || state.phase === "buzzing_open") && !tried && !state.paused;
+  // After a clue ends (correct response on the TV) or between rounds, the phase hasn't
+  // moved on yet, but nobody can buzz.
+  const between = Boolean(state.clueEnd || state.roundIntro);
+  const buzzable =
+    (state.phase === "clue_reading" || state.phase === "buzzing_open") && !tried && !state.paused && !between;
 
   const buzz = useCallback(() => {
     if (!clueId || !buzzable) return;
@@ -80,6 +84,9 @@ export function PlayerControls({
       </Status>
     );
   }
+
+  if (state.roundIntro) return <Status compact={compact}>Double Jeopardy!</Status>;
+  if (state.clueEnd) return <Status compact={compact}>Look at the TV.</Status>;
 
   switch (state.phase) {
     case "board": {

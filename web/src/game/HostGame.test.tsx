@@ -113,3 +113,32 @@ test("final scores", () => {
   expect(screen.getByText("Final scores")).toBeInTheDocument();
   expect(screen.getByText("2. Bob −$400")).toBeInTheDocument();
 });
+
+test("when the browser blocks speech, buzzing is left to the server timer and the TV asks for a tap", async () => {
+  const send = vi.fn();
+  render(
+    <MantineProvider>
+      <HostGame state={state} send={send} hostUserId="host" />
+    </MantineProvider>,
+  );
+  spoken[0]?.onerror?.();
+  const tap = await screen.findByRole("button", { name: "Tap to turn on sound" });
+  expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "reading_done" }));
+
+  tap.click();
+  expect(spoken.map((u) => u.text)).toEqual(["THIS GAS", "THIS GAS"]); // read again from the tap
+  spoken[1]?.onend?.();
+  await waitFor(() => expect(send).toHaveBeenCalledWith({ type: "reading_done", clueId: "c1" }));
+});
+
+test("without speech synthesis, the TV never reports reading done", async () => {
+  Object.defineProperty(window, "speechSynthesis", { configurable: true, value: undefined });
+  const send = vi.fn();
+  render(
+    <MantineProvider>
+      <HostGame state={state} send={send} hostUserId="host" />
+    </MantineProvider>,
+  );
+  await new Promise((r) => setTimeout(r, 20));
+  expect(send).not.toHaveBeenCalled();
+});

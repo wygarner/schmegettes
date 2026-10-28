@@ -138,3 +138,17 @@ test("paused and game over", () => {
   update({ ...base, phase: "finished", results: [{ userId: me, displayName: "Alice", score: 1200, placement: 1 }] });
   expect(screen.getByText("Final: $1,200 · place 1")).toBeInTheDocument();
 });
+
+test("no lit buzzer once the clue has ended or between rounds", () => {
+  const { update } = setup({
+    ...base,
+    phase: "buzzing_open",
+    activeClue: clue,
+    clueEnd: { state: "unanswered" },
+  });
+  expect(screen.queryByRole("button", { name: "Buzz" })).not.toBeInTheDocument();
+  expect(screen.getByText("Look at the TV.")).toBeInTheDocument();
+  update({ ...base, phase: "answering", roundIntro: "double" });
+  expect(screen.queryByRole("button", { name: "Buzz" })).not.toBeInTheDocument();
+  expect(screen.getByText("Double Jeopardy!")).toBeInTheDocument();
+});

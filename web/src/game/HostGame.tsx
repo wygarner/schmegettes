@@ -1,6 +1,6 @@
-import { Alert, Center, Container, Paper, Stack, Text, Title } from "@mantine/core";
+import { Alert, Button, Center, Container, Paper, Stack, Text, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { nameOf, type RoomState } from "../lib/room";
 import { speak, stopSpeaking } from "../lib/speech";
 import { Board } from "./Board";
@@ -23,18 +23,38 @@ export function HostGame({
   const clue = state.activeClue;
   const spokenRef = useRef("");
   const [hint, setHint] = useState(false);
+  const [soundBlocked, setSoundBlocked] = useState(false);
 
-  // Read the clue aloud once per reading (a resume re-reads with a new deadline), then
-  // tell the server so buzzing can open.
+  // Read the clue aloud once per reading (a resume re-reads with a new deadline). Only a
+  // reading that really ended opens buzzing early; otherwise the server's timer does, so
+  // nobody can buzz before the clue has been read.
+  const read = useCallback(
+    (clueId: string, text: string, key: string) => {
+      void speak(text).then((result) => {
+        if (result === "failed") setSoundBlocked(true);
+        if (result === "ended") {
+          setSoundBlocked(false);
+          if (spokenRef.current === key) send({ type: "reading_done", clueId });
+        }
+      });
+    },
+    [send],
+  );
+
   useEffect(() => {
     if (state.phase !== "clue_reading" || state.paused || !clue?.clueText) return;
     const key = `${clue.clueId}:${state.deadlineAt}`;
     if (spokenRef.current === key) return;
     spokenRef.current = key;
-    void speak(clue.clueText).then(() => {
-      if (spokenRef.current === key) send({ type: "reading_done", clueId: clue.clueId });
-    });
-  }, [state.phase, state.paused, state.deadlineAt, clue?.clueId, clue?.clueText, send]);
+    read(clue.clueId, clue.clueText, key);
+  }, [state.phase, state.paused, state.deadlineAt, clue?.clueId, clue?.clueText, read]);
+
+  // The tap is the user gesture the browser wants before it plays sound.
+  const unblockSound = () => {
+    setSoundBlocked(false);
+    if (state.phase === "clue_reading" && clue?.clueText) read(clue.clueId, clue.clueText, spokenRef.current);
+    else void speak("Sound on");
+  };
 
   useEffect(() => {
     if (state.phase !== "clue_reading") stopSpeaking();
@@ -86,6 +106,11 @@ export function HostGame({
     <Container size="xl" py="md">
       <Stack gap="md">
         {state.paused && <Alert color="yellow">Paused: waiting for the TV to reconnect…</Alert>}
+        {soundBlocked && (
+          <Button color="yellow" onClick={unblockSound}>
+            Tap to turn on sound
+          </Button>
+        )}
         <Center mih="60vh">{main}</Center>
         <ScoreBar state={state} />
         {playerBar}

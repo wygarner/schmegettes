@@ -24,7 +24,7 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Jeopardy. Feature
 - Two rounds: **Single** (values 200–1,000) and **Double** (400–2,000). Each has 6 categories × 5 clues, built at Start ([game history](../game-history/feature-brief.md)).
 - **Control** decides who picks. At the start of the game a random contestant has control. After that, whoever last answered correctly has it. When nobody answers correctly, control stays where it was.
 - Double Jeopardy starts with the contestant who has the **lowest score**. A tie goes to whoever comes first in join order.
-- The player in control picks by **tapping** the clue on their phone. The phone shows the board as category names and values, never clue text.
+- The player in control picks on their phone, by **tapping** the clue or by **saying it**: they tap 🎤 and say "Science for 400". The phone shows the board as category names and values, never clue text. A voice pick matches the category even with small slips ("sciense") and accepts "$400", "four hundred", or just the category when one clue is left in it. When it can't tell, it says what it missed, and the player can try again or tap.
 - **The host device can always pick** by tapping the board on the TV. That covers a controller who is away, slow, or disconnected.
 - If nobody picks within **15 s**, the TV shows "Waiting for Alice to pick…" with a hint that the host can pick. The game never picks for anyone.
 
@@ -74,7 +74,6 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Jeopardy. Feature
 
 - Daily Double and Final Jeopardy wagers (feature 2)
 - Host overrides of a verdict, the end-of-game scoreboard, and Rematch (feature 3)
-- Picking a clue by voice ("Science for 400"). It comes later; tap only for now.
 - An LLM appeal of a verdict
 - Typed answers (never: answers are spoken)
 - Sound effects and music

@@ -9,7 +9,9 @@ export type ClientMessage =
   | SetHostPlays
   | LeaveRoom
   | SelectClue
+  | ReadingDone
   | Buzz
+  | AnswerProgress
   | SubmitAnswer
   | SubmitWager
   | OverrideVerdict
@@ -49,6 +51,13 @@ export interface SelectClue {
   clueId: string;
 }
 /**
+ * Host only. The host device finished reading the active clue aloud, so buzzing can open.
+ */
+export interface ReadingDone {
+  type: "reading_done";
+  clueId: string;
+}
+/**
  * clientSentAt is advisory only; the server orders buzzes by its own receive time, with lockout for early buzzes.
  */
 export interface Buzz {
@@ -58,6 +67,14 @@ export interface Buzz {
    * Client clock, ms since epoch.
    */
   clientSentAt?: number;
+}
+/**
+ * The answering player's interim transcript, so the TV can show it live. The server drops more than 4 per second.
+ */
+export interface AnswerProgress {
+  type: "answer_progress";
+  clueId: string;
+  text: string;
 }
 export interface SubmitAnswer {
   type: "submit_answer";

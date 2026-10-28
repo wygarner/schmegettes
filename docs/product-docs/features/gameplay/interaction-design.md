@@ -65,7 +65,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 
 | Phase | Phone shows |
 |---|---|
-| `board`, I have control | Mini board: category names and values. Tap to pick. "Your pick" |
+| `board`, I have control | Mini board: category names and values. Tap to pick, or tap **🎤 Say it** and say "Science for 400". "Your pick" |
 | `board`, someone else picks | "Alice is picking…" and my score |
 | `clue_reading` | Big **BUZZ** button, dim. "Listen…" |
 | `buzzing_open` | **BUZZ** lit, full width, at least 64 px tall ([design system](../../architecture/design-system.md)) |
@@ -105,6 +105,7 @@ The same states as the phone table, in the player bar described in the [lobby in
 | Situation | Behavior |
 |---|---|
 | Controller taps a clue that's already done | Ignored; the cell is disabled |
+| Controller says a clue that's already done, or one that isn't on the board | "That one's already been played." / "Didn't catch the category." Nothing is picked; try again or tap |
 | Controller and host device pick at once | The first pick the server receives wins; the other is ignored |
 | Speech synthesis unavailable on the host device | Clue shown silently; buzzing opens on the fallback timer |
 | A player buzzes during `answering` | Ignored (not a lockout) |

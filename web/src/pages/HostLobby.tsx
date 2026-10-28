@@ -16,6 +16,8 @@ import {
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
+import { HostGame } from "../game/HostGame";
+import { MicPrompt } from "../game/MicPrompt";
 import { isValidName, MAX_NAME, setLastName } from "../lib/displayName";
 import { contestantCount, type RoomState, useRoom } from "../lib/room";
 import { type RoomJoin, roomByCode } from "../lib/rooms";
@@ -132,11 +134,7 @@ export function HostLobbyView({
     );
   }
   if (state.phase !== "lobby") {
-    return (
-      <Centered>
-        <Title order={2}>The board is ready.</Title>
-      </Centered>
-    );
+    return <HostGame state={state} send={send} hostUserId={state.hostUserId} />;
   }
 
   const count = contestantCount(state);
@@ -238,6 +236,7 @@ export function HostLobbyView({
               {state.hostPlays ? "Leave the game" : "Join the game"}
             </Button>
             {!state.hostPlays && full && <Text size="sm">Room is full</Text>}
+            {state.hostPlays && <MicPrompt />}
           </Stack>
           <Stack gap={4} align="end">
             <Button

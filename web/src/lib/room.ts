@@ -3,6 +3,21 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 import { GameSocket } from "./gameSocket";
 
 export type Player = Server.Player;
+export type BoardClue = Server.BoardClue;
+
+export interface Verdict {
+  userId: string;
+  answer: string;
+  verdict: string;
+  delta: number;
+}
+
+export interface Result {
+  userId: string;
+  displayName: string;
+  score: number;
+  placement: number;
+}
 
 export interface RoomState {
   /** connecting until the first snapshot; closed once the room closes or the player leaves */
@@ -15,6 +30,29 @@ export interface RoomState {
   /** In join order. The host is listed only while they play. */
   players: Player[];
   error?: { code: string; message?: string };
+
+  // Gameplay (docs/product-docs/features/gameplay/)
+  round: Domain.Round;
+  /** The current round's clues, column by column. Phones never get clue text. */
+  board: BoardClue[];
+  activeClue?: BoardClue;
+  /** Server clock, ms, when the current step times out. */
+  deadlineAt?: number;
+  controllingUserId?: string;
+  answeringUserId?: string;
+  attemptedUserIds: string[];
+  paused: boolean;
+  scores: Record<string, number>;
+  /** user -> server ms until which their buzzer is locked out */
+  lockouts: Record<string, number>;
+  /** The answering player's words so far. */
+  liveText?: string;
+  lastVerdict?: Verdict;
+  /** Set after a clue ends; the TV gets the correct response, phones don't. */
+  clueEnd?: { state: "answered" | "unanswered"; correctResponse?: string };
+  /** Between round_started and the round's first board phase ("Double Jeopardy!"). */
+  roundIntro?: Domain.Round;
+  results?: Result[];
 }
 
 export const initialRoom: RoomState = {
@@ -25,11 +63,22 @@ export const initialRoom: RoomState = {
   hostPlays: false,
   maxPlayers: 0,
   players: [],
+  round: "single",
+  board: [],
+  attemptedUserIds: [],
+  paused: false,
+  scores: {},
+  lockouts: {},
 };
 
 export type RoomEvent = ServerMessage | { type: "dropped" } | { type: "left" } | { type: "clear_error" };
 
-/** Folds server messages into the lobby state. Pure, so it is tested directly. */
+function withClue(board: BoardClue[], clue: BoardClue | undefined): BoardClue[] {
+  if (!clue) return board;
+  return board.map((c) => (c.clueId === clue.clueId ? { ...c, state: clue.state } : c));
+}
+
+/** Folds server messages into the room state. Pure, so it is tested directly. */
 export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
   switch (event.type) {
     case "room_snapshot":
@@ -41,6 +90,17 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         hostDisplayName: event.hostDisplayName ?? state.hostDisplayName,
         hostPlays: event.hostPlays ?? state.hostPlays,
         maxPlayers: event.maxPlayers ?? state.maxPlayers,
+        round: event.round,
+        board: event.board,
+        activeClue: event.activeClue,
+        deadlineAt: event.deadlineAt,
+        controllingUserId: event.controllingUserId,
+        answeringUserId: event.answeringUserId,
+        attemptedUserIds: event.attemptedUserIds ?? [],
+        paused: event.paused ?? false,
+        scores: event.scores ?? state.scores,
+        liveText: undefined,
+        roundIntro: undefined,
       };
     case "lobby_updated":
       return {
@@ -51,8 +111,73 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         maxPlayers: event.maxPlayers,
         players: event.players,
       };
-    case "phase_changed":
-      return { ...state, phase: event.phase };
+    case "phase_changed": {
+      const next: RoomState = {
+        ...state,
+        phase: event.phase,
+        deadlineAt: event.deadlineAt,
+        answeringUserId: event.answeringUserId,
+        // phase_changed carries the whole list; the server's encoder drops it when empty.
+        attemptedUserIds: event.attemptedUserIds ?? [],
+        controllingUserId: event.controllingUserId ?? state.controllingUserId,
+        paused: event.paused ?? state.paused,
+        activeClue: event.activeClue,
+        board: withClue(state.board, event.activeClue),
+      };
+      if (event.phase === "clue_reading") {
+        next.liveText = undefined;
+        next.lastVerdict = undefined;
+        next.clueEnd = undefined;
+        next.lockouts = {};
+      }
+      if (event.phase === "buzzing_open") next.liveText = undefined;
+      if (event.phase === "board") {
+        next.activeClue = undefined;
+        next.clueEnd = undefined;
+        next.lastVerdict = undefined;
+        next.roundIntro = undefined;
+      }
+      return next;
+    }
+    case "buzz_result":
+      if (event.outcome === "locked_out" && event.lockoutUntil) {
+        return { ...state, lockouts: { ...state.lockouts, [event.userId]: event.lockoutUntil } };
+      }
+      return state;
+    case "answer_progress":
+      return { ...state, liveText: event.text };
+    case "answer_judged":
+      return {
+        ...state,
+        scores: event.scores,
+        liveText: undefined,
+        lastVerdict: { userId: event.userId, answer: event.answer, verdict: event.verdict, delta: event.scoreDelta },
+      };
+    case "clue_ended":
+      return {
+        ...state,
+        scores: event.scores,
+        controllingUserId: event.controllingUserId ?? state.controllingUserId,
+        answeringUserId: undefined,
+        deadlineAt: undefined,
+        clueEnd: { state: event.state, correctResponse: event.correctResponse },
+        board: state.board.map((c) => (c.clueId === event.clueId ? { ...c, state: event.state } : c)),
+      };
+    case "round_started":
+      return {
+        ...state,
+        round: event.round,
+        board: event.board,
+        controllingUserId: event.controllingUserId ?? state.controllingUserId,
+        activeClue: undefined,
+        clueEnd: undefined,
+        lastVerdict: undefined,
+        roundIntro: event.round,
+      };
+    case "game_over":
+      return { ...state, results: event.results, deadlineAt: undefined, activeClue: undefined };
+    case "game_paused":
+      return { ...state, paused: event.paused, deadlineAt: event.paused ? undefined : state.deadlineAt };
     case "room_closed":
     case "left":
       return { ...state, connection: "closed" };
@@ -65,6 +190,13 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
     default:
       return state;
   }
+}
+
+/** A player's display name, or "" when unknown. */
+export function nameOf(state: RoomState, userId: string | undefined): string {
+  if (!userId) return "";
+  if (userId === state.hostUserId && !state.hostPlays) return state.hostDisplayName;
+  return state.players.find((p) => p.userId === userId)?.displayName ?? "";
 }
 
 /** Contestants count toward Start and the limit; a playing host is one of them. */

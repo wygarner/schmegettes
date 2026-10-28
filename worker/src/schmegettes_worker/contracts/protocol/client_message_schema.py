@@ -68,6 +68,14 @@ class SelectClue(BaseModel):
     clueId: domain_schema.Uuid
 
 
+class ReadingDone(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['reading_done']
+    clueId: domain_schema.Uuid
+
+
 class Buzz(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -77,6 +85,15 @@ class Buzz(BaseModel):
     clientSentAt: Optional[int] = Field(
         None, description='Client clock, ms since epoch.'
     )
+
+
+class AnswerProgress(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['answer_progress']
+    clueId: domain_schema.Uuid
+    text: constr(max_length=200)
 
 
 class SubmitAnswer(BaseModel):
@@ -108,7 +125,9 @@ class ClientMessage(
             SetHostPlays,
             LeaveRoom,
             SelectClue,
+            ReadingDone,
             Buzz,
+            AnswerProgress,
             SubmitAnswer,
             SubmitWager,
             OverrideVerdict,
@@ -122,7 +141,9 @@ class ClientMessage(
         SetHostPlays,
         LeaveRoom,
         SelectClue,
+        ReadingDone,
         Buzz,
+        AnswerProgress,
         SubmitAnswer,
         SubmitWager,
         OverrideVerdict,

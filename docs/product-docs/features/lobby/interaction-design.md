@@ -63,7 +63,7 @@ Host a game ─▶ name ─▶ creating ─▶ lobby ──Start──▶ buildi
 
 ### Playing on the host device (in game)
 
-When the host joined, a player bar sits along the bottom of the TV view. It's visible to the room and only ever shows the host's own controls:
+When the host joined, a player bar sits along the bottom of the TV view. It's visible to the room and only ever shows the host's own controls. It follows the same rules as a phone ([gameplay](../gameplay/interaction-design.md)):
 
 ```text
 ┌──────────────────────────────────────────────────────────┐

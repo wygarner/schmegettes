@@ -212,3 +212,6 @@ Never log clue text, correct responses, transcripts above `debug`, tokens, or wh
 ## Docs to update
 
 Subtask 6.
+
+## Branch
+`new-feature/gameplay`, from and into `daily/2026-10-27`. There is no Jira key: Jira isn't configured.

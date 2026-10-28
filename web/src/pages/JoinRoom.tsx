@@ -2,6 +2,8 @@ import { Alert, Anchor, Button, Center, Container, Group, Loader, Stack, Text, T
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { MicPrompt } from "../game/MicPrompt";
+import { PlayerGame } from "../game/PlayerGame";
 import { getLastName, isValidName, MAX_NAME, setLastName } from "../lib/displayName";
 import { type RoomState, useRoom } from "../lib/room";
 import { joinRoom, type RoomJoin, type RoomProblem, roomByCode } from "../lib/rooms";
@@ -165,11 +167,7 @@ export function PlayerView({
     );
   }
   if (state.phase !== "lobby") {
-    return (
-      <Centered>
-        <Title order={2}>The board is ready. Look at the TV.</Title>
-      </Centered>
-    );
+    return <PlayerGame state={state} userId={userId} send={send} />;
   }
 
   function saveName() {
@@ -185,6 +183,7 @@ export function PlayerView({
       {state.error?.code === "invalid_name" && <Alert color="red">Names are 1 to 20 characters.</Alert>}
       <Title order={2}>You're in, {me?.displayName ?? "…"}.</Title>
       <Text>Look at the TV. {state.hostDisplayName || "The host"} will start the game.</Text>
+      <MicPrompt />
       {editing ? (
         <Group>
           <TextInput

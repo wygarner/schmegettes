@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"schmegettes/game/internal/contracts"
+	"schmegettes/game/internal/play"
 )
 
 const (
@@ -24,13 +25,34 @@ type fakeStore struct {
 	startErr error
 	started  int
 	closed   bool
+
+	game    GameData
+	records []string
+	ended   contracts.GameStatus
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{lobby: Lobby{
-		Status: contracts.RoomStatusOpen, HostID: hostID, MaxPlayers: 6,
-		Members: []Member{{UserID: hostID, Name: "Wyatt", Role: contracts.PlayerRoleHost}},
-	}}
+	return &fakeStore{
+		lobby: Lobby{
+			Status: contracts.RoomStatusOpen, HostID: hostID, MaxPlayers: 6,
+			Members: []Member{{UserID: hostID, Name: "Wyatt", Role: contracts.PlayerRoleHost}},
+		},
+		game: GameData{
+			GameID:  "game-1",
+			Players: []play.Player{{UserID: alice, Name: "Alice"}, {UserID: bob, Name: "Bob"}},
+			Board:   miniBoard(),
+		},
+	}
+}
+
+// miniBoard is one clue per round, so a test can play a whole game.
+func miniBoard() []play.Clue {
+	return []play.Clue{
+		{ID: "clue-s", Round: contracts.RoundSingle, Category: "SCIENCE", Value: 200,
+			Text: "This gas makes up 78 percent of the air", Response: "Nitrogen", State: contracts.ClueStateUnplayed},
+		{ID: "clue-d", Round: contracts.RoundDouble, Category: "OPERA", Value: 800,
+			Text: "Verdi wrote this Egyptian opera", Response: "Aida", State: contracts.ClueStateUnplayed},
+	}
 }
 
 func (s *fakeStore) add(userID, name string) {
@@ -97,6 +119,39 @@ func (s *fakeStore) Close(context.Context, string) error {
 	return nil
 }
 
+func (s *fakeStore) LoadGame(context.Context, string) (GameData, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.game.GameID == "" {
+		return GameData{}, ErrNotFound
+	}
+	return s.game, nil
+}
+
+func (s *fakeStore) log(rec string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.records = append(s.records, rec)
+}
+
+func (s *fakeStore) RevealClue(_ context.Context, id string) error { s.log("reveal " + id); return nil }
+func (s *fakeStore) RecordAnswer(_ context.Context, r play.Record) error {
+	s.log("answer " + r.ClueID + " " + r.UserID + " " + string(r.Verdict))
+	return nil
+}
+func (s *fakeStore) FinishClue(_ context.Context, id string, st contracts.ClueState) error {
+	s.log("finish " + id + " " + string(st))
+	return nil
+}
+func (s *fakeStore) EndGame(_ context.Context, _ string, st contracts.GameStatus) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ended = st
+	s.records = append(s.records, "end "+string(st))
+	s.lobby.Status = contracts.RoomStatusOpen
+	return nil
+}
+
 func (s *fakeStore) setStatus(st contracts.RoomStatus) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -121,10 +176,39 @@ func (c *clock) advance(d time.Duration) {
 }
 
 type fixture struct {
-	t     *testing.T
-	store *fakeStore
-	clock *clock
-	hub   *Hub
+	t      *testing.T
+	store  *fakeStore
+	clock  *clock
+	hub    *Hub
+	timers *timers
+}
+
+// timers stands in for time.AfterFunc: tests fire the latest one on demand.
+type timers struct {
+	mu   sync.Mutex
+	next func()
+}
+
+func (tm *timers) after(_ time.Duration, f func()) func() bool {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+	tm.next = f
+	return func() bool { return true }
+}
+
+// fireAfter waits until the room has handled everything sent so far (a ping's pong comes back
+// only after earlier events, including arming the next timer), then fires the latest timer.
+func (tm *timers) fireAfter(c *conn) {
+	c.t.Helper()
+	c.send(map[string]any{"type": "ping"})
+	c.until("pong")
+	tm.mu.Lock()
+	f := tm.next
+	tm.mu.Unlock()
+	if f == nil {
+		c.t.Fatal("no timer armed")
+	}
+	f()
 }
 
 func setup(t *testing.T) *fixture {
@@ -133,8 +217,9 @@ func setup(t *testing.T) *fixture {
 	t.Cleanup(cancel)
 	clk := &clock{now: time.Unix(1_800_000_000, 0)}
 	store := newFakeStore()
-	cfg := Config{HostAbsence: 30 * time.Minute, Tick: 5 * time.Millisecond, Now: clk.Now}
-	return &fixture{t: t, store: store, clock: clk, hub: NewHub(ctx, store, cfg)}
+	tm := &timers{}
+	cfg := Config{HostAbsence: 30 * time.Minute, Tick: 5 * time.Millisecond, Now: clk.Now, AfterFunc: tm.after}
+	return &fixture{t: t, store: store, clock: clk, hub: NewHub(ctx, store, cfg), timers: tm}
 }
 
 type message struct {

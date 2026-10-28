@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"schmegettes/game/internal/contracts"
+	"schmegettes/game/internal/play"
 	"schmegettes/golib/db"
 )
 
@@ -107,4 +108,112 @@ func mapError(err error) error {
 		return ErrInvalidName
 	}
 	return err
+}
+
+// LoadGame reads the room's game in progress: contestants in join order, both rounds of the
+// board with clue text and responses, and the answers so far.
+func (s PGStore) LoadGame(ctx context.Context, roomID string) (GameData, error) {
+	var d GameData
+	err := s.DB.AsEngine(ctx, func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx, `
+			select id::text from public.games
+			where room_id = $1 and status = 'in_progress'
+			order by started_at desc limit 1`, roomID).Scan(&d.GameID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+
+		rows, err := tx.Query(ctx, `
+			select gp.user_id::text, coalesce(m.display_name, gp.display_name, 'Player')
+			from public.game_players gp
+			left join public.room_members m on m.room_id = $2 and m.user_id = gp.user_id
+			where gp.game_id = $1 and gp.role = 'contestant' and gp.user_id is not null
+			order by m.joined_at nulls last, gp.user_id`, d.GameID, roomID)
+		if err != nil {
+			return err
+		}
+		d.Players, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (play.Player, error) {
+			var p play.Player
+			return p, row.Scan(&p.UserID, &p.Name)
+		})
+		if err != nil {
+			return err
+		}
+
+		rows, err = tx.Query(ctx, `
+			select b.id::text, b.round::text, b.column_index, b.row_index, b.category, b.value,
+			       c.clue_text, c.correct_response, b.state::text
+			from public.board_clues b
+			join public.clues c on c.id = b.clue_id
+			where b.game_id = $1 and b.round in ('single', 'double')`, d.GameID)
+		if err != nil {
+			return err
+		}
+		d.Board, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (play.Clue, error) {
+			var c play.Clue
+			var round, state string
+			err := row.Scan(&c.ID, &round, &c.Col, &c.Row, &c.Category, &c.Value, &c.Text, &c.Response, &state)
+			c.Round, c.State = contracts.Round(round), contracts.ClueState(state)
+			if c.State == contracts.ClueStateActive {
+				d.ActiveClueID = c.ID
+			}
+			return c, err
+		})
+		if err != nil {
+			return err
+		}
+
+		d.Scores = map[string]int{}
+		d.Attempted = map[string]bool{}
+		rows, err = tx.Query(ctx, `
+			select gp.user_id::text, a.board_clue_id::text, a.verdict::text, a.score_delta
+			from public.answers a
+			join public.game_players gp on gp.id = a.game_player_id
+			where a.game_id = $1 and gp.user_id is not null
+			order by a.created_at`, d.GameID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var user, clue, verdict string
+			var delta int
+			if err := rows.Scan(&user, &clue, &verdict, &delta); err != nil {
+				return err
+			}
+			d.Scores[user] += delta
+			if verdict == "correct" || verdict == "overridden_correct" {
+				d.LastCorrect = user
+			}
+			if clue == d.ActiveClueID {
+				d.Attempted[user] = true
+			}
+		}
+		return rows.Err()
+	})
+	return d, err
+}
+
+// RevealClue marks a clue shown: everyone in the game has now seen it.
+func (s PGStore) RevealClue(ctx context.Context, clueID string) error {
+	return s.exec(ctx, "select public.reveal_clue($1)", clueID)
+}
+
+// RecordAnswer stores a judged answer. Its id is fixed before the first try, so a retry is a no-op.
+func (s PGStore) RecordAnswer(ctx context.Context, r play.Record) error {
+	return s.exec(ctx, "select public.record_answer($1, $2, $3, $4, 'voice', $5::public.verdict, $6)",
+		r.AnswerID, r.ClueID, r.UserID, r.Answer, string(r.Verdict), r.Delta)
+}
+
+// FinishClue marks a clue answered or unanswered.
+func (s PGStore) FinishClue(ctx context.Context, clueID string, state contracts.ClueState) error {
+	return s.exec(ctx, "select public.finish_clue($1, $2::public.clue_state)", clueID, string(state))
+}
+
+// EndGame records the game as finished or abandoned; the room reopens.
+func (s PGStore) EndGame(ctx context.Context, gameID string, status contracts.GameStatus) error {
+	return s.exec(ctx, "select public.end_game($1, $2::public.game_status)", gameID, string(status))
 }

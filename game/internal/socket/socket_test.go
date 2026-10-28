@@ -12,6 +12,7 @@ import (
 	"github.com/coder/websocket"
 
 	"schmegettes/game/internal/contracts"
+	"schmegettes/game/internal/play"
 	"schmegettes/game/internal/room"
 	"schmegettes/golib/auth"
 )
@@ -52,6 +53,13 @@ func (store) SetHostPlays(context.Context, string, bool) error      { return nil
 func (store) Leave(context.Context, string, string) error           { return nil }
 func (store) StartGame(context.Context, string) (string, error)     { return "", nil }
 func (store) Close(context.Context, string) error                   { return nil }
+func (store) LoadGame(context.Context, string) (room.GameData, error) {
+	return room.GameData{}, room.ErrNotFound
+}
+func (store) RevealClue(context.Context, string) error                      { return nil }
+func (store) RecordAnswer(context.Context, play.Record) error               { return nil }
+func (store) FinishClue(context.Context, string, contracts.ClueState) error { return nil }
+func (store) EndGame(context.Context, string, contracts.GameStatus) error   { return nil }
 
 func server(t *testing.T) *httptest.Server {
 	t.Helper()

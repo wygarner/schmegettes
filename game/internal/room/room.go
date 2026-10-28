@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"schmegettes/game/internal/contracts"
+	"schmegettes/game/internal/play"
 )
 
 // Store errors.
@@ -48,6 +49,13 @@ type Store interface {
 	Leave(ctx context.Context, roomID, userID string) error
 	StartGame(ctx context.Context, roomID string) (gameID string, err error)
 	Close(ctx context.Context, roomID string) error
+
+	// Gameplay, as game_engine (supabase functions; see realtime-game-server.md, "Recording").
+	LoadGame(ctx context.Context, roomID string) (GameData, error)
+	RevealClue(ctx context.Context, clueID string) error
+	RecordAnswer(ctx context.Context, rec play.Record) error
+	FinishClue(ctx context.Context, clueID string, state contracts.ClueState) error
+	EndGame(ctx context.Context, gameID string, status contracts.GameStatus) error
 }
 
 // Config holds a room's timings. Tests shorten them.
@@ -58,11 +66,16 @@ type Config struct {
 	Tick time.Duration
 	// Now is the clock.
 	Now func() time.Time
+	// AfterFunc runs f after d and returns a function that cancels it (time.AfterFunc).
+	AfterFunc func(d time.Duration, f func()) (stop func() bool)
 }
 
 // DefaultConfig is the production timing.
 func DefaultConfig() Config {
-	return Config{HostAbsence: 30 * time.Minute, Tick: 30 * time.Second, Now: time.Now}
+	return Config{
+		HostAbsence: 30 * time.Minute, Tick: 30 * time.Second, Now: time.Now,
+		AfterFunc: func(d time.Duration, f func()) func() bool { return time.AfterFunc(d, f).Stop },
+	}
 }
 
 // Client is one socket. The room writes encoded server messages to Out and closes Done when
@@ -84,12 +97,14 @@ const (
 	evAttach eventKind = iota
 	evDetach
 	evIntent
+	evTimer
 )
 
 type event struct {
 	kind   eventKind
 	client *Client
 	data   []byte
+	gen    int // evTimer: which schedule() armed it
 }
 
 // Room is one live room.
@@ -107,6 +122,13 @@ type Room struct {
 	clients    map[*Client]bool
 	hostGoneAt time.Time // zero while a host socket is open
 	log        *slog.Logger
+
+	// The game in progress, once Start succeeds (or on load of a room in a game).
+	game      *play.Game
+	gameID    string
+	pending   []play.Record
+	stopTimer func() bool
+	timerGen  int
 }
 
 func newRoom(id string, store Store, cfg Config) *Room {
@@ -150,6 +172,9 @@ func (r *Room) load(ctx context.Context) bool {
 		return false
 	case contracts.RoomStatusInGame:
 		r.phase = contracts.GamePhaseBoard
+		if !r.loadGame(ctx) {
+			return false
+		}
 	default:
 		r.phase = contracts.GamePhaseLobby
 	}
@@ -178,6 +203,9 @@ func (r *Room) run(ctx context.Context, first *Client, onExit func()) {
 		select {
 		case <-ctx.Done():
 			r.drop("shutdown")
+			if r.stopTimer != nil {
+				r.stopTimer()
+			}
 			return
 		case ev := <-r.events:
 			switch ev.kind {
@@ -187,14 +215,17 @@ func (r *Room) run(ctx context.Context, first *Client, onExit func()) {
 				r.detach(ev.client)
 			case evIntent:
 				r.handle(ctx, ev.client, ev.data)
+			case evTimer:
+				r.fire(ctx, ev.gen)
 			}
 		case <-ticker.C:
 			if r.tick(ctx) {
 				return
 			}
 		}
-		// Outside the lobby there is nothing to keep an empty room for yet.
-		if len(r.clients) == 0 && r.phase != contracts.GamePhaseLobby {
+		// A finished game has nothing left to run. A game in progress stays loaded so its
+		// pause and abandonment timers keep running; a lobby closes on host absence.
+		if len(r.clients) == 0 && r.phase == contracts.GamePhaseFinished {
 			r.drop("empty")
 			return
 		}
@@ -204,6 +235,11 @@ func (r *Room) run(ctx context.Context, first *Client, onExit func()) {
 // tick closes the room when its host has been gone too long or it was closed elsewhere.
 // It reports whether the room stopped.
 func (r *Room) tick(ctx context.Context) bool {
+	r.flush(ctx)
+	if r.game != nil && !r.game.Over() && !r.hostGoneAt.IsZero() &&
+		r.cfg.Now().Sub(r.hostGoneAt) >= r.cfg.HostAbsence {
+		return r.abandon(ctx)
+	}
 	if r.phase == contracts.GamePhaseLobby && !r.hostGoneAt.IsZero() &&
 		r.cfg.Now().Sub(r.hostGoneAt) >= r.cfg.HostAbsence {
 		if err := r.store.Close(ctx, r.id); err != nil {
@@ -269,9 +305,12 @@ func (r *Room) attach(ctx context.Context, c *Client) {
 	if r.phase == contracts.GamePhaseLobby {
 		r.reload(ctx)
 	}
-	r.sendTo(c, r.snapshot())
+	r.sendTo(c, r.snapshotFor(c))
 	if r.phase == contracts.GamePhaseLobby {
 		r.broadcast(r.lobbyUpdated())
+	}
+	if r.game != nil {
+		r.applyGame(ctx, r.game.Connect(r.cfg.Now(), c.UserID))
 	}
 }
 
@@ -285,6 +324,9 @@ func (r *Room) detach(c *Client) {
 	}
 	if r.phase == contracts.GamePhaseLobby {
 		r.broadcast(r.lobbyUpdated())
+	}
+	if r.game != nil {
+		r.applyGame(context.Background(), r.game.Disconnect(r.cfg.Now(), c.UserID))
 	}
 }
 
@@ -308,8 +350,12 @@ func (r *Room) players() []contracts.Player {
 		if m.Role == contracts.PlayerRoleHost && !r.lobby.HostPlays {
 			continue
 		}
+		score := 0
+		if r.game != nil {
+			score = r.game.Scores()[m.UserID]
+		}
 		out = append(out, contracts.Player{
-			UserId: contracts.Uuid(m.UserID), DisplayName: m.Name, Role: m.Role, Connected: online[m.UserID],
+			UserId: contracts.Uuid(m.UserID), DisplayName: m.Name, Role: m.Role, Connected: online[m.UserID], Score: score,
 		})
 	}
 	return out
@@ -341,6 +387,16 @@ func (r *Room) snapshot() contracts.RoomSnapshot {
 		Round: contracts.RoundSingle, Players: r.players(), Board: []contracts.BoardClue{},
 		HostDisplayName: &name, HostPlays: &plays, MaxPlayers: &maxPlayers,
 	}
+}
+
+// snapshotFor is the snapshot for one socket: with a game, the host's copy carries the
+// active clue's text.
+func (r *Room) snapshotFor(c *Client) contracts.RoomSnapshot {
+	snap := r.snapshot()
+	if r.game != nil {
+		r.game.SnapshotFields(&snap, c.UserID == r.lobby.HostID)
+	}
+	return snap
 }
 
 func (r *Room) lobbyUpdated() contracts.LobbyUpdated {
@@ -508,7 +564,9 @@ func (r *Room) handle(ctx context.Context, c *Client, data []byte) {
 		r.start(ctx, c)
 
 	default:
-		r.fail(c, contracts.ErrorCodeWrongPhase, "")
+		if !r.handleGame(ctx, c, envelope.Type, data) {
+			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+		}
 	}
 }
 
@@ -546,7 +604,16 @@ func (r *Room) start(ctx context.Context, host *Client) {
 	}
 	r.log.Info("game started", "game_id", gameID)
 	r.lobby.Status = contracts.RoomStatusInGame
-	r.setPhase(contracts.GamePhaseBoard)
+	if !r.loadGame(ctx) {
+		r.setPhase(contracts.GamePhaseLobby)
+		msg := "Couldn't load the board. Try again."
+		data, _ := json.Marshal(contracts.Error{Type: "error", Code: contracts.ErrorCodeInternal, Message: &msg})
+		for c := range r.clients {
+			r.deliver(c, data)
+		}
+		return
+	}
+	r.startRound(ctx)
 }
 
 func (r *Room) setPhase(p contracts.GamePhase) {

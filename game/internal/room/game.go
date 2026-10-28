@@ -1,0 +1,260 @@
+package room
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"math/rand/v2"
+
+	"github.com/google/uuid"
+
+	"schmegettes/game/internal/contracts"
+	"schmegettes/game/internal/play"
+)
+
+// GameData is a game in progress as stored: who plays, the board with clue text and
+// responses, and what the answers so far imply (scores, control, who tried the active clue).
+type GameData struct {
+	GameID       string
+	Players      []play.Player
+	Board        []play.Clue
+	Scores       map[string]int
+	LastCorrect  string
+	ActiveClueID string
+	Attempted    map[string]bool
+}
+
+// loadGame builds the play.Game for the room's game in progress, fresh or after a restart.
+func (r *Room) loadGame(ctx context.Context) bool {
+	data, err := r.store.LoadGame(ctx, r.id)
+	if err != nil {
+		r.log.Error("game load failed", "err", err)
+		return false
+	}
+	r.gameID = data.GameID
+	r.game = play.New(play.Setup{
+		RoomID: r.id, GameID: data.GameID, HostID: r.lobby.HostID,
+		Players: data.Players, Board: data.Board,
+		Scores: data.Scores, LastCorrect: data.LastCorrect,
+		ActiveClueID: data.ActiveClueID, AttemptedByID: data.Attempted,
+		NextSeq: func() int { r.seq++; return r.seq },
+		NewID:   uuid.NewString,
+		Pick:    rand.IntN,
+	})
+	r.phase = r.game.Phase()
+	r.log.Info("game loaded", "game_id", data.GameID, "recovered", data.ActiveClueID != "" || len(data.Scores) > 0)
+	return true
+}
+
+// applyGame sends the effects' messages, writes their records, and reschedules the timer.
+func (r *Room) applyGame(ctx context.Context, e play.Effects) {
+	for _, b := range e.Broadcasts {
+		r.sendGame(b)
+	}
+	r.pending = append(r.pending, e.Records...)
+	r.flush(ctx)
+	if r.game != nil {
+		r.phase = r.game.Phase()
+	}
+	r.schedule()
+}
+
+// sendGame delivers one broadcast: the host's sockets get the copy with TV-only fields
+// (clue text, correct response), everyone else gets the plain copy. Both share one seq.
+func (r *Room) sendGame(b play.Broadcast) {
+	all, err := json.Marshal(b.All)
+	if err != nil {
+		r.log.Error("encode failed", "err", err)
+		return
+	}
+	host := all
+	if b.Host != nil {
+		if host, err = json.Marshal(b.Host); err != nil {
+			r.log.Error("encode failed", "err", err)
+			return
+		}
+	}
+	for c := range r.clients {
+		if c.UserID == r.lobby.HostID {
+			r.deliver(c, host)
+		} else {
+			r.deliver(c, all)
+		}
+	}
+}
+
+// flush writes pending records in order. A failure keeps the rest for the next event; the
+// writes are safe to repeat.
+func (r *Room) flush(ctx context.Context) {
+	for len(r.pending) > 0 {
+		rec := r.pending[0]
+		if err := r.write(ctx, rec); err != nil {
+			r.log.Error("record write failed", "err", err, "game_id", r.gameID, "op", rec.Kind)
+			return
+		}
+		r.pending = r.pending[1:]
+	}
+}
+
+func (r *Room) write(ctx context.Context, rec play.Record) error {
+	switch rec.Kind {
+	case play.RevealClue:
+		return r.store.RevealClue(ctx, rec.ClueID)
+	case play.RecordAnswer:
+		r.log.Debug("answer judged", "game_id", r.gameID, "user_id", rec.UserID, "verdict", rec.Verdict, "answer", rec.Answer)
+		return r.store.RecordAnswer(ctx, rec)
+	case play.FinishClue:
+		return r.store.FinishClue(ctx, rec.ClueID, rec.State)
+	case play.EndGame:
+		r.log.Info("game over", "game_id", r.gameID)
+		return r.store.EndGame(ctx, r.gameID, contracts.GameStatusFinished)
+	}
+	return nil
+}
+
+// schedule arms the room's one timer for the game's next deadline.
+func (r *Room) schedule() {
+	if r.stopTimer != nil {
+		r.stopTimer()
+		r.stopTimer = nil
+	}
+	if r.game == nil || r.game.Deadline().IsZero() {
+		return
+	}
+	r.timerGen++
+	gen := r.timerGen
+	wait := max(r.game.Deadline().Sub(r.cfg.Now()), 0)
+	r.stopTimer = r.cfg.AfterFunc(wait, func() { r.send(event{kind: evTimer, gen: gen}) })
+}
+
+func (r *Room) fire(ctx context.Context, gen int) {
+	if r.game == nil || gen != r.timerGen {
+		return // a timer that was replaced
+	}
+	// The timer firing means the deadline has come, even if the clock reads a hair early.
+	now := r.cfg.Now()
+	if d := r.game.Deadline(); d.After(now) {
+		now = d
+	}
+	r.applyGame(ctx, r.game.Timeout(now))
+}
+
+// abandon ends a game whose host device has been gone too long, and closes the room.
+func (r *Room) abandon(ctx context.Context) bool {
+	if err := r.store.EndGame(ctx, r.gameID, contracts.GameStatusAbandoned); err != nil {
+		r.log.Error("abandon failed", "err", err, "game_id", r.gameID)
+		return false
+	}
+	if err := r.store.Close(ctx, r.id); err != nil {
+		r.log.Error("room close failed", "err", err)
+		return false
+	}
+	r.log.Info("game abandoned", "game_id", r.gameID)
+	r.closeRoom(contracts.RoomClosedReasonHostAbsent)
+	return true
+}
+
+// handleGame runs a gameplay intent. It reports false for types it doesn't know.
+func (r *Room) handleGame(ctx context.Context, c *Client, kind string, data []byte) bool {
+	now := r.cfg.Now()
+	var (
+		e   play.Effects
+		err error
+	)
+	switch kind {
+	case "select_clue":
+		var m contracts.SelectClue
+		if !decode(data, &m) {
+			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+			return true
+		}
+		if r.game == nil {
+			r.fail(c, contracts.ErrorCodeWrongPhase, "")
+			return true
+		}
+		r.log.Debug("clue picked", "game_id", r.gameID, "board_clue_id", m.ClueId, "user_id", c.UserID)
+		e, err = r.game.Pick(now, c.UserID, string(m.ClueId))
+	case "reading_done":
+		var m contracts.ReadingDone
+		if !decode(data, &m) {
+			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+			return true
+		}
+		if r.game == nil {
+			return true
+		}
+		e, err = r.game.ReadingDone(now, c.UserID, string(m.ClueId))
+	case "buzz":
+		var m contracts.Buzz
+		if !decode(data, &m) {
+			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+			return true
+		}
+		if r.game == nil {
+			r.fail(c, contracts.ErrorCodeWrongPhase, "")
+			return true
+		}
+		e, err = r.game.Buzz(now, c.UserID, string(m.ClueId))
+		if m.ClientSentAt != nil && err == nil {
+			r.log.Debug("buzz", "user_id", c.UserID, "latency_ms", now.UnixMilli()-int64(*m.ClientSentAt))
+		}
+	case "answer_progress":
+		var m contracts.AnswerProgress
+		if !decode(data, &m) {
+			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+			return true
+		}
+		if r.game == nil {
+			return true
+		}
+		e, err = r.game.Progress(now, c.UserID, m.Text)
+	case "submit_answer":
+		var m contracts.SubmitAnswer
+		if !decode(data, &m) {
+			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+			return true
+		}
+		if r.game == nil {
+			r.fail(c, contracts.ErrorCodeWrongPhase, "")
+			return true
+		}
+		e, err = r.game.Answer(now, c.UserID, string(m.ClueId), m.Answer)
+	default:
+		return false
+	}
+	var reject *play.Reject
+	switch {
+	case errors.As(err, &reject):
+		r.fail(c, reject.Code, "")
+	case err == nil:
+		r.applyGame(ctx, e)
+	}
+	return true
+}
+
+// startRound announces the board after start_game and connects everyone already here.
+func (r *Room) startRound(ctx context.Context) {
+	r.sendGame(play.Broadcast{All: contracts.RoundStarted{
+		Type: "round_started", RoomId: contracts.Uuid(r.id), Seq: r.nextSeq(),
+		Round: contracts.RoundSingle, Board: r.game.Board(false), ControllingUserId: r.controller(),
+	}})
+	r.connectAll(ctx)
+}
+
+func (r *Room) connectAll(ctx context.Context) {
+	now := r.cfg.Now()
+	for c := range r.clients {
+		r.applyGame(ctx, r.game.Connect(now, c.UserID))
+	}
+}
+
+func (r *Room) nextSeq() int {
+	r.seq++
+	return r.seq
+}
+
+func (r *Room) controller() *contracts.Uuid {
+	var snap contracts.RoomSnapshot
+	r.game.SnapshotFields(&snap, false)
+	return snap.ControllingUserId
+}

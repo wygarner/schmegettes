@@ -79,11 +79,6 @@ func (f *fixture) must(e Effects, err error) {
 	}
 }
 
-func (f *fixture) advance(d time.Duration) {
-	f.now = f.now.Add(d)
-	f.take(f.g.Timeout(f.now))
-}
-
 // toDeadline jumps to the pending deadline and fires it.
 func (f *fixture) toDeadline() {
 	f.t.Helper()

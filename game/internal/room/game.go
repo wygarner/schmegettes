@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/rand/v2"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -83,17 +84,36 @@ func (r *Room) sendGame(b play.Broadcast) {
 	}
 }
 
+// maxWriteTries bounds retries of one record, so a write that can never succeed doesn't block
+// every record behind it for the rest of the game.
+const maxWriteTries = 3
+
 // flush writes pending records in order. A failure keeps the rest for the next event; the
-// writes are safe to repeat.
+// writes are safe to repeat. A record that fails maxWriteTries times is dropped and logged.
 func (r *Room) flush(ctx context.Context) {
 	for len(r.pending) > 0 {
 		rec := r.pending[0]
 		if err := r.write(ctx, rec); err != nil {
-			r.log.Error("record write failed", "err", err, "game_id", r.gameID, "op", rec.Kind)
-			return
+			r.writeTries++
+			if r.writeTries < maxWriteTries {
+				r.log.Error("record write failed", "err", err, "game_id", r.gameID, "op", rec.Kind)
+				return
+			}
+			r.log.Error("record dropped after retries", "err", err, "game_id", r.gameID, "op", rec.Kind)
 		}
+		r.writeTries = 0
 		r.pending = r.pending[1:]
 	}
+}
+
+// clip cuts text to the 200 characters the contract allows (answers.answer's limit), so an
+// over-long message can't fail its write.
+func clip(s string) string {
+	const limit = 200
+	if utf8.RuneCountInString(s) <= limit {
+		return s
+	}
+	return string([]rune(s)[:limit])
 }
 
 func (r *Room) write(ctx context.Context, rec play.Record) error {
@@ -207,7 +227,7 @@ func (r *Room) handleGame(ctx context.Context, c *Client, kind string, data []by
 		if r.game == nil {
 			return true
 		}
-		e, err = r.game.Progress(now, c.UserID, m.Text)
+		e, err = r.game.Progress(now, c.UserID, clip(m.Text))
 	case "submit_answer":
 		var m contracts.SubmitAnswer
 		if !decode(data, &m) {
@@ -218,7 +238,7 @@ func (r *Room) handleGame(ctx context.Context, c *Client, kind string, data []by
 			r.fail(c, contracts.ErrorCodeWrongPhase, "")
 			return true
 		}
-		e, err = r.game.Answer(now, c.UserID, string(m.ClueId), m.Answer)
+		e, err = r.game.Answer(now, c.UserID, string(m.ClueId), clip(m.Answer))
 	default:
 		return false
 	}

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"schmegettes/game/internal/contracts"
 	"schmegettes/game/internal/play"
@@ -29,6 +30,9 @@ type fakeStore struct {
 	game    GameData
 	records []string
 	ended   contracts.GameStatus
+
+	failAnswers bool // RecordAnswer always fails
+	answerLen   int  // characters in the last answer written
 }
 
 func newFakeStore() *fakeStore {
@@ -136,6 +140,13 @@ func (s *fakeStore) log(rec string) {
 
 func (s *fakeStore) RevealClue(_ context.Context, id string) error { s.log("reveal " + id); return nil }
 func (s *fakeStore) RecordAnswer(_ context.Context, r play.Record) error {
+	s.mu.Lock()
+	fail := s.failAnswers
+	s.answerLen = utf8.RuneCountInString(r.Answer)
+	s.mu.Unlock()
+	if fail {
+		return errors.New("check constraint")
+	}
 	s.log("answer " + r.ClueID + " " + r.UserID + " " + string(r.Verdict))
 	return nil
 }

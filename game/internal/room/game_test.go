@@ -206,3 +206,68 @@ func TestPickByNonController(t *testing.T) {
 		t.Errorf("code %q", m.Code)
 	}
 }
+
+// answerOnce plays the Single clue up to an answer from whoever isn't in control.
+func answerOnce(t *testing.T, answer string) (*fixture, *conn) {
+	t.Helper()
+	return answerOnceWith(t, answer, nil)
+}
+
+func answerOnceWith(t *testing.T, answer string, before func(*fixture)) (*fixture, *conn) {
+	t.Helper()
+	f, host, a, b := startedGame(t)
+	if before != nil {
+		before(f)
+	}
+	picker := map[string]*conn{alice: a, bob: b}[controller(f)]
+	other := a
+	if picker == a {
+		other = b
+	}
+	picker.send(map[string]any{"type": "select_clue", "clueId": "clue-s"})
+	host.send(map[string]any{"type": "reading_done", "clueId": "clue-s"})
+	other.until("phase_changed")
+	other.until("phase_changed")
+	other.send(map[string]any{"type": "buzz", "clueId": "clue-s"})
+	other.send(map[string]any{"type": "submit_answer", "clueId": "clue-s", "answer": answer, "source": "voice"})
+	host.raw("answer_judged")
+	// A wrong answer reopens buzzing for the other player; let that window close.
+	f.timers.fireAfter(host)
+	host.raw("clue_ended")
+	return f, host
+}
+
+func TestLongAnswersAreClipped(t *testing.T) {
+	f, _ := answerOnce(t, strings.Repeat("é", 300))
+	f.store.mu.Lock()
+	defer f.store.mu.Unlock()
+	if f.store.answerLen != 200 {
+		t.Errorf("wrote %d characters, want 200", f.store.answerLen)
+	}
+}
+
+func TestAWriteThatKeepsFailingDoesNotBlockTheRest(t *testing.T) {
+	f, _ := answerOnceWith(t, "oxygen", func(f *fixture) {
+		f.store.mu.Lock()
+		f.store.failAnswers = true
+		f.store.mu.Unlock()
+	})
+	// The room's tick retries; after maxWriteTries the answer is dropped and the clue's
+	// finish is written.
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		f.store.mu.Lock()
+		got := strings.Join(f.store.records, "|")
+		f.store.mu.Unlock()
+		if strings.Contains(got, "finish clue-s") {
+			if strings.Contains(got, "answer clue-s") {
+				t.Errorf("the failing answer was written: %s", got)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("later records blocked: %s", got)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}

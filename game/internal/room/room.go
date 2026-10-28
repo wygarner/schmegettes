@@ -124,11 +124,12 @@ type Room struct {
 	log        *slog.Logger
 
 	// The game in progress, once Start succeeds (or on load of a room in a game).
-	game      *play.Game
-	gameID    string
-	pending   []play.Record
-	stopTimer func() bool
-	timerGen  int
+	game       *play.Game
+	gameID     string
+	pending    []play.Record
+	writeTries int // failures of pending[0]
+	stopTimer  func() bool
+	timerGen   int
 }
 
 func newRoom(id string, store Store, cfg Config) *Room {

@@ -152,3 +152,25 @@ test("no lit buzzer once the clue has ended or between rounds", () => {
   expect(screen.queryByRole("button", { name: "Buzz" })).not.toBeInTheDocument();
   expect(screen.getByText("Double Jeopardy!")).toBeInTheDocument();
 });
+
+test("the controller can say a clue instead of tapping it", () => {
+  const { send } = setup({ ...base, phase: "board", controllingUserId: me });
+  expect(screen.getByRole("button", { name: "SCIENCE for 400" })).toBeInTheDocument(); // the board is still there
+  fireEvent.click(screen.getByRole("button", { name: "Say a clue" }));
+  expect(rec.started).toBe(1);
+  act(() => rec.onFinal?.("science for four hundred"));
+  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c1" });
+});
+
+test("a voice pick that doesn't match says so and picks nothing", () => {
+  const { send } = setup({ ...base, phase: "board", controllingUserId: me });
+  fireEvent.click(screen.getByRole("button", { name: "Say a clue" }));
+  act(() => rec.onFinal?.("opera for 200"));
+  expect(screen.getByText(/Didn't catch the category/)).toBeInTheDocument();
+  expect(send).not.toHaveBeenCalled();
+});
+
+test("players without control don't get the voice button", () => {
+  setup({ ...base, phase: "board" });
+  expect(screen.queryByRole("button", { name: "Say a clue" })).not.toBeInTheDocument();
+});

@@ -7,6 +7,7 @@ import { Buzzer, type BuzzerState } from "./Buzzer";
 import { Countdown } from "./Countdown";
 import { money } from "./ScoreBar";
 import { useAnswerCapture } from "./useAnswerCapture";
+import { VoicePick } from "./VoicePick";
 
 /**
  * A contestant's controls: pick when in control, buzz, answer out loud. The phone shows
@@ -101,7 +102,8 @@ export function PlayerControls({
             {!compact && (
               <Board board={state.board} size="phone" onPick={(id) => send({ type: "select_clue", clueId: id })} />
             )}
-            {compact && <Text size="sm">Tap a clue on the board.</Text>}
+            {compact && <Text size="sm">Tap a clue on the board, or say it.</Text>}
+            <VoicePick board={state.board} onPick={(id) => send({ type: "select_clue", clueId: id })} />
           </Stack>
         );
       }

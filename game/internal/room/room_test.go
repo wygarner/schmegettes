@@ -294,6 +294,14 @@ func (c *conn) until(typ string) message {
 	}
 }
 
+// settle waits until the room has handled every event sent before it: the room handles
+// events one at a time, so a pong comes back only after them.
+func (c *conn) settle() {
+	c.t.Helper()
+	c.send(map[string]any{"type": "ping"})
+	c.until("pong")
+}
+
 func (c *conn) send(v any) {
 	data, _ := json.Marshal(v)
 	c.room.Intent(c.client, data)
@@ -485,7 +493,7 @@ func TestHostAbsenceClosesTheLobby(t *testing.T) {
 	host := f.connect(hostID)
 	a := f.connect(alice)
 	host.room.Detach(host.client)
-	a.until("lobby_updated")
+	a.settle() // the room has recorded when the host left
 
 	f.clock.advance(29 * time.Minute)
 	time.Sleep(30 * time.Millisecond) // several ticks
@@ -510,6 +518,7 @@ func TestHostReturningResetsTheTimer(t *testing.T) {
 	host := f.connect(hostID)
 	a := f.connect(alice)
 	host.room.Detach(host.client)
+	a.settle()
 	f.clock.advance(20 * time.Minute)
 	f.connect(hostID)
 	f.clock.advance(20 * time.Minute)

@@ -11,7 +11,7 @@ type AnswerJudged struct {
 	// AnswerId corresponds to the JSON schema field "answerId".
 	AnswerId Uuid `json:"answerId" yaml:"answerId" mapstructure:"answerId"`
 
-	// CorrectResponse corresponds to the JSON schema field "correctResponse".
+	// Sent only to the host device (the TV).
 	CorrectResponse *string `json:"correctResponse,omitempty" yaml:"correctResponse,omitempty" mapstructure:"correctResponse,omitempty"`
 
 	// RoomId corresponds to the JSON schema field "roomId".
@@ -39,6 +39,19 @@ type AnswerJudged struct {
 // userId -> score after this verdict.
 type AnswerJudgedScores map[string]int
 
+// The answering player's interim transcript, so the TV can show it live. The
+// server drops more than 4 per second.
+type AnswerProgress struct {
+	// ClueId corresponds to the JSON schema field "clueId".
+	ClueId Uuid `json:"clueId" yaml:"clueId" mapstructure:"clueId"`
+
+	// Text corresponds to the JSON schema field "text".
+	Text string `json:"text" yaml:"text" mapstructure:"text"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
+
 type AppealAnswer struct {
 	// AnswerId corresponds to the JSON schema field "answerId".
 	AnswerId Uuid `json:"answerId" yaml:"answerId" mapstructure:"answerId"`
@@ -56,8 +69,9 @@ type AppealAnswer struct {
 	RequestId *string `json:"requestId,omitempty" yaml:"requestId,omitempty" mapstructure:"requestId,omitempty"`
 }
 
-// A clue as players see it. clueText is present only once the clue is revealed;
-// the correct response is never sent before judging.
+// A clue as players see it. clueText is sent only to the host device (the TV), and
+// only once the clue is revealed; phones never receive it. The correct response is
+// never on a board clue.
 type BoardClue struct {
 	// Category corresponds to the JSON schema field "category".
 	Category string `json:"category" yaml:"category" mapstructure:"category"`
@@ -114,6 +128,42 @@ const BuzzResultOutcomeLockedOut BuzzResultOutcome = "locked_out"
 const BuzzResultOutcomeTooLate BuzzResultOutcome = "too_late"
 const BuzzResultOutcomeWon BuzzResultOutcome = "won"
 
+// The active clue is done. correctResponse is sent only to the host device (the
+// TV).
+type ClueEnded struct {
+	// ClueId corresponds to the JSON schema field "clueId".
+	ClueId Uuid `json:"clueId" yaml:"clueId" mapstructure:"clueId"`
+
+	// ControllingUserId corresponds to the JSON schema field "controllingUserId".
+	ControllingUserId *Uuid `json:"controllingUserId,omitempty" yaml:"controllingUserId,omitempty" mapstructure:"controllingUserId,omitempty"`
+
+	// CorrectResponse corresponds to the JSON schema field "correctResponse".
+	CorrectResponse *string `json:"correctResponse,omitempty" yaml:"correctResponse,omitempty" mapstructure:"correctResponse,omitempty"`
+
+	// RoomId corresponds to the JSON schema field "roomId".
+	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
+
+	// userId -> score.
+	Scores ClueEndedScores `json:"scores" yaml:"scores" mapstructure:"scores"`
+
+	// Seq corresponds to the JSON schema field "seq".
+	Seq int `json:"seq" yaml:"seq" mapstructure:"seq"`
+
+	// State corresponds to the JSON schema field "state".
+	State ClueEndedState `json:"state" yaml:"state" mapstructure:"state"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
+
+// userId -> score.
+type ClueEndedScores map[string]int
+
+type ClueEndedState string
+
+const ClueEndedStateAnswered ClueEndedState = "answered"
+const ClueEndedStateUnanswered ClueEndedState = "unanswered"
+
 type ClueState string
 
 const ClueStateActive ClueState = "active"
@@ -134,15 +184,61 @@ type Error struct {
 
 type ErrorCode string
 
+const ErrorCodeAlreadyAttempted ErrorCode = "already_attempted"
 const ErrorCodeGameStarted ErrorCode = "game_started"
 const ErrorCodeInternal ErrorCode = "internal"
 const ErrorCodeInvalidMessage ErrorCode = "invalid_message"
 const ErrorCodeInvalidName ErrorCode = "invalid_name"
 const ErrorCodeNotEnoughPlayers ErrorCode = "not_enough_players"
 const ErrorCodeNotHost ErrorCode = "not_host"
+const ErrorCodeNotInControl ErrorCode = "not_in_control"
 const ErrorCodeNotYourTurn ErrorCode = "not_your_turn"
 const ErrorCodeRoomFull ErrorCode = "room_full"
 const ErrorCodeWrongPhase ErrorCode = "wrong_phase"
+
+// The game ended. Results are highest score first; ties share a placement.
+type GameOver struct {
+	// Results corresponds to the JSON schema field "results".
+	Results []GameOverResultsElem `json:"results" yaml:"results" mapstructure:"results"`
+
+	// RoomId corresponds to the JSON schema field "roomId".
+	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
+
+	// Seq corresponds to the JSON schema field "seq".
+	Seq int `json:"seq" yaml:"seq" mapstructure:"seq"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
+
+type GameOverResultsElem struct {
+	// DisplayName corresponds to the JSON schema field "displayName".
+	DisplayName string `json:"displayName" yaml:"displayName" mapstructure:"displayName"`
+
+	// Placement corresponds to the JSON schema field "placement".
+	Placement int `json:"placement" yaml:"placement" mapstructure:"placement"`
+
+	// Score corresponds to the JSON schema field "score".
+	Score int `json:"score" yaml:"score" mapstructure:"score"`
+
+	// UserId corresponds to the JSON schema field "userId".
+	UserId Uuid `json:"userId" yaml:"userId" mapstructure:"userId"`
+}
+
+// The host device left (paused) or came back (resumed). Timers stop while paused.
+type GamePaused struct {
+	// Paused corresponds to the JSON schema field "paused".
+	Paused bool `json:"paused" yaml:"paused" mapstructure:"paused"`
+
+	// RoomId corresponds to the JSON schema field "roomId".
+	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
+
+	// Seq corresponds to the JSON schema field "seq".
+	Seq int `json:"seq" yaml:"seq" mapstructure:"seq"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
 
 type GamePhase string
 
@@ -186,6 +282,24 @@ type ImportClueSeason struct {
 type LeaveRoom struct {
 	// Type corresponds to the JSON schema field "type".
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
+
+// The answering player's interim transcript, for the TV.
+type LiveTranscript struct {
+	// RoomId corresponds to the JSON schema field "roomId".
+	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
+
+	// Seq corresponds to the JSON schema field "seq".
+	Seq int `json:"seq" yaml:"seq" mapstructure:"seq"`
+
+	// Text corresponds to the JSON schema field "text".
+	Text string `json:"text" yaml:"text" mapstructure:"text"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+
+	// UserId corresponds to the JSON schema field "userId".
+	UserId Uuid `json:"userId" yaml:"userId" mapstructure:"userId"`
 }
 
 // The lobby changed: someone joined, left, renamed, connected or disconnected, or
@@ -233,8 +347,20 @@ type PhaseChanged struct {
 	// ActiveClue corresponds to the JSON schema field "activeClue".
 	ActiveClue *BoardClue `json:"activeClue,omitempty" yaml:"activeClue,omitempty" mapstructure:"activeClue,omitempty"`
 
+	// AnsweringUserId corresponds to the JSON schema field "answeringUserId".
+	AnsweringUserId *Uuid `json:"answeringUserId,omitempty" yaml:"answeringUserId,omitempty" mapstructure:"answeringUserId,omitempty"`
+
+	// AttemptedUserIds corresponds to the JSON schema field "attemptedUserIds".
+	AttemptedUserIds []Uuid `json:"attemptedUserIds,omitempty" yaml:"attemptedUserIds,omitempty" mapstructure:"attemptedUserIds,omitempty"`
+
+	// ControllingUserId corresponds to the JSON schema field "controllingUserId".
+	ControllingUserId *Uuid `json:"controllingUserId,omitempty" yaml:"controllingUserId,omitempty" mapstructure:"controllingUserId,omitempty"`
+
 	// Server clock, ms since epoch, when this phase times out.
 	DeadlineAt *int `json:"deadlineAt,omitempty" yaml:"deadlineAt,omitempty" mapstructure:"deadlineAt,omitempty"`
+
+	// Paused corresponds to the JSON schema field "paused".
+	Paused *bool `json:"paused,omitempty" yaml:"paused,omitempty" mapstructure:"paused,omitempty"`
 
 	// Phase corresponds to the JSON schema field "phase".
 	Phase GamePhase `json:"phase" yaml:"phase" mapstructure:"phase"`
@@ -285,6 +411,16 @@ type Pong struct {
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
 }
 
+// Host only. The host device finished reading the active clue aloud, so buzzing
+// can open.
+type ReadingDone struct {
+	// ClueId corresponds to the JSON schema field "clueId".
+	ClueId Uuid `json:"clueId" yaml:"clueId" mapstructure:"clueId"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
+
 // The room closed. host_absent: no host device for 30 minutes in the lobby.
 // replaced: the host created a new room. closed: it had already closed when this
 // socket connected. Clients stop reconnecting on any room_closed, whatever its
@@ -315,14 +451,26 @@ type RoomCode string
 // Full state, sent on connect and reconnect. In the lobby, round is single, board
 // is empty, and the lobby fields are present.
 type RoomSnapshot struct {
+	// ActiveClue corresponds to the JSON schema field "activeClue".
+	ActiveClue *BoardClue `json:"activeClue,omitempty" yaml:"activeClue,omitempty" mapstructure:"activeClue,omitempty"`
+
 	// ActiveClueId corresponds to the JSON schema field "activeClueId".
 	ActiveClueId *Uuid `json:"activeClueId,omitempty" yaml:"activeClueId,omitempty" mapstructure:"activeClueId,omitempty"`
+
+	// AnsweringUserId corresponds to the JSON schema field "answeringUserId".
+	AnsweringUserId *Uuid `json:"answeringUserId,omitempty" yaml:"answeringUserId,omitempty" mapstructure:"answeringUserId,omitempty"`
+
+	// AttemptedUserIds corresponds to the JSON schema field "attemptedUserIds".
+	AttemptedUserIds []Uuid `json:"attemptedUserIds,omitempty" yaml:"attemptedUserIds,omitempty" mapstructure:"attemptedUserIds,omitempty"`
 
 	// Board corresponds to the JSON schema field "board".
 	Board []BoardClue `json:"board" yaml:"board" mapstructure:"board"`
 
 	// ControllingUserId corresponds to the JSON schema field "controllingUserId".
 	ControllingUserId *Uuid `json:"controllingUserId,omitempty" yaml:"controllingUserId,omitempty" mapstructure:"controllingUserId,omitempty"`
+
+	// Server clock, ms since epoch, when the current step times out.
+	DeadlineAt *int `json:"deadlineAt,omitempty" yaml:"deadlineAt,omitempty" mapstructure:"deadlineAt,omitempty"`
 
 	// HostDisplayName corresponds to the JSON schema field "hostDisplayName".
 	HostDisplayName *string `json:"hostDisplayName,omitempty" yaml:"hostDisplayName,omitempty" mapstructure:"hostDisplayName,omitempty"`
@@ -332,6 +480,9 @@ type RoomSnapshot struct {
 
 	// MaxPlayers corresponds to the JSON schema field "maxPlayers".
 	MaxPlayers *int `json:"maxPlayers,omitempty" yaml:"maxPlayers,omitempty" mapstructure:"maxPlayers,omitempty"`
+
+	// Paused corresponds to the JSON schema field "paused".
+	Paused *bool `json:"paused,omitempty" yaml:"paused,omitempty" mapstructure:"paused,omitempty"`
 
 	// Phase corresponds to the JSON schema field "phase".
 	Phase GamePhase `json:"phase" yaml:"phase" mapstructure:"phase"`
@@ -345,12 +496,18 @@ type RoomSnapshot struct {
 	// Round corresponds to the JSON schema field "round".
 	Round Round `json:"round" yaml:"round" mapstructure:"round"`
 
+	// userId -> score.
+	Scores RoomSnapshotScores `json:"scores,omitempty" yaml:"scores,omitempty" mapstructure:"scores,omitempty"`
+
 	// Seq corresponds to the JSON schema field "seq".
 	Seq int `json:"seq" yaml:"seq" mapstructure:"seq"`
 
 	// Type corresponds to the JSON schema field "type".
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
 }
+
+// userId -> score.
+type RoomSnapshotScores map[string]int
 
 type RoomStatus string
 
@@ -363,6 +520,27 @@ type Round string
 const RoundDouble Round = "double"
 const RoundFinal Round = "final"
 const RoundSingle Round = "single"
+
+// A round's board is up.
+type RoundStarted struct {
+	// Board corresponds to the JSON schema field "board".
+	Board []BoardClue `json:"board" yaml:"board" mapstructure:"board"`
+
+	// ControllingUserId corresponds to the JSON schema field "controllingUserId".
+	ControllingUserId *Uuid `json:"controllingUserId,omitempty" yaml:"controllingUserId,omitempty" mapstructure:"controllingUserId,omitempty"`
+
+	// RoomId corresponds to the JSON schema field "roomId".
+	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
+
+	// Round corresponds to the JSON schema field "round".
+	Round Round `json:"round" yaml:"round" mapstructure:"round"`
+
+	// Seq corresponds to the JSON schema field "seq".
+	Seq int `json:"seq" yaml:"seq" mapstructure:"seq"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
 
 // Sent by the player who has control of the board.
 type SelectClue struct {

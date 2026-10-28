@@ -49,6 +49,15 @@ class RoomSnapshot(BaseModel):
     hostDisplayName: Optional[str] = None
     hostPlays: Optional[bool] = None
     maxPlayers: Optional[conint(ge=2)] = None
+    activeClue: Optional[BoardClue] = None
+    deadlineAt: Optional[int] = Field(
+        None,
+        description='Server clock, ms since epoch, when the current step times out.',
+    )
+    answeringUserId: Optional[domain_schema.Uuid] = None
+    attemptedUserIds: Optional[List[domain_schema.Uuid]] = None
+    paused: Optional[bool] = None
+    scores: Optional[Dict[str, int]] = Field(None, description='userId -> score.')
 
 
 class LobbyUpdated(BaseModel):
@@ -93,6 +102,10 @@ class PhaseChanged(BaseModel):
     deadlineAt: Optional[int] = Field(
         None, description='Server clock, ms since epoch, when this phase times out.'
     )
+    answeringUserId: Optional[domain_schema.Uuid] = None
+    attemptedUserIds: Optional[List[domain_schema.Uuid]] = None
+    controllingUserId: Optional[domain_schema.Uuid] = None
+    paused: Optional[bool] = None
 
 
 class Outcome(Enum):
@@ -124,11 +137,85 @@ class AnswerJudged(BaseModel):
     userId: domain_schema.Uuid
     answer: str
     verdict: domain_schema.Verdict
-    correctResponse: Optional[str] = None
+    correctResponse: Optional[str] = Field(
+        None, description='Sent only to the host device (the TV).'
+    )
     scoreDelta: int
     scores: Dict[str, int] = Field(
         ..., description='userId -> score after this verdict.'
     )
+
+
+class LiveTranscript(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['answer_progress']
+    roomId: domain_schema.Uuid
+    seq: conint(ge=0)
+    userId: domain_schema.Uuid
+    text: constr(max_length=200)
+
+
+class State(Enum):
+    answered = 'answered'
+    unanswered = 'unanswered'
+
+
+class ClueEnded(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['clue_ended']
+    roomId: domain_schema.Uuid
+    seq: conint(ge=0)
+    clueId: domain_schema.Uuid
+    state: State
+    correctResponse: Optional[str] = None
+    controllingUserId: Optional[domain_schema.Uuid] = None
+    scores: Dict[str, int] = Field(..., description='userId -> score.')
+
+
+class RoundStarted(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['round_started']
+    roomId: domain_schema.Uuid
+    seq: conint(ge=0)
+    round: domain_schema.Round
+    board: List[BoardClue]
+    controllingUserId: Optional[domain_schema.Uuid] = None
+
+
+class Result(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    userId: domain_schema.Uuid
+    displayName: str
+    score: int
+    placement: conint(ge=1)
+
+
+class GameOver(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['game_over']
+    roomId: domain_schema.Uuid
+    seq: conint(ge=0)
+    results: List[Result]
+
+
+class GamePaused(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['game_paused']
+    roomId: domain_schema.Uuid
+    seq: conint(ge=0)
+    paused: bool
 
 
 class TimerTick(BaseModel):
@@ -151,6 +238,8 @@ class Code(Enum):
     not_enough_players = 'not_enough_players'
     game_started = 'game_started'
     invalid_name = 'invalid_name'
+    not_in_control = 'not_in_control'
+    already_attempted = 'already_attempted'
 
 
 class Error(BaseModel):
@@ -179,6 +268,11 @@ class ServerMessage(
             PhaseChanged,
             BuzzResult,
             AnswerJudged,
+            LiveTranscript,
+            ClueEnded,
+            RoundStarted,
+            GameOver,
+            GamePaused,
             TimerTick,
             Error,
             Pong,
@@ -192,6 +286,11 @@ class ServerMessage(
         PhaseChanged,
         BuzzResult,
         AnswerJudged,
+        LiveTranscript,
+        ClueEnded,
+        RoundStarted,
+        GameOver,
+        GamePaused,
         TimerTick,
         Error,
         Pong,

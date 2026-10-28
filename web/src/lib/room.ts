@@ -117,7 +117,8 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         phase: event.phase,
         deadlineAt: event.deadlineAt,
         answeringUserId: event.answeringUserId,
-        attemptedUserIds: event.attemptedUserIds ?? state.attemptedUserIds,
+        // phase_changed carries the whole list; the server's encoder drops it when empty.
+        attemptedUserIds: event.attemptedUserIds ?? [],
         controllingUserId: event.controllingUserId ?? state.controllingUserId,
         paused: event.paused ?? state.paused,
         activeClue: event.activeClue,

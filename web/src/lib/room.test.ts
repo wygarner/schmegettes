@@ -118,3 +118,20 @@ test("rounds, pause, and game over", () => {
   });
   expect(s.results).toHaveLength(1);
 });
+
+test("a new clue clears who has tried, even though the server omits an empty list", () => {
+  let s = reduceRoom(
+    { ...initialRoom, connection: "open" },
+    { type: "phase_changed", roomId: ROOM, seq: 1, phase: "buzzing_open", activeClue: clue, attemptedUserIds: ["a"] },
+  );
+  expect(s.attemptedUserIds).toEqual(["a"]);
+  // Go's encoder drops an empty attemptedUserIds, so the next clue's reading arrives without it.
+  s = reduceRoom(s, {
+    type: "phase_changed",
+    roomId: ROOM,
+    seq: 2,
+    phase: "clue_reading",
+    activeClue: { ...clue, clueId: "c2" },
+  });
+  expect(s.attemptedUserIds).toEqual([]);
+});

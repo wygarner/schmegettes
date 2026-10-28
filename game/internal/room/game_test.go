@@ -121,6 +121,7 @@ func TestAFullGameEndToEnd(t *testing.T) {
 	if m, _ := host.raw("game_over"); len(m.Results) != 2 || m.Results[0].Score != 200 {
 		t.Errorf("results %+v", m.Results)
 	}
+	host.settle() // messages go out before the writes they describe
 
 	f.store.mu.Lock()
 	defer f.store.mu.Unlock()
@@ -238,7 +239,8 @@ func answerOnceWith(t *testing.T, answer string, before func(*fixture)) (*fixtur
 }
 
 func TestLongAnswersAreClipped(t *testing.T) {
-	f, _ := answerOnce(t, strings.Repeat("é", 300))
+	f, host := answerOnce(t, strings.Repeat("é", 300))
+	host.settle()
 	f.store.mu.Lock()
 	defer f.store.mu.Unlock()
 	if f.store.answerLen != 200 {

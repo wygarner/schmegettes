@@ -22,13 +22,13 @@ A clue is **seen** by everyone in the game at the moment its text is **revealed*
 - Clues left unplayed on the board are **not** seen. A short game doesn't use up 60 clues.
 - Daily Doubles count once revealed (the wagering player and everyone watching saw it).
 - Final Jeopardy counts once the clue is revealed, for every player in the game, including those who couldn't wager.
-- The host device's and spectators' seen clues are recorded too, so if they play later they still get fresh clues. They do not constrain the board for the game they are watching.
+- A non-playing host's and spectators' seen clues are recorded too, so if they play later they still get fresh clues. They do not constrain the board for the game they are watching.
 - People in the room who watch the TV without joining on a phone aren't tracked; they may see repeats in a later game.
 
 ### Building a fresh board
 
 - The board is built when the host presses **Start**, not when the room is created, because only then do we know who is playing.
-- A board is made of categories. A category is one category from one aired game (its 5 clues, or 1 for Final). A category is **eligible** only if none of its clues has been seen by any contestant in this game. The host device never counts: a host who wants to play joins from their phone as a contestant, and that phone's history counts.
+- A board is made of categories. A category is one category from one aired game (its 5 clues, or 1 for Final). A category is **eligible** only if none of its clues has been seen by any contestant in this game. A host who joined the game is a contestant and counts; a host who only hosts does not.
 - If there are not enough eligible categories to fill a board (rare: the catalog has hundreds of thousands of clues), fill the rest with the categories whose clues were seen **longest ago** by the fewest contestants. The game always starts; we never block play.
 - A **rematch** in the same room builds a new board with the same rules. A room can hold many games.
 
@@ -38,7 +38,7 @@ A clue is **seen** by everyone in the game at the moment its text is **revealed*
 - A game ends as **finished** (Final revealed) or **abandoned** (the room closed or everyone left before the end). Abandoned games stay in history with the scores at that moment; their revealed clues still count as seen.
 - Each player's result keeps the **name they used in that game**, so later renames don't rewrite old scoreboards.
 - A final score is always the sum of that player's scored answers. There is one source of truth.
-- Placement: contestants only. Highest score is 1st. Tied scores share a placement (two players at 1st, the next is 3rd). The host device and spectators have no placement.
+- Placement: contestants only. Highest score is 1st. Tied scores share a placement (two players at 1st, the next is 3rd). A non-playing host and spectators have no placement.
 
 ### Who can see what
 

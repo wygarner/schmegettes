@@ -8,6 +8,12 @@
       "$ref": "#/$defs/RoomSnapshot"
     },
     {
+      "$ref": "#/$defs/LobbyUpdated"
+    },
+    {
+      "$ref": "#/$defs/RoomClosed"
+    },
+    {
       "$ref": "#/$defs/PhaseChanged"
     },
     {
@@ -15,6 +21,21 @@
     },
     {
       "$ref": "#/$defs/AnswerJudged"
+    },
+    {
+      "$ref": "#/$defs/LiveTranscript"
+    },
+    {
+      "$ref": "#/$defs/ClueEnded"
+    },
+    {
+      "$ref": "#/$defs/RoundStarted"
+    },
+    {
+      "$ref": "#/$defs/GameOver"
+    },
+    {
+      "$ref": "#/$defs/GamePaused"
     },
     {
       "$ref": "#/$defs/TimerTick"
@@ -51,7 +72,7 @@
       "additionalProperties": false
     },
     "BoardClue": {
-      "description": "A clue as players see it. clueText is present only once the clue is revealed; the correct response is never sent before judging.",
+      "description": "A clue as players see it. clueText is sent only to the host device (the TV), and only once the clue is revealed; phones never receive it. The correct response is never on a board clue.",
       "type": "object",
       "properties": {
         "clueId": {
@@ -74,7 +95,7 @@
       "additionalProperties": false
     },
     "RoomSnapshot": {
-      "description": "Full state, sent on connect and reconnect.",
+      "description": "Full state, sent on connect and reconnect. In the lobby, round is single, board is empty, and the lobby fields are present.",
       "type": "object",
       "properties": {
         "type": {
@@ -110,9 +131,104 @@
         },
         "activeClueId": {
           "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "hostDisplayName": {
+          "type": "string"
+        },
+        "hostPlays": {
+          "type": "boolean"
+        },
+        "maxPlayers": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "activeClue": {
+          "$ref": "#/$defs/BoardClue"
+        },
+        "deadlineAt": {
+          "type": "integer",
+          "description": "Server clock, ms since epoch, when the current step times out."
+        },
+        "answeringUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "attemptedUserIds": {
+          "type": "array",
+          "items": {
+            "$ref": "../domain.schema.json#/$defs/Uuid"
+          }
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "scores": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "userId -> score."
         }
       },
       "required": ["type", "roomId", "seq", "phase", "round", "players", "board"],
+      "additionalProperties": false
+    },
+    "LobbyUpdated": {
+      "description": "The lobby changed: someone joined, left, renamed, connected or disconnected, or the host joined or left the game. players is in join order; the host is listed only when hostPlays.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "lobby_updated"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hostUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "hostDisplayName": {
+          "type": "string"
+        },
+        "hostPlays": {
+          "type": "boolean"
+        },
+        "maxPlayers": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "players": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Player"
+          }
+        }
+      },
+      "required": ["type", "roomId", "seq", "hostUserId", "hostDisplayName", "hostPlays", "maxPlayers", "players"],
+      "additionalProperties": false
+    },
+    "RoomClosed": {
+      "description": "The room closed. host_absent: no host device for 30 minutes in the lobby. replaced: the host created a new room. closed: it had already closed when this socket connected. Clients stop reconnecting on any room_closed, whatever its seq.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "room_closed"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["host_absent", "replaced", "closed"]
+        }
+      },
+      "required": ["type", "roomId", "seq", "reason"],
       "additionalProperties": false
     },
     "PhaseChanged": {
@@ -137,6 +253,21 @@
         "deadlineAt": {
           "type": "integer",
           "description": "Server clock, ms since epoch, when this phase times out."
+        },
+        "answeringUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "attemptedUserIds": {
+          "type": "array",
+          "items": {
+            "$ref": "../domain.schema.json#/$defs/Uuid"
+          }
+        },
+        "controllingUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "paused": {
+          "type": "boolean"
         }
       },
       "required": ["type", "roomId", "seq", "phase"],
@@ -195,7 +326,8 @@
           "$ref": "../domain.schema.json#/$defs/Verdict"
         },
         "correctResponse": {
-          "type": "string"
+          "type": "string",
+          "description": "Sent only to the host device (the TV)."
         },
         "scoreDelta": {
           "type": "integer"
@@ -209,6 +341,161 @@
         }
       },
       "required": ["type", "roomId", "seq", "answerId", "userId", "answer", "verdict", "scoreDelta", "scores"],
+      "additionalProperties": false
+    },
+    "LiveTranscript": {
+      "description": "The answering player's interim transcript, for the TV.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "answer_progress"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "userId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      "required": ["type", "roomId", "seq", "userId", "text"],
+      "additionalProperties": false
+    },
+    "ClueEnded": {
+      "description": "The active clue is done. correctResponse is sent only to the host device (the TV).",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "clue_ended"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "clueId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "state": {
+          "type": "string",
+          "enum": ["answered", "unanswered"]
+        },
+        "correctResponse": {
+          "type": "string"
+        },
+        "controllingUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "scores": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "userId -> score."
+        }
+      },
+      "required": ["type", "roomId", "seq", "clueId", "state", "scores"],
+      "additionalProperties": false
+    },
+    "RoundStarted": {
+      "description": "A round's board is up.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "round_started"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "round": {
+          "$ref": "../domain.schema.json#/$defs/Round"
+        },
+        "board": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoardClue"
+          }
+        },
+        "controllingUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        }
+      },
+      "required": ["type", "roomId", "seq", "round", "board"],
+      "additionalProperties": false
+    },
+    "GameOver": {
+      "description": "The game ended. Results are highest score first; ties share a placement.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "game_over"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "userId": {
+                "$ref": "../domain.schema.json#/$defs/Uuid"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "score": {
+                "type": "integer"
+              },
+              "placement": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": ["userId", "displayName", "score", "placement"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["type", "roomId", "seq", "results"],
+      "additionalProperties": false
+    },
+    "GamePaused": {
+      "description": "The host device left (paused) or came back (resumed). Timers stop while paused.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "game_paused"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "paused": {
+          "type": "boolean"
+        }
+      },
+      "required": ["type", "roomId", "seq", "paused"],
       "additionalProperties": false
     },
     "TimerTick": {
@@ -241,7 +528,19 @@
         },
         "code": {
           "type": "string",
-          "enum": ["invalid_message", "not_your_turn", "not_host", "wrong_phase", "room_full", "internal"]
+          "enum": [
+            "invalid_message",
+            "not_your_turn",
+            "not_host",
+            "wrong_phase",
+            "room_full",
+            "internal",
+            "not_enough_players",
+            "game_started",
+            "invalid_name",
+            "not_in_control",
+            "already_attempted"
+          ]
         },
         "message": {
           "type": "string"

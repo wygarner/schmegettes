@@ -5,8 +5,13 @@
   "description": "Every message a client may send on the game WebSocket. The server rejects anything that does not validate. The socket is authenticated at connect time (Supabase JWT); messages carry no identity.",
   "oneOf": [
     { "$ref": "#/$defs/StartGame" },
+    { "$ref": "#/$defs/SetDisplayName" },
+    { "$ref": "#/$defs/SetHostPlays" },
+    { "$ref": "#/$defs/LeaveRoom" },
     { "$ref": "#/$defs/SelectClue" },
+    { "$ref": "#/$defs/ReadingDone" },
     { "$ref": "#/$defs/Buzz" },
+    { "$ref": "#/$defs/AnswerProgress" },
     { "$ref": "#/$defs/SubmitAnswer" },
     { "$ref": "#/$defs/SubmitWager" },
     { "$ref": "#/$defs/OverrideVerdict" },
@@ -20,11 +25,48 @@
       "required": ["type"],
       "additionalProperties": false
     },
+    "SetDisplayName": {
+      "description": "Lobby only. Renames the sender in this room; the server adds a suffix when the name is taken.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "set_display_name" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 20 }
+      },
+      "required": ["type", "displayName"],
+      "additionalProperties": false
+    },
+    "SetHostPlays": {
+      "description": "Host only, lobby only. Joins or leaves the game as a contestant on the host device.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "set_host_plays" },
+        "plays": { "type": "boolean" }
+      },
+      "required": ["type", "plays"],
+      "additionalProperties": false
+    },
+    "LeaveRoom": {
+      "description": "Lobby only, not the host. Removes the sender from the room.",
+      "type": "object",
+      "properties": { "type": { "const": "leave_room" } },
+      "required": ["type"],
+      "additionalProperties": false
+    },
     "SelectClue": {
       "description": "Sent by the player who has control of the board.",
       "type": "object",
       "properties": {
         "type": { "const": "select_clue" },
+        "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" }
+      },
+      "required": ["type", "clueId"],
+      "additionalProperties": false
+    },
+    "ReadingDone": {
+      "description": "Host only. The host device finished reading the active clue aloud, so buzzing can open.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "reading_done" },
         "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" }
       },
       "required": ["type", "clueId"],
@@ -39,6 +81,17 @@
         "clientSentAt": { "type": "integer", "description": "Client clock, ms since epoch." }
       },
       "required": ["type", "clueId"],
+      "additionalProperties": false
+    },
+    "AnswerProgress": {
+      "description": "The answering player's interim transcript, so the TV can show it live. The server drops more than 4 per second.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "answer_progress" },
+        "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
+        "text": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["type", "clueId", "text"],
       "additionalProperties": false
     },
     "SubmitAnswer": {

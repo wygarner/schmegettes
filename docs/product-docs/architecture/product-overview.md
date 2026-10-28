@@ -11,8 +11,8 @@ There is no remote play: a player has to see the TV to play.
 | Concept | Meaning |
 |---|---|
 | **Room** | A lobby with a 5-character code, shown on the TV. One host device, up to 6 contestants (configurable 2–8), any number of spectators. |
-| **Host** | The device driving the TV. Creates the room, shows the board and clues, reads clues aloud, starts the game, and can override any verdict. The host device never plays or scores. A host who wants to play joins from their own phone as a contestant. |
-| **Contestant** | A player's phone: buzzer and microphone, plus clue picking when they have control. A phone never shows clue text or responses; those are on the TV. |
+| **Host** | The device driving the TV. Creates the room, shows the board and clues, reads clues aloud, starts the game, and can override any verdict. In the lobby the host can **join the game**: the host device then is also that host's contestant, with a buzzer on screen and the device's microphone. Since the host device is mirrored to the TV, its buzzer is visible to the room; only Final wagers are masked ([lobby](../features/lobby/feature-brief.md)). |
+| **Contestant** | A player's phone (or the host device, when the host joins): buzzer and microphone, plus clue picking when they have control. A phone never shows clue text or responses; those are on the TV. |
 | **Spectator** | A phone that joined to follow along without buzzing. Optional: people in the room can just watch the TV. |
 | **Board** | 6 categories × 5 clues per round, drawn from the clue catalog (past seasons). Single and Double rounds, then Final. Built when the host presses Start, from categories nobody playing has seen ([game history](../features/game-history/feature-brief.md)). |
 | **Control** | The contestant who last answered correctly picks the next clue, by voice ("Science for 400") or by tapping on their phone. The host device can override. |

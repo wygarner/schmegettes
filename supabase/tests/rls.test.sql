@@ -1,7 +1,7 @@
 -- Row-level security tests. Run with `mise run db:test` (supabase test db).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(11);
 
 -- Two users, each hosting a room.
 insert into auth.users (id, email) values
@@ -32,7 +32,7 @@ select throws_ok(
 );
 
 -- Alice joins Bob's room by code.
-select is(public.join_room('bobby'), 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid, 'join_room finds a room by code');
+select is(public.join_room('bobby', 'Alice'), 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid, 'join_room finds a room by code');
 select is((select count(*)::int from public.rooms), 2, 'after joining, the room is visible');
 select is(
   (select count(*)::int from public.profiles where user_id = '22222222-2222-4222-8222-222222222222'),
@@ -43,10 +43,14 @@ select is(
   0, 'strangers'' profiles are hidden'
 );
 
--- Creating a room returns it (RETURNING is checked before the host membership trigger runs).
-select lives_ok(
-  $$ insert into public.rooms (code, host_id) values ('ALIC2', '11111111-1111-4111-8111-111111111111') returning id $$,
-  'a user can create a room as host and read it back'
+-- Rooms are created and changed only through functions (create_room, game/'s lobby calls).
+select throws_ok(
+  $$ insert into public.rooms (code, host_id) values ('ALIC2', '11111111-1111-4111-8111-111111111111') $$,
+  '42501', null, 'a user cannot insert a room directly'
+);
+select throws_ok(
+  $$ update public.rooms set status = 'open' where host_id = '11111111-1111-4111-8111-111111111111' $$,
+  '42501', null, 'a host cannot change room status directly'
 );
 select * from finish();
 rollback;

@@ -53,7 +53,7 @@ Oct 26, 2026 · 8:14 PM · 41 min
 4th  Former player  −$400
 ```
 
-Names are as they were in that game. The host device and spectators can open it but aren't listed in the scoreboard.
+Names are as they were in that game. A non-playing host and spectators can open it but aren't listed in the scoreboard.
 
 ## Edge cases
 

@@ -64,8 +64,8 @@ jobs:
             echo "shared=$(has "$CORE")"
             echo "web=$(has "$CORE|^web/|^package\.json$|^bun\.lock$|^biome\.json$")"
             echo "devtools=$(has "$CORE|^devtools/|^package\.json$|^bun\.lock$")"
-            echo "game=$(has "$CORE|^game/")"
-            echo "api=$(has "$CORE|^api/|^supabase/")"
+            echo "game=$(has "$CORE|^game/|^golib/")"
+            echo "api=$(has "$CORE|^api/|^golib/|^supabase/")"
             echo "worker=$(has "$CORE|^worker/|^supabase/")"
             echo "database=$(has "$CORE|^supabase/")"
             echo "scripts=$(has '^scripts/|^\.github/')"
@@ -196,6 +196,14 @@ jobs:
       - run: go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
       - run: go test -race -coverprofile=coverage.out ./...
       - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      # golib/ is shared with api/ and has no job of its own; it is checked here.
+      - name: golib
+        working-directory: golib
+        run: |
+          test -z "$(gofmt -l .)" || { gofmt -l .; echo "::error::Run gofmt -w ."; exit 1; }
+          go vet ./...
+          go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
+          go test -race ./...
 
   api:
     name: API

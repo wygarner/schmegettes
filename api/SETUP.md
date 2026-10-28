@@ -16,7 +16,9 @@ mise run test:api -- ./internal/rooms/...         # targeted tests
 | `cmd/api/` | Entry point: routes, `/healthz`, `/version`, graceful shutdown |
 | `internal/contracts/` | Types and server interface generated from `shared/openapi.yaml` (`oapi-codegen`, via `mise run gen`). Never edited by hand. |
 | `internal/{resource}/` | Handlers per resource (`rooms`, `games`, `me`) |
-| `../golib/` | Go code shared with `game/` (JWT verification, `db.AsUser`, logger setup), imported with a `replace` directive. Created with the first helper both need. |
+| `internal/server/` | Auth, CORS, request ids, request logging, problem responses |
+| `internal/rooms/` | `POST /v1/rooms`, `POST /v1/rooms/join`, `GET /v1/rooms/by-code/{code}` |
+| `../golib/` | Go code shared with `game/` (JWT verification, `db.AsUser`, logger setup), imported with a `replace` directive |
 
 ## Rules
 
@@ -35,4 +37,6 @@ mise run test:api -- ./internal/rooms/...         # targeted tests
 
 ## Environment
 
-See `.env.example`.
+See `.env.example`. `GAME_SOCKET_BASE_URL` is game/'s public WebSocket URL; room responses append `/rooms/{id}/ws`.
+
+The rooms integration test (`internal/rooms/store_test.go`) runs against local Supabase when `SUPABASE_ANON_KEY` is set (`supabase status -o env` prints it as `ANON_KEY`).

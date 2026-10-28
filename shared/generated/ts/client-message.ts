@@ -3,7 +3,19 @@
 /**
  * Every message a client may send on the game WebSocket. The server rejects anything that does not validate. The socket is authenticated at connect time (Supabase JWT); messages carry no identity.
  */
-export type ClientMessage = StartGame | SelectClue | Buzz | SubmitAnswer | SubmitWager | OverrideVerdict | Ping;
+export type ClientMessage =
+  | StartGame
+  | SetDisplayName
+  | SetHostPlays
+  | LeaveRoom
+  | SelectClue
+  | ReadingDone
+  | Buzz
+  | AnswerProgress
+  | SubmitAnswer
+  | SubmitWager
+  | OverrideVerdict
+  | Ping;
 
 /**
  * Host only. Moves the room from lobby to the first board.
@@ -12,10 +24,37 @@ export interface StartGame {
   type: "start_game";
 }
 /**
+ * Lobby only. Renames the sender in this room; the server adds a suffix when the name is taken.
+ */
+export interface SetDisplayName {
+  type: "set_display_name";
+  displayName: string;
+}
+/**
+ * Host only, lobby only. Joins or leaves the game as a contestant on the host device.
+ */
+export interface SetHostPlays {
+  type: "set_host_plays";
+  plays: boolean;
+}
+/**
+ * Lobby only, not the host. Removes the sender from the room.
+ */
+export interface LeaveRoom {
+  type: "leave_room";
+}
+/**
  * Sent by the player who has control of the board.
  */
 export interface SelectClue {
   type: "select_clue";
+  clueId: string;
+}
+/**
+ * Host only. The host device finished reading the active clue aloud, so buzzing can open.
+ */
+export interface ReadingDone {
+  type: "reading_done";
   clueId: string;
 }
 /**
@@ -28,6 +67,14 @@ export interface Buzz {
    * Client clock, ms since epoch.
    */
   clientSentAt?: number;
+}
+/**
+ * The answering player's interim transcript, so the TV can show it live. The server drops more than 4 per second.
+ */
+export interface AnswerProgress {
+  type: "answer_progress";
+  clueId: string;
+  text: string;
 }
 export interface SubmitAnswer {
   type: "submit_answer";

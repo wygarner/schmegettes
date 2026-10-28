@@ -143,7 +143,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a room; the caller becomes host */
+        /**
+         * Create a room; the caller becomes host
+         * @description Closes the caller's other rooms that are still in the lobby.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -151,12 +154,10 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
-                        seasons?: number[];
-                        /** @default 6 */
-                        maxPlayers?: number;
+                        displayName: components["schemas"]["DisplayName"];
                     };
                 };
             };
@@ -167,9 +168,10 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Room"];
+                        "application/json": components["schemas"]["RoomJoin"];
                     };
                 };
+                400: components["responses"]["Problem"];
             };
         };
         delete?: never;
@@ -199,6 +201,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         code: components["schemas"]["RoomCode"];
+                        displayName: components["schemas"]["DisplayName"];
                         /**
                          * @default contestant
                          * @enum {string}
@@ -217,10 +220,66 @@ export interface paths {
                         "application/json": components["schemas"]["RoomJoin"];
                     };
                 };
-                404: components["responses"]["Problem"];
-                409: components["responses"]["Problem"];
+                400: components["responses"]["Problem"];
+                /** @description No open room with that code (problem type `room-not-found`) */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description The room is full (`room-full`) or its game has started (`game-started`) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rooms/by-code/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A room the caller is already a member of, by code (used after a reload) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    code: components["schemas"]["RoomCode"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Room and its socket URL */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RoomJoin"];
+                    };
+                };
+                404: components["responses"]["Problem"];
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -404,10 +463,15 @@ export interface components {
             status: components["schemas"]["RoomStatus"];
             /** Format: uuid */
             hostUserId: string;
+            hostDisplayName: string;
+            /** @description The host joined the game as a contestant on the host device */
+            hostPlays: boolean;
             maxPlayers: number;
             /** @description Seasons boards are built from; null means every season */
             seasons: number[] | null;
         };
+        /** @description Trimmed by the server; must not be blank */
+        DisplayName: string;
         RoomJoin: {
             room: components["schemas"]["Room"];
             /**

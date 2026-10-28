@@ -2,7 +2,7 @@
 
 Every other doc, agent prompt, and CI job refers to this file instead of repeating stack choices. When a decision changes, update this file in the same PR as the change.
 
-**Last updated:** 2026-10-26 (Rails removed; `api/` is Go)
+**Last updated:** 2026-10-27 (`golib/` created with the lobby)
 
 ## Context
 
@@ -49,5 +49,6 @@ Two goals shape the stack:
 - **Data access always runs as the user.** Use the per-language helper (`db.AsUser(ctx, claims, fn)` in Go, `with as_user(conn, claims):` in Python). It opens a transaction and sets the role and JWT claims. Never query tenant-scoped tables outside it. Owner-role connections are only for migrations and worker import jobs, and are named `*_OWNER_URL`.
 - **Contracts are generated, not hand-written.** Change `shared/`, run `mise run gen`, commit the generated files. CI fails if generated code is stale.
 - **Game state changes only in `game/`.** The api never mutates a live game. It creates the room; `game` builds the board and takes over when the host starts.
-- **Shared Go code** (JWT verification, `db.AsUser`, logger setup) lives in `golib/`, a Go module that `api/` and `game/` both import through a `replace` directive. Create it with the first helper both services need; until then neither service has any.
+- **Shared Go code** lives in `golib/`, a Go module that `api/` and `game/` both import through a `replace` directive: `auth` (JWT verification against the JWKS), `db` (`AsUser`, and `AsEngine` for `game/`'s `game_engine` calls), and `logging`.
+- **`api/` contract code** comes from `oapi-codegen`, which reads OpenAPI 3.0 only, so `mise run gen` writes a 3.0 copy of `shared/openapi.yaml` (`api/internal/contracts/openapi30.gen.yaml`) and generates from it. Handler tests validate responses against that copy.
 - **Background work goes through pgmq** with an envelope from `shared/schemas/jobs/`, never a long request.

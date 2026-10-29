@@ -38,14 +38,14 @@ The host plays on the **host device**, the same one that drives the TV. There's 
 - **Join the game** in the lobby adds the host to the player list under their display name, with a "Host" tag. **Leave the game** takes them off again. Both are possible only until Start.
 - A playing host counts toward the 2 contestants needed to Start, toward the player limit, and toward fresh boards, history, and placement like any contestant ([game-history](../game-history/feature-brief.md)).
 
-During play, the host device shows the normal TV view plus a **player bar** along the bottom, visible to the room:
+The host device is an iPhone in landscape, mirrored to the TV ([gameplay](../gameplay/feature-brief.md)). Once the host joins, from the lobby on, it shows the normal TV view plus the host's controls in the **player column** on the right, visible to the room:
 
 | Contestant action | On the host device |
 |---|---|
-| Buzz | Big **Buzz** button in the player bar. The space bar also buzzes on a keyboard. |
+| Buzz | The same **Buzz** button phones use, at the bottom of the player column, from the moment the host joins. The space bar also buzzes on a keyboard. |
 | Answer | Spoken into the host device's microphone |
-| Pick a clue when in control | Tap the board, or say it ("Science for 400") |
-| Daily Double wager | Entered in the player bar. Daily Double wagers are public anyway. |
+| Pick a clue when in control | Tap the board and confirm, or say it ("Science for 400"). Only when the host has control: the host device can't pick for anyone else. |
+| Daily Double wager | Entered in the player column. Daily Double wagers are public anyway. |
 | Final wager | Masked input (`$ •••••`). The TV says "Wyatt is wagering…", not the amount. |
 | Final answer | Spoken like everyone else's. The host device never shows the host's transcript before the reveal. |
 
@@ -64,7 +64,7 @@ During play, the host device shows the normal TV view plus a **player bar** alon
 ### Joining (contestant phone)
 
 - A player enters the code, then their display name.
-- The phone shows "You're in, {name}" with "Look at the TV. {host} will start the game."
+- The phone shows "You're in, {name}" and **the buzzer**, which stays on the phone from then until the game ends. In the lobby it's dim, and a tap only animates it (nothing is sent), so players can get a feel for it while they wait.
 
 ### Presence
 

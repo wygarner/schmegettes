@@ -28,19 +28,18 @@ Host a game ─▶ name ─▶ creating ─▶ lobby ──Start──▶ buildi
 
 ### Lobby (TV view)
 
+Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667 × 320), the same two columns as the game screens ([gameplay](../gameplay/interaction-design.md)):
+
 ```text
-┌──────────────────────────────────────────────────────────┐
-│  SCHMEGETTES                         Hosted by Wyatt  ✎  │
-│                                                          │
-│              Join at {site}/join                         │
-│                                                          │
-│                  K 7 R X M                               │
-│                                                          │
-│  Players  3 / 6                                          │
-│   ● Wyatt HOST   ● Alice   ◌ Bob (reconnecting)          │
-│                                                          │
-│  [ Leave the game ]                   [   Start   ]      │
-└──────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────┬───────────────────┐
+│  SCHMEGETTES                  Hosted by Wyatt  ✎  │  Players  3 / 6   │
+│                                                   │  ● Wyatt HOST     │
+│              Join at {site}/join                  │  ● Alice          │
+│                                                   │  ◌ Bob (reconn…)  │
+│                  K 7 R X M                        │ ┌───────────────┐ │
+│                                                   │ │     BUZZ      │ │ ◀ once the host
+│  [ Leave the game ]                 [   Start   ] │ └───────────────┘ │   joined
+└───────────────────────────────────────────────────┴───────────────────┘
 ```
 
 - The code is the biggest thing on screen (Oswald, readable at 3 m), letters spaced.
@@ -53,7 +52,7 @@ Host a game ─▶ name ─▶ creating ─▶ lobby ──Start──▶ buildi
 
 1. Player enters the code on Home → `/join/K7RXM`.
 2. "What's your name?" with the last name used prefilled, then **Join**.
-3. "You're in, Alice. Look at the TV. Wyatt will start the game." with **Edit name** and **Leave**.
+3. "You're in, Alice." with the microphone prompt, **Edit name** and **Leave**, and the buzzer pinned to the bottom of the screen (dim; a tap only animates it). The buzzer stays there for the rest of the game ([gameplay](../gameplay/interaction-design.md)).
 4. On Start everyone sees "Shuffling a fresh board…" ([game-history](../game-history/interaction-design.md)).
 
 ### Start (host device)
@@ -63,22 +62,27 @@ Host a game ─▶ name ─▶ creating ─▶ lobby ──Start──▶ buildi
 
 ### Playing on the host device (in game)
 
-When the host joined, a player bar sits along the bottom of the TV view. It's visible to the room and only ever shows the host's own controls. It follows the same rules as a phone ([gameplay](../gameplay/interaction-design.md)):
+When the host joined, their controls live in the **player column** on the right of the host screen (iPhone landscape): the host's tile among the others, and the shared `Buzzer` at the bottom of the column. It's visible to the room and only ever shows the host's own controls. It follows the same rules as a phone ([gameplay](../gameplay/interaction-design.md)):
 
 ```text
-┌──────────────────────────────────────────────────────────┐
-│                    (board / clue)                        │
-├──────────────────────────────────────────────────────────┤
-│  Wyatt  $1,200            [        BUZZ  (space)       ] │
-└──────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────┬───────────────────┐
+│                                                   │ ┏━━━━━━━━━━━━━━━┓ │
+│               (board / clue)                      │ ┃ Alice  $1,200 ┃ │
+│                                                   │ ┗━━━━━━━━━━━━━━━┛ │
+│                                                   │  Wyatt HOST −$200 │
+│                                                   │ ┌───────────────┐ │
+│                                                   │ │ BUZZ (space)  │ │
+└───────────────────────────────────────────────────┴───────────────────┘
 ```
 
-| Phase | Player bar |
+| Phase | Player column |
 |---|---|
-| `board`, host has control | "Your pick": tap the board or say it |
+| Lobby, after **Join the game** | Buzzer `idle` (a tap only animates it) |
+| `board`, host has control | Host's tile highlighted. Tap the board and confirm, or say it |
+| `board`, someone else has control | Board taps do nothing |
 | `clue_reading` | **Buzz** dimmed. Pressing it early gives the same lockout as on a phone. |
 | `buzzing_open` | **Buzz** lit |
-| `answering`, host buzzed | "Answer now" with a mic level meter |
+| `answering`, host buzzed | Buzzer green "Answer now"; mic level meter under the clue |
 | `daily_double_wager` (host's) | Amount field |
 | `final_wager` | Masked field `$ •••••`. The TV shows "Wyatt is wagering…" |
 | `final_answer` | "Answer now" with a mic meter. No transcript shown. |

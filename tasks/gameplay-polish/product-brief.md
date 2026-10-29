@@ -1,6 +1,6 @@
 ---
 jira-type: enhancement
-jira-title: "Gameplay polish: always-on buzzer, controller-only picks, iPhone-landscape host screen"
+jira-title: "Gameplay polish: always-on buzzer, controller-only picks, iPhone-landscape host screen, 6 players, 4-row board"
 ---
 **Task Type:** Enhancement (changes the existing gameplay and lobby features; no new capability)
 
@@ -12,7 +12,7 @@ jira-title: "Gameplay polish: always-on buzzer, controller-only picks, iPhone-la
 - The room hears which clue was picked before the clue is read.
 - Everyone can see every score and who's picking, at all times.
 - Players have time to answer and to take in the correct response.
-- The host screen fits an iPhone in landscape without scrolling.
+- The host screen fits an iPhone in landscape without scrolling, helped by a smaller game: at most 6 players and 4 rows of clues.
 
 **Player flow:**
 
@@ -30,7 +30,10 @@ Durable docs: [gameplay feature brief](../../docs/product-docs/features/gameplay
 8. **Phone pick screen.** The "Your pick" heading and the score next to it are removed. The phone shows the mini board, **🎤 Say it**, and the buzzer.
 9. **Timing.** Answer window 7 s → **14 s** (silence still ends it early). Correct response on screen 3 s → **6 s**. The buzz window (5 s), lockout (250 ms) and "Double Jeopardy!" (3 s) are unchanged.
 10. **Correct-response screen without the clue.** It shows the category and value, the verdict line when there is one, and "Correct response: **Mauna Loa**". The clue text is gone.
-11. **Host screen for iPhone landscape.** Design target 844 × 390. No scrolling from 667 × 320 (iPhone SE with Safari's bars) up to 956 × 440, inside the safe-area insets. Stage on the left (about 72%), player column on the right (about 28%, at least 180 px). Up to 5 contestants get two-line tiles; 6 or more get one-line tiles of at least 32 px. A phone-sized host device held upright shows "Turn your phone sideways"; the game keeps running.
+11. **Host screen for iPhone landscape.** Design target 844 × 390. No scrolling from 667 × 320 (iPhone SE with Safari's bars) up to 956 × 440, inside the safe-area insets. Stage on the left (about 72%), player column on the right (about 28%, at least 180 px). Up to 4 contestants get two-line tiles; 5 or 6 get one-line tiles of at least 40 px. A phone-sized host device held upright shows "Turn your phone sideways"; the game keeps running.
+
+12. **At most 6 contestants.** The room limit is 2–6 (was 2–8); the default stays 6. This changes the shared contract (`maxPlayers` maximum 8 → 6 in `shared/openapi.yaml`, then `mise run gen`) and the `rooms.max_players` check (`between 2 and 6`) in a new migration. Joining a full room behaves as today ("This room is full (6/6)."). The host joining counts toward the 6.
+13. **4 rows of clues.** Each round's board is 6 categories × 4 clues: Single 200 / 400 / 600 / 800, Double 400 / 800 / 1,200 / 1,600. Board building keeps each category's **first 4 clues** in aired order and leaves out the 5th (the hardest). Values stay "round step × position". A left-out clue is never revealed, so it never counts as seen, and a category stays eligible on the same terms ([game history](../../docs/product-docs/features/game-history/feature-brief.md)). A round ends when its 24 clues are done.
 
 **Edge cases:**
 
@@ -42,7 +45,9 @@ Durable docs: [gameplay feature brief](../../docs/product-docs/features/gameplay
 | The only connected contestant is the controller and disconnects | Control stays; the game waits |
 | Host device reconnects mid-clue | The announcement and clue are read again from the start |
 | Buzzer tapped in the lobby, on the board or between clues | Animation only; no message and no lockout |
-| 8 contestants plus the host's buzzer at 667 × 320 | One-line 32 px tiles; the board shrinks so every row stays visible |
+| 6 contestants plus the host's buzzer at 667 × 320 | One-line 40 px tiles; all 4 board rows stay visible |
+| A room created earlier with `max_players` 7 or 8 | The migration lowers it to 6. Players already in the lobby stay; nobody new joins until the count is under 6 |
+| Voice pick of a value no longer on the board ("Science for 1,000") | "Didn't catch that." Nothing is picked, same as any value that isn't on the board |
 
 **Success Criteria:**
 - A phone shows the buzzer on every screen from "You're in" to game over, and "Look at the TV. … will start the game." no longer appears.
@@ -55,7 +60,9 @@ Durable docs: [gameplay feature brief](../../docs/product-docs/features/gameplay
 - The phone pick screen has no "Your pick" heading and no score.
 - The answer window is 14 s and the correct-response screen lasts 6 s; the client countdowns match.
 - The correct-response screen doesn't show the clue text.
-- At 844 × 390 and 667 × 320 the host lobby and every game screen fit without scrolling, with 2 and with 8 contestants.
+- At 844 × 390 and 667 × 320 the host lobby and every game screen fit without scrolling, with 2 and with 6 contestants.
+- Creating a room with `maxPlayers` above 6 is rejected by the API, and the database refuses `max_players` above 6.
+- A new board has 4 clues per category: 200–800 in Single, 400–1,600 in Double, from each category's first 4 aired clues. A round ends after 24 clues.
 
 **Out of scope:**
 - Highlighting the answering player's tile (only the picker is highlighted)
@@ -63,4 +70,6 @@ Durable docs: [gameplay feature brief](../../docs/product-docs/features/gameplay
 - Making the lobby buzzer do anything visible on the TV (for example a "ready" ping)
 - A timer that picks or passes control for a connected controller who doesn't pick
 - Portrait layout for the host device, and phone layouts in landscape
+- A settings UI for the player limit (still API only)
+- Choosing which 4 of the 5 clues to keep (always the first 4)
 - Daily Doubles, Final Jeopardy, host overrides of verdicts (features 2 and 3)

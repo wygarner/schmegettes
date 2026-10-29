@@ -21,7 +21,7 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Jeopardy. Feature
 
 ### The board and control
 
-- Two rounds: **Single** (values 200–1,000) and **Double** (400–2,000). Each has 6 categories × 5 clues, built at Start ([game history](../game-history/feature-brief.md)).
+- Two rounds: **Single** (values 200–800) and **Double** (400–1,600). Each has 6 categories × **4 clues**, so the board stays readable on the host's iPhone. Built at Start ([game history](../game-history/feature-brief.md)).
 - **Control** decides who picks. At the start of the game a random contestant has control. After that, whoever last answered correctly has it. When nobody answers correctly, control stays where it was.
 - Double Jeopardy starts with the contestant who has the **lowest score**. A tie goes to whoever comes first in join order.
 - The player in control picks on their phone, by **tapping** the clue or by **saying it**: they tap 🎤 and say "Science for 400". The phone shows the board as category names and values, never clue text. A voice pick matches the category even with small slips ("sciense") and accepts "$400", "four hundred", or just the category when one clue is left in it. When it can't tell, it says what it missed, and the player can try again or tap.

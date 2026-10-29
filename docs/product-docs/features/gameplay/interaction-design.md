@@ -42,13 +42,13 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 │  400   │  400   │  400   │  400   │  400  │  400   │┗━━━━━━━━━━━━━━━━━┛│
 │  600   │  600   │  600   │  600   │  600  │  600   │  Bob       $400   │
 │  800   │  800   │  800   │  800   │  800  │  800   │  Wyatt    −$200   │
-│ 1000   │ 1000   │ 1000   │ 1000   │ 1000  │ 1000   │ ┌───────────────┐ │
+│                                                    │ ┌───────────────┐ │
 │                                                    │ │     BUZZ      │ │ ◀ only when the
 │                                                    │ └───────────────┘ │   host plays
 └───────────────────────────────────────────────────┴───────────────────┘
 ```
 
-- Board: `boardBlue.9` cells, values in `yellow.4` weight 800, category headers uppercase white, wrapping to at most 3 lines and shrinking to fit. A finished clue shows an empty cell.
+- Board: 6 categories × 4 rows (Single 200–800, Double 400–1,600). `boardBlue.9` cells, values in `yellow.4` weight 800, category headers uppercase white, wrapping to at most 3 lines and shrinking to fit. A finished clue shows an empty cell.
 - **The board is tappable only when the host plays and has control.** Otherwise taps do nothing, and the cells don't show a pressed state.
 - No caption under the board: no "Waiting for … to pick", no host-pick hint.
 
@@ -57,7 +57,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 - One tile per contestant in join order: name (truncated with …) and score (`money`, can be negative).
 - **The tile of the player in control is highlighted**: `yellow.4` border, 3 px, and a small "PICKING" label. Only one tile is highlighted at a time; during a clue the highlight stays on the player in control.
 - Disconnected players' tiles are dimmed with "(reconnecting)".
-- Up to 5 contestants: two-line tiles (name, then score). 6 or more: one-line tiles (name left, score right), at least 32 px tall.
+- At most 6 contestants. Up to 4: two-line tiles (name, then score). 5 or 6: one-line tiles (name left, score right), at least 40 px tall.
 - When the host plays, their buzzer sits at the bottom of the column, at least 64 px tall, and the tiles share the space above it.
 
 **Clue (`clue_reading`, `buzzing_open`, `answering`):** the stage shows the category and value small at the top ("VOLCANOES · $400"), and the clue text uppercase, white on `boardBlue.9`, as large as fits. The narrator says "Here's Volcanoes for 400." and then reads the clue.
@@ -178,6 +178,6 @@ The same states as the phone, in the player column: the host's tile, the buzzer 
 | Phone disconnects while answering | No penalty, buzzing reopens for the others, and that player is out for this clue |
 | Phone reconnects mid-clue | It gets the current phase and buzzer state. If it already tried this clue, its buzzer is locked |
 | Host device disconnects mid-clue | Paused. On return the announcement and clue are read again from the start, and buzzing reopens for those who haven't tried |
-| 8 contestants on a 667 × 320 screen | One-line tiles at 32 px; the board shrinks to keep every row visible |
+| 6 contestants plus the host's buzzer on a 667 × 320 screen | One-line tiles at 40 px; all 4 board rows stay visible |
 | Only one contestant left connected | Play continues |
 | A Daily Double square | Plays as a normal clue until feature 2 |

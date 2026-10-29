@@ -25,7 +25,7 @@ Every game starts with one person pressing **Host a game** on the device that wi
 
 ### Creating a room
 
-- **Host a game** asks "What's your name?" (prefilled), then creates the room with the default settings: up to 6 contestants, every season. The host lands on the lobby showing the new code.
+- **Host a game** asks "What's your name?" (prefilled), then creates the room with the default settings: up to 6 contestants (also the maximum), every season. The host lands on the lobby showing the new code.
 - The device that pressed it is the **host device**. It shows the TV view and controls Start. It plays only if the host joins the game (below).
 - No account is needed. If the device has no session, it signs in anonymously first, without showing anything.
 - **Room codes**: 5 characters made of letters and digits, with look-alikes (`0 O 1 I L`) left out so a code read off a TV is never ambiguous. Codes are unique among rooms that aren't closed.

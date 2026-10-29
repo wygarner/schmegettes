@@ -218,3 +218,7 @@ Targeted runs only.
 
 - `docs/system-docs/architecture/realtime-game-server.md`: under "Recovery", note that control comes from the last correct answer, so a disconnect handoff isn't restored after a restart. Mention the control-handoff input in the `internal/play` paragraph.
 - Product docs are already updated; change them only if implementation finds a mismatch, and say so in the PR.
+
+## Branch
+
+`enhancement/gameplay-polish-impl`, from and into `daily/2026-10-29`. No Jira key: Jira isn't configured yet (`.github/jira.json` issue-type IDs are `REPLACE_ME`, and the repo has no Jira secrets), as with the lobby and gameplay tasks. PR title: `[Enhancement] gameplay-polish: …`. The final commit deletes `tasks/gameplay-polish/`.

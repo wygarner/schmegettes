@@ -49,8 +49,9 @@ The rules live in `internal/play`, a pure state machine: inputs (pick, reading d
 - **TV-only fields.** Clue text (`BoardClue.clueText`) and `correctResponse` are filled in only on the copy sent to the host user's sockets; every other socket gets the same message, with the same `seq`, without them. A correct response reaches the TV in `answer_judged` (when correct) and `clue_ended`.
 - **Every gameplay message has a `seq`**, including lockouts (`buzz_result: locked_out`), so client gap detection holds. Only `error` and `pong` are unsequenced.
 - **Host device = clock.** With no host socket the game pauses (`game_paused`); timers stop. When the TV is back, an active clue is read again from the start. After 30 minutes without it, the game ends `abandoned` and the room closes.
+- **Control handoff.** Only the controller may pick (`not_in_control` otherwise, the host device included). While the board is up and the controller has no socket, `Game.Deadline()` is a handoff 10 s out; when it fires, control passes to the next connected contestant in join order and a `phase_changed` carries the new `controllingUserId`. `internal/room` logs it at `info` (`control passed`, `from_user_id`, `to_user_id`).
 - **Writes** happen in order through the Recording functions below plus `finish_clue`. A failed write is retried on the next event (they're idempotent). The in-memory game never waits on the database.
-- **Recovery** (`Store.LoadGame`): the game in progress, both rounds of `board_clues` with clue text and responses, and the answers so far (scores, last correct answerer for control, who tried the active clue).
+- **Recovery** (`Store.LoadGame`): the game in progress, both rounds of `board_clues` with clue text and responses, and the answers so far (scores, last correct answerer for control, who tried the active clue). Control comes from the last correct answer, so a disconnect handoff made before a restart is not restored.
 
 ## Buzzing
 

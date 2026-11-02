@@ -210,7 +210,7 @@ paths:
                 maxPlayers:
                   type: integer
                   minimum: 2
-                  maximum: 8
+                  maximum: 6
               additionalProperties: false
       responses:
         "200":

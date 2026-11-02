@@ -1,5 +1,5 @@
 import { MantineProvider } from "@mantine/core";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { initialRoom, type RoomState } from "../lib/room";
 import { type Recognizer, setRecognizerFactory } from "../lib/speech";
@@ -50,10 +50,68 @@ function setup(state: RoomState) {
   return { send, update: (s: RoomState) => r.rerender(view(s)) };
 }
 
-test("the controller picks from the phone board", () => {
+test("a tapped pick is confirmed before it's sent", async () => {
   const { send } = setup({ ...base, phase: "board", controllingUserId: me });
   fireEvent.click(screen.getByRole("button", { name: "SCIENCE for 400" }));
+  expect(send).not.toHaveBeenCalled();
+  expect(await screen.findByText("SCIENCE for $400?")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Pick" }));
   expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c1" });
+});
+
+test("Cancel sends nothing", async () => {
+  const { send } = setup({ ...base, phase: "board", controllingUserId: me });
+  fireEvent.click(screen.getByRole("button", { name: "SCIENCE for 400" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+  expect(send).not.toHaveBeenCalled();
+});
+
+test("the question closes when control moves on", async () => {
+  const { update } = setup({ ...base, phase: "board", controllingUserId: me });
+  fireEvent.click(screen.getByRole("button", { name: "SCIENCE for 400" }));
+  await screen.findByText("SCIENCE for $400?");
+  update({ ...base, phase: "board", controllingUserId: "bob" });
+  await waitFor(() => expect(screen.queryByText("SCIENCE for $400?")).not.toBeInTheDocument());
+});
+
+test("the pick screen has no 'Your pick' heading and no score", () => {
+  setup({ ...base, phase: "board", controllingUserId: me });
+  expect(screen.queryByText("Your pick")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Your score")).not.toBeInTheDocument();
+});
+
+test("the buzzer is on screen in every phase", () => {
+  const cases: RoomState[] = [
+    { ...base, phase: "board", controllingUserId: me },
+    { ...base, phase: "board" },
+    { ...base, phase: "clue_reading", activeClue: clue },
+    { ...base, phase: "buzzing_open", activeClue: clue },
+    { ...base, phase: "answering", activeClue: clue, answeringUserId: me },
+    { ...base, phase: "answering", activeClue: clue, answeringUserId: "bob" },
+    {
+      ...base,
+      phase: "answering",
+      activeClue: clue,
+      lastVerdict: { userId: me, answer: "x", verdict: "correct", delta: 400 },
+    },
+    { ...base, phase: "buzzing_open", activeClue: clue, clueEnd: { state: "unanswered" } },
+    { ...base, phase: "board", roundIntro: "double" },
+    { ...base, phase: "board", paused: true },
+    { ...base, phase: "finished", results: [{ userId: me, displayName: "Alice", score: 0, placement: 1 }] },
+  ];
+  const { update } = setup(cases[0] as RoomState);
+  for (const c of cases) {
+    update(c);
+    expect(screen.getByRole("button", { name: "Buzz" })).toBeInTheDocument();
+  }
+});
+
+test("an idle buzzer tap sends nothing", () => {
+  const { send } = setup({ ...base, phase: "board" });
+  const buzzer = screen.getByRole("button", { name: "Buzz" });
+  expect(buzzer).toHaveAttribute("data-state", "idle");
+  fireEvent.click(buzzer);
+  expect(send).not.toHaveBeenCalled();
 });
 
 test("others see who is picking", () => {
@@ -101,14 +159,16 @@ test("winning a buzz: listening starts on the tap, words stream, the final text 
   }
 });
 
-test("listening stops after 7 s", () => {
+test("listening stops after 14 s", () => {
   vi.useFakeTimers();
   try {
     const open: RoomState = { ...base, phase: "buzzing_open", activeClue: clue };
     const { update } = setup(open);
     fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
     update({ ...open, phase: "answering", answeringUserId: me });
-    vi.advanceTimersByTime(7000);
+    vi.advanceTimersByTime(13900);
+    expect(rec.stopped).toBe(0);
+    vi.advanceTimersByTime(100);
     expect(rec.stopped).toBe(1);
   } finally {
     vi.useRealTimers();
@@ -146,11 +206,11 @@ test("no lit buzzer once the clue has ended or between rounds", () => {
     activeClue: clue,
     clueEnd: { state: "unanswered" },
   });
-  expect(screen.queryByRole("button", { name: "Buzz" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Buzz" })).toHaveAttribute("data-state", "idle");
   expect(screen.getByText("Look at the TV.")).toBeInTheDocument();
   update({ ...base, phase: "answering", roundIntro: "double" });
-  expect(screen.queryByRole("button", { name: "Buzz" })).not.toBeInTheDocument();
-  expect(screen.getByText("Double Jeopardy!")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Buzz" })).toHaveAttribute("data-state", "idle");
+  expect(screen.getByText("Double Schmegettes!")).toBeInTheDocument();
 });
 
 test("the controller can say a clue instead of tapping it", () => {

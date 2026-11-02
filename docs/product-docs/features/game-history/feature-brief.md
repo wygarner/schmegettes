@@ -2,7 +2,7 @@
 
 ## Why
 
-Jeopardy! is no fun when you already know the answer because you saw the clue last week. Every board a player gets should be made of clues nobody at the table has seen before. To do that, Schmegettes has to remember which clues each player has seen, and that record is also each player's game history: when they played, who they played with, and how everyone scored.
+A quiz game is no fun when you already know the answer because you saw the clue last week. Every board a player gets should be made of clues nobody at the table has seen before. To do that, Schmegettes has to remember which clues each player has seen, and that record is also each player's game history: when they played, who they played with, and how everyone scored.
 
 ## Jobs to be done
 
@@ -21,14 +21,14 @@ A clue is **seen** by everyone in the game at the moment its text is **revealed*
 
 - Clues left unplayed on the board are **not** seen. A short game doesn't use up 60 clues.
 - Daily Doubles count once revealed (the wagering player and everyone watching saw it).
-- Final Jeopardy counts once the clue is revealed, for every player in the game, including those who couldn't wager.
+- Final Schmegettes counts once the clue is revealed, for every player in the game, including those who couldn't wager.
 - A non-playing host's and spectators' seen clues are recorded too, so if they play later they still get fresh clues. They do not constrain the board for the game they are watching.
 - People in the room who watch the TV without joining on a phone aren't tracked; they may see repeats in a later game.
 
 ### Building a fresh board
 
 - The board is built when the host presses **Start**, not when the room is created, because only then do we know who is playing.
-- A board is made of categories. A category is one category from one aired game (its 5 clues, or 1 for Final). A category is **eligible** only if none of its clues has been seen by any contestant in this game. A host who joined the game is a contestant and counts; a host who only hosts does not.
+- A board is made of categories. A category is one category from one aired game. A round uses its **first 4 clues** in aired order (the 5th, hardest, is left out), or its 1 clue for Final. A left-out clue is never revealed, so it is never seen. A category is **eligible** only if none of its clues has been seen by any contestant in this game. A host who joined the game is a contestant and counts; a host who only hosts does not.
 - If there are not enough eligible categories to fill a board (rare: the catalog has hundreds of thousands of clues), fill the rest with the categories whose clues were seen **longest ago** by the fewest contestants. The game always starts; we never block play.
 - A **rematch** in the same room builds a new board with the same rules. A room can hold many games.
 

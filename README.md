@@ -1,6 +1,6 @@
 # Schmegettes
 
-A multiplayer Jeopardy!-style party game: share a room code, buzz from your phone, answer by typing or speaking. (Schmegettes is not affiliated with Jeopardy! or Sony.)
+A multiplayer quiz-show party game: share a room code, buzz from your phone, answer by typing or speaking.
 
 | Package | Language | What it is |
 |---|---|---|

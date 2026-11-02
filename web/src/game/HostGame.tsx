@@ -1,16 +1,22 @@
-import { Alert, Button, Center, Container, Paper, Stack, Text, Title } from "@mantine/core";
+import { Alert, Box, Button, Center, Paper, Stack, Text, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { money } from "../lib/money";
 import { nameOf, type RoomState } from "../lib/room";
-import { speak, stopSpeaking } from "../lib/speech";
+import { announcement, speak, stopSpeaking } from "../lib/speech";
 import { Board } from "./Board";
 import { Countdown } from "./Countdown";
+import { HostLayout } from "./HostLayout";
+import { usePickConfirm } from "./PickConfirm";
+import { PlayerColumn } from "./PlayerColumn";
 import { PlayerControls } from "./PlayerControls";
-import { money, ScoreBar } from "./ScoreBar";
+import { BUZZ_WINDOW_MS } from "./timing";
 
-const PICK_HINT_MS = 15000;
-
-/** The TV during a game: board, clue, verdicts, scores. Reads each clue aloud. */
+/**
+ * The host device during a game, mirrored to the TV: the board or clue on the stage, every
+ * score in the player column. Reads each pick aloud ("Here's SCIENCE for 400.") and then the
+ * clue. The board is tappable only when the host plays and has control.
+ */
 export function HostGame({
   state,
   send,
@@ -22,12 +28,12 @@ export function HostGame({
 }) {
   const clue = state.activeClue;
   const spokenRef = useRef("");
-  const [hint, setHint] = useState(false);
   const [soundBlocked, setSoundBlocked] = useState(false);
+  const confirm = usePickConfirm(state, hostUserId, send);
 
-  // Read the clue aloud once per reading (a resume re-reads with a new deadline). Only a
-  // reading that really ended opens buzzing early; otherwise the server's timer does, so
-  // nobody can buzz before the clue has been read.
+  // Read the announcement and clue aloud, as one utterance, once per reading (a resume
+  // re-reads with a new deadline). Only a reading that really ended opens buzzing early;
+  // otherwise the server's timer does, so nobody can buzz before the clue has been read.
   const read = useCallback(
     (clueId: string, text: string, key: string) => {
       void speak(text).then((result) => {
@@ -40,19 +46,20 @@ export function HostGame({
     },
     [send],
   );
+  const reading = clue?.clueText ? `${announcement(clue.category, clue.value)} ${clue.clueText}` : "";
 
   useEffect(() => {
-    if (state.phase !== "clue_reading" || state.paused || !clue?.clueText) return;
+    if (state.phase !== "clue_reading" || state.paused || !clue || !reading) return;
     const key = `${clue.clueId}:${state.deadlineAt}`;
     if (spokenRef.current === key) return;
     spokenRef.current = key;
-    read(clue.clueId, clue.clueText, key);
-  }, [state.phase, state.paused, state.deadlineAt, clue?.clueId, clue?.clueText, read]);
+    read(clue.clueId, reading, key);
+  }, [state.phase, state.paused, state.deadlineAt, clue, reading, read]);
 
   // The tap is the user gesture the browser wants before it plays sound.
   const unblockSound = () => {
     setSoundBlocked(false);
-    if (state.phase === "clue_reading" && clue?.clueText) read(clue.clueId, clue.clueText, spokenRef.current);
+    if (state.phase === "clue_reading" && clue && reading) read(clue.clueId, reading, spokenRef.current);
     else void speak("Sound on");
   };
 
@@ -60,101 +67,126 @@ export function HostGame({
     if (state.phase !== "clue_reading") stopSpeaking();
   }, [state.phase]);
 
-  // After 15 s without a pick, remind the room that the host can pick.
-  useEffect(() => {
-    setHint(false);
-    if (state.phase !== "board" || state.roundIntro || !state.controllingUserId) return;
-    const id = setTimeout(() => setHint(true), PICK_HINT_MS);
-    return () => clearTimeout(id);
-  }, [state.phase, state.roundIntro, state.controllingUserId]);
-
-  const playerBar = state.hostPlays && !state.results && (
-    <Paper p="sm" withBorder aria-label="Your controls">
-      <PlayerControls state={state} userId={hostUserId} send={send} compact spaceToBuzz />
-    </Paper>
-  );
+  const hostPicks = state.hostPlays && state.controllingUserId === hostUserId;
 
   let main: ReactNode;
   if (state.results) {
     main = (
-      <Stack align="center">
-        <Title order={1}>Final scores</Title>
-        {state.results.map((r) => (
-          <Title order={2} key={r.userId}>
-            {r.placement}. {r.displayName} {money(r.score)}
-          </Title>
-        ))}
-      </Stack>
+      <Center h="100%">
+        <Stack align="center" gap="xs">
+          <Title order={1}>Final scores</Title>
+          {state.results.map((r) => (
+            <Title order={2} key={r.userId}>
+              {r.placement}. {r.displayName} {money(r.score)}
+            </Title>
+          ))}
+        </Stack>
+      </Center>
     );
   } else if (state.roundIntro && state.phase !== "clue_reading") {
-    main = <Title order={1}>Double Schmegettes!</Title>;
+    main = (
+      <Center h="100%">
+        <Title order={1}>Double Schmegettes!</Title>
+      </Center>
+    );
   } else if (clue && state.phase !== "board") {
     main = <ClueView state={state} />;
   } else {
-    main = (
-      <Stack>
-        <Board board={state.board} onPick={(id) => send({ type: "select_clue", clueId: id })} />
-        <Text ta="center">
-          Waiting for {nameOf(state, state.controllingUserId) || "a player"} to pick…
-          {hint && " The host can tap a clue to pick."}
-        </Text>
-      </Stack>
-    );
+    main = <Board board={state.board} onPick={hostPicks ? confirm.ask : undefined} />;
   }
 
-  return (
-    <Container size="xl" py="md">
-      <Stack gap="md">
-        {state.paused && <Alert color="yellow">Paused: waiting for the TV to reconnect…</Alert>}
-        {soundBlocked && (
-          <Button color="yellow" onClick={unblockSound}>
-            Tap to turn on sound
-          </Button>
-        )}
-        <Center mih="60vh">{main}</Center>
-        <ScoreBar state={state} />
-        {playerBar}
-      </Stack>
-    </Container>
+  const stage = (
+    <>
+      {state.paused && (
+        <Alert color="yellow" mb={8} p={8}>
+          Paused: waiting for the TV to reconnect…
+        </Alert>
+      )}
+      {soundBlocked && (
+        <Button color="yellow" mb={8} onClick={unblockSound}>
+          Tap to turn on sound
+        </Button>
+      )}
+      <Box style={{ flex: 1, minHeight: 0 }}>{main}</Box>
+      {confirm.modal}
+    </>
   );
+
+  const column = (
+    <>
+      <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+        <PlayerColumn state={state} />
+      </Box>
+      {state.hostPlays && !state.results && (
+        <PlayerControls state={state} userId={hostUserId} send={send} compact spaceToBuzz />
+      )}
+    </>
+  );
+
+  return <HostLayout stage={stage} column={column} />;
 }
 
 function ClueView({ state }: { state: RoomState }) {
   const clue = state.activeClue;
   if (!clue) return null;
   const verdict = state.lastVerdict;
+  const ended = state.clueEnd;
   return (
     <Paper
-      p="xl"
-      w="100%"
+      p="md"
+      h="100%"
       bg="boardBlue.9"
-      style={{ border: state.phase === "buzzing_open" ? "4px solid var(--mantine-color-yellow-4)" : undefined }}
+      style={{
+        border: `4px solid ${state.phase === "buzzing_open" && !ended ? "var(--mantine-color-yellow-4)" : "transparent"}`,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
     >
-      <Stack align="center" gap="lg">
-        <Text c="white" tt="uppercase" fw={700}>
-          {clue.category} · ${clue.value}
-        </Text>
-        <Title order={1} c="white" tt="uppercase" ta="center" aria-label="Clue">
-          {clue.clueText}
-        </Title>
-        {state.phase === "buzzing_open" && <Countdown deadlineAt={state.deadlineAt} total={5000} />}
-        {state.phase === "answering" && (
-          <Text c="white" size="xl">
+      <Text c="white" tt="uppercase" fw={700} ta="center" size="sm">
+        {clue.category} · {money(clue.value)}
+      </Text>
+      <Stack align="center" justify="center" gap="sm" style={{ flex: 1, minHeight: 0 }}>
+        {/* The correct-response screen leaves the clue out. */}
+        {!ended && (
+          <Title
+            order={1}
+            c="white"
+            tt="uppercase"
+            ta="center"
+            aria-label="Clue"
+            style={{ fontSize: "clamp(16px, min(3.4vw, 7vh), 56px)", lineHeight: 1.2 }}
+          >
+            {clue.clueText}
+          </Title>
+        )}
+        {state.phase === "answering" && !ended && (
+          <Text c="white" size="lg">
             {nameOf(state, state.answeringUserId)}: <em>{state.liveText || "listening…"}</em>
           </Text>
         )}
         {verdict && (
-          <Text size="xl" fw={700} c={verdict.verdict === "correct" ? "green" : "red"}>
+          <Text size="lg" fw={700} c={verdict.verdict === "correct" ? "green" : "red"} ta="center">
             {verdict.verdict === "correct" ? "✓" : "✗"} {nameOf(state, verdict.userId)}:{" "}
             <em>{verdict.answer || "(no answer)"}</em> {money(verdict.delta)}
           </Text>
         )}
-        {state.clueEnd?.correctResponse && (
-          <Text c="white" size="xl">
-            Correct response: <strong>{state.clueEnd.correctResponse}</strong>
-          </Text>
+        {ended?.correctResponse && (
+          <Stack gap={0} align="center">
+            <Text c="white">Correct response:</Text>
+            <Title
+              order={1}
+              c="white"
+              tt="uppercase"
+              ta="center"
+              style={{ fontSize: "clamp(20px, min(4vw, 9vh), 64px)" }}
+            >
+              {ended.correctResponse}
+            </Title>
+          </Stack>
         )}
       </Stack>
+      {state.phase === "buzzing_open" && !ended && <Countdown deadlineAt={state.deadlineAt} total={BUZZ_WINDOW_MS} />}
     </Paper>
   );
 }

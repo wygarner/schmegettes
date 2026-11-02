@@ -159,12 +159,13 @@ export function PlayerView({
       </Centered>
     );
   if (state.phase === "building_board") {
-    return (
-      <Centered>
+    const shuffling = (
+      <Stack align="center" ta="center">
         <Loader />
         <Title order={2}>Shuffling a fresh board…</Title>
-      </Centered>
+      </Stack>
     );
+    return <PlayerGame state={state} userId={userId} send={send} lobby={shuffling} />;
   }
   if (state.phase !== "lobby") {
     return <PlayerGame state={state} userId={userId} send={send} />;
@@ -177,12 +178,12 @@ export function PlayerView({
     setEditing(false);
   }
 
-  return (
-    <Centered>
+  // The buzzer is on screen from here on; in the lobby a tap only animates it.
+  const lobby = (
+    <Stack align="center" ta="center">
       {state.connection === "reconnecting" && <Alert color="yellow">Reconnecting…</Alert>}
       {state.error?.code === "invalid_name" && <Alert color="red">Names are 1 to 20 characters.</Alert>}
       <Title order={2}>You're in, {me?.displayName ?? "…"}.</Title>
-      <Text>Look at the TV. {state.hostDisplayName || "The host"} will start the game.</Text>
       <MicPrompt />
       {editing ? (
         <Group>
@@ -213,6 +214,7 @@ export function PlayerView({
           </Button>
         </Group>
       )}
-    </Centered>
+    </Stack>
   );
+  return <PlayerGame state={state} userId={userId} send={send} lobby={lobby} />;
 }

@@ -22,6 +22,13 @@ export function speak(text: string): Promise<SpeakResult> {
   });
 }
 
+/** What the host device says before a clue: "Here's VOLCANOES for 400." The value is a
+ * plain number so it isn't read as dollars. Keep in sync with play.Announcement in
+ * game/internal/play/game.go, which estimates how long it takes. */
+export function announcement(category: string, value: number): string {
+  return `Here's ${category} for ${value}.`;
+}
+
 export function stopSpeaking() {
   try {
     window.speechSynthesis?.cancel();

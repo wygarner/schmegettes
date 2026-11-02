@@ -1,5 +1,5 @@
 import { MantineProvider } from "@mantine/core";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { expect, test, vi } from "vitest";
 import { initialRoom, type Player, type RoomState } from "../lib/room";
@@ -55,9 +55,17 @@ test("Start with 2 players, counting a playing host", () => {
     lobby({ hostPlays: true, players: [player("host", "Wyatt", { role: "host" }), player("a", "Alice")] }),
   );
   expect(screen.getByText("Players 2 / 6")).toBeInTheDocument();
-  expect(screen.getByText("HOST")).toBeInTheDocument();
+  expect(screen.getByText(/Wyatt HOST/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Start" }));
   expect(send).toHaveBeenCalledWith({ type: "start_game" });
+});
+
+test("the host's buzzer appears once the host joins the game", () => {
+  renderView(lobby());
+  expect(screen.queryByRole("button", { name: "Buzz" })).not.toBeInTheDocument();
+  cleanup();
+  renderView(lobby({ hostPlays: true, players: [player("host", "Wyatt", { role: "host" })] }));
+  expect(screen.getByRole("button", { name: "Buzz" })).toHaveAttribute("data-state", "idle");
 });
 
 test("Join the game and Leave the game", () => {

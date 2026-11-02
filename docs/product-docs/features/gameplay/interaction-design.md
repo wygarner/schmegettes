@@ -22,7 +22,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 | Buzz window (and each reopen) | 5 s |
 | Answer | Until the player goes quiet, at most 7 s |
 | Correct response on screen | 3 s |
-| "Double Jeopardy!" interstitial | 3 s |
+| "Double Schmegettes!" interstitial | 3 s |
 
 ## Screens
 

@@ -2,9 +2,9 @@
 
 ## Why
 
-After Start, the room needs to play. A player picks a clue, the TV reads it out, everyone races to buzz, the fastest player says the response out loud, and the game judges it on the spot. That loop, repeated over the Single and Double Jeopardy boards, is the game. Everything else (wagers, Final Jeopardy, overrides, rematch) builds on it.
+After Start, the room needs to play. A player picks a clue, the TV reads it out, everyone races to buzz, the fastest player says the response out loud, and the game judges it on the spot. That loop, repeated over the Single and Double Schmegettes boards, is the game. Everything else (wagers, Final Schmegettes, overrides, rematch) builds on it.
 
-This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Jeopardy. Feature 3 adds host overrides and the end-of-game scoreboard and rematch.
+This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feature 3 adds host overrides and the end-of-game scoreboard and rematch.
 
 ## Jobs to be done
 
@@ -23,7 +23,7 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Jeopardy. Feature
 
 - Two rounds: **Single** (values 200–1,000) and **Double** (400–2,000). Each has 6 categories × 5 clues, built at Start ([game history](../game-history/feature-brief.md)).
 - **Control** decides who picks. At the start of the game a random contestant has control. After that, whoever last answered correctly has it. When nobody answers correctly, control stays where it was.
-- Double Jeopardy starts with the contestant who has the **lowest score**. A tie goes to whoever comes first in join order.
+- Double Schmegettes starts with the contestant who has the **lowest score**. A tie goes to whoever comes first in join order.
 - The player in control picks on their phone, by **tapping** the clue or by **saying it**: they tap 🎤 and say "Science for 400". The phone shows the board as category names and values, never clue text. A voice pick matches the category even with small slips ("sciense") and accepts "$400", "four hundred", or just the category when one clue is left in it. When it can't tell, it says what it missed, and the player can try again or tap.
 - **The host device can always pick** by tapping the board on the TV. That covers a controller who is away, slow, or disconnected.
 - If nobody picks within **15 s**, the TV shows "Waiting for Alice to pick…" with a hint that the host can pick. The game never picks for anyone.
@@ -49,8 +49,8 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Jeopardy. Feature
 
 ### Rounds and the end
 
-- When every clue on the Single board is done, the TV shows "Double Jeopardy!" for 3 s, then the Double board.
-- When the Double board is done, the game ends. Until feature 2 adds Final Jeopardy, the TV shows the **final scores** (highest first) and the game is recorded as finished. Feature 3 replaces this screen with the full scoreboard and **Rematch**.
+- When every clue on the Single board is done, the TV shows "Double Schmegettes!" for 3 s, then the Double board.
+- When the Double board is done, the game ends. Until feature 2 adds Final Schmegettes, the TV shows the **final scores** (highest first) and the game is recorded as finished. Feature 3 replaces this screen with the full scoreboard and **Rematch**.
 
 ### Scores
 
@@ -72,7 +72,7 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Jeopardy. Feature
 
 ## Out of scope
 
-- Daily Double and Final Jeopardy wagers (feature 2)
+- Daily Double and Final Schmegettes wagers (feature 2)
 - Host overrides of a verdict, the end-of-game scoreboard, and Rematch (feature 3)
 - An LLM appeal of a verdict
 - Typed answers (never: answers are spoken)

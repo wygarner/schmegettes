@@ -22,6 +22,8 @@ Default color scheme: dark.
 | Board cell | `boardBlue.9` background, value in `yellow.4`, weight 800 |
 | Category header | `boardBlue.9`, white, uppercase, weight 700 |
 | Correct / incorrect | Mantine `green` / `red` |
-| Buzzer | Full-width button, at least 64 px tall on phones |
+| Buzzer | One `Buzzer` component in every view (phone and host device). Full width of its container, at least 64 px tall |
+| Picking player | Their score tile gets a 3 px `yellow.4` border and a "PICKING" label |
+| Host screen | Designed for an iPhone in landscape: 844 × 390 target, no scrolling from 667 × 320, inside safe-area insets |
 
 `/product` and `/designer` refine this file; `web/src/main.tsx` is the source of truth for the values.

@@ -7,7 +7,7 @@ board ──pick──▶ clue_reading ──speech ends / timer──▶ buzzin
   ▲                                                     │   ▲                  │
   │                                       5 s, no buzz  │   └── incorrect, ────┤
   │                                                     ▼       others left    │ correct, or
-  └────────────── 3 s (TV shows correct response) ◀── clue ends ◀──────────────┘ nobody left
+  └────────────── 6 s (TV shows correct response) ◀── clue ends ◀──────────────┘ nobody left
 ```
 
 Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `clue_reading`, `buzzing_open`, `answering`. The "correct response" screen is the end of `answering` or `buzzing_open`, before `board`.
@@ -16,83 +16,141 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 
 | Step | Time |
 |---|---|
-| Pick a clue | No limit. After 15 s the TV hints that the host can pick. |
-| Reading | Until speech ends. Fallback: about 2.5 words per second + 1 s, at most 12 s |
+| Pick a clue | No limit while the controller is connected. Controller disconnected for 10 s: control passes to the next connected contestant in join order. |
+| Reading | "Here's {category} for {value}." then the clue, until speech ends. Fallback: about 2.5 words per second + 1 s over both, at most 14 s |
 | Early-buzz lockout | 250 ms |
 | Buzz window (and each reopen) | 5 s |
-| Answer | Until the player goes quiet, at most 7 s |
-| Correct response on screen | 3 s |
+| Answer | Until the player goes quiet, at most 14 s |
+| Correct response on screen | 6 s |
 | "Double Schmegettes!" interstitial | 3 s |
 
 ## Screens
 
-### TV (host device)
+### Host device (iPhone in landscape, mirrored to the TV)
+
+**Viewport.** Design target 844 × 390 (iPhone 12–16, landscape). Everything fits without scrolling from 667 × 320 (iPhone SE with Safari's bars showing) up to 956 × 440 (Pro Max), inside the safe-area insets for the notch and home indicator. Larger screens get the same layout, scaled.
+
+**Layout.** Two columns on every game screen. The left column (about 72% of the width) is the stage: board, clue, or correct response. The right column (about 28%, at least 180 px) is the **player column**: a tile per contestant with name and score, always visible, and the host's buzzer at the bottom when the host plays.
 
 **Board:**
 
 ```text
-┌────────────────────────────────────────────────────────────────┐
-│ SCIENCE │ POTPOURRI │ 80s TV │ CAPITALS │ RHYME TIME │ OPERA   │
-│   200   │    200    │  200   │   ·····  │    200     │  200    │
-│   400   │    400    │  400   │   400    │    400     │  400    │
-│   …                                                            │
-├────────────────────────────────────────────────────────────────┤
-│  Alice $1,200 ◀ picking     Bob $400     Wyatt −$200           │
-└────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────┬───────────────────┐
+│ VOLCA- │ POTPOU-│ 80s TV │ CAPI-  │ RHYME │ OPERA  │┏━━━━━━━━━━━━━━━━━┓│
+│ NOES   │ RRI    │        │ TALS   │ TIME  │        │┃ Alice   $1,200  ┃│ ◀ picking:
+│  200   │  200   │  200   │        │  200  │  200   │┃ PICKING         ┃│   yellow.4 border
+│  400   │  400   │  400   │  400   │  400  │  400   │┗━━━━━━━━━━━━━━━━━┛│
+│  600   │  600   │  600   │  600   │  600  │  600   │  Bob       $400   │
+│  800   │  800   │  800   │  800   │  800  │  800   │  Wyatt    −$200   │
+│                                                    │ ┌───────────────┐ │
+│                                                    │ │     BUZZ      │ │ ◀ only when the
+│                                                    │ └───────────────┘ │   host plays
+└───────────────────────────────────────────────────┴───────────────────┘
 ```
 
-- Design system: `boardBlue.9` cells, values in `yellow.4` weight 800, category headers uppercase white. A finished clue shows an empty cell.
-- The score bar marks who has control ("◀ picking").
-- Tapping a cell picks it, because the host device can always pick.
+- Board: 6 categories × 4 rows (Single 200–800, Double 400–1,600). `boardBlue.9` cells, values in `yellow.4` weight 800, category headers uppercase white, wrapping to at most 3 lines and shrinking to fit. A finished clue shows an empty cell.
+- **The board is tappable only when the host plays and has control.** Otherwise taps do nothing, and the cells don't show a pressed state.
+- No caption under the board: no "Waiting for … to pick", no host-pick hint.
 
-**Clue:** the clue text full screen, uppercase, white on `boardBlue.9`, with the category and value small above it. Spoken aloud.
+**Player column (every game screen):**
 
-**Buzzing open:** a thin lit border around the clue and a 5 s countdown bar.
+- One tile per contestant in join order: name (truncated with …) and score (`money`, can be negative).
+- **The tile of the player in control is highlighted**: `yellow.4` border, 3 px, and a small "PICKING" label. Only one tile is highlighted at a time; during a clue the highlight stays on the player in control.
+- Disconnected players' tiles are dimmed with "(reconnecting)".
+- At most 6 contestants. Up to 4: two-line tiles (name, then score). 5 or 6: one-line tiles (name left, score right), at least 40 px tall.
+- When the host plays, their buzzer sits at the bottom of the column, at least 64 px tall, and the tiles share the space above it.
 
-**Answering:** "Alice" under the clue, with a listening indicator and her live transcript as she speaks.
+**Clue (`clue_reading`, `buzzing_open`, `answering`):** the stage shows the category and value small at the top ("VOLCANOES · $400"), and the clue text uppercase, white on `boardBlue.9`, as large as fits. The narrator says "Here's Volcanoes for 400." and then reads the clue.
+
+**Buzzing open:** a lit `yellow.4` border around the stage and a 5 s countdown bar.
+
+**Answering:** the answering player's name under the clue, with a listening indicator and their live transcript.
 
 **Judged:**
-- Correct: "✓ Alice: *what is Paris*" in `green` and "+$400", then the correct response.
+- Correct: "✓ Alice: *what is Paris*" in `green` and "+$400".
 - Incorrect: "✗ Alice: *Lyon*" in `red` and "−$400". Buzzing reopens.
 
-**Clue ends:** "Correct response: **Paris**" for 3 s.
+**Correct response (6 s):** the clue text is **gone**. The stage shows:
 
-**Paused (host device reconnecting):** the TV comes back where it was. Phones show "Waiting for the TV…".
+```text
+│            VOLCANOES · $400               │
+│                                           │
+│        ✓ Alice: what is Mauna Loa  +$400  │
+│                                           │
+│          Correct response:                │
+│             MAUNA LOA                     │
+```
 
-**Game over:** the final scores, highest first, e.g. "Alice $5,600 · Bob $3,200 · Wyatt −$400" (until feature 3).
+The verdict line appears only when the clue ended on a judged answer. A clue nobody buzzed on shows just the category, value and correct response.
+
+**"Double Schmegettes!" (3 s), paused, game over:** shown on the stage; the player column stays.
+
+**Portrait.** On a phone-sized host device held upright, the screen shows "Turn your phone sideways" over the view. The game keeps running underneath.
+
+### The buzzer (one component everywhere)
+
+Phones and the host device use the same `Buzzer` component: same look, labels and states. Only its size changes with its container (full width and at least 64 px tall in every view).
+
+| State | Looks | Label | A tap |
+|---|---|---|---|
+| `idle`: lobby, board, between clues, someone else answering | Dim | BUZZ | Press animation only. Nothing is sent. |
+| `dim`: `clue_reading` | Dim | BUZZ | Early buzz: 250 ms lockout |
+| `lit`: `buzzing_open` | `yellow` filled | BUZZ | Buzz |
+| `early` | `red` filled, 250 ms | Too early | Nothing |
+| `answering`: I won the buzz | `green` filled | Answer now | Nothing |
+| `locked`: I already tried this clue | Disabled | You've answered this one | Nothing |
+
+The host device also buzzes with the space bar when a keyboard is attached.
 
 ### Phone (contestant)
 
-| Phase | Phone shows |
-|---|---|
-| `board`, I have control | Mini board: category names and values. Tap to pick, or tap **🎤 Say it** and say "Science for 400". "Your pick" |
-| `board`, someone else picks | "Alice is picking…" and my score |
-| `clue_reading` | Big **BUZZ** button, dim. "Listen…" |
-| `buzzing_open` | **BUZZ** lit, full width, at least 64 px tall ([design system](../../architecture/design-system.md)) |
-| Early buzz | Button flashes red: "Too early" (250 ms) |
-| I won the buzz | "Answer now", with a mic level meter and my live transcript |
-| Someone else answering | "Bob is answering…" |
-| I already tried this clue | **BUZZ** locked: "You've answered this one" |
-| After judging | "✓ +$400" or "✗ −$400" for 2 s |
-| Game over | My final score and place |
+The buzzer is pinned to the bottom of the phone screen on every screen from the lobby on. What's above it changes with the phase:
+
+| Phase | Above the buzzer | Buzzer |
+|---|---|---|
+| Lobby | "You're in, Alice." Microphone prompt, **Edit name**, **Leave** | `idle` |
+| `board`, I have control | Mini board (category names and values) and **🎤 Say it**. No "Your pick" heading and no score. | `idle` |
+| `board`, someone else picks | "Alice is picking…" and my score | `idle` |
+| `clue_reading` | "Listen…" | `dim` |
+| `buzzing_open` | "Buzz in!" and the 5 s countdown | `lit` |
+| Early buzz | — | `early` |
+| I won the buzz | Mic level meter and my live transcript | `answering` |
+| Someone else answering | "Bob is answering…" | `idle` (or `locked` if I already tried) |
+| After judging (mine) | "✓ +$400" or "✗ −$400" for 2 s | `idle` / `locked` |
+| Correct response on the TV | "Look at the TV." | `idle` |
+| Game over | My final score and place | `idle` |
 
 The phone never shows clue text or the correct response.
 
-### Host device player bar (when the host plays)
+**Pick confirmation (tap only):**
 
-The same states as the phone table, in the player bar described in the [lobby interaction design](../lobby/interaction-design.md). The space bar buzzes.
+```text
+┌──────────────────────────────┐
+│     Volcanoes for $400?      │
+│                              │
+│   [ Cancel ]     [  Pick  ]  │
+└──────────────────────────────┘
+```
+
+- A tap on a board cell opens the modal; **Pick** sends the pick, **Cancel** or a tap outside closes it.
+- A spoken pick ("Volcanoes for 400") goes straight through, with no modal.
+- The modal closes on its own if the phase leaves `board` or the player loses control while it's open.
+
+### Host device when the host plays
+
+The same states as the phone, in the player column: the host's tile, the buzzer at the bottom of the column, and the board on the stage tappable when the host has control. A tapped pick on the host device gets the same confirmation modal; a spoken pick doesn't. See the [lobby interaction design](../lobby/interaction-design.md).
 
 ## Flows
 
 ### A clue, start to finish
 
-1. Alice has control and taps "SCIENCE 400" on her phone.
-2. The TV shows the clue and reads it ("This gas makes up about 78% of Earth's atmosphere").
+1. Alice has control; her tile on the TV is highlighted. She taps "VOLCANOES 400" on her phone and confirms **Pick**.
+2. The TV shows the clue. The narrator says "Here's Volcanoes for 400." and reads the clue.
 3. Speech ends, buzzing opens, and every buzzer lights.
-4. Bob buzzes 180 ms later and wins. His phone shows "Answer now".
-5. Bob says "oxygen" and is judged incorrect: −$400. Buzzing reopens for everyone except Bob.
-6. Alice buzzes and says "what is nitrogen": correct, +$400, and she keeps control.
-7. The TV shows "Correct response: Nitrogen" for 3 s, then the board with SCIENCE 400 gone.
+4. Bob buzzes 180 ms later and wins. His buzzer turns green: "Answer now".
+5. Bob says "Kilauea" and is judged incorrect: −$400. Buzzing reopens for everyone except Bob.
+6. Alice buzzes and says "what is Mauna Loa": correct, +$400, and she keeps control.
+7. The clue text disappears. The TV shows "Correct response: Mauna Loa" for 6 s, then the board with VOLCANOES 400 gone. Alice's tile is still highlighted.
 
 ### Microphone permission
 
@@ -106,13 +164,20 @@ The same states as the phone table, in the player bar described in the [lobby in
 |---|---|
 | Controller taps a clue that's already done | Ignored; the cell is disabled |
 | Controller says a clue that's already done, or one that isn't on the board | "That one's already been played." / "Didn't catch the category." Nothing is picked; try again or tap |
-| Controller and host device pick at once | The first pick the server receives wins; the other is ignored |
+| Controller confirms a tap and says a clue at the same moment | The first pick the server receives wins; the other is ignored |
+| Someone taps the TV board without control (host not playing, or not their turn) | Nothing happens. No pick is sent |
+| A non-controller sends a pick anyway | The server rejects it (`not_in_control`) |
+| Controller disconnects on the board | 10 s later control passes to the next connected contestant in join order, and that tile highlights. Back within 10 s: they keep control |
+| Controller is the only connected contestant and disconnects | Control stays with them; the game waits |
+| Confirmation modal open when control passes or the phase changes | The modal closes; nothing is picked |
 | Speech synthesis unavailable on the host device | Clue shown silently; buzzing opens on the fallback timer |
+| A player taps the buzzer outside a clue (lobby, board, between clues) | Press animation only. No lockout, nothing sent |
 | A player buzzes during `answering` | Ignored (not a lockout) |
-| Everyone has tried and all were wrong | Clue ends, correct response shown, control unchanged |
-| Transcript is empty after 7 s (connected) | Incorrect |
+| Everyone has tried and all were wrong | Clue ends, correct response shown for 6 s without the clue, control unchanged |
+| Transcript is empty after 14 s (connected) | Incorrect |
 | Phone disconnects while answering | No penalty, buzzing reopens for the others, and that player is out for this clue |
 | Phone reconnects mid-clue | It gets the current phase and buzzer state. If it already tried this clue, its buzzer is locked |
-| Host device disconnects mid-clue | Paused. On return the clue is read again from the start, and buzzing reopens for those who haven't tried |
+| Host device disconnects mid-clue | Paused. On return the announcement and clue are read again from the start, and buzzing reopens for those who haven't tried |
+| 6 contestants plus the host's buzzer on a 667 × 320 screen | One-line tiles at 40 px; all 4 board rows stay visible |
 | Only one contestant left connected | Play continues |
 | A Daily Double square | Plays as a normal clue until feature 2 |

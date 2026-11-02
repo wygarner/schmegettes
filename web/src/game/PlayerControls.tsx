@@ -86,12 +86,12 @@ export function PlayerControls({
     );
   }
 
-  if (state.roundIntro) return <Status compact={compact}>Double Jeopardy!</Status>;
+  if (state.roundIntro) return <Status compact={compact}>Double Schmegettes!</Status>;
   if (state.clueEnd) return <Status compact={compact}>Look at the TV.</Status>;
 
   switch (state.phase) {
     case "board": {
-      if (state.roundIntro) return <Status compact={compact}>Double Jeopardy!</Status>;
+      if (state.roundIntro) return <Status compact={compact}>Double Schmegettes!</Status>;
       if (state.controllingUserId === userId) {
         return (
           <Stack gap="xs">

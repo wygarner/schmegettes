@@ -311,7 +311,7 @@ func TestRoundsAndGameOver(t *testing.T) {
 	}
 	play("s1", alice, "nitrogen") // Alice 200
 	// Bob misses s2. Buzzing reopens for Alice; play's last deadline closes it with no buzz,
-	// so the clue now shows its correct response. The next deadline starts Double Jeopardy.
+	// so the clue now shows its correct response. The next deadline starts Double Schmegettes.
 	play("s2", bob, "lyon") // Bob -400
 	f.toDeadline()
 	if f.g.step != stepInterstitial || f.g.round != contracts.RoundDouble {

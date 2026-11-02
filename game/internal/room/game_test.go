@@ -106,7 +106,7 @@ func TestAFullGameEndToEnd(t *testing.T) {
 	if m, _ := host.raw("round_started"); m.Round != "double" {
 		t.Fatalf("round %q", m.Round)
 	}
-	f.timers.fireAfter(host) // "Double Jeopardy!" interstitial
+	f.timers.fireAfter(host) // "Double Schmegettes!" interstitial
 	host.until("phase_changed")
 
 	// Double: nobody buzzes.

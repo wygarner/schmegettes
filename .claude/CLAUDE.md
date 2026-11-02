@@ -1,6 +1,6 @@
 # Schmegettes
 
-A multiplayer Jeopardy!-style party game. Packages: `shared/` (contracts), `web/` (React), `devtools/` (prototypes), `api/` (Go, REST), `game/` (Go, WebSocket), `worker/` (Python), `supabase/` (migrations, RLS). Operational content (`docs/`, `tasks/`, `releases/`) lives in the same repo.
+A multiplayer quiz-show party game. Packages: `shared/` (contracts), `web/` (React), `devtools/` (prototypes), `api/` (Go, REST), `game/` (Go, WebSocket), `worker/` (Python), `supabase/` (migrations, RLS). Operational content (`docs/`, `tasks/`, `releases/`) lives in the same repo.
 
 ## Read first
 

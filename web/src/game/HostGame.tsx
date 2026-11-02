@@ -87,7 +87,7 @@ export function HostGame({
       </Stack>
     );
   } else if (state.roundIntro && state.phase !== "clue_reading") {
-    main = <Title order={1}>Double Jeopardy!</Title>;
+    main = <Title order={1}>Double Schmegettes!</Title>;
   } else if (clue && state.phase !== "board") {
     main = <ClueView state={state} />;
   } else {

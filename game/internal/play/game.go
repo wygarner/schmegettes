@@ -247,7 +247,7 @@ func (g *Game) roundDone(r contracts.Round) bool {
 	return found
 }
 
-// lowestScore picks Double Jeopardy's first controller: lowest score, join order on ties.
+// lowestScore picks Double Schmegettes' first controller: lowest score, join order on ties.
 func (g *Game) lowestScore() string {
 	best := ""
 	for _, p := range g.s.Players {

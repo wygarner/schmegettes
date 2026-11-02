@@ -52,7 +52,7 @@ create table public.profiles (
   created_at timestamptz not null default now()
 );
 
--- Clue catalog, imported by the worker from the jeopardy_clue_dataset TSVs.
+-- Clue catalog, imported by the worker from the clue dataset TSVs.
 create table public.clues (
   id uuid primary key default gen_random_uuid(),
   season integer not null check (season > 0),

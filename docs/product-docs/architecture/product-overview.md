@@ -1,6 +1,6 @@
 # Product Overview
 
-**Schmegettes** is a multiplayer Jeopardy!-style party game played in the browser, modeled on the Weekend Games version (weekend.com/games/jeopardy). It is played **together in one room**. The host's device shows the game on a TV (AirPlay or any screen mirroring). Everyone else joins with a short code on their phone, which becomes their buzzer and microphone: they pick clues, race to buzz in, and answer out loud.
+**Schmegettes** is a multiplayer quiz-show party game played in the browser. It is played **together in one room**. The host's device shows the game on a TV (AirPlay or any screen mirroring). Everyone else joins with a short code on their phone, which becomes their buzzer and microphone: they pick clues, race to buzz in, and answer out loud.
 
 There is no remote play: a player has to see the TV to play.
 
@@ -31,7 +31,8 @@ There is no remote play: a player has to see the TV to play.
 - **Generous judging.** Small mishearings, transcription slips, and a missing "What is" don't cost points; the host can always override.
 - **Correct responses stay secret** until a clue is judged. Phones never receive clue text or responses.
 - **Same room, one screen.** The TV is the shared view; phones are controllers.
+- **Our own names.** The rounds are Single, **Double Schmegettes**, and **Final Schmegettes**. Schmegettes never names or imitates the TV quiz show it resembles (its name, logo, music, or catchphrases), in the product, code, or docs.
 
 ## Carry-overs from the prototype
 
-Voice selection of categories ("I'll take Science for 400") and spoken answers, fuzzy answer matching, and season/air-date selection of boards from the `jeopardy_clue_dataset`.
+Voice selection of categories ("I'll take Science for 400") and spoken answers, fuzzy answer matching, and season/air-date selection of boards from the clue dataset.

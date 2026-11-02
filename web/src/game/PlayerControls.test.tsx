@@ -150,7 +150,7 @@ test("no lit buzzer once the clue has ended or between rounds", () => {
   expect(screen.getByText("Look at the TV.")).toBeInTheDocument();
   update({ ...base, phase: "answering", roundIntro: "double" });
   expect(screen.queryByRole("button", { name: "Buzz" })).not.toBeInTheDocument();
-  expect(screen.getByText("Double Jeopardy!")).toBeInTheDocument();
+  expect(screen.getByText("Double Schmegettes!")).toBeInTheDocument();
 });
 
 test("the controller can say a clue instead of tapping it", () => {

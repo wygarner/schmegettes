@@ -1,4 +1,4 @@
-"""Parsing for the jeopardy_clue_dataset season TSVs (github.com/wygarner/jeopardy_clue_dataset).
+"""Parsing for the clue dataset season TSVs (base URL in CLUE_DATASET_BASE_URL).
 
 Each row becomes a catalog clue. `source_key` is stable across re-imports, so the import
 upserts on it and running the same season twice changes nothing.

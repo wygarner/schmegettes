@@ -6,7 +6,7 @@ Every other doc, agent prompt, and CI job refers to this file instead of repeati
 
 ## Context
 
-Schmegettes is a multiplayer Jeopardy!-style party game, modeled on the Weekend Games version (weekend.com/games/jeopardy). An earlier prototype (`wygarner/Schmegettes`, `wygarner/Schmegettes-Backend`) was a React/Vite client and a single-file Express + `ws` server on Fly.io. That server kept games in memory, broadcast every update to every connected client, and ran timers client-triggered.
+Schmegettes is a multiplayer quiz-show party game. An earlier prototype (`wygarner/Schmegettes`, `wygarner/Schmegettes-Backend`) was a React/Vite client and a single-file Express + `ws` server on Fly.io. That server kept games in memory, broadcast every update to every connected client, and ran timers client-triggered.
 
 Two goals shape the stack:
 
@@ -41,7 +41,7 @@ Two goals shape the stack:
 | `devtools/` | TypeScript / React | Internal-only prototype host for `/designer`. Never deployed publicly. | — |
 | `api/` | Go (`net/http`) | Profiles, rooms (create/join by code, settings), game history, enqueueing jobs. Stateless. | Postgres, pgmq |
 | `game/` | Go | Live game state machine: phases, buzzer lockout and ordering, timers, scoring, judging verdicts. Server-authoritative. | Postgres (load board, persist results), Redis (fan-out, ownership) |
-| `worker/` | Python | Background jobs: import clue datasets (the prototype's `jeopardy_clue_dataset` TSVs), build boards, LLM appeal judging, stats rollups. | Postgres, pgmq, LLM API |
+| `worker/` | Python | Background jobs: import clue datasets (the prototype's clue dataset TSVs), build boards, LLM appeal judging, stats rollups. | Postgres, pgmq, LLM API |
 | `supabase/` | SQL | Migrations, RLS policies, seed data, pgTAP tests. | — |
 
 ## Access patterns (for implementation agents)

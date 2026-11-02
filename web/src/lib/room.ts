@@ -50,7 +50,7 @@ export interface RoomState {
   lastVerdict?: Verdict;
   /** Set after a clue ends; the TV gets the correct response, phones don't. */
   clueEnd?: { state: "answered" | "unanswered"; correctResponse?: string };
-  /** Between round_started and the round's first board phase ("Double Jeopardy!"). */
+  /** Between round_started and the round's first board phase ("Double Schmegettes!"). */
   roundIntro?: Domain.Round;
   results?: Result[];
 }

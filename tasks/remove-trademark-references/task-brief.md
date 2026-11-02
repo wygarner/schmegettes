@@ -94,3 +94,6 @@ None. No log events or failure paths change.
 ## Docs to update
 
 All covered in subtask 5. Product docs were already done in PR #33.
+
+## Branch
+`enhancement/remove-trademark-references-impl`, from and into `daily/2026-11-02`. No Jira ticket: Jira is not configured (`.github/jira.json` IDs are `REPLACE_ME`, no secrets).

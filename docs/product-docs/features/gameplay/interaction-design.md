@@ -57,7 +57,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 - One tile per contestant in join order: name (truncated with …) and score (`money`, can be negative).
 - **The tile of the player in control is highlighted**: `yellow.4` border, 3 px, and a small "PICKING" label. Only one tile is highlighted at a time; during a clue the highlight stays on the player in control.
 - Disconnected players' tiles are dimmed with "(reconnecting)".
-- At most 6 contestants. Up to 4: two-line tiles (name, then score). 5 or 6: one-line tiles (name left, score right), at least 40 px tall.
+- At most 6 contestants. Up to 4: two-line tiles (name, then score). 5 or 6: one-line tiles (name, PICKING, score). Tiles share the column's height (one-line tiles up to 48 px), so 6 tiles and the host's buzzer fit at 667 × 320 (about 35 px each there).
 - When the host plays, their buzzer sits at the bottom of the column, at least 64 px tall, and the tiles share the space above it.
 
 **Clue (`clue_reading`, `buzzing_open`, `answering`):** the stage shows the category and value small at the top ("VOLCANOES · $400"), and the clue text uppercase, white on `boardBlue.9`, as large as fits. The narrator says "Here's Volcanoes for 400." and then reads the clue.
@@ -138,7 +138,7 @@ The phone never shows clue text or the correct response.
 
 ### Host device when the host plays
 
-The same states as the phone, in the player column: the host's tile, the buzzer at the bottom of the column, and the board on the stage tappable when the host has control. A tapped pick on the host device gets the same confirmation modal; a spoken pick doesn't. See the [lobby interaction design](../lobby/interaction-design.md).
+The same states as the phone, in the player column, minus what the stage already shows: the column keeps only the host's own voice pick, live transcript and verdict above the buzzer. It shows: the host's tile, the buzzer at the bottom of the column, and the board on the stage tappable when the host has control. A tapped pick on the host device gets the same confirmation modal; a spoken pick doesn't. See the [lobby interaction design](../lobby/interaction-design.md).
 
 ## Flows
 
@@ -178,6 +178,6 @@ The same states as the phone, in the player column: the host's tile, the buzzer 
 | Phone disconnects while answering | No penalty, buzzing reopens for the others, and that player is out for this clue |
 | Phone reconnects mid-clue | It gets the current phase and buzzer state. If it already tried this clue, its buzzer is locked |
 | Host device disconnects mid-clue | Paused. On return the announcement and clue are read again from the start, and buzzing reopens for those who haven't tried |
-| 6 contestants plus the host's buzzer on a 667 × 320 screen | One-line tiles at 40 px; all 4 board rows stay visible |
+| 6 contestants plus the host's buzzer on a 667 × 320 screen | One-line tiles of about 35 px; all 4 board rows stay visible |
 | Only one contestant left connected | Play continues |
 | A Daily Double square | Plays as a normal clue until feature 2 |

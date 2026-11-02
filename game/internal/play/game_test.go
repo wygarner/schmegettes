@@ -16,6 +16,7 @@ const (
 	host  = "host"
 	alice = "alice"
 	bob   = "bob"
+	carol = "carol"
 )
 
 var t0 = time.Unix(1_800_000_000, 0)
@@ -123,8 +124,13 @@ func TestPickRules(t *testing.T) {
 	}
 }
 
-func TestHostCanPick(t *testing.T) {
+func TestHostPicksOnlyWithControl(t *testing.T) {
 	f := setup(t, nil)
+	if err := f.do(f.g.Pick(f.now, host, "s2")); code(err) != contracts.ErrorCodeNotInControl {
+		t.Errorf("the host device picked for Alice: %v", err)
+	}
+	// A playing host who has control picks like anyone else.
+	f = setup(t, func(s *Setup) { s.Players = []Player{{host, "Wyatt"}, {alice, "Alice"}} })
 	f.must(f.g.Pick(f.now, host, "s2"))
 	if f.g.Phase() != contracts.GamePhaseClueReading {
 		t.Errorf("phase %s", f.g.Phase())
@@ -146,7 +152,7 @@ func TestReadingOpensBuzzing(t *testing.T) {
 	t.Run("fallback timer", func(t *testing.T) {
 		f := setup(t, nil)
 		f.must(f.g.Pick(f.now, alice, "s1"))
-		want := ReadingTime(board()[0].Text)
+		want := ReadingTime(Announcement("SCIENCE", 200) + " " + board()[0].Text)
 		if got := f.g.Deadline().Sub(f.now); got != want {
 			t.Errorf("reading deadline %v, want %v", got, want)
 		}
@@ -161,9 +167,142 @@ func TestReadingTime(t *testing.T) {
 	if got := ReadingTime("one two three four five"); got != 3*time.Second {
 		t.Errorf("5 words: %v", got)
 	}
-	if got := ReadingTime(strings.Repeat("word ", 100)); got != MaxReading {
+	if got := ReadingTime(strings.Repeat("word ", 100)); got != MaxReading || MaxReading != 14*time.Second {
 		t.Errorf("long clue: %v", got)
 	}
+	if got := Announcement("VOLCANOES", 1200); got != "Here's VOLCANOES for 1200." {
+		t.Errorf("announcement %q", got)
+	}
+	// "Here's VOLCANOES for 400." adds 4 words to the clue's estimate.
+	if got := ReadingTime(Announcement("VOLCANOES", 400) + " one"); got != 3*time.Second {
+		t.Errorf("announced 1-word clue: %v", got)
+	}
+}
+
+func TestTimings(t *testing.T) {
+	if AnswerWindow != 14*time.Second || ClueEndPause != 6*time.Second || ControlGrace != 10*time.Second {
+		t.Errorf("answer %v, clue end %v, grace %v", AnswerWindow, ClueEndPause, ControlGrace)
+	}
+}
+
+// three: Alice, Bob, and Carol in join order, all connected, Alice in control.
+func three(t *testing.T) *fixture {
+	f := setup(t, func(s *Setup) { s.Players = append(s.Players, Player{carol, "Carol"}) })
+	f.take(f.g.Connect(f.now, carol))
+	return f
+}
+
+func (f *fixture) controllerSent() string {
+	f.t.Helper()
+	for i := len(f.sent) - 1; i >= 0; i-- {
+		if m, ok := f.sent[i].All.(contracts.PhaseChanged); ok && m.ControllingUserId != nil {
+			return string(*m.ControllingUserId)
+		}
+	}
+	return ""
+}
+
+func TestControlHandoff(t *testing.T) {
+	t.Run("controller gone 10 s: next connected in join order", func(t *testing.T) {
+		f := three(t)
+		f.take(f.g.Disconnect(f.now, alice))
+		if got := f.g.Deadline(); got != f.now.Add(ControlGrace) {
+			t.Fatalf("handoff at %v", got)
+		}
+		f.take(f.g.Disconnect(f.now.Add(time.Second), bob)) // skipped: offline too
+		f.toDeadline()
+		if f.g.control != carol || f.controllerSent() != carol {
+			t.Errorf("control %q, sent %q", f.g.control, f.controllerSent())
+		}
+		if !f.g.Deadline().IsZero() {
+			t.Errorf("deadline left %v", f.g.Deadline())
+		}
+	})
+	t.Run("wraps past the end of join order", func(t *testing.T) {
+		f := three(t)
+		f.g.control = carol
+		f.take(f.g.Disconnect(f.now, carol))
+		f.toDeadline()
+		if f.g.control != alice {
+			t.Errorf("control %q", f.g.control)
+		}
+	})
+	t.Run("back within 10 s keeps control", func(t *testing.T) {
+		f := three(t)
+		f.take(f.g.Disconnect(f.now, alice))
+		f.take(f.g.Connect(f.now.Add(9*time.Second), alice))
+		if !f.g.Deadline().IsZero() {
+			t.Errorf("still armed: %v", f.g.Deadline())
+		}
+		if f.g.control != alice {
+			t.Errorf("control %q", f.g.control)
+		}
+	})
+	t.Run("lost control isn't given back", func(t *testing.T) {
+		f := three(t)
+		f.take(f.g.Disconnect(f.now, alice))
+		f.toDeadline()
+		f.take(f.g.Connect(f.now, alice))
+		if f.g.control != bob || !f.g.Deadline().IsZero() {
+			t.Errorf("control %q deadline %v", f.g.control, f.g.Deadline())
+		}
+	})
+	t.Run("nobody else connected: control stays until someone returns", func(t *testing.T) {
+		f := setup(t, nil)
+		f.take(f.g.Disconnect(f.now, bob))
+		f.take(f.g.Disconnect(f.now, alice))
+		f.toDeadline()
+		if f.g.control != alice || !f.g.Deadline().IsZero() {
+			t.Fatalf("control %q deadline %v", f.g.control, f.g.Deadline())
+		}
+		f.take(f.g.Connect(f.now, bob))
+		if f.g.Deadline() != f.now.Add(ControlGrace) {
+			t.Fatalf("not re-armed: %v", f.g.Deadline())
+		}
+		f.toDeadline()
+		if f.g.control != bob {
+			t.Errorf("control %q", f.g.control)
+		}
+	})
+	t.Run("not while paused; resume re-arms", func(t *testing.T) {
+		f := setup(t, nil)
+		f.take(f.g.Disconnect(f.now, alice))
+		f.take(f.g.Disconnect(f.now, host))
+		if !f.g.Deadline().IsZero() {
+			t.Fatalf("armed while paused: %v", f.g.Deadline())
+		}
+		f.now = f.now.Add(time.Minute)
+		f.take(f.g.Connect(f.now, host))
+		if f.g.Deadline() != f.now.Add(ControlGrace) {
+			t.Errorf("not re-armed on resume: %v", f.g.Deadline())
+		}
+	})
+	t.Run("not during a clue; armed when the board returns", func(t *testing.T) {
+		f := setup(t, nil)
+		f.openBuzzing("s1")
+		f.take(f.g.Disconnect(f.now, alice))
+		if f.g.Deadline() != f.now.Add(BuzzWindow) {
+			t.Fatalf("deadline %v", f.g.Deadline())
+		}
+		f.toDeadline() // nobody buzzed: clue ends
+		f.toDeadline() // back to the board
+		if f.g.Phase() != contracts.GamePhaseBoard || f.g.Deadline() != f.now.Add(ControlGrace) {
+			t.Fatalf("phase %s deadline %v", f.g.Phase(), f.g.Deadline())
+		}
+		f.toDeadline()
+		if f.g.control != bob {
+			t.Errorf("control %q", f.g.control)
+		}
+	})
+	t.Run("a pick disarms", func(t *testing.T) {
+		f := setup(t, nil)
+		f.take(f.g.Disconnect(f.now, alice))
+		f.take(f.g.Connect(f.now, alice))
+		f.must(f.g.Pick(f.now, alice, "s1"))
+		if f.g.Deadline() == f.now.Add(ControlGrace) {
+			t.Errorf("handoff still pending")
+		}
+	})
 }
 
 func TestEarlyBuzzLockout(t *testing.T) {

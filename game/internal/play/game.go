@@ -6,6 +6,7 @@ package play
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -18,14 +19,22 @@ import (
 const (
 	Lockout      = 250 * time.Millisecond
 	BuzzWindow   = 5 * time.Second
-	AnswerWindow = 7 * time.Second
+	AnswerWindow = 14 * time.Second
 	// AnswerGrace lets the final transcript arrive after the phone stops listening.
 	AnswerGrace   = 1500 * time.Millisecond
-	ClueEndPause  = 3 * time.Second
+	ClueEndPause  = 6 * time.Second
 	Interstitial  = 3 * time.Second
-	MaxReading    = 12 * time.Second
+	MaxReading    = 14 * time.Second
 	ProgressEvery = 250 * time.Millisecond
+	// ControlGrace is how long a disconnected controller keeps control on the board.
+	ControlGrace = 10 * time.Second
 )
+
+// Announcement is what the host device says before reading a clue. Keep it in sync with
+// announcement() in web/src/lib/speech.ts, which speaks it.
+func Announcement(category string, value int) string {
+	return fmt.Sprintf("Here's %s for %d.", category, value)
+}
 
 // ReadingTime estimates how long text-to-speech takes: about 2.5 words a second plus a
 // second, at most MaxReading. Buzzing opens then if the host device never reports.
@@ -155,9 +164,11 @@ type Game struct {
 	lastProg  time.Time
 
 	deadline time.Time
-	paused   bool
-	online   map[string]int // user -> open sockets
-	over     bool
+	// handoffAt is when control passes from a disconnected controller (board only).
+	handoffAt time.Time
+	paused    bool
+	online    map[string]int // user -> open sockets
+	over      bool
 }
 
 // New builds a game. It starts paused until the host device connects (Connect).
@@ -213,7 +224,15 @@ func New(s Setup) *Game {
 func (g *Game) Phase() contracts.GamePhase { return g.phase }
 
 // Deadline is when Timeout must be called; zero when nothing is pending.
-func (g *Game) Deadline() time.Time { return g.deadline }
+func (g *Game) Deadline() time.Time {
+	if !g.deadline.IsZero() {
+		return g.deadline
+	}
+	return g.handoffAt
+}
+
+// Controller is the contestant in control.
+func (g *Game) Controller() string { return g.control }
 
 // Over reports whether the game has ended.
 func (g *Game) Over() bool { return g.over }
@@ -355,7 +374,7 @@ func (g *Game) SnapshotFields(m *contracts.RoomSnapshot, host bool) {
 	}
 }
 
-// Pick starts a clue. The controller or the host may pick.
+// Pick starts a clue. Only the controller may pick, the host device included.
 func (g *Game) Pick(now time.Time, user, clueID string) (Effects, error) {
 	var e Effects
 	if g.paused || g.over {
@@ -364,7 +383,7 @@ func (g *Game) Pick(now time.Time, user, clueID string) (Effects, error) {
 	if g.phase != contracts.GamePhaseBoard || g.step != stepNone {
 		return e, ErrIgnored // someone else's pick won
 	}
-	if user != g.control && user != g.s.HostID {
+	if user != g.control {
 		return e, reject(contracts.ErrorCodeNotInControl)
 	}
 	c, ok := g.clues[clueID]
@@ -375,6 +394,7 @@ func (g *Game) Pick(now time.Time, user, clueID string) (Effects, error) {
 	g.active = c
 	g.attempted = map[string]bool{}
 	g.lockouts = map[string]time.Time{}
+	g.handoffAt = time.Time{}
 	e.record(Record{Kind: RevealClue, ClueID: c.ID})
 	g.startReading(now, &e)
 	return e, nil
@@ -384,7 +404,7 @@ func (g *Game) startReading(now time.Time, e *Effects) {
 	g.phase = contracts.GamePhaseClueReading
 	g.step = stepReading
 	g.answering = ""
-	g.deadline = now.Add(ReadingTime(g.active.Text))
+	g.deadline = now.Add(ReadingTime(Announcement(g.active.Category, g.active.Value) + " " + g.active.Text))
 	g.emitPhase(e)
 }
 
@@ -541,7 +561,16 @@ func (g *Game) endClue(now time.Time, e *Effects, state contracts.ClueState) {
 // Timeout fires the pending deadline.
 func (g *Game) Timeout(now time.Time) Effects {
 	var e Effects
-	if g.paused || g.deadline.IsZero() || now.Before(g.deadline) {
+	if g.paused {
+		return e
+	}
+	if g.deadline.IsZero() {
+		if !g.handoffAt.IsZero() && !now.Before(g.handoffAt) {
+			g.handOff(&e)
+		}
+		return e
+	}
+	if now.Before(g.deadline) {
 		return e
 	}
 	g.deadline = time.Time{}
@@ -561,8 +590,45 @@ func (g *Game) Timeout(now time.Time) Effects {
 		g.phase = contracts.GamePhaseBoard
 		g.step = stepNone
 		g.emitPhase(&e)
+		g.checkControl(now)
 	}
 	return e
+}
+
+// checkControl arms the handoff when the board is up and the controller is offline, and
+// disarms it otherwise. An armed handoff keeps its original time.
+func (g *Game) checkControl(now time.Time) {
+	if g.paused || g.over || g.phase != contracts.GamePhaseBoard || g.step != stepNone ||
+		g.control == "" || g.online[g.control] > 0 {
+		g.handoffAt = time.Time{}
+		return
+	}
+	if g.handoffAt.IsZero() {
+		g.handoffAt = now.Add(ControlGrace)
+	}
+}
+
+// handOff gives control to the next connected contestant after the controller, in join
+// order. With nobody connected, control stays; the next contestant to connect re-arms it.
+// After a server restart control comes from the last correct answer (Setup.LastCorrect),
+// so a handoff made before the restart is not restored.
+func (g *Game) handOff(e *Effects) {
+	g.handoffAt = time.Time{}
+	n := len(g.s.Players)
+	at := -1
+	for i, p := range g.s.Players {
+		if p.UserID == g.control {
+			at = i
+		}
+	}
+	for k := 1; k < n; k++ {
+		p := g.s.Players[(at+k+n)%n]
+		if p.UserID != g.control && g.online[p.UserID] > 0 {
+			g.control = p.UserID
+			g.emitPhase(e)
+			return
+		}
+	}
 }
 
 func (g *Game) nextAfterClue(now time.Time, e *Effects) {
@@ -570,6 +636,7 @@ func (g *Game) nextAfterClue(now time.Time, e *Effects) {
 		g.phase = contracts.GamePhaseBoard
 		g.step = stepNone
 		g.emitPhase(e)
+		g.checkControl(now)
 		return
 	}
 	if g.round == contracts.RoundSingle && !g.roundDone(contracts.RoundDouble) {
@@ -621,6 +688,9 @@ func (g *Game) Connect(now time.Time, user string) Effects {
 	if user == g.s.HostID && g.online[user] == 1 && g.paused {
 		return g.resume(now)
 	}
+	if g.isContestant(user) {
+		g.checkControl(now)
+	}
 	return Effects{}
 }
 
@@ -636,6 +706,9 @@ func (g *Game) Disconnect(now time.Time, user string) Effects {
 	}
 	if user == g.s.HostID {
 		return g.pause()
+	}
+	if user == g.control {
+		g.checkControl(now)
 	}
 	if !g.paused && g.step == stepAnswering && g.answering == user {
 		g.attempted[user] = true
@@ -653,6 +726,7 @@ func (g *Game) pause() Effects {
 	}
 	g.paused = true
 	g.deadline = time.Time{}
+	g.handoffAt = time.Time{}
 	// A player cut off mid-answer may try again when the clue is re-read.
 	if g.step == stepAnswering {
 		g.answering = ""
@@ -679,6 +753,7 @@ func (g *Game) resume(now time.Time) Effects {
 		g.deadline = now.Add(Interstitial)
 	default:
 		g.emitPhase(&e)
+		g.checkControl(now)
 	}
 	return e
 }

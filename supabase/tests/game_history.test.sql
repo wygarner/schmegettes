@@ -3,7 +3,7 @@
 -- users run as authenticated with request.jwt.claims, as in rls.test.sql.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(48);
+select plan(51);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (all rolled back)
@@ -134,7 +134,7 @@ select is(
   (select array[count(*) filter (where round = 'single'), count(*) filter (where round = 'double'),
                 count(*) filter (where round = 'final')]::integer[]
    from public.board_clues where game_id = tests.game('g1')),
-  array[30, 30, 1], 'the board has 30 single, 30 double, and 1 final clue'
+  array[24, 24, 1], 'the board has 24 single, 24 double, and 1 final clue'
 );
 select is(
   (select count(distinct column_index)::integer from public.board_clues
@@ -158,9 +158,32 @@ select is(
   0, 'no Daily Double in the top row'
 );
 select is(
+  (select count(*)::integer from public.board_clues
+   where game_id = tests.game('g1') and is_daily_double and row_index between 1 and 3),
+  3, 'every Daily Double is in rows 1-3 of the 4-row board'
+);
+select is(
   (select array_agg(distinct value order by value) from public.board_clues
    where game_id = tests.game('g1') and round = 'single'),
-  array[200, 400, 600, 800, 1000], 'single-round values are the standard row values'
+  array[200, 400, 600, 800], 'single-round values are the four row values'
+);
+select is(
+  (select array_agg(distinct value order by value) from public.board_clues
+   where game_id = tests.game('g1') and round = 'double'),
+  array[400, 800, 1200, 1600], 'double-round values are the four row values'
+);
+select is(
+  (select count(*)::integer from public.board_clues b
+   where b.game_id = tests.game('g1') and b.round <> 'final'
+     and b.clue_id not in (
+       select x.id from (
+         select c.id, row_number() over (partition by c.category_key order by c.value nulls last, c.id) as rn
+         from public.clues c
+         where c.category_key in (select c2.category_key from public.board_clues b2
+                                  join public.clues c2 on c2.id = b2.clue_id
+                                  where b2.game_id = tests.game('g1'))) x
+       where x.rn <= 4)),
+  0, 'each category keeps its first 4 clues in aired order'
 );
 select is(
   (select status::text from public.rooms where id = 'a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1'),
@@ -172,7 +195,7 @@ select throws_ok(
 );
 
 -- Play the single round only, then finish.
-select is(tests.reveal_round(tests.game('g1'), 'single'), 30, 'reveal the single round');
+select is(tests.reveal_round(tests.game('g1'), 'single'), 24, 'reveal the single round');
 select lives_ok($$ select public.end_game(tests.game('g1'), 'finished') $$, 'end game 1');
 reset role;
 
@@ -181,7 +204,7 @@ select is(
      select s.user_id as u, count(*)::integer as n from public.seen_clues s
      join public.clues c on c.id = s.clue_id
      where c.season = 1 group by s.user_id) x),
-  array[30, 30, 30], 'host, contestant, and spectator each saw the 30 revealed clues'
+  array[24, 24, 24], 'host, contestant, and spectator each saw the 24 revealed clues'
 );
 select is(
   (select count(*)::integer from public.seen_clues s join public.clues c on c.id = s.clue_id

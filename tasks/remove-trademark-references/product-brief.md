@@ -34,7 +34,7 @@ jira-title: "Remove trademark references: rename rounds to Double/Final Schmeget
 | `supabase/migrations/20261026000000_init.sql:55` | Comment: "imported by the worker from the clue dataset TSVs." Comment-only edit of an applied migration; see Risks |
 | `worker/.env.example:8` | **Keep.** It's the dataset's real URL; it changes only when the GitHub repo is renamed |
 
-**In-flight work:** `tasks/gameplay-polish/product-brief.md` and `task-brief.md` (on `enhancement/gameplay-polish`, not yet on the daily branch) say "Double Jeopardy!". Update them to "Double Schmegettes!" on that branch, or in this task once gameplay-polish has merged, whichever lands second.
+**In-flight work:** `tasks/gameplay-polish/product-brief.md` and `task-brief.md` (on `enhancement/gameplay-polish`, not yet on the daily branch) say "Double Jeopardy!". **This task owns that cleanup.** gameplay-polish stays as it is. Before opening the implementation PR, merge the daily branch in; if the gameplay-polish task folder (`tasks/gameplay-polish*/`) is there by then, change its mentions to "Double Schmegettes!" in this PR. Any other new mentions gameplay-polish brings in (code or docs) are also this task's to fix. If gameplay-polish lands after this PR, the grep check below is re-run once it merges and any leftovers are fixed in a follow-up commit to this task.
 
 **Success Criteria:**
 - `git grep -n -i jeopardy` on the daily branch after merge returns only `worker/.env.example`.

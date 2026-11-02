@@ -156,7 +156,13 @@ func (r *Room) fire(ctx context.Context, gen int) {
 	if d := r.game.Deadline(); d.After(now) {
 		now = d
 	}
+	// On the board the only timer is the control handoff (a new round's controller is
+	// set by the interstitial, which starts off the board).
+	onBoard, from := r.game.Phase() == contracts.GamePhaseBoard, r.game.Controller()
 	r.applyGame(ctx, r.game.Timeout(now))
+	if onBoard && r.game != nil && r.game.Controller() != from {
+		r.log.Info("control passed", "game_id", r.gameID, "from_user_id", from, "to_user_id", r.game.Controller())
+	}
 }
 
 // abandon ends a game whose host device has been gone too long, and closes the room.

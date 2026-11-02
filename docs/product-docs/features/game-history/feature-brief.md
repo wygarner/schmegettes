@@ -28,7 +28,7 @@ A clue is **seen** by everyone in the game at the moment its text is **revealed*
 ### Building a fresh board
 
 - The board is built when the host presses **Start**, not when the room is created, because only then do we know who is playing.
-- A board is made of categories. A category is one category from one aired game (its 5 clues, or 1 for Final). A category is **eligible** only if none of its clues has been seen by any contestant in this game. A host who joined the game is a contestant and counts; a host who only hosts does not.
+- A board is made of categories. A category is one category from one aired game. A round uses its **first 4 clues** in aired order (the 5th, hardest, is left out), or its 1 clue for Final. A left-out clue is never revealed, so it is never seen. A category is **eligible** only if none of its clues has been seen by any contestant in this game. A host who joined the game is a contestant and counts; a host who only hosts does not.
 - If there are not enough eligible categories to fill a board (rare: the catalog has hundreds of thousands of clues), fill the rest with the categories whose clues were seen **longest ago** by the fewest contestants. The game always starts; we never block play.
 - A **rematch** in the same room builds a new board with the same rules. A room can hold many games.
 

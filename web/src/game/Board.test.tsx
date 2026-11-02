@@ -44,3 +44,19 @@ test("only open clues can be picked, and only with onPick", () => {
   );
   expect(screen.getByRole("button", { name: "SCIENCE for 400" })).toBeDisabled();
 });
+
+test("a 4-row board shows every value", () => {
+  const four: BoardClue[] = [200, 400, 600, 800].map((v) => ({
+    clueId: `s${v}`,
+    category: "VOLCANOES",
+    value: v,
+    state: "unplayed",
+  }));
+  render(
+    <MantineProvider>
+      <Board board={four} />
+    </MantineProvider>,
+  );
+  for (const v of [200, 400, 600, 800])
+    expect(screen.getByRole("button", { name: `VOLCANOES for ${v}` })).toBeInTheDocument();
+});

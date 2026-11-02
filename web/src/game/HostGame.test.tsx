@@ -1,5 +1,5 @@
 import { MantineProvider } from "@mantine/core";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { initialRoom, type RoomState } from "../lib/room";
 import { HostGame } from "./HostGame";
@@ -41,7 +41,7 @@ test("reads the clue aloud once, then reports reading done", async () => {
     </MantineProvider>,
   );
   expect(screen.getByLabelText("Clue")).toHaveTextContent("THIS GAS");
-  expect(spoken.map((u) => u.text)).toEqual(["THIS GAS"]);
+  expect(spoken.map((u) => u.text)).toEqual(["Here's SCIENCE for 400. THIS GAS"]);
   rerender(
     <MantineProvider>
       <HostGame state={{ ...state }} send={send} hostUserId="host" />
@@ -126,7 +126,8 @@ test("when the browser blocks speech, buzzing is left to the server timer and th
   expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "reading_done" }));
 
   tap.click();
-  expect(spoken.map((u) => u.text)).toEqual(["THIS GAS", "THIS GAS"]); // read again from the tap
+  const read = "Here's SCIENCE for 400. THIS GAS";
+  expect(spoken.map((u) => u.text)).toEqual([read, read]); // read again from the tap
   spoken[1]?.onend?.();
   await waitFor(() => expect(send).toHaveBeenCalledWith({ type: "reading_done", clueId: "c1" }));
 });
@@ -141,4 +142,73 @@ test("without speech synthesis, the TV never reports reading done", async () => 
   );
   await new Promise((r) => setTimeout(r, 20));
   expect(send).not.toHaveBeenCalled();
+});
+
+const board = [{ clueId: "c2", category: "OPERA", value: 200, state: "unplayed" as const }];
+const players = [
+  { userId: "a", displayName: "Alice", role: "contestant" as const, score: 0, connected: true },
+  { userId: "host", displayName: "Wyatt", role: "host" as const, score: 0, connected: true },
+];
+const onBoard: RoomState = {
+  ...state,
+  phase: "board",
+  activeClue: undefined,
+  board,
+  players,
+  scores: { a: 1200, host: -200 },
+  controllingUserId: "a",
+};
+
+function host(s: RoomState, send = vi.fn()) {
+  render(
+    <MantineProvider>
+      <HostGame state={s} send={send} hostUserId="host" />
+    </MantineProvider>,
+  );
+  return send;
+}
+
+test("the TV board can't be tapped when it isn't the host's pick", () => {
+  host({ ...onBoard, hostPlays: false });
+  expect(screen.getByRole("button", { name: "OPERA for 200" })).toBeDisabled();
+  cleanup();
+  host({ ...onBoard, hostPlays: true });
+  expect(screen.getByRole("button", { name: "OPERA for 200" })).toBeDisabled();
+});
+
+test("a playing host with control taps and confirms", async () => {
+  const send = host({ ...onBoard, hostPlays: true, controllingUserId: "host" });
+  fireEvent.click(screen.getByRole("button", { name: "OPERA for 200" }));
+  expect(send).not.toHaveBeenCalled();
+  fireEvent.click(await screen.findByRole("button", { name: "Pick" }));
+  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c2" });
+});
+
+test("no waiting caption; the picker's tile is highlighted", () => {
+  host(onBoard);
+  expect(screen.queryByText(/Waiting for/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/host can tap/)).not.toBeInTheDocument();
+  const tile = screen.getByLabelText("Alice $1,200, picking");
+  expect(tile).toHaveAttribute("aria-current", "true");
+  expect(screen.getByLabelText("Wyatt −$200")).not.toHaveAttribute("aria-current");
+});
+
+test("every score stays on screen during a clue and its correct response", () => {
+  host({ ...onBoard, phase: "answering", activeClue: clue });
+  expect(screen.getByLabelText("Alice $1,200, picking")).toBeInTheDocument();
+  cleanup();
+  host({
+    ...onBoard,
+    phase: "answering",
+    activeClue: clue,
+    clueEnd: { state: "unanswered", correctResponse: "Nitrogen" },
+  });
+  expect(screen.getByLabelText("Wyatt −$200")).toBeInTheDocument();
+});
+
+test("the correct-response screen leaves the clue out", () => {
+  host({ ...state, phase: "answering", clueEnd: { state: "answered", correctResponse: "Nitrogen" } });
+  expect(screen.queryByLabelText("Clue")).not.toBeInTheDocument();
+  expect(screen.queryByText("THIS GAS")).not.toBeInTheDocument();
+  expect(screen.getByText("Nitrogen")).toBeInTheDocument();
 });

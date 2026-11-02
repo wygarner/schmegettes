@@ -2,8 +2,8 @@ import type { ClientMessage } from "@schmegettes/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RoomState } from "../lib/room";
 import { createRecognizer, type Recognizer } from "../lib/speech";
+import { ANSWER_MS } from "./timing";
 
-const ANSWER_MS = 7000;
 const PROGRESS_MS = 250;
 
 /**

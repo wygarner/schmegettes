@@ -151,7 +151,7 @@ paths:
                   type: [array, "null"]
                   items: { type: integer, minimum: 1 }
                   description: Seasons to build boards from; null means every season
-                maxPlayers: { type: integer, minimum: 2, maximum: 8 }
+                maxPlayers: { type: integer, minimum: 2, maximum: 6 }
               additionalProperties: false
       responses:
         "200":

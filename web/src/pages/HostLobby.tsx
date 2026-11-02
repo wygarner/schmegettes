@@ -2,10 +2,9 @@ import {
   ActionIcon,
   Alert,
   Anchor,
-  Badge,
+  Box,
   Button,
   Center,
-  Container,
   Group,
   Loader,
   Stack,
@@ -17,7 +16,9 @@ import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { HostGame } from "../game/HostGame";
+import { HostLayout } from "../game/HostLayout";
 import { MicPrompt } from "../game/MicPrompt";
+import { PlayerControls } from "../game/PlayerControls";
 import { isValidName, MAX_NAME, setLastName } from "../lib/displayName";
 import { contestantCount, type RoomState, useRoom } from "../lib/room";
 import { type RoomJoin, roomByCode } from "../lib/rooms";
@@ -148,112 +149,116 @@ export function HostLobbyView({
     setEditing(false);
   }
 
-  return (
-    <Container size="lg" py="xl">
-      <Stack gap="xl">
-        <Group justify="space-between">
-          <Title order={3}>SCHMEGETTES</Title>
-          {editing ? (
-            <Group gap="xs">
-              <TextInput
-                aria-label="Your name"
-                size="xs"
-                maxLength={MAX_NAME}
-                value={name}
-                onChange={(e) => setName(e.currentTarget.value)}
-                onKeyDown={(e) => e.key === "Enter" && saveName()}
-              />
-              <Button size="xs" onClick={saveName} disabled={!isValidName(name)}>
-                Save
-              </Button>
-            </Group>
-          ) : (
-            <Group gap="xs">
-              <Text>Hosted by {state.hostDisplayName}</Text>
-              <ActionIcon
-                variant="subtle"
-                aria-label="Edit your name"
-                onClick={() => {
-                  setName(state.hostDisplayName);
-                  setEditing(true);
-                }}
-              >
-                ✎
-              </ActionIcon>
-            </Group>
-          )}
-        </Group>
-
-        <Stack align="center" gap={0}>
-          <Text size="xl">Join at {joinUrl}</Text>
-          <Text
-            aria-label="Room code"
-            ff="Oswald, Impact, sans-serif"
-            fw={700}
-            style={{ fontSize: "clamp(4rem, 18vw, 12rem)", letterSpacing: "0.25em", lineHeight: 1.1 }}
-          >
-            {code}
-          </Text>
-        </Stack>
-
-        {state.connection === "reconnecting" && <Alert color="yellow">Reconnecting…</Alert>}
-        {state.error && (
-          <Alert color="red">{state.error.message ?? ERRORS[state.error.code] ?? "Something went wrong."}</Alert>
-        )}
-
-        <Stack gap="xs">
-          <Text fw={700}>
-            Players {count} / {state.maxPlayers}
-          </Text>
-          {state.players.length === 0 ? (
-            <Text c="dimmed">Waiting for players…</Text>
-          ) : (
-            <Group>
-              {state.players.map((p) => (
-                <Badge
-                  key={p.userId}
-                  size="xl"
-                  variant={p.connected ? "filled" : "light"}
-                  color={p.connected ? undefined : "gray"}
-                  rightSection={p.role === "host" ? "HOST" : undefined}
-                >
-                  {p.displayName}
-                  {!p.connected && " (reconnecting)"}
-                </Badge>
-              ))}
-            </Group>
-          )}
-        </Stack>
-
-        <Group justify="space-between" align="start">
-          <Stack gap={4}>
-            <Button
-              variant="default"
-              size="lg"
-              disabled={!state.hostPlays && full}
-              onClick={() => send({ type: "set_host_plays", plays: !state.hostPlays })}
-            >
-              {state.hostPlays ? "Leave the game" : "Join the game"}
+  const stage = (
+    <Stack h="100%" justify="space-between" gap="xs">
+      <Group justify="space-between" wrap="nowrap">
+        <Title order={4}>SCHMEGETTES</Title>
+        {editing ? (
+          <Group gap="xs" wrap="nowrap">
+            <TextInput
+              aria-label="Your name"
+              size="xs"
+              maxLength={MAX_NAME}
+              value={name}
+              onChange={(e) => setName(e.currentTarget.value)}
+              onKeyDown={(e) => e.key === "Enter" && saveName()}
+            />
+            <Button size="xs" onClick={saveName} disabled={!isValidName(name)}>
+              Save
             </Button>
-            {!state.hostPlays && full && <Text size="sm">Room is full</Text>}
-            {state.hostPlays && <MicPrompt />}
-          </Stack>
-          <Stack gap={4} align="end">
-            <Button
-              size="lg"
-              disabled={!canStart}
-              loading={starting}
+          </Group>
+        ) : (
+          <Group gap="xs" wrap="nowrap">
+            <Text truncate="end">Hosted by {state.hostDisplayName}</Text>
+            <ActionIcon
+              variant="subtle"
+              aria-label="Edit your name"
               onClick={() => {
-                setStarting(true);
-                send({ type: "start_game" });
+                setName(state.hostDisplayName);
+                setEditing(true);
               }}
             >
-              Start
-            </Button>
-            {!canStart && <Text size="sm">Need at least 2 players</Text>}
-          </Stack>
-        </Group>
+              ✎
+            </ActionIcon>
+          </Group>
+        )}
+      </Group>
+
+      <Stack align="center" gap={0}>
+        <Text>Join at {joinUrl}</Text>
+        <Text
+          aria-label="Room code"
+          ff="Oswald, Impact, sans-serif"
+          fw={700}
+          style={{ fontSize: "clamp(3rem, min(12vw, 26vh), 10rem)", letterSpacing: "0.25em", lineHeight: 1.1 }}
+        >
+          {code}
+        </Text>
       </Stack>
-    </Container>
+
+      {state.connection === "reconnecting" && (
+        <Alert color="yellow" p={8}>
+          Reconnecting…
+        </Alert>
+      )}
+      {state.error && (
+        <Alert color="red" p={8}>
+          {state.error.message ?? ERRORS[state.error.code] ?? "Something went wrong."}
+        </Alert>
+      )}
+
+      <Group justify="space-between" align="end" wrap="nowrap">
+        <Stack gap={4}>
+          <Button
+            variant="default"
+            disabled={!state.hostPlays && full}
+            onClick={() => send({ type: "set_host_plays", plays: !state.hostPlays })}
+          >
+            {state.hostPlays ? "Leave the game" : "Join the game"}
+          </Button>
+          {!state.hostPlays && full && <Text size="sm">Room is full</Text>}
+          {state.hostPlays && <MicPrompt />}
+        </Stack>
+        <Stack gap={4} align="end">
+          <Button
+            disabled={!canStart}
+            loading={starting}
+            onClick={() => {
+              setStarting(true);
+              send({ type: "start_game" });
+            }}
+          >
+            Start
+          </Button>
+          {!canStart && <Text size="sm">Need at least 2 players</Text>}
+        </Stack>
+      </Group>
+    </Stack>
   );
+
+  const column = (
+    <>
+      <Text fw={700}>
+        Players {count} / {state.maxPlayers}
+      </Text>
+      <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+        {state.players.length === 0 ? (
+          <Text c="dimmed">Waiting for players…</Text>
+        ) : (
+          <Stack gap={2}>
+            {state.players.map((p) => (
+              <Text key={p.userId} size="sm" truncate="end" c={p.connected ? undefined : "dimmed"}>
+                {p.connected ? "●" : "◌"} {p.displayName}
+                {p.role === "host" && " HOST"}
+                {!p.connected && " (reconnecting)"}
+              </Text>
+            ))}
+          </Stack>
+        )}
+      </Box>
+      {state.hostPlays && <PlayerControls state={state} userId={state.hostUserId} send={send} compact spaceToBuzz />}
+    </>
+  );
+
+  return <HostLayout stage={stage} column={column} />;
 }

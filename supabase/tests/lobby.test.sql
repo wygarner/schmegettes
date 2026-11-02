@@ -3,7 +3,7 @@
 -- lobby changes run as game_engine, as game/ calls them.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(39);
+select plan(42);
 
 grant game_engine to current_user;
 grant usage on schema extensions to game_engine;
@@ -113,6 +113,15 @@ select throws_ok(
 -- Capacity and the playing host
 -- ---------------------------------------------------------------------------
 reset role;
+select throws_ok(
+  $$ update public.rooms set max_players = 7 where id = tests.room('r') $$,
+  '23514', null, 'a room holds at most 6 contestants'
+);
+select lives_ok($$ update public.rooms set max_players = 6 where id = tests.room('r') $$, '6 contestants is allowed');
+select throws_ok(
+  $$ update public.rooms set max_players = 1 where id = tests.room('r') $$,
+  '23514', null, 'a room needs room for at least 2 contestants'
+);
 update public.rooms set max_players = 2, seasons = '{77}' where id = tests.room('r');
 
 select tests.as_user('44444444-4444-4444-8444-444444444444');

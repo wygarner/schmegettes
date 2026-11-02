@@ -102,15 +102,15 @@ func TestAFullGameEndToEnd(t *testing.T) {
 	if m, _ := other.raw("answer_judged"); m.Verdict != "correct" {
 		t.Fatalf("verdict %q", m.Verdict)
 	}
-	f.timers.fireAfter(host) // correct response shown for 3 s
+	f.timers.fireAfter(host) // correct response shown for 6 s
 	if m, _ := host.raw("round_started"); m.Round != "double" {
 		t.Fatalf("round %q", m.Round)
 	}
 	f.timers.fireAfter(host) // "Double Schmegettes!" interstitial
 	host.until("phase_changed")
 
-	// Double: nobody buzzes.
-	host.send(map[string]any{"type": "select_clue", "clueId": "clue-d"})
+	// Double: the lowest scorer picks (the host device can't pick for them); nobody buzzes.
+	map[string]*conn{alice: a, bob: b}[controller(f)].send(map[string]any{"type": "select_clue", "clueId": "clue-d"})
 	host.send(map[string]any{"type": "reading_done", "clueId": "clue-d"})
 	host.raw("phase_changed")
 	f.timers.fireAfter(host) // 5 s with no buzz

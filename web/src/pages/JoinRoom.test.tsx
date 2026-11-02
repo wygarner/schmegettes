@@ -66,7 +66,9 @@ test("a new player enters a name and is in", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Join" }));
 
   expect(await screen.findByText("You're in, Alice.")).toBeInTheDocument();
-  expect(screen.getByText("Look at the TV. Wyatt will start the game.")).toBeInTheDocument();
+  expect(screen.queryByText(/Look at the TV/)).not.toBeInTheDocument();
+  // The buzzer is on screen from the lobby on; a tap there only animates it.
+  expect(screen.getByRole("button", { name: "Buzz" })).toHaveAttribute("data-state", "idle");
   expect(joinRoom).toHaveBeenCalledWith("K7RXM", "Alice");
 });
 

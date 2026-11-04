@@ -11,7 +11,7 @@ This is feature 2 of 3 ([gameplay](../gameplay/feature-brief.md) is feature 1). 
 | Who | Job |
 |---|---|
 | Contestant who finds a Daily Double | "I hit a Daily Double, so I decide how much to bet before I hear the clue, then I get to answer it alone." |
-| Contestant in Final | "I bet secretly on my phone after seeing the category, answer privately, and nobody can copy me or see my bet." |
+| Contestant in Final | "I bet secretly on my phone after seeing the category, type my answer, and nobody can see my bet or copy my answer." |
 | Host (TV) | "The TV runs wagers by itself: it explains the limits, waits for bets, reads the clue, and reveals Final one player at a time." |
 | Host who plays | "I wager on the host device like everyone else, and the room can't see my Final bet even though my screen is on the TV ([lobby](../lobby/feature-brief.md))." |
 | Everyone in the room | "The Final reveal builds suspense: one player at a time, ending with the winner." |
@@ -43,11 +43,16 @@ This is feature 2 of 3 ([gameplay](../gameplay/feature-brief.md) is feature 1). 
 
 1. **Category (`final_category`).** The TV shows "FINAL SCHMEGETTES" for 3 s, then the category. The narrator says "The Final Schmegettes category is: {category}."
 2. **Wager (`final_wager`), 30 s.** Each finalist enters a **secret** wager on their phone, from **$0 up to their whole score**. The host's Final wager is masked (`$ •••••`), because the host device is on the TV. The TV shows each finalist's tile with "wagering…" or "✓ locked", never an amount. The phase ends when every finalist has locked in, or at 30 s. **An unlocked wager counts as $0.**
-3. **Clue and answer (`final_answer`).** The TV shows the clue, and the narrator reads it. When the reading ends, every finalist's phone starts listening at once, for **30 s**. Each finalist says their answer **quietly into their own phone**. The **first answer heard locks it in**: the phone shows "Locked in" and stops listening. The answer isn't shown on the TV or the host device until the reveal. Finalists who say nothing get no answer.
+3. **Clue and answer (`final_answer`).** Final answers are **typed, not spoken**, so in a room full of people nobody can overhear and copy. The TV shows the clue, and the narrator reads it. Each finalist's phone shows a text field as soon as the clue appears. The **30 s** timer starts when the reading ends.
+   - The finalist types their answer (at most 200 characters; "What is" is optional) and taps **Submit**. They can edit until they submit. After that it's locked.
+   - When time runs out, whatever is in the field is submitted. An empty field is no answer.
+   - The phone sends the draft to the server as the player types, so a draft survives a disconnect.
+   - The host's field on the host device is masked (`•••••`), because the host device is on the TV.
+   - No answer is shown on the TV, the host device, or another phone until the reveal.
 4. **Reveal (`final_reveal`).** One finalist at a time, **lowest score first** (by score before Final; ties in join order), so the leader goes last. For each finalist the TV shows, about 2 s apart: their **response** (or "No answer"), the **verdict**, the **wager**, and the **new score**. About 8 s per finalist.
 5. **Finished.** The TV shows the final scores, highest first, and the game is recorded as **finished**. Players tied for the top score are all winners; there's no tiebreak. Feature 3 replaces this screen with the full scoreboard and Rematch.
 
-**Judging.** Same generous judging as any clue. Correct: +wager. Incorrect or no answer: −wager. A $0 wager changes nothing.
+**Judging.** Same generous judging as any clue, and typos count as small slips: "Krakatowa" is right. Correct: +wager. Incorrect or no answer: −wager. A $0 wager changes nothing.
 
 ### Scores and history
 
@@ -61,8 +66,9 @@ This is feature 2 of 3 ([gameplay](../gameplay/feature-brief.md) is feature 1). 
 | Daily Double player disconnects while wagering | The 30 s timer keeps running. Back in time: they wager as normal. Otherwise $5. |
 | Daily Double player disconnects while answering | No answer, so **−wager**. Unlike a normal clue there's nobody to reopen buzzing for, and skipping the penalty would reward disconnecting. |
 | Finalist disconnects during the wager | Timer keeps running. Back in time: they can still lock in. Otherwise $0. |
-| Finalist disconnects after locking a wager, before answering | Their answer window runs as normal. Back in time: they answer. Otherwise no answer: **−wager**. |
-| A finalist hears someone else's answer | Answers lock on the first one heard, and the TV shows "Locked in" for each finalist as it happens, so waiting to copy is visible to the room. Players should answer quietly. |
+| Finalist disconnects while answering | The last draft the server received counts when time runs out. No draft: no answer, **−wager**. Back in time: they keep typing. |
+| A finalist peeks at someone else's phone | Not something the game can stop. Answers are typed so they can't be overheard, and the TV never shows them before the reveal. |
+| Host types a Final answer on the mirrored host device | The field is masked. The on-screen keyboard is still mirrored, and iOS shows each key as it's pressed, so the room might read the answer. See the open question in the product brief. |
 | Wagers out of range | The server rejects them. The phone only offers amounts inside the limits. |
 | Host device disconnects | The game pauses (as in [gameplay](../gameplay/feature-brief.md)): all wager and answer timers stop and resume with the time they had left. A clue being read is read again from the start. |
 | The correct response | Never reaches a phone. The TV gets it only once Final is revealed or a Daily Double is judged. |
@@ -72,6 +78,7 @@ This is feature 2 of 3 ([gameplay](../gameplay/feature-brief.md) is feature 1). 
 
 - Host overrides of a verdict, the full scoreboard, and Rematch (feature 3)
 - Voice wagers ("I'll bet a thousand")
-- Typed Final answers (answers are always spoken)
+- Spoken Final answers (Final is always typed)
+- Typed answers for regular clues and Daily Doubles (they're spoken)
 - Wager suggestions or strategy hints
 - Sound effects, music, and a "think" tune for Final

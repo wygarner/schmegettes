@@ -47,7 +47,7 @@ The host device is an iPhone in landscape, mirrored to the TV ([gameplay](../gam
 | Pick a clue when in control | Tap the board and confirm, or say it ("Science for 400"). Only when the host has control: the host device can't pick for anyone else. |
 | Daily Double wager | Entered in the player column. Daily Double wagers are public anyway. |
 | Final wager | Masked input (`$ •••••`). The TV says "Wyatt is wagering…", not the amount. |
-| Final answer | Spoken like everyone else's. The host device never shows the host's transcript before the reveal. |
+| Final answer | Typed like everyone else's, into a masked field (`•••••`). The host device never shows the host's answer before the reveal. |
 
 **Fairness:**
 - The host device never shows a correct response before an answer is judged, so playing on it tells the host nothing the others don't know.

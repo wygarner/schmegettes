@@ -1,6 +1,6 @@
 # Product Overview
 
-**Schmegettes** is a multiplayer quiz-show party game played in the browser. It is played **together in one room**. The host's device, an iPhone held in landscape, shows the game on a TV (AirPlay or any screen mirroring). Everyone else joins with a short code on their phone, which becomes their buzzer and microphone: they pick clues, race to buzz in, and answer out loud.
+**Schmegettes** is a multiplayer quiz-show party game played in the browser. It is played **together in one room**. The host's device, an iPhone held in landscape, shows the game on a TV (AirPlay or any screen mirroring). Everyone else joins with a short code on their phone, which becomes their buzzer and microphone: they pick clues, race to buzz in, and answer out loud (Final Schmegettes answers are typed, so nobody overhears them).
 
 There is no remote play: a player has to see the TV to play.
 
@@ -17,8 +17,8 @@ There is no remote play: a player has to see the TV to play.
 | **Board** | 6 categories × 4 clues per round, drawn from the clue catalog (past seasons). Single and Double rounds, then Final. Built when the host presses Start, from categories nobody playing has seen ([game history](../features/game-history/feature-brief.md)). |
 | **Control** | The contestant who last answered correctly picks the next clue, by voice ("Science for 400") or by tapping on their phone (with a confirmation). Nobody else can pick for them, the host device included; a controller who disconnects loses control after 10 s ([gameplay](../features/gameplay/feature-brief.md)). |
 | **Buzzing** | The TV shows the clue and reads it aloud (text-to-speech). Buzzing opens when the reading ends. Buzzing early earns a short lockout. First valid buzz answers. |
-| **Answer** | Spoken into the buzzing player's phone; there is no typed answer. Judged instantly; wrong answers subtract the clue's value and reopen buzzing for the others. |
-| **Daily Double / Final** | Wagered clues. Wagers are entered on the phone. Final: every contestant with a positive score wagers secretly on their phone and answers into it privately; the TV reveals in score order. |
+| **Answer** | Spoken into the buzzing player's phone. The one exception is Final Schmegettes, where answers are typed. Judged instantly; wrong answers subtract the clue's value and reopen buzzing for the others. |
+| **Daily Double / Final** | Wagered clues. Wagers are entered on the phone. Final: every contestant with a positive score wagers secretly on their phone and types their answer on it; the TV reveals lowest score first ([wagers](../features/wagers/feature-brief.md)). |
 
 ## Game phases
 

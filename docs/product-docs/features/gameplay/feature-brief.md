@@ -82,5 +82,5 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 - Daily Double and Final Schmegettes wagers ([wagers](../wagers/feature-brief.md), feature 2)
 - Host overrides of a verdict, the end-of-game scoreboard, and Rematch (feature 3)
 - An LLM appeal of a verdict
-- Typed answers (never: answers are spoken)
+- Typed answers for regular clues (they're spoken. Only Final Schmegettes is typed: [wagers](../wagers/feature-brief.md))
 - Sound effects and music

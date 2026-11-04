@@ -85,7 +85,7 @@ When the host joined, their controls live in the **player column** on the right 
 | `answering`, host buzzed | Buzzer green "Answer now"; mic level meter under the clue |
 | `daily_double_wager` (host's) | Amount field |
 | `final_wager` | Masked field `$ •••••`. The TV shows "Wyatt is wagering…" |
-| `final_answer` | "Answer now" with a mic meter. No transcript shown. |
+| `final_answer` | Masked text field `•••••` and **Submit**. The answer is never shown. |
 
 ## Edge cases
 

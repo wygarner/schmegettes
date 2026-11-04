@@ -180,4 +180,4 @@ The same states as the phone, in the player column, minus what the stage already
 | Host device disconnects mid-clue | Paused. On return the announcement and clue are read again from the start, and buzzing reopens for those who haven't tried |
 | 6 contestants plus the host's buzzer on a 667 × 320 screen | One-line tiles of about 35 px; all 4 board rows stay visible |
 | Only one contestant left connected | Play continues |
-| A Daily Double square | Plays as a normal clue until feature 2 |
+| A Daily Double square | Wager, then the picker answers alone ([wagers](../wagers/interaction-design.md)) |

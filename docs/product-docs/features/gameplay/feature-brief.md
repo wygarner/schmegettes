@@ -47,12 +47,12 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 - **Incorrect:** the player loses the clue's value. Buzzing **reopens** for players who haven't tried this clue, with a fresh 5 s window. Each player gets one attempt per clue.
 - **No answer heard** within 14 s counts as incorrect, as on the show, with one exception for disconnects (Fairness below).
 - A clue ends when someone answers correctly, everyone has tried, or a buzz window closes with no buzz. Then the TV shows the correct response for **6 s** and returns to the board. The correct-response screen does not show the clue text.
-- **Daily Doubles:** feature 2 adds wagering. Until then, a Daily Double square plays like any other clue.
+- **Daily Doubles:** the player who picks one wagers and answers alone, with no buzzing ([wagers](../wagers/feature-brief.md)).
 
 ### Rounds and the end
 
 - When every clue on the Single board is done, the TV shows "Double Schmegettes!" for 3 s, then the Double board.
-- When the Double board is done, the game ends. Until feature 2 adds Final Schmegettes, the TV shows the **final scores** (highest first) and the game is recorded as finished. Feature 3 replaces this screen with the full scoreboard and **Rematch**.
+- When the Double board is done, **Final Schmegettes** follows ([wagers](../wagers/feature-brief.md)). Then the TV shows the **final scores** (highest first) and the game is recorded as finished. Feature 3 replaces this screen with the full scoreboard and **Rematch**.
 
 ### Scores
 
@@ -79,7 +79,7 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
 ## Out of scope
 
-- Daily Double and Final Schmegettes wagers (feature 2)
+- Daily Double and Final Schmegettes wagers ([wagers](../wagers/feature-brief.md), feature 2)
 - Host overrides of a verdict, the end-of-game scoreboard, and Rematch (feature 3)
 - An LLM appeal of a verdict
 - Typed answers (never: answers are spoken)

@@ -213,3 +213,7 @@ Rejected wagers (`invalid_wager`, `not_a_finalist`) are normal gameplay: `debug`
 - **Recovery mid-Final** is the most complex state. Drafts are lost on a `game/` restart, by design.
 - **Mobile keyboards** on 667 × 320 and small phones may cover the countdown. Check by hand on an iPhone SE-sized viewport.
 - **The host's mirrored keyboard** may reveal the host's Final answer through iOS key pop-ups. Product accepted this for v1.
+
+## Branch
+
+`new-feature/wagers-impl`, from and into `daily/2026-11-04`. No Jira key: Jira isn't configured yet (`.github/jira.json` issue-type IDs are `REPLACE_ME`, and the repo has no Jira secrets), as with the lobby, gameplay and gameplay-polish tasks. PR title: `[New Feature] wagers: …`. The final commit deletes `tasks/wagers/`.

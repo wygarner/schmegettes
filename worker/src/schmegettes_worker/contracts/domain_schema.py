@@ -33,6 +33,11 @@ class GamePhase(Enum):
     finished = 'finished'
 
 
+class AnswerSource(Enum):
+    voice = 'voice'
+    typed = 'typed'
+
+
 class Round(Enum):
     single = 'single'
     double = 'double'

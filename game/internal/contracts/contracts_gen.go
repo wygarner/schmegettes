@@ -34,13 +34,19 @@ type AnswerJudged struct {
 
 	// Verdict corresponds to the JSON schema field "verdict".
 	Verdict Verdict `json:"verdict" yaml:"verdict" mapstructure:"verdict"`
+
+	// Set for a Daily Double verdict and each Final reveal step.
+	Wager *int `json:"wager,omitempty" yaml:"wager,omitempty" mapstructure:"wager,omitempty"`
 }
 
 // userId -> score after this verdict.
 type AnswerJudgedScores map[string]int
 
 // The answering player's interim transcript, so the TV can show it live. The
-// server drops more than 4 per second.
+// server drops more than 4 per second. In final_answer it is instead the sender's
+// private draft of their typed answer: kept by the server, never relayed, and
+// submitted for them if time runs out. Clients debounce drafts and always send the
+// last one.
 type AnswerProgress struct {
 	// ClueId corresponds to the JSON schema field "clueId".
 	ClueId Uuid `json:"clueId" yaml:"clueId" mapstructure:"clueId"`
@@ -51,6 +57,11 @@ type AnswerProgress struct {
 	// Type corresponds to the JSON schema field "type".
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
 }
+
+type AnswerSource string
+
+const AnswerSourceTyped AnswerSource = "typed"
+const AnswerSourceVoice AnswerSource = "voice"
 
 type AppealAnswer struct {
 	// AnswerId corresponds to the JSON schema field "answerId".
@@ -81,6 +92,10 @@ type BoardClue struct {
 
 	// ClueText corresponds to the JSON schema field "clueText".
 	ClueText *string `json:"clueText,omitempty" yaml:"clueText,omitempty" mapstructure:"clueText,omitempty"`
+
+	// Set only on the active clue once a Daily Double is picked; never on board
+	// listings.
+	DailyDouble *bool `json:"dailyDouble,omitempty" yaml:"dailyDouble,omitempty" mapstructure:"dailyDouble,omitempty"`
 
 	// State corresponds to the JSON schema field "state".
 	State ClueState `json:"state" yaml:"state" mapstructure:"state"`
@@ -189,6 +204,8 @@ const ErrorCodeGameStarted ErrorCode = "game_started"
 const ErrorCodeInternal ErrorCode = "internal"
 const ErrorCodeInvalidMessage ErrorCode = "invalid_message"
 const ErrorCodeInvalidName ErrorCode = "invalid_name"
+const ErrorCodeInvalidWager ErrorCode = "invalid_wager"
+const ErrorCodeNotAFinalist ErrorCode = "not_a_finalist"
 const ErrorCodeNotEnoughPlayers ErrorCode = "not_enough_players"
 const ErrorCodeNotHost ErrorCode = "not_host"
 const ErrorCodeNotInControl ErrorCode = "not_in_control"
@@ -196,8 +213,30 @@ const ErrorCodeNotYourTurn ErrorCode = "not_your_turn"
 const ErrorCodeRoomFull ErrorCode = "room_full"
 const ErrorCodeWrongPhase ErrorCode = "wrong_phase"
 
+// A finalist's typed answer is locked in. answer is only in that player's own
+// copy, never the host device's.
+type FinalSubmitted struct {
+	// Answer corresponds to the JSON schema field "answer".
+	Answer *string `json:"answer,omitempty" yaml:"answer,omitempty" mapstructure:"answer,omitempty"`
+
+	// RoomId corresponds to the JSON schema field "roomId".
+	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
+
+	// Seq corresponds to the JSON schema field "seq".
+	Seq int `json:"seq" yaml:"seq" mapstructure:"seq"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+
+	// UserId corresponds to the JSON schema field "userId".
+	UserId Uuid `json:"userId" yaml:"userId" mapstructure:"userId"`
+}
+
 // The game ended. Results are highest score first; ties share a placement.
 type GameOver struct {
+	// True when nobody was above $0 after Double Schmegettes, so Final was skipped.
+	FinalSkipped *bool `json:"finalSkipped,omitempty" yaml:"finalSkipped,omitempty" mapstructure:"finalSkipped,omitempty"`
+
 	// Results corresponds to the JSON schema field "results".
 	Results []GameOverResultsElem `json:"results" yaml:"results" mapstructure:"results"`
 
@@ -359,11 +398,21 @@ type PhaseChanged struct {
 	// Server clock, ms since epoch, when this phase times out.
 	DeadlineAt *int `json:"deadlineAt,omitempty" yaml:"deadlineAt,omitempty" mapstructure:"deadlineAt,omitempty"`
 
+	// Final: contestants above $0 when Double ended, in join order.
+	FinalistUserIds []Uuid `json:"finalistUserIds,omitempty" yaml:"finalistUserIds,omitempty" mapstructure:"finalistUserIds,omitempty"`
+
+	// Final: finalists who locked a wager (final_wager) or submitted an answer
+	// (final_answer). Never amounts or answers.
+	LockedUserIds []Uuid `json:"lockedUserIds,omitempty" yaml:"lockedUserIds,omitempty" mapstructure:"lockedUserIds,omitempty"`
+
 	// Paused corresponds to the JSON schema field "paused".
 	Paused *bool `json:"paused,omitempty" yaml:"paused,omitempty" mapstructure:"paused,omitempty"`
 
 	// Phase corresponds to the JSON schema field "phase".
 	Phase GamePhase `json:"phase" yaml:"phase" mapstructure:"phase"`
+
+	// final_reveal: finalists in reveal order, lowest pre-Final score first.
+	RevealOrder []Uuid `json:"revealOrder,omitempty" yaml:"revealOrder,omitempty" mapstructure:"revealOrder,omitempty"`
 
 	// RoomId corresponds to the JSON schema field "roomId".
 	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
@@ -373,6 +422,16 @@ type PhaseChanged struct {
 
 	// Type corresponds to the JSON schema field "type".
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+
+	// Daily Double: the picker's wager once locked. Public. Never set for Final.
+	Wager *int `json:"wager,omitempty" yaml:"wager,omitempty" mapstructure:"wager,omitempty"`
+
+	// Daily Double: the highest wager the picker may make, max(score, round's top
+	// value). Public.
+	WagerMax *int `json:"wagerMax,omitempty" yaml:"wagerMax,omitempty" mapstructure:"wagerMax,omitempty"`
+
+	// Daily Double: the lowest wager the picker may make ($5). Public.
+	WagerMin *int `json:"wagerMin,omitempty" yaml:"wagerMin,omitempty" mapstructure:"wagerMin,omitempty"`
 }
 
 type Ping struct {
@@ -472,14 +531,32 @@ type RoomSnapshot struct {
 	// Server clock, ms since epoch, when the current step times out.
 	DeadlineAt *int `json:"deadlineAt,omitempty" yaml:"deadlineAt,omitempty" mapstructure:"deadlineAt,omitempty"`
 
+	// Final: contestants above $0 when Double ended, in join order.
+	FinalistUserIds []Uuid `json:"finalistUserIds,omitempty" yaml:"finalistUserIds,omitempty" mapstructure:"finalistUserIds,omitempty"`
+
 	// HostDisplayName corresponds to the JSON schema field "hostDisplayName".
 	HostDisplayName *string `json:"hostDisplayName,omitempty" yaml:"hostDisplayName,omitempty" mapstructure:"hostDisplayName,omitempty"`
 
 	// HostPlays corresponds to the JSON schema field "hostPlays".
 	HostPlays *bool `json:"hostPlays,omitempty" yaml:"hostPlays,omitempty" mapstructure:"hostPlays,omitempty"`
 
+	// Final: finalists who locked a wager (final_wager) or submitted an answer
+	// (final_answer). Never amounts or answers.
+	LockedUserIds []Uuid `json:"lockedUserIds,omitempty" yaml:"lockedUserIds,omitempty" mapstructure:"lockedUserIds,omitempty"`
+
 	// MaxPlayers corresponds to the JSON schema field "maxPlayers".
 	MaxPlayers *int `json:"maxPlayers,omitempty" yaml:"maxPlayers,omitempty" mapstructure:"maxPlayers,omitempty"`
+
+	// This socket's user's own Final draft or submitted answer. Only in that user's
+	// copy, never for the host device.
+	MyFinalAnswer *string `json:"myFinalAnswer,omitempty" yaml:"myFinalAnswer,omitempty" mapstructure:"myFinalAnswer,omitempty"`
+
+	// Whether myFinalAnswer is submitted (locked) rather than a draft.
+	MyFinalSubmitted *bool `json:"myFinalSubmitted,omitempty" yaml:"myFinalSubmitted,omitempty" mapstructure:"myFinalSubmitted,omitempty"`
+
+	// This socket's user's own locked wager. Only in that user's copy, never for the
+	// host device.
+	MyWager *int `json:"myWager,omitempty" yaml:"myWager,omitempty" mapstructure:"myWager,omitempty"`
 
 	// Paused corresponds to the JSON schema field "paused".
 	Paused *bool `json:"paused,omitempty" yaml:"paused,omitempty" mapstructure:"paused,omitempty"`
@@ -489,6 +566,9 @@ type RoomSnapshot struct {
 
 	// Players corresponds to the JSON schema field "players".
 	Players []Player `json:"players" yaml:"players" mapstructure:"players"`
+
+	// final_reveal: finalists in reveal order, lowest pre-Final score first.
+	RevealOrder []Uuid `json:"revealOrder,omitempty" yaml:"revealOrder,omitempty" mapstructure:"revealOrder,omitempty"`
 
 	// RoomId corresponds to the JSON schema field "roomId".
 	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
@@ -504,6 +584,16 @@ type RoomSnapshot struct {
 
 	// Type corresponds to the JSON schema field "type".
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+
+	// Daily Double: the picker's wager once locked. Public. Never set for Final.
+	Wager *int `json:"wager,omitempty" yaml:"wager,omitempty" mapstructure:"wager,omitempty"`
+
+	// Daily Double: the highest wager the picker may make, max(score, round's top
+	// value). Public.
+	WagerMax *int `json:"wagerMax,omitempty" yaml:"wagerMax,omitempty" mapstructure:"wagerMax,omitempty"`
+
+	// Daily Double: the lowest wager the picker may make ($5). Public.
+	WagerMin *int `json:"wagerMin,omitempty" yaml:"wagerMin,omitempty" mapstructure:"wagerMin,omitempty"`
 }
 
 // userId -> score.
@@ -584,7 +674,8 @@ type SubmitAnswer struct {
 	// ClueId corresponds to the JSON schema field "clueId".
 	ClueId Uuid `json:"clueId" yaml:"clueId" mapstructure:"clueId"`
 
-	// Answers are spoken; there is no typed input.
+	// voice for every clue and Daily Double; typed only in final_answer (Final
+	// Schmegettes answers are typed).
 	Source SubmitAnswerSource `json:"source" yaml:"source" mapstructure:"source"`
 
 	// Type corresponds to the JSON schema field "type".
@@ -593,9 +684,12 @@ type SubmitAnswer struct {
 
 type SubmitAnswerSource string
 
+const SubmitAnswerSourceTyped SubmitAnswerSource = "typed"
 const SubmitAnswerSourceVoice SubmitAnswerSource = "voice"
 
-// Daily Double or Final round wager.
+// Daily Double or Final round wager, in whole dollars. The server checks the
+// range: Daily Double $5 to max(score, round's top value); Final $0 to score. The
+// first valid wager locks.
 type SubmitWager struct {
 	// Amount corresponds to the JSON schema field "amount".
 	Amount int `json:"amount" yaml:"amount" mapstructure:"amount"`
@@ -629,3 +723,22 @@ const VerdictCorrect Verdict = "correct"
 const VerdictIncorrect Verdict = "incorrect"
 const VerdictOverriddenCorrect Verdict = "overridden_correct"
 const VerdictOverriddenIncorrect Verdict = "overridden_incorrect"
+
+// A player locked a wager. Daily Double: amount is on every copy (public). Final:
+// amount is only in the wagering player's own copy, never the host device's.
+type WagerLocked struct {
+	// Amount corresponds to the JSON schema field "amount".
+	Amount *int `json:"amount,omitempty" yaml:"amount,omitempty" mapstructure:"amount,omitempty"`
+
+	// RoomId corresponds to the JSON schema field "roomId".
+	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
+
+	// Seq corresponds to the JSON schema field "seq".
+	Seq int `json:"seq" yaml:"seq" mapstructure:"seq"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+
+	// UserId corresponds to the JSON schema field "userId".
+	UserId Uuid `json:"userId" yaml:"userId" mapstructure:"userId"`
+}

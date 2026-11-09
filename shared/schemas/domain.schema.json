@@ -22,6 +22,11 @@
         "finished"
       ]
     },
+    "AnswerSource": {
+      "description": "How an answer was given: spoken (every clue and Daily Double) or typed (Final Schmegettes only). Mirrors public.answer_source.",
+      "type": "string",
+      "enum": ["voice", "typed"]
+    },
     "Round": {
       "type": "string",
       "enum": ["single", "double", "final"]

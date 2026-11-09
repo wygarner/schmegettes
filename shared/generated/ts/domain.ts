@@ -20,6 +20,13 @@ export type GamePhase =
   | "final_reveal"
   | "finished";
 /**
+ * How an answer was given: spoken (every clue and Daily Double) or typed (Final Schmegettes only). Mirrors public.answer_source.
+ *
+ * This interface was referenced by `Domain`'s JSON-Schema
+ * via the `definition` "AnswerSource".
+ */
+export type AnswerSource = "voice" | "typed";
+/**
  * This interface was referenced by `Domain`'s JSON-Schema
  * via the `definition` "Round".
  */

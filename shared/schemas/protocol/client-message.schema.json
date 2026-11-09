@@ -84,7 +84,7 @@
       "additionalProperties": false
     },
     "AnswerProgress": {
-      "description": "The answering player's interim transcript, so the TV can show it live. The server drops more than 4 per second.",
+      "description": "The answering player's interim transcript, so the TV can show it live. The server drops more than 4 per second. In final_answer it is instead the sender's private draft of their typed answer: kept by the server, never relayed, and submitted for them if time runs out. Clients debounce drafts and always send the last one.",
       "type": "object",
       "properties": {
         "type": { "const": "answer_progress" },
@@ -100,13 +100,13 @@
         "type": { "const": "submit_answer" },
         "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
         "answer": { "type": "string", "maxLength": 200 },
-        "source": { "type": "string", "enum": ["voice"], "description": "Answers are spoken; there is no typed input." }
+        "source": { "type": "string", "enum": ["voice", "typed"], "description": "voice for every clue and Daily Double; typed only in final_answer (Final Schmegettes answers are typed)." }
       },
       "required": ["type", "clueId", "answer", "source"],
       "additionalProperties": false
     },
     "SubmitWager": {
-      "description": "Daily Double or Final round wager.",
+      "description": "Daily Double or Final round wager, in whole dollars. The server checks the range: Daily Double $5 to max(score, round's top value); Final $0 to score. The first valid wager locks.",
       "type": "object",
       "properties": {
         "type": { "const": "submit_wager" },

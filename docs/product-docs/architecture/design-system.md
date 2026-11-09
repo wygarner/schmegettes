@@ -62,8 +62,10 @@ One `Buzzer` in every view: an **oblong red dome** the full width of its contain
 | `early` | Dark red, shakes for the 250 ms lockout | Too early |
 | `answering` | Green, glowing | Answer now |
 | `locked` | Grey, faded, not pressable | You've answered this one |
+| `pick` | Bright red, breathing slowly (the player in control, on the board) | Press and say your pick |
+| `listening` | Green, glowing, while it listens for a spoken pick | Listening for your pick |
 
-What a tap does in each state is in [gameplay](../features/gameplay/interaction-design.md#the-buzzer-one-component-everywhere).
+On the board, the controller's buzzer is how they say a pick: there's no separate microphone button. What a tap does in each state is in [gameplay](../features/gameplay/interaction-design.md#the-buzzer-one-component-everywhere).
 
 ### Player tile
 

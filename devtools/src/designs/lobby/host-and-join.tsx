@@ -219,7 +219,8 @@ function PhoneDevice({ children }: { children: ReactNode }) {
   );
 }
 
-type BuzzerState = "idle" | "dim" | "lit" | "early" | "answering" | "locked";
+/** pick / listening: the player in control on the board; the buzzer is how they say their pick. */
+type BuzzerState = "idle" | "dim" | "lit" | "early" | "answering" | "locked" | "pick" | "listening";
 /** Dome gradient stops per state: highlight, body, shade, rim. Words go to screen readers only. */
 const DOME: Record<BuzzerState, { label: string; stops: [string, string, string, string]; glow?: string }> = {
   idle: { label: "Buzz", stops: ["#d98585", "#a3201f", "#6d0c0c", "#360303"] },
@@ -228,6 +229,16 @@ const DOME: Record<BuzzerState, { label: string; stops: [string, string, string,
   early: { label: "Too early", stops: ["#8f6060", "#5c1414", "#3a0808", "#1c0202"] },
   answering: { label: "Answer now", stops: ["#c2f7cd", "#37c95a", "#1c8f37", "#0b4a1a"], glow: "sg-glow-green 1.8s" },
   locked: { label: "You've answered this one", stops: ["#8a8c99", "#4b4d5c", "#30313d", "#18181f"] },
+  pick: {
+    label: "Press and say your pick",
+    stops: ["#ffb8b8", "#ff3030", "#d40c0c", "#7a0404"],
+    glow: "sg-glow-red 2.6s",
+  },
+  listening: {
+    label: "Listening for your pick",
+    stops: ["#c2f7cd", "#37c95a", "#1c8f37", "#0b4a1a"],
+    glow: "sg-glow-green 1.8s",
+  },
 };
 
 /**
@@ -253,7 +264,7 @@ function Buzzer({ state, onBuzz, height = 120 }: { state: BuzzerState; onBuzz?: 
       onPointerUp={() => setDown(false)}
       onPointerLeave={() => setDown(false)}
       onClick={() => {
-        if (state === "dim" || state === "lit") onBuzz?.();
+        if (state === "dim" || state === "lit" || state === "pick" || state === "listening") onBuzz?.();
       }}
       style={{
         width: "100%",

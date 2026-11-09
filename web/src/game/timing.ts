@@ -8,3 +8,21 @@ export const ANSWER_MS = 14000;
 export const ANSWER_GRACE_MS = 1500;
 /** The answering countdown: the server's whole answer deadline. */
 export const ANSWER_TOTAL_MS = ANSWER_MS + ANSWER_GRACE_MS;
+
+// Wagers (docs/product-docs/features/wagers/interaction-design.md, "Timing").
+
+/** "DAILY DOUBLE" over the stage before the wager. */
+export const DD_REVEAL_MS = 2000;
+/** How long a player has to wager (Daily Double and Final). */
+export const WAGER_MS = 30000;
+/** "FINAL SCHMEGETTES" title before the category. */
+export const FINAL_TITLE_MS = 3000;
+/** How long finalists have to type, from the end of the reading. */
+export const FINAL_ANSWER_MS = 30000;
+/** One finalist's reveal, and the gap between its lines. */
+export const REVEAL_STEP_MS = 8000;
+export const REVEAL_LINE_MS = 2000;
+/** "Nobody's in the black" before the final scores. */
+export const FINAL_SKIPPED_MS = 4000;
+/** How long a phone waits after a keystroke before sending its Final draft. */
+export const DRAFT_DEBOUNCE_MS = 300;

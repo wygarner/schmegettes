@@ -12,6 +12,11 @@ export interface Verdict {
   delta: number;
 }
 
+/** One Final Schmegettes reveal step, in reveal order. */
+export interface Reveal extends Verdict {
+  wager: number;
+}
+
 export interface Result {
   userId: string;
   displayName: string;
@@ -53,6 +58,22 @@ export interface RoomState {
   /** Between round_started and the round's first board phase ("Double Schmegettes!"). */
   roundIntro?: Domain.Round;
   results?: Result[];
+
+  // Wagers (docs/product-docs/features/wagers/)
+  /** Daily Double: the picker's range and, once locked, their (public) wager. */
+  wagerMin?: number;
+  wagerMax?: number;
+  wager?: number;
+  /** Final: who plays, who has locked in (wager, then answer), and the reveal order. */
+  finalistUserIds: string[];
+  lockedUserIds: string[];
+  revealOrder: string[];
+  /** This player's own Final wager and answer. The server sends them only to their owner,
+   * never to the host device. */
+  mine: { wager?: number; answer?: string; submitted?: boolean };
+  /** Final reveal steps so far. */
+  reveals: Reveal[];
+  finalSkipped?: boolean;
 }
 
 export const initialRoom: RoomState = {
@@ -69,7 +90,37 @@ export const initialRoom: RoomState = {
   paused: false,
   scores: {},
   lockouts: {},
+  finalistUserIds: [],
+  lockedUserIds: [],
+  revealOrder: [],
+  mine: {},
+  reveals: [],
 };
+
+/** The phases of Final Schmegettes. */
+export function inFinal(phase: Domain.GamePhase): boolean {
+  return phase.startsWith("final_");
+}
+
+type WagerFields = Pick<
+  Server.PhaseChanged,
+  "wagerMin" | "wagerMax" | "wager" | "finalistUserIds" | "lockedUserIds" | "revealOrder"
+>;
+
+function wagerFields(m: WagerFields) {
+  return {
+    wagerMin: m.wagerMin,
+    wagerMax: m.wagerMax,
+    wager: m.wager,
+    finalistUserIds: m.finalistUserIds ?? [],
+    lockedUserIds: m.lockedUserIds ?? [],
+    revealOrder: m.revealOrder ?? [],
+  };
+}
+
+function addOnce(list: string[], id: string): string[] {
+  return list.includes(id) ? list : [...list, id];
+}
 
 export type RoomEvent = ServerMessage | { type: "dropped" } | { type: "left" } | { type: "clear_error" };
 
@@ -101,6 +152,12 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         scores: event.scores ?? state.scores,
         liveText: undefined,
         roundIntro: undefined,
+        ...wagerFields(event),
+        mine: {
+          wager: event.myWager,
+          answer: event.myFinalAnswer,
+          submitted: event.myFinalSubmitted,
+        },
       };
     case "lobby_updated":
       return {
@@ -123,7 +180,20 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         paused: event.paused ?? state.paused,
         activeClue: event.activeClue,
         board: withClue(state.board, event.activeClue),
+        ...wagerFields(event),
       };
+      if (event.phase === "daily_double_wager" && state.phase !== "daily_double_wager") {
+        next.liveText = undefined;
+        next.lastVerdict = undefined;
+        next.clueEnd = undefined;
+      }
+      if (event.phase === "final_category" && state.phase !== "final_category") {
+        next.lastVerdict = undefined;
+        next.clueEnd = undefined;
+        next.roundIntro = undefined;
+        next.round = "final";
+      }
+      if (event.phase === "final_reveal" && state.phase !== "final_reveal") next.reveals = [];
       if (event.phase === "clue_reading") {
         next.liveText = undefined;
         next.lastVerdict = undefined;
@@ -146,13 +216,25 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
       return state;
     case "answer_progress":
       return { ...state, liveText: event.text };
-    case "answer_judged":
-      return {
-        ...state,
-        scores: event.scores,
-        liveText: undefined,
-        lastVerdict: { userId: event.userId, answer: event.answer, verdict: event.verdict, delta: event.scoreDelta },
-      };
+    case "answer_judged": {
+      const verdict = { userId: event.userId, answer: event.answer, verdict: event.verdict, delta: event.scoreDelta };
+      if (state.phase === "final_reveal") {
+        return { ...state, scores: event.scores, reveals: [...state.reveals, { ...verdict, wager: event.wager ?? 0 }] };
+      }
+      return { ...state, scores: event.scores, liveText: undefined, lastVerdict: verdict };
+    }
+    case "wager_locked": {
+      // A Daily Double wager is public. In Final only the owner's copy carries the amount.
+      if (state.phase === "daily_double_wager") return { ...state, wager: event.amount ?? state.wager };
+      const next = { ...state, lockedUserIds: addOnce(state.lockedUserIds, event.userId) };
+      if (event.amount !== undefined) next.mine = { ...state.mine, wager: event.amount };
+      return next;
+    }
+    case "final_submitted": {
+      const next = { ...state, lockedUserIds: addOnce(state.lockedUserIds, event.userId) };
+      if (event.answer !== undefined) next.mine = { ...state.mine, answer: event.answer, submitted: true };
+      return next;
+    }
     case "clue_ended":
       return {
         ...state,
@@ -175,7 +257,13 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         roundIntro: event.round,
       };
     case "game_over":
-      return { ...state, results: event.results, deadlineAt: undefined, activeClue: undefined };
+      return {
+        ...state,
+        results: event.results,
+        deadlineAt: undefined,
+        activeClue: undefined,
+        finalSkipped: event.finalSkipped ?? false,
+      };
     case "game_paused":
       return { ...state, paused: event.paused, deadlineAt: event.paused ? undefined : state.deadlineAt };
     case "room_closed":

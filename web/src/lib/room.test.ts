@@ -135,3 +135,84 @@ test("a new clue clears who has tried, even though the server omits an empty lis
   });
   expect(s.attemptedUserIds).toEqual([]);
 });
+
+const ddClue = { clueId: "c1", category: "SCIENCE", value: 400, state: "active" as const, dailyDouble: true };
+
+test("a Daily Double wager is public; a Final wager is kept only as the owner's own", () => {
+  let s = reduceRoom(
+    { ...initialRoom, connection: "open" },
+    {
+      type: "phase_changed",
+      roomId: ROOM,
+      seq: 1,
+      phase: "daily_double_wager",
+      activeClue: ddClue,
+      wagerMin: 5,
+      wagerMax: 800,
+    },
+  );
+  expect(s).toMatchObject({ wagerMin: 5, wagerMax: 800, wager: undefined });
+  s = reduceRoom(s, { type: "wager_locked", roomId: ROOM, seq: 2, userId: "a", amount: 600 });
+  expect(s.wager).toBe(600);
+
+  s = reduceRoom(s, {
+    type: "phase_changed",
+    roomId: ROOM,
+    seq: 3,
+    phase: "final_category",
+    activeClue: { clueId: "f", category: "ISLANDS", value: 0, state: "unplayed" },
+    finalistUserIds: ["a", "b"],
+  });
+  expect(s).toMatchObject({ round: "final", finalistUserIds: ["a", "b"], wager: undefined });
+  s = reduceRoom(s, { type: "wager_locked", roomId: ROOM, seq: 4, userId: "b" });
+  expect(s).toMatchObject({ lockedUserIds: ["b"], mine: {} });
+  s = reduceRoom(s, { type: "wager_locked", roomId: ROOM, seq: 5, userId: "a", amount: 300 });
+  expect(s).toMatchObject({ lockedUserIds: ["b", "a"], mine: { wager: 300 } });
+});
+
+test("Final answers, the reveal, and a skipped Final", () => {
+  let s = reduceRoom(
+    { ...initialRoom, connection: "open", phase: "final_wager" },
+    { type: "phase_changed", roomId: ROOM, seq: 1, phase: "final_answer", finalistUserIds: ["a", "b"] },
+  );
+  expect(s.lockedUserIds).toEqual([]);
+  s = reduceRoom(s, { type: "final_submitted", roomId: ROOM, seq: 2, userId: "a", answer: "krakatoa" });
+  expect(s).toMatchObject({ lockedUserIds: ["a"], mine: { answer: "krakatoa", submitted: true } });
+
+  s = reduceRoom(s, { type: "phase_changed", roomId: ROOM, seq: 3, phase: "final_reveal", revealOrder: ["b", "a"] });
+  s = reduceRoom(s, {
+    type: "answer_judged",
+    roomId: ROOM,
+    seq: 4,
+    answerId: "x",
+    userId: "b",
+    answer: "",
+    verdict: "incorrect",
+    scoreDelta: -200,
+    wager: 200,
+    scores: { a: 900, b: 0 },
+  });
+  expect(s.reveals).toEqual([{ userId: "b", answer: "", verdict: "incorrect", delta: -200, wager: 200 }]);
+  expect(s.lastVerdict).toBeUndefined();
+
+  s = reduceRoom(s, { type: "game_over", roomId: ROOM, seq: 5, results: [], finalSkipped: true });
+  expect(s.finalSkipped).toBe(true);
+});
+
+test("a snapshot restores this player's own Final state", () => {
+  const s = reduceRoom(initialRoom, {
+    type: "room_snapshot",
+    roomId: ROOM,
+    seq: 9,
+    phase: "final_answer",
+    round: "final",
+    players: [alice],
+    board: [],
+    finalistUserIds: ["a"],
+    myWager: 400,
+    myFinalAnswer: "krak",
+    myFinalSubmitted: false,
+  });
+  expect(s.mine).toEqual({ wager: 400, answer: "krak", submitted: false });
+  expect(s.finalistUserIds).toEqual(["a"]);
+});

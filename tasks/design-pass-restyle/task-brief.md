@@ -36,10 +36,19 @@ Set the phone background and night color as the `body` background for the game r
 
 Rewrite `web/src/game/Buzzer.tsx` to the oblong red dome (`Buzzer` in `system/components.tsx` is the reference implementation):
 
-- Same props and `BuzzerState` type; same tap rules (only `dim` and `lit` call `onBuzz`; `locked` is disabled).
+- Same props. `BuzzerState` gains `pick` (the player in control on the board: bright red, slow breathing glow) and `listening` (listening for a spoken pick: green, like `answering`). `dim`, `lit`, `pick` and `listening` call `onBuzz`; `locked` is disabled; the rest only animate.
 - **No visible text.** The accessible name stays **"Buzz"** in every state, so existing queries (`getByRole("button", { name: "Buzz" })`) keep working. The state words ("Get ready", "Too early", "Answer now", "You've answered this one") go in a visually hidden element referenced by `aria-describedby`.
 - Default height 120 on phones; the host column passes 64. Keep `data-state`.
-- `web/src/game/buzzerState.ts` is unchanged.
+- `web/src/game/buzzerState.ts`: `buzzerState()` returns `pick` when `phase === "board"`, the user has control and nothing is paused or between screens, and `listening` while that user's voice pick is listening (pass it in, like `early`). `canBuzz()` is unchanged: a press in `pick` / `listening` is not a buzz and sends nothing to the server.
+
+### 3b. Spoken picks through the buzzer (web)
+
+The "🎤 Say it" button goes away on phones and on the host device ([gameplay interaction design](../../docs/product-docs/features/gameplay/interaction-design.md)).
+
+- Turn `web/src/game/VoicePick.tsx` into a hook, `useVoicePick(board, onPick)`, that returns `{ listening, error, toggle }`. It keeps the existing recognition and matching (`web/src/lib/pickByVoice.ts`, `web/src/lib/speech.ts`) and the error texts ("That one's already been played.", "Didn't catch the category."). A heard pick still sends `select_clue` with no confirmation.
+- `PlayerControls.tsx` and the host column: when the player is in control on the board, the buzzer's `onBuzz` calls `toggle()` instead of sending `buzz`. A second press while listening cancels. Listening stops when the phase leaves `board` or control moves.
+- The host's space bar does the same when the host has control on the board.
+- Phone copy: under the buzzer, "Tap a clue, or press and say it" (or "Listening… press again to cancel"); while listening, the green "Listening… Say a category and value, like “Opera for 600”" panel above it; errors end with "Press the buzzer to try again, or tap a clue." The host column shows errors only.
 
 ### 4. Board, tiles, host layout (web)
 
@@ -64,7 +73,7 @@ Rewrite `web/src/game/Buzzer.tsx` to the oblong red dome (`Buzzer` in `system/co
 
 - `web/src/game/PlayerControls.tsx`, `PlayerGame.tsx`: `PhoneScreen` layout; headlines and copy from the gameplay and wagers interaction designs ("Listen…" with "Buzz when it lights up. Too early locks you out for a moment.", "BUZZ IN!" with the bar, "Say your answer" with the meter and transcript, the ✓/✗ verdict pop, "Look at the TV."). The phone's Daily Double and Final wager pads use the phone layout.
 - `web/src/game/PickConfirm.tsx`: replace the Mantine `Modal` with `Sheet` (bottom on phones, centered on the host). Keep `usePickConfirm` and its auto-close rules.
-- `web/src/game/MicPrompt.tsx`, `VoicePick.tsx`: restyle (mic card states: ask, ready with meter, blocked, unsupported; listening panel).
+- `web/src/game/MicPrompt.tsx`: restyle (mic card states: ask, ready with meter, blocked, unsupported). `VoicePick.tsx`: see 3b.
 - `web/src/pages/Home.tsx`, `HostLobby.tsx`, `JoinCode.tsx`, `JoinRoom.tsx`: Home (wordmark, gold **Host a game**, 5-box code entry with Mantine `PinInput`), host lobby (code as five board-blue tiles, gold **Start**, players list rows, "Waiting for players…"), join name and "You're in, {name}." Keep every existing route, behavior and error string.
 
 ### 8. Docs
@@ -91,14 +100,17 @@ No change to `shared/`. Every client message the host sends during Final (`answe
 
 Write or update Vitest tests:
 
-- `web/src/game/Buzzer.test.tsx`: every state has no visible text, name "Buzz", the right description, the same enabled/tap matrix as today.
+- `web/src/game/Buzzer.test.tsx`: every state (eight now) has no visible text, name "Buzz", the right description; tap matrix: `dim`, `lit`, `pick`, `listening` call `onBuzz`, `locked` is disabled.
+- `web/src/game/buzzerState.test.ts` (new): `pick` only for the controller on the board; `listening` when passed; never while paused or between screens.
+- `web/src/game/PlayerControls.test.tsx`: no "Say it" button; the controller's buzzer starts listening (mock the speech API) and a second press cancels; a heard pick sends `select_clue` without a confirmation; a non-controller's press on the board sends nothing; listening stops when control moves.
+- `web/src/game/HostGame.test.tsx`: the host's buzzer and the space bar start a voice pick when the host has control.
 - `web/src/game/BlindKeypad.test.tsx` (new): typing letters, space and backspace builds the draft; the field shows only dots; no `input`/`textarea` in the DOM; Submit disabled when empty; sends `answer_progress` and `submit_answer` (`source: typed`); 200-character cap.
 - `web/src/game/WagerPad.test.tsx`: stage layout renders; masked shows dots and "Out of range" without the limit; existing range tests unchanged.
-- `web/src/game/HostGame.test.tsx`: the host's DD wager pad renders on the stage, not in the column; during the host's Final answer the stage has the blind keypad and no text input.
-- `web/src/game/PlayerControls.test.tsx`, `web/src/pages/*.test.tsx`: update for the sheet and copy changes only.
+- `web/src/game/HostGame.test.tsx` (also): the host's DD wager pad renders on the stage, not in the column; during the host's Final answer the stage has the blind keypad and no text input.
+- `web/src/pages/*.test.tsx`: update for the sheet and copy changes only.
 
 ```bash
-mise run test:web -- src/game/Buzzer.test.tsx src/game/BlindKeypad.test.tsx src/game/WagerPad.test.tsx src/game/HostGame.test.tsx src/game/PlayerControls.test.tsx src/game/PlayerColumn.test.tsx src/game/Board.test.tsx
+mise run test:web -- src/game/Buzzer.test.tsx src/game/buzzerState.test.ts src/game/BlindKeypad.test.tsx src/game/WagerPad.test.tsx src/game/HostGame.test.tsx src/game/PlayerControls.test.tsx src/game/PlayerColumn.test.tsx src/game/Board.test.tsx
 mise run test:web -- src/pages
 ```
 
@@ -116,6 +128,7 @@ None: no server code changes. The web app logs nothing new.
 
 - `docs/product-docs/architecture/design-system.md`: remove "not yet implemented" for what shipped; the Fonts section says they're self-hosted with Fontsource; the buzzer table's screen-reader column: the name is always "Buzz", the state words are its description.
 - `docs/product-docs/features/gameplay/interaction-design.md`: the buzzer table's "Screen-reader label" column, the same way.
+- `docs/system-docs/architecture/realtime-game-server.md`: nothing (spoken picks stay client-side and send `select_clue`).
 - `docs/system-docs/engineering/stack.md`: add Fontsource to the component library row (fonts self-hosted, no font CDN).
 
 ## Branch

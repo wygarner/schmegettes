@@ -1,5 +1,7 @@
 # Deployment and Environments
 
+**Source of truth:** `.github/workflows/deploy-prod.yml`
+
 Hosting is **not chosen yet** ([stack.md](../engineering/stack.md)). This doc states what each host must provide. When a host is picked, fill in the "Host" and "Deploy mode" columns, the rollback commands in [release-strategy.md](./release-strategy.md), and the deploy step in `deploy-prod.yml`, all in the same PR.
 
 ## Environments
@@ -50,11 +52,4 @@ Services connect through the Supabase pooler (transaction mode) as `app_service`
 
 Each package's `.env.example` lists its variables with placeholder values. Client-side variables (`VITE_*`) are public: anything bundled into the client can be read by anyone.
 
-| Secret | Where |
-|---|---|
-| `PROD_SUPABASE_DB_OWNER_URL` | GitHub Environment `production` (migrations) |
-| `PROD_VERSION_URLS` (variable, not secret) | GitHub Environment `production` |
-| `DATABASE_URL` (app_service), `REDIS_URL`, `SUPABASE_JWKS_URL`, `ANTHROPIC_API_KEY`, observability keys | each host's secret store |
-| `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` | repo secrets |
-
-Never put secrets in `.claude/settings*.json`, a committed `.env`, or a CI log.
+Every variable and secret, where each lives, its owner, and how to rotate it: [configuration-and-secrets.md](../security/configuration-and-secrets.md).

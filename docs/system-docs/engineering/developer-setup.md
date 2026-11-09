@@ -1,5 +1,7 @@
 # Developer Setup
 
+**Source of truth:** `mise.toml`, `*/.env.example`, `supabase/config.toml`
+
 ## 1. Toolchains
 
 Everything is pinned in the root `mise.toml`.

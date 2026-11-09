@@ -1,5 +1,7 @@
 # Release Strategy
 
+**Source of truth:** `scripts/release-scope.cjs`, `.github/workflows/deploy-prod.yml`
+
 ## Versioning
 
 Strict semver. **Major**: breaking or significant. **Minor**: backwards-compatible additions. **Patch**: fixes only (every hotfix).
@@ -37,7 +39,7 @@ The script reads commit bodies and PR descriptions as well as subjects (a squash
    gh run list --workflow deploy-prod.yml --commit "$(git rev-parse origin/production)"
    ```
    No run listed → dispatch it: `gh workflow run deploy-prod.yml --ref production`.
-6. **Confirm production health:** Grafana dashboards, error rates, critical paths.
+6. **Confirm production health:** Grafana dashboards and error rates since the deploy (**not yet implemented**, see [stack.md](../engineering/stack.md)), and critical paths. Until Grafana is set up, health means `/healthz` answers on `api` and `game`, the worker process is running, and a manual check of the critical paths in step 3 passes.
 7. **Only then** open a sign-off PR to `production` setting `released: true` and `release-date: YYYY-MM-DD` in `metadata.md`; merge as a merge commit.
 
 The gap between "code is live" and "marked released" is deliberate: a human confirms production health before anyone is told the release shipped.
@@ -61,3 +63,20 @@ The gap between "code is live" and "marked released" is deliberate: a human conf
 | worker | TBD |
 
 Code rollbacks do not undo migrations. Because migrations are additive (see [data-and-isolation.md](../architecture/data-and-isolation.md)), rolling code back over a new migration is normally safe; evaluate each case. After a rollback, reopen the affected tickets and record the reason in the internal release notes.
+
+## Communication
+
+Players are anonymous by default, so there is no email list: players hear about releases and incidents through in-app notices, plus a status page once hosting exists (decided 2026-11-09). There is no separate support or internal team, so the guide's "Support" and "Internal team" rows don't apply.
+
+| Event | Audience | Channel | Timing | Owner |
+|---|---|---|---|---|
+| Release | Players | `user-release-notes.md`, shown as an in-app notice (**not yet implemented**) | After sign-off (Process step 7) | Wyatt Garner |
+| Planned maintenance or downtime | Players | In-app notice; status page once hosting exists | **Decision needed:** how many days ahead | Wyatt Garner |
+| Incident players notice | Affected players | In-app notice; status page once hosting exists | Within a set time of confirmation, then updates at a set interval (**Decision needed:** both times), then a resolution notice | Wyatt Garner |
+| Security or privacy incident | Affected players, and regulators where required | As the law requires | Within the legal deadline | Wyatt Garner |
+
+Every message:
+
+- says what is affected, what the player should do, and when the next update comes
+- never includes another player's data
+- after a postmortem, is followed by a short note to the players who noticed the incident

@@ -1,5 +1,7 @@
 # Contracts
 
+**Source of truth:** `shared/openapi.yaml`, `shared/schemas/`
+
 All contracts live in `shared/`. That package builds first and depends on nothing in the repo.
 
 | Contract | File | Consumers | How each consumes it |

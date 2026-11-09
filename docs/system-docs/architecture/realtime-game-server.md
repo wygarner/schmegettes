@@ -1,5 +1,7 @@
 # Realtime Game Server (`game/`)
 
+**Source of truth:** `game/`
+
 > **Current state:** rooms run on a single `game/` instance with no Redis yet. Everything needed to resume is in Postgres: lobby members, names, `host_plays`, and status, and for a game its `board_clues` states, `answers`, and `wagers`. A restart costs a reconnect. A game resumes paused on the active clue, which is re-read when the TV is back; scores and control come from the answers. Room ownership, Redis fan-out, and snapshots below are a later task.
 
 ## Principles

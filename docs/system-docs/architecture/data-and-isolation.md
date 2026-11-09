@@ -1,5 +1,7 @@
 # Data and Isolation
 
+**Source of truth:** `supabase/migrations/`, `golib/db/`
+
 Isolation is enforced by Postgres row-level security, not by `WHERE` clauses in application code. The first migration (`supabase/migrations/20261026000000_init.sql`) builds it, and the tests in `supabase/tests/` (`rls.test.sql`, `game_history.test.sql`) prove it.
 
 ## Scope

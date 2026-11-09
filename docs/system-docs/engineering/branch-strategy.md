@@ -1,5 +1,7 @@
 # Branch Strategy
 
+**Source of truth:** `.github/workflows/`, `scripts/daily-merge-guard.cjs`
+
 ## Branch model
 
 ```text

@@ -1,5 +1,7 @@
 # Logging Conventions
 
+**Source of truth:** `golib/logging/`, `worker/src/schmegettes_worker/__main__.py`, `api/internal/server/server.go`
+
 Structured JSON logs from every service, written to stdout. Shipping them to Grafana Cloud over OpenTelemetry is **not yet implemented** ([stack.md](../engineering/stack.md)). This is the "how" for anyone writing or reviewing a log statement.
 
 ## 1. Which logger

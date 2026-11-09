@@ -2,7 +2,7 @@ import { Box, Loader, Text, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { money } from "../lib/money";
-import { inFinal, nameOf, type Result, type RoomState } from "../lib/room";
+import { inFinal, nameOf, type RoomState } from "../lib/room";
 import {
   announcement,
   DAILY_DOUBLE_INTRO,
@@ -14,7 +14,7 @@ import {
 import { GoldButton } from "../ui/GoldButton";
 import { Meter } from "../ui/Meter";
 import { BigMoment, Stage, StageBody, StageHeader } from "../ui/Stage";
-import { DISPLAY, GOLD, GREEN, INK, RED, SOFT } from "../ui/tokens";
+import { DISPLAY, GOLD, INK, SOFT } from "../ui/tokens";
 import { BlindKeypad } from "./BlindKeypad";
 import { Board } from "./Board";
 import { ClueText } from "./ClueText";
@@ -22,9 +22,11 @@ import { Countdown } from "./Countdown";
 import { DailyDoubleStage } from "./DailyDoubleStage";
 import { FinalStage } from "./FinalStage";
 import { HostLayout } from "./HostLayout";
+import { useOverride, VerdictRow } from "./OverrideSheet";
 import { usePickConfirm } from "./PickConfirm";
 import { PlayerColumn } from "./PlayerColumn";
 import { PlayerControls } from "./PlayerControls";
+import { Scoreboard } from "./Scoreboard";
 import { BUZZ_WINDOW_MS, FINAL_SKIPPED_MS } from "./timing";
 import { useSince } from "./useSince";
 import { WagerPad } from "./WagerPad";
@@ -142,6 +144,9 @@ export function HostGame({
 
   const hostPicks = state.hostPlays && state.controllingUserId === hostUserId;
   const hostInputs = useHostInputs(state, hostUserId, send);
+  const override = useOverride(state, send);
+  // The host may override a verdict on the correct-response screen, or on the reveal step.
+  const onOverride = !state.paused && (state.clueEnd || state.phase === "final_reveal") ? override.ask : undefined;
 
   let main: ReactNode;
   if (state.results && state.finalSkipped && skipSince < FINAL_SKIPPED_MS) {
@@ -155,11 +160,11 @@ export function HostGame({
       </Stage>
     );
   } else if (state.results) {
-    main = <FinalScores results={state.results} />;
+    main = <Scoreboard state={state} onRematch={() => send({ type: "rematch" })} />;
   } else if (state.phase === "daily_double_wager") {
     main = <DailyDoubleStage state={state} hostWager={hostInputs.ddWager} />;
   } else if (inFinal(state.phase)) {
-    main = <FinalStage state={state} hostInput={hostInputs.final} />;
+    main = <FinalStage state={state} hostInput={hostInputs.final} onOverride={onOverride} />;
   } else if (state.roundIntro && state.phase !== "clue_reading") {
     main = (
       <Stage>
@@ -171,7 +176,7 @@ export function HostGame({
       </Stage>
     );
   } else if (clue && state.phase !== "board") {
-    main = <ClueView state={state} speaking={Boolean(speech) && !state.paused} />;
+    main = <ClueView state={state} speaking={Boolean(speech) && !state.paused} onOverride={onOverride} />;
   } else {
     main = <Board board={state.board} onPick={hostPicks ? confirm.ask : undefined} />;
   }
@@ -212,6 +217,7 @@ export function HostGame({
         )}
       </Box>
       {confirm.modal}
+      {override.sheet}
     </>
   );
 
@@ -266,97 +272,15 @@ function useHostInputs(state: RoomState, hostUserId: string, send: (m: ClientMes
   return { ddWager, final };
 }
 
-const ORDINAL = ["", "1st", "2nd", "3rd", "4th", "5th", "6th"];
-
-/** The final scores. Feature 3 replaces this with the full scoreboard and Rematch. */
-function FinalScores({ results }: { results: Result[] }) {
-  return (
-    <Stage>
-      <Text
-        ff={DISPLAY}
-        fw={700}
-        c="yellow.4"
-        ta="center"
-        tt="uppercase"
-        style={{ fontSize: "8cqh", letterSpacing: ".06em" }}
-      >
-        Final scores
-      </Text>
-      <ol
-        style={{
-          flex: 1,
-          minHeight: 0,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          gap: "2.4cqh",
-          padding: "0 6cqw",
-          margin: 0,
-          listStyle: "none",
-        }}
-      >
-        {results.map((r, i) => (
-          <li
-            key={r.userId}
-            className="sg-in"
-            aria-label={`${ORDINAL[r.placement] ?? r.placement} ${r.displayName} ${money(r.score)}`}
-            style={{ display: "flex", alignItems: "baseline", gap: "2cqw", animationDelay: `${i * 120}ms` }}
-          >
-            <span style={{ width: "9cqw", color: "#a5abee", fontWeight: 700, fontSize: "5cqh" }}>
-              {ORDINAL[r.placement] ?? r.placement}
-            </span>
-            <span style={{ flex: 1, fontWeight: 700, color: "#fff", fontSize: r.placement === 1 ? "8cqh" : "6cqh" }}>
-              {r.displayName} {r.placement === 1 && "🏆"}
-            </span>
-            <span
-              style={{
-                fontFamily: DISPLAY,
-                fontWeight: 700,
-                fontSize: r.placement === 1 ? "9cqh" : "6.5cqh",
-                color: r.score < 0 ? RED : GOLD,
-              }}
-            >
-              {money(r.score)}
-            </span>
-          </li>
-        ))}
-      </ol>
-    </Stage>
-  );
-}
-
-function VerdictLine({ state, small = false }: { state: RoomState; small?: boolean }) {
-  const verdict = state.lastVerdict;
-  if (!verdict) return null;
-  const right = verdict.verdict === "correct" || verdict.verdict === "overridden_correct";
-  const color = right ? GREEN : RED;
-  return (
-    <div
-      className={small ? undefined : "sg-in"}
-      style={{
-        display: "flex",
-        alignItems: "baseline",
-        justifyContent: "center",
-        flexWrap: "wrap",
-        gap: 10,
-        color,
-        fontWeight: 700,
-        fontSize: small ? "clamp(11px, 4.6cqh, 20px)" : "clamp(14px, 7cqh, 32px)",
-      }}
-    >
-      <span>
-        {right ? "✓" : "✗"} {nameOf(state, verdict.userId)}:{" "}
-        <i style={{ fontWeight: 500 }}>{verdict.answer || "no answer"}</i>
-      </span>
-      <span style={{ fontFamily: DISPLAY }}>
-        {verdict.delta > 0 ? "+" : ""}
-        {money(verdict.delta)}
-      </span>
-    </div>
-  );
-}
-
-function ClueView({ state, speaking }: { state: RoomState; speaking: boolean }) {
+function ClueView({
+  state,
+  speaking,
+  onOverride,
+}: {
+  state: RoomState;
+  speaking: boolean;
+  onOverride?: (answerId: string) => void;
+}) {
   const clue = state.activeClue;
   if (!clue) return null;
   const ended = state.clueEnd;
@@ -373,7 +297,11 @@ function ClueView({ state, speaking }: { state: RoomState; speaking: boolean }) 
       <StageBody gap="2cqh">
         {/* The correct-response screen leaves the clue out. */}
         {!ended && <ClueText text={clue.clueText ?? ""} />}
-        {(ended || judged) && <VerdictLine state={state} />}
+        {ended &&
+          (state.answers.length ? state.answers : state.lastVerdict ? [state.lastVerdict] : []).map((v, i) => (
+            <VerdictRow key={v.answerId ?? i} state={state} verdict={v} onOverride={onOverride} />
+          ))}
+        {judged && state.lastVerdict && <VerdictRow state={state} verdict={state.lastVerdict} />}
         {ended?.correctResponse && (
           <div>
             <div
@@ -432,7 +360,9 @@ function ClueView({ state, speaking }: { state: RoomState; speaking: boolean }) 
           </span>
         </div>
       )}
-      {!ended && !answering && !judged && state.lastVerdict && <VerdictLine state={state} small />}
+      {!ended && !answering && !judged && state.lastVerdict && (
+        <VerdictRow state={state} verdict={state.lastVerdict} small />
+      )}
       {open && <Countdown deadlineAt={state.deadlineAt} total={BUZZ_WINDOW_MS} />}
     </Stage>
   );

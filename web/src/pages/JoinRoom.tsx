@@ -185,7 +185,7 @@ export function PlayerView({
     return <PlayerGame state={state} userId={userId} send={send} lobby={shuffling} />;
   }
   if (state.phase !== "lobby") {
-    return <PlayerGame state={state} userId={userId} send={send} />;
+    return <PlayerGame state={state} userId={userId} send={send} onLeave={onLeave} />;
   }
 
   function saveName() {
@@ -201,11 +201,18 @@ export function PlayerView({
       {state.connection === "reconnecting" && <Alert color="yellow">Reconnecting…</Alert>}
       {state.error?.code === "invalid_name" && <Alert color="red">Names are 1 to 20 characters.</Alert>}
       <div>
+        {state.rematch && (
+          <Text c="yellow.4" fw={800} size="xs" style={{ letterSpacing: ".14em" }}>
+            REMATCH
+          </Text>
+        )}
         <Title order={2} ff={DISPLAY} fw={500} fz={32} lh={1.1}>
           You're in, {me?.displayName ?? "…"}.
         </Title>
         <Text size="sm" c={SOFT} mt={6}>
-          Hosted by {state.hostDisplayName}. Look for your name on the TV.
+          {state.rematch
+            ? `Same room, fresh board. Waiting for ${state.hostDisplayName} to start.`
+            : `Hosted by ${state.hostDisplayName}. Look for your name on the TV.`}
         </Text>
       </div>
       <MicPrompt />

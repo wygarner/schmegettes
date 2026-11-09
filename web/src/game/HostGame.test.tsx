@@ -402,3 +402,40 @@ describe("the host picks by voice", () => {
     expect(screen.getByRole("button", { name: "Buzz" })).toHaveAttribute("data-state", "listening");
   });
 });
+
+test("on the correct-response screen, each verdict can be overridden", () => {
+  const send = vi.fn();
+  const wrong = { answerId: "ans-a", userId: "a", answer: "oxygen", verdict: "incorrect", delta: -400 };
+  host(
+    {
+      ...onBoard,
+      phase: "answering",
+      activeClue: clue,
+      clueEnd: { state: "unanswered", correctResponse: "Nitrogen" },
+      answers: [wrong],
+      lastVerdict: wrong,
+    },
+    send,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Override Alice's answer" }));
+  expect(send).toHaveBeenCalledWith({ type: "override_review", open: true });
+  fireEvent.click(screen.getByRole("button", { name: /Mark correct/ }));
+  expect(send).toHaveBeenCalledWith({ type: "override_verdict", answerId: "ans-a", correct: true });
+});
+
+test("the final scoreboard has Rematch", () => {
+  const send = vi.fn();
+  host(
+    {
+      ...onBoard,
+      phase: "finished",
+      results: [{ userId: "a", displayName: "Alice", score: 1200, placement: 1 }],
+      startedAt: new Date(2026, 10, 9, 20, 14).getTime(),
+      finishedAt: new Date(2026, 10, 9, 20, 55).getTime(),
+    },
+    send,
+  );
+  expect(screen.getByText("Nov 9 · 8:14 PM · 41 min")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Rematch" }));
+  expect(send).toHaveBeenCalledWith({ type: "rematch" });
+});

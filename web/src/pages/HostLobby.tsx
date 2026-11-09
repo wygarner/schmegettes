@@ -187,7 +187,7 @@ export function HostLobbyView({
         ) : (
           <Group gap={2} wrap="nowrap" style={{ minWidth: 0 }}>
             <Text truncate="end" c={SOFT} style={{ fontSize: "clamp(11px, 5cqh, 20px)" }}>
-              Hosted by {state.hostDisplayName}
+              {state.rematch ? "Rematch · " : ""}Hosted by {state.hostDisplayName}
             </Text>
             <ActionIcon
               variant="subtle"
@@ -209,6 +209,11 @@ export function HostLobbyView({
           Join at {joinUrl}
         </Text>
         <CodeTiles code={code} />
+        {state.rematch && (
+          <Text c={SOFT} style={{ fontSize: "clamp(10px, 4.5cqh, 18px)" }}>
+            Fresh board: none of tonight's clues come back.
+          </Text>
+        )}
       </StageBody>
 
       {state.connection === "reconnecting" && (

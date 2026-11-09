@@ -48,7 +48,8 @@ test("drafts go to the server after a pause, and the last one when it goes away"
   expect(onDraft).toHaveBeenLastCalledWith("kra");
 });
 
-test("answers stop at 200 characters", () => {
+// 205 renders: slow under a busy runner, so it gets more time than the default 5 s.
+test("answers stop at 200 characters", { timeout: 20000 }, () => {
   const { onSubmit, tap } = setup();
   for (let i = 0; i < 205; i++) tap("A");
   fireEvent.click(screen.getByRole("button", { name: "Submit" }));

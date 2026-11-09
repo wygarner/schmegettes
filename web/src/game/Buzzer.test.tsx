@@ -4,16 +4,18 @@ import { expect, test, vi } from "vitest";
 import { Buzzer, type BuzzerState } from "./Buzzer";
 
 const cases: [BuzzerState, string, boolean, boolean][] = [
-  // state, label, enabled, a tap buzzes
-  ["idle", "BUZZ", true, false],
-  ["dim", "BUZZ", true, true],
-  ["lit", "BUZZ", true, true],
+  // state, what screen readers hear, enabled, a press calls onBuzz
+  ["idle", "Not now", true, false],
+  ["dim", "Get ready", true, true],
+  ["lit", "Buzz now", true, true],
   ["early", "Too early", true, false],
   ["answering", "Answer now", true, false],
   ["locked", "You've answered this one", false, false],
+  ["pick", "Press and say your pick", true, true],
+  ["listening", "Listening for your pick", true, true],
 ];
 
-test.each(cases)("%s", (state, label, enabled, buzzes) => {
+test.each(cases)("%s", (state, description, enabled, presses) => {
   const onBuzz = vi.fn();
   render(
     <MantineProvider>
@@ -21,8 +23,21 @@ test.each(cases)("%s", (state, label, enabled, buzzes) => {
     </MantineProvider>,
   );
   const button = screen.getByRole("button", { name: "Buzz" });
-  expect(button).toHaveTextContent(label);
+  // No lettering on the dome: the only text is the screen-reader description.
+  expect(button).toHaveAccessibleDescription(description);
+  expect(button.textContent).toBe(description);
+  expect(screen.queryByText(/BUZZ/)).toBeNull();
+  expect(button).toHaveAttribute("data-state", state);
   expect(button.hasAttribute("disabled")).toBe(!enabled);
   fireEvent.click(button);
-  expect(onBuzz).toHaveBeenCalledTimes(buzzes ? 1 : 0);
+  expect(onBuzz).toHaveBeenCalledTimes(presses ? 1 : 0);
+});
+
+test("never shorter than 64 px", () => {
+  render(
+    <MantineProvider>
+      <Buzzer state="idle" onBuzz={vi.fn()} height={40} />
+    </MantineProvider>,
+  );
+  expect(screen.getByRole("button", { name: "Buzz" })).toHaveStyle({ height: "64px" });
 });

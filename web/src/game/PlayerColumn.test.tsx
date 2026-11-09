@@ -34,8 +34,8 @@ test("5 or 6 players get one-line tiles", () => {
 
 test("a disconnected player is dimmed", () => {
   show([p("a", "Alice", false)]);
-  expect(screen.getByText("Alice (reconnecting)")).toBeInTheDocument();
-  expect(screen.getByLabelText("Alice $0")).toHaveStyle({ opacity: "0.5" });
+  expect(screen.getByLabelText("Alice $0")).toHaveTextContent("Alice (reconnecting)");
+  expect(screen.getByLabelText("Alice $0")).toHaveStyle({ opacity: "0.45" });
 });
 
 test("in Final, tiles say who has locked in, never an amount, and dim non-finalists", () => {
@@ -48,7 +48,7 @@ test("in Final, tiles say who has locked in, never an amount, and dim non-finali
   });
   expect(screen.getByLabelText("Alice $900, ✓ locked")).toBeInTheDocument();
   expect(screen.getByLabelText("Bob $300, wagering…")).toBeInTheDocument();
-  expect(screen.getByLabelText("Cara −$100, not in final")).toHaveStyle({ opacity: "0.5" });
+  expect(screen.getByLabelText("Cara −$100, not in final")).toHaveStyle({ opacity: "0.45" });
   expect(document.body.textContent).not.toContain("777");
   expect(screen.queryByText("PICKING")).toBeNull();
 });

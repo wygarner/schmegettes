@@ -1,52 +1,79 @@
-import { Center, Paper, Stack, Text, Title } from "@mantine/core";
+import { Text } from "@mantine/core";
 import type { ReactNode } from "react";
 import { money } from "../lib/money";
 import { nameOf, type Reveal, type RoomState } from "../lib/room";
+import { BigMoment, Stage, StageBody, StageHeader } from "../ui/Stage";
+import { DISPLAY, GOLD, GREEN, RED, SOFT } from "../ui/tokens";
+import { ClueText } from "./ClueText";
 import { Countdown } from "./Countdown";
 import { FINAL_ANSWER_MS, FINAL_TITLE_MS, REVEAL_LINE_MS, REVEAL_STEP_MS, WAGER_MS } from "./timing";
 import { useSince } from "./useSince";
 
-const big = { fontSize: "clamp(20px, min(5vw, 10vh), 72px)", lineHeight: 1.15 };
-
 /**
  * The TV during Final Schmegettes: the title, the category, the wager and answer countdowns,
  * then one finalist at a time, lowest score first. No wager amount or answer appears
- * before its reveal.
+ * before its reveal. `hostInput` is the playing host's masked wager pad or blind keypad.
  */
-export function FinalStage({ state }: { state: RoomState }) {
+export function FinalStage({ state, hostInput }: { state: RoomState; hostInput?: ReactNode }) {
   const clue = state.activeClue;
   const since = useSince(state.phase, FINAL_TITLE_MS);
 
   let body: ReactNode = null;
   let footer: ReactNode = null;
+  let input: ReactNode = null;
   if (state.phase === "final_category" && since < FINAL_TITLE_MS) {
     body = (
-      <Title order={1} c="yellow.4" ta="center" style={{ ...big, fontFamily: "Oswald, Impact, sans-serif" }}>
-        FINAL SCHMEGETTES
-      </Title>
+      <>
+        <BigMoment>Final</BigMoment>
+        <BigMoment>Schmegettes</BigMoment>
+        <span style={HIDDEN}>FINAL SCHMEGETTES</span>
+      </>
     );
   } else if (state.phase === "final_category" || state.phase === "final_wager") {
     body = (
-      <Title order={1} c="white" tt="uppercase" ta="center" style={big}>
-        {clue?.category}
-      </Title>
+      <>
+        <Text
+          c={SOFT}
+          fw={700}
+          tt="uppercase"
+          style={{ fontSize: "clamp(10px, 4.5cqh, 18px)", letterSpacing: ".14em" }}
+        >
+          The Final Schmegettes category is
+        </Text>
+        <Text
+          ff={DISPLAY}
+          fw={700}
+          c="white"
+          tt="uppercase"
+          lh={1}
+          className="sg-pop"
+          style={{ fontSize: hostInput ? "min(12cqh, 7cqw)" : "min(20cqh, 11cqw)" }}
+        >
+          {clue?.category}
+        </Text>
+      </>
     );
+    input = hostInput;
     if (state.phase === "final_wager") footer = <Countdown deadlineAt={state.deadlineAt} total={WAGER_MS} />;
   } else if (state.phase === "final_answer") {
-    body = (
-      <Title order={1} c="white" tt="uppercase" ta="center" aria-label="Clue" style={big}>
-        {clue?.clueText}
-      </Title>
-    );
+    body = <ClueText text={clue?.clueText ?? ""} scale={hostInput ? 0.7 : 0.8} />;
+    input = hostInput;
     footer = <Countdown deadlineAt={state.deadlineAt} total={FINAL_ANSWER_MS} />;
   } else if (state.clueEnd?.correctResponse) {
     body = (
-      <Stack gap={0} align="center">
-        <Text c="white">Correct response:</Text>
-        <Title order={1} c="white" tt="uppercase" ta="center" style={big}>
+      <div>
+        <Text
+          c={SOFT}
+          fw={700}
+          tt="uppercase"
+          style={{ fontSize: "clamp(10px, 4.5cqh, 18px)", letterSpacing: ".14em" }}
+        >
+          Correct response
+        </Text>
+        <Text ff={DISPLAY} fw={700} c="white" tt="uppercase" style={{ fontSize: "min(16cqh, 10cqw)" }}>
           {state.clueEnd.correctResponse}
-        </Title>
-      </Stack>
+        </Text>
+      </div>
     );
   } else {
     const current = state.reveals[state.reveals.length - 1];
@@ -54,13 +81,14 @@ export function FinalStage({ state }: { state: RoomState }) {
   }
 
   return (
-    <Paper p="md" h="100%" bg="boardBlue.9" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <Text c="white" tt="uppercase" fw={700} ta="center" size="sm">
+    <Stage>
+      <StageHeader>
         Final Schmegettes{clue?.category && state.phase !== "final_category" ? ` · ${clue.category}` : ""}
-      </Text>
-      <Center style={{ flex: 1, minHeight: 0 }}>{body}</Center>
+      </StageHeader>
+      <StageBody>{body}</StageBody>
+      {input && <div style={{ flexShrink: 0, marginBottom: 8 }}>{input}</div>}
       {footer}
-    </Paper>
+    </Stage>
   );
 }
 
@@ -68,33 +96,84 @@ export function FinalStage({ state }: { state: RoomState }) {
 function RevealView({ state, reveal, step }: { state: RoomState; reveal: Reveal; step: number }) {
   const since = useSince(`${reveal.userId}:${step}`, REVEAL_STEP_MS);
   const lines = 1 + Math.floor(since / REVEAL_LINE_MS);
-  const right = reveal.verdict === "correct";
+  const right = reveal.verdict === "correct" || reveal.verdict === "overridden_correct";
   const before = (state.scores[reveal.userId] ?? 0) - reveal.delta;
+  const after = before + reveal.delta;
+  const line = (label: string, value: ReactNode) => (
+    <div className="sg-in" style={{ display: "grid", gridTemplateColumns: "28cqw 1fr", alignItems: "baseline" }}>
+      <span
+        style={{
+          color: SOFT,
+          fontWeight: 700,
+          fontSize: "clamp(10px, 4.6cqh, 18px)",
+          textTransform: "uppercase",
+          letterSpacing: ".12em",
+          textAlign: "right",
+          paddingRight: "3cqw",
+        }}
+      >
+        {label}
+      </span>
+      {value}
+    </div>
+  );
   return (
-    <Stack gap={4} align="center" aria-label="Reveal">
-      <Title order={2} c="white">
+    <section aria-label="Reveal" style={{ width: "100%", display: "flex", flexDirection: "column", gap: "3cqh" }}>
+      <Text ff={DISPLAY} fw={700} c="white" ta="center" tt="uppercase" style={{ fontSize: "min(9cqh, 6cqw)" }}>
         {nameOf(state, reveal.userId)} · {money(before)}
-      </Title>
-      {lines >= 1 && (
-        <Text c="white" size="xl">
-          Response: <em>{reveal.answer || "No answer"}</em>
-        </Text>
-      )}
-      {lines >= 2 && (
-        <Text size="xl" fw={700} c={right ? "green" : "red"}>
-          {right ? "✓ correct" : "✗ incorrect"}
-        </Text>
-      )}
-      {lines >= 3 && (
-        <Text c="white" size="xl">
-          Wager: {money(reveal.wager)}
-        </Text>
-      )}
-      {lines >= 4 && (
-        <Text c="yellow.4" size="xl" fw={800}>
-          Score: {money(before + reveal.delta)}
-        </Text>
-      )}
-    </Stack>
+      </Text>
+      {lines >= 1 &&
+        line(
+          "Response",
+          <span style={{ fontSize: "clamp(14px, 8cqh, 34px)", fontStyle: "italic", color: "#fff" }}>
+            {reveal.answer || "No answer"}
+          </span>,
+        )}
+      {lines >= 2 &&
+        line(
+          "",
+          <span
+            style={{
+              fontFamily: DISPLAY,
+              fontWeight: 700,
+              fontSize: "clamp(14px, 8cqh, 34px)",
+              color: right ? GREEN : RED,
+            }}
+          >
+            {right ? "✓ correct" : "✗ incorrect"}
+          </span>,
+        )}
+      {lines >= 3 &&
+        line(
+          "Wager",
+          <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "clamp(14px, 9cqh, 38px)", color: "#fff" }}>
+            {money(reveal.wager)}
+          </span>,
+        )}
+      {lines >= 4 &&
+        line(
+          "Score",
+          <span
+            className="sg-pop"
+            style={{
+              fontFamily: DISPLAY,
+              fontWeight: 700,
+              fontSize: "clamp(18px, 13cqh, 54px)",
+              color: after < 0 ? RED : GOLD,
+            }}
+          >
+            {money(after)}
+          </span>,
+        )}
+    </section>
   );
 }
+
+const HIDDEN = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+} as const;

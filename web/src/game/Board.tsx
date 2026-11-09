@@ -1,5 +1,7 @@
-import { Text, UnstyledButton } from "@mantine/core";
+import { UnstyledButton } from "@mantine/core";
+import { useState } from "react";
 import type { BoardClue } from "../lib/room";
+import { BEVEL, CELL, DISPLAY, GOLD } from "../ui/tokens";
 
 /** Groups clues into columns by category, keeping the server's order. */
 export function columns(board: BoardClue[]): { category: string; clues: BoardClue[] }[] {
@@ -17,7 +19,7 @@ export function columns(board: BoardClue[]): { category: string; clues: BoardClu
 }
 
 const cell = {
-  background: "var(--mantine-color-boardBlue-9)",
+  background: CELL,
   borderRadius: 4,
   textAlign: "center" as const,
 };
@@ -45,7 +47,7 @@ export function Board({
       style={{
         display: "grid",
         gridTemplateColumns: `repeat(${Math.max(cols.length, 1)}, minmax(0, 1fr))`,
-        gap: tv ? 6 : 4,
+        gap: tv ? 5 : 4,
         height: tv ? "100%" : undefined,
         width: "100%",
       }}
@@ -55,24 +57,25 @@ export function Board({
           key={col.category}
           style={{
             display: "grid",
-            gridTemplateRows: tv ? `minmax(0, 1.3fr) repeat(${rows}, minmax(0, 1fr))` : `44px repeat(${rows}, 36px)`,
-            gap: tv ? 6 : 4,
+            gridTemplateRows: tv ? `minmax(0, 1.35fr) repeat(${rows}, minmax(0, 1fr))` : `52px repeat(${rows}, 48px)`,
+            gap: tv ? 5 : 4,
             minHeight: 0,
           }}
         >
-          <Text
-            c="white"
-            fw={700}
-            tt="uppercase"
-            ta="center"
-            p={4}
+          <div
+            lang="en"
             style={{
               ...cell,
+              boxShadow: BEVEL,
               minHeight: 0,
+              padding: 3,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               overflow: "hidden",
+              color: "#fff",
+              fontWeight: 700,
+              textTransform: "uppercase",
               lineHeight: 1.1,
               fontSize: tv ? "clamp(9px, min(1.6vw, 3vh), 22px)" : 9,
               overflowWrap: "break-word",
@@ -84,37 +87,65 @@ export function Board({
             >
               {col.category}
             </span>
-          </Text>
-          {col.clues.map((clue) => {
-            const open = clue.state === "unplayed";
-            return (
-              <UnstyledButton
-                key={clue.clueId}
-                disabled={!onPick || !open}
-                onClick={() => onPick?.(clue.clueId)}
-                aria-label={open ? `${col.category} for ${clue.value}` : `${col.category} ${clue.value}, done`}
-                style={{
-                  ...cell,
-                  minHeight: 0,
-                  padding: 2,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: onPick && open ? "pointer" : "default",
-                }}
-              >
-                <Text
-                  c="yellow.4"
-                  fw={800}
-                  style={{ fontSize: tv ? "clamp(12px, min(2.6vw, 6vh), 44px)" : 14, lineHeight: 1 }}
-                >
-                  {open ? clue.value : " "}
-                </Text>
-              </UnstyledButton>
-            );
-          })}
+          </div>
+          {col.clues.map((clue) => (
+            <Cell key={clue.clueId} clue={clue} category={col.category} tv={tv} onPick={onPick} />
+          ))}
         </div>
       ))}
     </section>
+  );
+}
+
+function Cell({
+  clue,
+  category,
+  tv,
+  onPick,
+}: {
+  clue: BoardClue;
+  category: string;
+  tv: boolean;
+  onPick?: (clueId: string) => void;
+}) {
+  const [down, setDown] = useState(false);
+  const open = clue.state === "unplayed";
+  const live = Boolean(onPick) && open;
+  return (
+    <UnstyledButton
+      disabled={!live}
+      onClick={() => onPick?.(clue.clueId)}
+      onPointerDown={() => live && setDown(true)}
+      onPointerUp={() => setDown(false)}
+      onPointerLeave={() => setDown(false)}
+      aria-label={open ? `${category} for ${clue.value}` : `${category} ${clue.value}, done`}
+      style={{
+        ...cell,
+        boxShadow: open ? BEVEL : "none",
+        minHeight: 0,
+        padding: 2,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: live ? "pointer" : "default",
+        transform: down ? "scale(.94)" : "none",
+        transition: "transform 80ms",
+      }}
+    >
+      {open && (
+        <span
+          style={{
+            fontFamily: DISPLAY,
+            fontWeight: 700,
+            color: GOLD,
+            textShadow: "0 2px 0 rgba(0,0,0,.55)",
+            fontSize: tv ? "clamp(14px, min(3vw, 6.5vh), 46px)" : 18,
+            lineHeight: 1,
+          }}
+        >
+          {clue.value.toLocaleString("en-US")}
+        </span>
+      )}
+    </UnstyledButton>
   );
 }

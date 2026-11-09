@@ -1,8 +1,8 @@
-import { Alert, Box, Button, Center, Paper, Stack, Text, Title } from "@mantine/core";
+import { Box, Loader, Text, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { money } from "../lib/money";
-import { inFinal, nameOf, type RoomState } from "../lib/room";
+import { inFinal, nameOf, type Result, type RoomState } from "../lib/room";
 import {
   announcement,
   DAILY_DOUBLE_INTRO,
@@ -11,7 +11,13 @@ import {
   speak,
   stopSpeaking,
 } from "../lib/speech";
+import { GoldButton } from "../ui/GoldButton";
+import { Meter } from "../ui/Meter";
+import { BigMoment, Stage, StageBody, StageHeader } from "../ui/Stage";
+import { DISPLAY, GOLD, GREEN, INK, RED, SOFT } from "../ui/tokens";
+import { BlindKeypad } from "./BlindKeypad";
 import { Board } from "./Board";
+import { ClueText } from "./ClueText";
 import { Countdown } from "./Countdown";
 import { DailyDoubleStage } from "./DailyDoubleStage";
 import { FinalStage } from "./FinalStage";
@@ -21,6 +27,7 @@ import { PlayerColumn } from "./PlayerColumn";
 import { PlayerControls } from "./PlayerControls";
 import { BUZZ_WINDOW_MS, FINAL_SKIPPED_MS } from "./timing";
 import { useSince } from "./useSince";
+import { WagerPad } from "./WagerPad";
 
 /** Something the TV says. reportDone: tell the server when it ends (reading_done). */
 interface Speech {
@@ -134,59 +141,76 @@ export function HostGame({
   const skipSince = useSince(state.finalSkipped ? "skipped" : "", FINAL_SKIPPED_MS);
 
   const hostPicks = state.hostPlays && state.controllingUserId === hostUserId;
+  const hostInputs = useHostInputs(state, hostUserId, send);
 
   let main: ReactNode;
   if (state.results && state.finalSkipped && skipSince < FINAL_SKIPPED_MS) {
     main = (
-      <Center h="100%">
-        <Title order={2} ta="center">
-          Nobody's in the black: no Final Schmegettes.
-        </Title>
-      </Center>
+      <Stage>
+        <StageBody>
+          <Title order={2} ff={DISPLAY} c="white" ta="center" style={{ fontSize: "min(10cqh, 6cqw)" }}>
+            Nobody's in the black: no Final Schmegettes.
+          </Title>
+        </StageBody>
+      </Stage>
     );
   } else if (state.results) {
-    main = (
-      <Center h="100%">
-        <Stack align="center" gap="xs">
-          <Title order={1}>Final scores</Title>
-          {state.results.map((r) => (
-            <Title order={2} key={r.userId}>
-              {r.placement}. {r.displayName} {money(r.score)}
-              {r.placement === 1 && " 🏆"}
-            </Title>
-          ))}
-        </Stack>
-      </Center>
-    );
+    main = <FinalScores results={state.results} />;
   } else if (state.phase === "daily_double_wager") {
-    main = <DailyDoubleStage state={state} />;
+    main = <DailyDoubleStage state={state} hostWager={hostInputs.ddWager} />;
   } else if (inFinal(state.phase)) {
-    main = <FinalStage state={state} />;
+    main = <FinalStage state={state} hostInput={hostInputs.final} />;
   } else if (state.roundIntro && state.phase !== "clue_reading") {
     main = (
-      <Center h="100%">
-        <Title order={1}>Double Schmegettes!</Title>
-      </Center>
+      <Stage>
+        <StageBody gap="0">
+          <BigMoment>Double</BigMoment>
+          <BigMoment>Schmegettes!</BigMoment>
+          <span style={VISUALLY_HIDDEN}>Double Schmegettes!</span>
+        </StageBody>
+      </Stage>
     );
   } else if (clue && state.phase !== "board") {
-    main = <ClueView state={state} />;
+    main = <ClueView state={state} speaking={Boolean(speech) && !state.paused} />;
   } else {
     main = <Board board={state.board} onPick={hostPicks ? confirm.ask : undefined} />;
   }
 
   const stage = (
     <>
-      {state.paused && (
-        <Alert color="yellow" mb={8} p={8}>
-          Paused: waiting for the TV to reconnect…
-        </Alert>
-      )}
       {soundBlocked && (
-        <Button color="yellow" mb={8} onClick={unblockSound}>
+        <GoldButton mb={8} onClick={unblockSound}>
           Tap to turn on sound
-        </Button>
+        </GoldButton>
       )}
-      <Box style={{ flex: 1, minHeight: 0 }}>{main}</Box>
+      <Box style={{ position: "relative", flex: 1, minHeight: 0 }}>
+        {main}
+        {state.paused && (
+          <div
+            role="status"
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: 12,
+              background: "rgba(3,4,28,.85)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              color: "#fff",
+            }}
+          >
+            <Loader color="yellow.4" size="sm" />
+            <Text ff={DISPLAY} fz={28} fw={600}>
+              Paused
+            </Text>
+            <Text size="sm" c={SOFT}>
+              Waiting for the TV to reconnect…
+            </Text>
+          </div>
+        )}
+      </Box>
       {confirm.modal}
     </>
   );
@@ -197,7 +221,7 @@ export function HostGame({
         <PlayerColumn state={state} />
       </Box>
       {state.hostPlays && !state.results && (
-        <PlayerControls state={state} userId={hostUserId} send={send} compact spaceToBuzz />
+        <PlayerControls state={state} userId={hostUserId} send={send} compact spaceToBuzz buzzerHeight={64} />
       )}
     </>
   );
@@ -205,68 +229,220 @@ export function HostGame({
   return <HostLayout stage={stage} column={column} />;
 }
 
-function ClueView({ state }: { state: RoomState }) {
+/**
+ * The host's own wager and Final answer go on the stage: the player column has no room for a
+ * number pad. The Final wager is masked, and the Final answer uses the blind keypad, because
+ * the host device is on the TV.
+ */
+function useHostInputs(state: RoomState, hostUserId: string, send: (m: ClientMessage) => void) {
   const clue = state.activeClue;
-  if (!clue) return null;
-  const verdict = state.lastVerdict;
-  const ended = state.clueEnd;
+  const playing = state.hostPlays && !state.paused;
+  let ddWager: ((amount: number) => void) | undefined;
+  if (playing && state.controllingUserId === hostUserId && state.wager === undefined) {
+    ddWager = (amount) => send({ type: "submit_wager", amount });
+  }
+  let final: ReactNode;
+  const finalist = playing && state.finalistUserIds.includes(hostUserId) && !state.lockedUserIds.includes(hostUserId);
+  if (finalist && (state.phase === "final_category" || state.phase === "final_wager")) {
+    final = (
+      <WagerPad
+        layout="stage"
+        masked
+        min={0}
+        max={Math.max(0, state.scores[hostUserId] ?? 0)}
+        confirmLabel="Lock in"
+        onWager={(amount) => send({ type: "submit_wager", amount })}
+      />
+    );
+  } else if (finalist && state.phase === "final_answer" && clue) {
+    final = (
+      <BlindKeypad
+        key={clue.clueId}
+        onDraft={(text) => send({ type: "answer_progress", clueId: clue.clueId, text })}
+        onSubmit={(text) => send({ type: "submit_answer", clueId: clue.clueId, answer: text, source: "typed" })}
+      />
+    );
+  }
+  return { ddWager, final };
+}
+
+const ORDINAL = ["", "1st", "2nd", "3rd", "4th", "5th", "6th"];
+
+/** The final scores. Feature 3 replaces this with the full scoreboard and Rematch. */
+function FinalScores({ results }: { results: Result[] }) {
   return (
-    <Paper
-      p="md"
-      h="100%"
-      bg="boardBlue.9"
-      style={{
-        border: `4px solid ${state.phase === "buzzing_open" && !ended ? "var(--mantine-color-yellow-4)" : "transparent"}`,
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
-      <Text c="white" tt="uppercase" fw={700} ta="center" size="sm">
-        {clue.category} ·{" "}
-        {clue.dailyDouble && state.wager !== undefined ? `DD ${money(state.wager)}` : money(clue.value)}
+    <Stage>
+      <Text
+        ff={DISPLAY}
+        fw={700}
+        c="yellow.4"
+        ta="center"
+        tt="uppercase"
+        style={{ fontSize: "8cqh", letterSpacing: ".06em" }}
+      >
+        Final scores
       </Text>
-      <Stack align="center" justify="center" gap="sm" style={{ flex: 1, minHeight: 0 }}>
-        {/* The correct-response screen leaves the clue out. */}
-        {!ended && (
-          <Title
-            order={1}
-            c="white"
-            tt="uppercase"
-            ta="center"
-            aria-label="Clue"
-            style={{ fontSize: "clamp(16px, min(3.4vw, 7vh), 56px)", lineHeight: 1.2 }}
+      <ol
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          gap: "2.4cqh",
+          padding: "0 6cqw",
+          margin: 0,
+          listStyle: "none",
+        }}
+      >
+        {results.map((r, i) => (
+          <li
+            key={r.userId}
+            className="sg-in"
+            aria-label={`${ORDINAL[r.placement] ?? r.placement} ${r.displayName} ${money(r.score)}`}
+            style={{ display: "flex", alignItems: "baseline", gap: "2cqw", animationDelay: `${i * 120}ms` }}
           >
-            {clue.clueText}
-          </Title>
-        )}
-        {state.phase === "answering" && !ended && (
-          <Text c="white" size="lg">
-            {nameOf(state, state.answeringUserId)}: <em>{state.liveText || "listening…"}</em>
-          </Text>
-        )}
-        {verdict && (
-          <Text size="lg" fw={700} c={verdict.verdict === "correct" ? "green" : "red"} ta="center">
-            {verdict.verdict === "correct" ? "✓" : "✗"} {nameOf(state, verdict.userId)}:{" "}
-            <em>{verdict.answer || "(no answer)"}</em> {money(verdict.delta)}
-          </Text>
-        )}
-        {ended?.correctResponse && (
-          <Stack gap={0} align="center">
-            <Text c="white">Correct response:</Text>
-            <Title
-              order={1}
-              c="white"
-              tt="uppercase"
-              ta="center"
-              style={{ fontSize: "clamp(20px, min(4vw, 9vh), 64px)" }}
+            <span style={{ width: "9cqw", color: "#a5abee", fontWeight: 700, fontSize: "5cqh" }}>
+              {ORDINAL[r.placement] ?? r.placement}
+            </span>
+            <span style={{ flex: 1, fontWeight: 700, color: "#fff", fontSize: r.placement === 1 ? "8cqh" : "6cqh" }}>
+              {r.displayName} {r.placement === 1 && "🏆"}
+            </span>
+            <span
+              style={{
+                fontFamily: DISPLAY,
+                fontWeight: 700,
+                fontSize: r.placement === 1 ? "9cqh" : "6.5cqh",
+                color: r.score < 0 ? RED : GOLD,
+              }}
             >
-              {ended.correctResponse}
-            </Title>
-          </Stack>
-        )}
-      </Stack>
-      {state.phase === "buzzing_open" && !ended && <Countdown deadlineAt={state.deadlineAt} total={BUZZ_WINDOW_MS} />}
-    </Paper>
+              {money(r.score)}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </Stage>
   );
 }
+
+function VerdictLine({ state, small = false }: { state: RoomState; small?: boolean }) {
+  const verdict = state.lastVerdict;
+  if (!verdict) return null;
+  const right = verdict.verdict === "correct" || verdict.verdict === "overridden_correct";
+  const color = right ? GREEN : RED;
+  return (
+    <div
+      className={small ? undefined : "sg-in"}
+      style={{
+        display: "flex",
+        alignItems: "baseline",
+        justifyContent: "center",
+        flexWrap: "wrap",
+        gap: 10,
+        color,
+        fontWeight: 700,
+        fontSize: small ? "clamp(11px, 4.6cqh, 20px)" : "clamp(14px, 7cqh, 32px)",
+      }}
+    >
+      <span>
+        {right ? "✓" : "✗"} {nameOf(state, verdict.userId)}:{" "}
+        <i style={{ fontWeight: 500 }}>{verdict.answer || "no answer"}</i>
+      </span>
+      <span style={{ fontFamily: DISPLAY }}>
+        {verdict.delta > 0 ? "+" : ""}
+        {money(verdict.delta)}
+      </span>
+    </div>
+  );
+}
+
+function ClueView({ state, speaking }: { state: RoomState; speaking: boolean }) {
+  const clue = state.activeClue;
+  if (!clue) return null;
+  const ended = state.clueEnd;
+  const open = state.phase === "buzzing_open" && !ended;
+  // Just judged: the verdict replaces the transcript until buzzing reopens or the clue ends.
+  const judged = state.phase === "answering" && !ended && state.lastVerdict?.userId === state.answeringUserId;
+  const answering = state.phase === "answering" && !ended && !judged;
+  return (
+    <Stage lit={open}>
+      <StageHeader right={speaking && <Meter height={12} color={SOFT} />}>
+        {clue.category} ·{" "}
+        {clue.dailyDouble && state.wager !== undefined ? `DD ${money(state.wager)}` : money(clue.value)}
+      </StageHeader>
+      <StageBody gap="2cqh">
+        {/* The correct-response screen leaves the clue out. */}
+        {!ended && <ClueText text={clue.clueText ?? ""} />}
+        {(ended || judged) && <VerdictLine state={state} />}
+        {ended?.correctResponse && (
+          <div>
+            <div
+              style={{
+                color: SOFT,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: ".14em",
+                fontSize: "clamp(10px, 4.5cqh, 18px)",
+              }}
+            >
+              Correct response
+            </div>
+            <div
+              style={{
+                fontFamily: DISPLAY,
+                fontWeight: 700,
+                color: "#fff",
+                textTransform: "uppercase",
+                lineHeight: 1.05,
+                fontSize: "min(15cqh, 9cqw)",
+                textShadow: "0 3px 0 rgba(0,0,0,.4)",
+              }}
+            >
+              {ended.correctResponse}
+            </div>
+          </div>
+        )}
+      </StageBody>
+      {answering && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: "12cqh", flexShrink: 0 }}>
+          <span
+            style={{
+              background: GOLD,
+              color: INK,
+              fontWeight: 800,
+              fontSize: "clamp(10px, 4.4cqh, 18px)",
+              padding: "2px 8px",
+              borderRadius: 4,
+            }}
+          >
+            {nameOf(state, state.answeringUserId)}
+          </span>
+          <Meter height={18} />
+          <span
+            style={{
+              fontStyle: "italic",
+              fontSize: "clamp(12px, 6cqh, 26px)",
+              color: "#fff",
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {state.liveText ? `“${state.liveText}”` : <span style={{ color: "#7f87e6" }}>listening…</span>}
+          </span>
+        </div>
+      )}
+      {!ended && !answering && !judged && state.lastVerdict && <VerdictLine state={state} small />}
+      {open && <Countdown deadlineAt={state.deadlineAt} total={BUZZ_WINDOW_MS} />}
+    </Stage>
+  );
+}
+
+const VISUALLY_HIDDEN = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+} as const;

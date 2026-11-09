@@ -55,7 +55,7 @@ test("Start with 2 players, counting a playing host", () => {
     lobby({ hostPlays: true, players: [player("host", "Wyatt", { role: "host" }), player("a", "Alice")] }),
   );
   expect(screen.getByText("Players 2 / 6")).toBeInTheDocument();
-  expect(screen.getByText(/Wyatt HOST/)).toBeInTheDocument();
+  expect(screen.getByLabelText("Wyatt, host")).toHaveTextContent("HOST");
   fireEvent.click(screen.getByRole("button", { name: "Start" }));
   expect(send).toHaveBeenCalledWith({ type: "start_game" });
 });

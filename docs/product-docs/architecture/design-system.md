@@ -2,7 +2,7 @@
 
 One component library for product UI and prototypes: **Mantine 9**. Prototypes in `devtools/src/designs/` and production code in `web/` use the same theme values, so a prototype looks like the real thing.
 
-> Status: everything below "Theme" was designed in the design pass and is **not yet implemented** in `web/`. The reference prototypes are [system/components](../../../devtools/src/designs/system/components.tsx) (the kit, with a fit check for the host screen), [lobby/host-and-join](../../../devtools/src/designs/lobby/host-and-join.tsx), [board/clue-loop](../../../devtools/src/designs/board/clue-loop.tsx), [final/final-schmegettes](../../../devtools/src/designs/final/final-schmegettes.tsx) and [results/scoreboard-and-history](../../../devtools/src/designs/results/scoreboard-and-history.tsx). Run `mise run dev:devtools` to see them.
+> Status: the look below is built in `web/` (`web/src/ui/`, `web/src/game/`). The end-of-game scoreboard, host overrides and My games are designed but **not yet implemented** ([scoreboard and overrides](../features/scoreboard-and-overrides/feature-brief.md), [game history](../features/game-history/interaction-design.md)). The reference prototypes are [system/components](../../../devtools/src/designs/system/components.tsx) (the kit, with a fit check for the host screen), [lobby/host-and-join](../../../devtools/src/designs/lobby/host-and-join.tsx), [board/clue-loop](../../../devtools/src/designs/board/clue-loop.tsx), [final/final-schmegettes](../../../devtools/src/designs/final/final-schmegettes.tsx) and [results/scoreboard-and-history](../../../devtools/src/designs/results/scoreboard-and-history.tsx). Run `mise run dev:devtools` to see them.
 
 ## Theme
 
@@ -21,7 +21,7 @@ Default color scheme: dark. `/product` and `/designer` refine this file; `web/sr
 
 ## Fonts
 
-The app loads **Oswald** (500, 600, 700) and **Inter** (400 to 800). Today neither is loaded, so every heading falls back to Impact.
+The app loads **Oswald** (500, 600, 700) and **Inter** (400 to 800), latin subset, **self-hosted**: the `@fontsource/oswald` and `@fontsource/inter` packages are bundled by Vite and served from the app's own origin (`web/src/main.tsx`). Nothing loads from a font CDN.
 
 | Use | Font |
 |---|---|
@@ -54,11 +54,13 @@ The main action is gold, not `boardBlue`: a blue button disappears on the blue s
 
 One `Buzzer` in every view: an **oblong red dome** the full width of its container, set in a dark rim, with **no lettering**. The whole button is the tap target. Phones: 120 px tall, pinned to the bottom of every screen from the lobby on. Host column: 64 px. Pressing it sinks the dome into the rim.
 
-| State | Looks | Screen-reader label |
+The button's accessible name is always **Buzz**; screen readers hear the state as its description.
+
+| State | Looks | Screen-reader description |
 |---|---|---|
-| `idle` | Unlit dark red | Buzz |
-| `dim` | Unlit, with a faint red ring around the rim | Buzz (get ready) |
-| `lit` | Bright red, pulsing glow | Buzz |
+| `idle` | Unlit dark red | Not now |
+| `dim` | Unlit, with a faint red ring around the rim | Get ready |
+| `lit` | Bright red, pulsing glow | Buzz now |
 | `early` | Dark red, shakes for the 250 ms lockout | Too early |
 | `answering` | Green, glowing | Answer now |
 | `locked` | Grey, faded, not pressable | You've answered this one |
@@ -96,7 +98,7 @@ Digits, backspace, **Min**, **Max**, and a gold confirm button that stays disabl
 
 - Phone: a single column, 54 px keys.
 - Host device: on the **stage**, amount and confirm on the left, keys on the right. The player column has no room for it.
-- Masked (the host's Final wager): digits show as dots, keys never highlight when pressed, and the hint says only "Out of range". The TV shows nothing but the number of digits.
+- Masked (the host's Final wager): the amount shows as a fixed `$ •••••` (not one dot per digit), keys never highlight when pressed, and the hint says only "Out of range". The TV shows nothing about the amount, not even its length.
 
 ### Blind keypad
 

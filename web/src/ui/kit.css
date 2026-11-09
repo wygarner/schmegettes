@@ -1,0 +1,157 @@
+/* Motion and small shared rules for the design system. Reference: devtools/src/designs/system/components.tsx. */
+body {
+  background: #03041c;
+}
+
+@keyframes sg-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes sg-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sg-float {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  15%,
+  80% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+@keyframes sg-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+@keyframes sg-meter {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+@keyframes sg-blink {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes sg-flip {
+  0%,
+  100% {
+    transform: rotateX(0);
+  }
+  50% {
+    transform: rotateX(90deg);
+  }
+}
+@keyframes sg-glow-red {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px rgba(255, 48, 48, 0.55));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(255, 48, 48, 0.95));
+  }
+}
+@keyframes sg-glow-green {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px rgba(64, 192, 87, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px rgba(64, 192, 87, 0.9));
+  }
+}
+
+.sg-key,
+.sg-key-still {
+  background: rgba(255, 255, 255, 0.08);
+}
+.sg-key:active {
+  background: rgba(255, 255, 255, 0.22);
+  transform: scale(0.96);
+}
+
+.sg-pop {
+  animation: sg-pop 380ms ease-out;
+}
+.sg-in {
+  animation: sg-in 260ms ease-out both;
+}
+.sg-float {
+  animation: sg-float 1.8s ease-out forwards;
+}
+.sg-shake {
+  animation: sg-shake 250ms;
+}
+.sg-meter-bar {
+  animation: sg-meter 700ms ease-in-out infinite;
+}
+.sg-blink {
+  animation: sg-blink 1.2s infinite;
+}
+.sg-flip {
+  animation: sg-flip 900ms ease-in-out infinite;
+}
+.sg-glow-red {
+  animation: sg-glow-red 1s ease-in-out infinite;
+}
+.sg-glow-red-slow {
+  animation: sg-glow-red 2.6s ease-in-out infinite;
+}
+.sg-glow-green {
+  animation: sg-glow-green 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sg-pop,
+  .sg-in,
+  .sg-shake,
+  .sg-meter-bar,
+  .sg-blink,
+  .sg-flip,
+  .sg-glow-red,
+  .sg-glow-red-slow,
+  .sg-glow-green {
+    animation: none;
+  }
+  .sg-float {
+    animation-duration: 0.01ms;
+  }
+}

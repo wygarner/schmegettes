@@ -1,12 +1,14 @@
-import { Button, Group, Stack, TextInput } from "@mantine/core";
+import { Stack, TextInput } from "@mantine/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { GoldButton } from "../ui/GoldButton";
 import { Countdown } from "./Countdown";
 import { DRAFT_DEBOUNCE_MS, FINAL_ANSWER_MS } from "./timing";
 
 /**
  * The typed Final Schmegettes answer. The draft goes to the server as the player types
  * (debounced, always ending with the latest text), so it counts if time runs out or the
- * phone drops. Submit locks it. `masked` hides the text: the host device is on the TV.
+ * phone drops. Submit locks it. Phones only: the host types on the BlindKeypad. `masked`
+ * stays for tests and any future use; nothing on the host device renders this field.
  */
 export function FinalAnswerField({
   deadlineAt,
@@ -57,10 +59,9 @@ export function FinalAnswerField({
   return (
     <Stack gap={compact ? 4 : "xs"}>
       <Countdown deadlineAt={deadlineAt} total={FINAL_ANSWER_MS} />
-      <Group gap={compact ? 4 : "xs"} wrap="nowrap" align="flex-end">
+      <div>
         <TextInput
-          style={{ flex: 1 }}
-          size={compact ? "xs" : "md"}
+          size={compact ? "xs" : "lg"}
           type={masked ? "password" : "text"}
           aria-label="Your answer"
           placeholder={masked ? "•••••" : "Type your answer"}
@@ -76,10 +77,10 @@ export function FinalAnswerField({
             if (e.key === "Enter") submit();
           }}
         />
-        <Button size={compact ? "xs" : "md"} disabled={!text.trim()} onClick={submit}>
-          Submit
-        </Button>
-      </Group>
+      </div>
+      <GoldButton size={compact ? "xs" : "lg"} fullWidth disabled={!text.trim()} onClick={submit}>
+        Submit
+      </GoldButton>
     </Stack>
   );
 }

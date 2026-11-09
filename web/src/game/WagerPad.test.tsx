@@ -53,3 +53,21 @@ test("masked never shows the amount or the limits", () => {
   expect(document.body.textContent).not.toContain("900");
   expect(confirm()).toBeDisabled();
 });
+
+test("the stage layout works like the phone's", () => {
+  const onWager = vi.fn();
+  render(
+    <MantineProvider>
+      <WagerPad layout="stage" min={5} max={1200} confirmLabel="Wager" onWager={onWager} />
+    </MantineProvider>,
+  );
+  for (const k of ["1", "0", "0", "0"]) fireEvent.click(screen.getByRole("button", { name: k }));
+  expect(screen.getByLabelText("Wager amount")).toHaveTextContent("$1,000");
+  fireEvent.click(screen.getByRole("button", { name: "Wager" }));
+  expect(onWager).toHaveBeenCalledWith(1000);
+});
+
+test("masked keys never highlight when pressed", () => {
+  setup({ min: 0, max: 900, masked: true });
+  expect(screen.getByRole("button", { name: "5" })).not.toHaveClass("sg-key");
+});

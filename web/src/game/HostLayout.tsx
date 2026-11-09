@@ -1,6 +1,7 @@
 import { Box, Center, Stack, Text, Title } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import type { ReactNode } from "react";
+import { DISPLAY, NIGHT } from "../ui/tokens";
 
 /**
  * The host screen, designed for an iPhone in landscape (844 × 390; no scrolling from
@@ -19,6 +20,8 @@ export function HostLayout({ stage, column }: { stage: ReactNode; column: ReactN
         gridTemplateColumns: "minmax(0, 1fr) clamp(180px, 28vw, 280px)",
         gap: 8,
         overflow: "hidden",
+        background: NIGHT,
+        color: "#fff",
         padding:
           "max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left))",
       }}
@@ -31,13 +34,17 @@ export function HostLayout({ stage, column }: { stage: ReactNode; column: ReactN
         <Center
           role="dialog"
           aria-label="Turn your phone sideways"
-          bg="dark.8"
+          bg={NIGHT}
           p="md"
           style={{ position: "fixed", top: 0, right: 0, bottom: 0, left: 0, zIndex: 1000 }}
         >
           <Stack align="center" gap="xs" ta="center">
-            <Text fz={48}>↻</Text>
-            <Title order={2}>Turn your phone sideways</Title>
+            <Text fz={56} c="yellow.4">
+              ↻
+            </Text>
+            <Title order={2} ff={DISPLAY}>
+              Turn your phone sideways
+            </Title>
           </Stack>
         </Center>
       )}

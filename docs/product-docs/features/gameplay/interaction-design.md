@@ -89,13 +89,13 @@ The verdict line appears only when the clue ended on a judged answer. A clue nob
 
 ### The buzzer (one component everywhere)
 
-Phones and the host device use the same `Buzzer` component: an oblong red dome the full width of its container, in a dark rim, with **no lettering** ([design system](../../architecture/design-system.md#buzzer)). Only its height changes: 120 px on phones, 64 px in the host's column. State shows in the dome's color, light and motion; the words are for screen readers.
+Phones and the host device use the same `Buzzer` component: an oblong red dome the full width of its container, in a dark rim, with **no lettering** ([design system](../../architecture/design-system.md#buzzer)). Only its height changes: 120 px on phones, 64 px in the host's column. State shows in the dome's color, light and motion. For screen readers the button is always named "Buzz", and the state is its description.
 
-| State | Looks | Screen-reader label | A tap |
+| State | Looks | Screen-reader description | A tap |
 |---|---|---|---|
-| `idle`: lobby, board (not in control), between clues, someone else answering | Unlit dark red | Buzz | Press animation only. Nothing is sent. |
-| `dim`: `clue_reading` | Unlit, faint red ring around the rim | Buzz (get ready) | Early buzz: 250 ms lockout |
-| `lit`: `buzzing_open` | Bright red, pulsing glow | Buzz | Buzz |
+| `idle`: lobby, board (not in control), between clues, someone else answering | Unlit dark red | Not now | Press animation only. Nothing is sent. |
+| `dim`: `clue_reading` | Unlit, faint red ring around the rim | Get ready | Early buzz: 250 ms lockout |
+| `lit`: `buzzing_open` | Bright red, pulsing glow | Buzz now | Buzz |
 | `early` | Dark red, shakes, 250 ms | Too early | Nothing |
 | `answering`: I won the buzz | Green, glowing | Answer now | Nothing |
 | `locked`: I already tried this clue | Grey, faded, disabled | You've answered this one | Nothing |
@@ -104,7 +104,7 @@ Phones and the host device use the same `Buzzer` component: an oblong red dome t
 
 With no words on the button, the phone's screen above it says what the color means: "Listen… Buzz when it lights up. Too early locks you out for a moment." while the clue is read, "Say your answer" after a won buzz, "You've answered this one" once locked, and "Tap a clue, or press and say it" under the buzzer when I'm picking.
 
-The host device also buzzes with the space bar when a keyboard is attached.
+The host device also buzzes with the space bar when a keyboard is attached; on the board, when the host has control, the space bar starts a spoken pick like the buzzer does.
 
 ### Phone (contestant)
 

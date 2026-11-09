@@ -34,7 +34,7 @@ If the board can't be built (server error), everyone returns to the lobby with "
 
 ### Look back at past games (any player)
 
-**My games** (a **My games** link on the Home screen; `/games`). Not yet implemented; designed in [results/scoreboard-and-history](../../../../devtools/src/designs/results/scoreboard-and-history.tsx).
+**My games** (a **My games** link on the Home screen; `/games`, a game at `/games/{id}`). Built in `web/src/pages/MyGames.tsx` and `GameScoreboard.tsx`, served by `GET /v1/games` and `GET /v1/games/{gameId}` (`api/internal/games`). Reference design: [results/scoreboard-and-history](../../../../devtools/src/designs/results/scoreboard-and-history.tsx).
 
 ```text
 ┌────────────────────────────────────────┐

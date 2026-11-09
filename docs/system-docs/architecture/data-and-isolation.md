@@ -68,6 +68,7 @@ Lobby changes go through `security definer` functions so names, capacity, and th
 ## History outlives rooms and accounts
 
 - Deleting a room keeps its games (`games.room_id` becomes null).
+- Each game records who hosted it (`games.host_user_id`, set by `start_game()`), so "Hosted by" in My games survives a deleted room. Deleting the host's account nulls it.
 - Deleting an account deletes its `seen_clues`, nulls its name snapshots, and nulls `game_players.user_id`. Its results stay on other players' scoreboards as "Former player".
 - Scores are never stored: `game_results` sums each player's `answers.score_delta`, so an override can't leave a stale total.
 

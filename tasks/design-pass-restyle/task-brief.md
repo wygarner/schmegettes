@@ -117,3 +117,7 @@ None: no server code changes. The web app logs nothing new.
 - `docs/product-docs/architecture/design-system.md`: remove "not yet implemented" for what shipped; the Fonts section says they're self-hosted with Fontsource; the buzzer table's screen-reader column: the name is always "Buzz", the state words are its description.
 - `docs/product-docs/features/gameplay/interaction-design.md`: the buzzer table's "Screen-reader label" column, the same way.
 - `docs/system-docs/engineering/stack.md`: add Fontsource to the component library row (fonts self-hosted, no font CDN).
+
+## Branch
+
+`new-feature/design-pass-restyle-impl`, from and into `daily/2026-11-09`. Implementation PR title: `[New Feature] design-pass-restyle: …`.

@@ -29,6 +29,20 @@ export function announcement(category: string, value: number): string {
   return `Here's ${category} for ${value}.`;
 }
 
+/** Said when a Daily Double is revealed. */
+export const DAILY_DOUBLE_INTRO = "It's a Daily Double.";
+
+/** Said before a Daily Double clue: "For 1000, here's the clue." Keep in sync with
+ * play.DailyDoubleAnnouncement in game/internal/play/wager.go. */
+export function dailyDoubleAnnouncement(wager: number): string {
+  return `For ${wager}, here's the clue.`;
+}
+
+/** Said when the Final category appears. Keep in sync with play.FinalAnnouncement. */
+export function finalAnnouncement(category: string): string {
+  return `The Final Schmegettes category is: ${category}.`;
+}
+
 export function stopSpeaking() {
   try {
     window.speechSynthesis?.cancel();

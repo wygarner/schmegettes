@@ -4,6 +4,8 @@ import type { BuzzerState } from "./Buzzer";
 /** Whether this player may buzz right now (a press during the reading is an early buzz). */
 export function canBuzz(state: RoomState, userId: string): boolean {
   const between = Boolean(state.clueEnd || state.roundIntro);
+  // Nobody buzzes on a Daily Double: the picker answers alone.
+  if (state.activeClue?.dailyDouble) return false;
   return (
     (state.phase === "clue_reading" || state.phase === "buzzing_open") &&
     !state.attemptedUserIds.includes(userId) &&

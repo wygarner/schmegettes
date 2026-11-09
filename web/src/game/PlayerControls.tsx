@@ -2,15 +2,17 @@ import { Box, Stack, Text, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { money } from "../lib/money";
-import { nameOf, type RoomState } from "../lib/room";
+import { inFinal, nameOf, type RoomState } from "../lib/room";
 import { Board } from "./Board";
 import { Buzzer } from "./Buzzer";
 import { buzzerState, canBuzz } from "./buzzerState";
 import { Countdown } from "./Countdown";
+import { FinalAnswerField } from "./FinalAnswerField";
 import { usePickConfirm } from "./PickConfirm";
 import { ANSWER_TOTAL_MS, BUZZ_WINDOW_MS } from "./timing";
 import { useAnswerCapture } from "./useAnswerCapture";
 import { VoicePick } from "./VoicePick";
+import { WagerPad } from "./WagerPad";
 
 /**
  * A contestant's controls: a status area above and the buzzer pinned below, in every phase
@@ -143,8 +145,37 @@ function PlayerStatus({
 
   if (state.roundIntro) return <Status compact={compact}>Double Schmegettes!</Status>;
   if (state.clueEnd) return <Status compact={compact}>Look at the TV.</Status>;
+  if (inFinal(state.phase)) return <FinalStatus state={state} userId={userId} send={send} compact={compact} />;
+  const dailyDouble = Boolean(state.activeClue?.dailyDouble);
 
   switch (state.phase) {
+    case "daily_double_wager": {
+      const who = nameOf(state, state.controllingUserId) || "Someone";
+      if (state.controllingUserId !== userId) {
+        return compact ? null : <Status compact={compact}>{who} is wagering…</Status>;
+      }
+      if (state.wager !== undefined) {
+        return <Status compact={compact}>Wager locked: {money(state.wager)}</Status>;
+      }
+      const pad = (
+        <WagerPad
+          min={state.wagerMin ?? 5}
+          max={state.wagerMax ?? 5}
+          compact={compact}
+          confirmLabel="Wager"
+          onWager={(amount) => send({ type: "submit_wager", amount })}
+        />
+      );
+      if (compact) return pad; // Daily Double wagers are public
+      return (
+        <Stack gap="xs">
+          <Status compact={compact} extra={score}>
+            Daily Double! {state.activeClue?.category}
+          </Status>
+          {pad}
+        </Stack>
+      );
+    }
     case "board": {
       if (state.controllingUserId === userId) {
         // A spoken pick goes straight through; a tapped one is confirmed first.
@@ -166,7 +197,18 @@ function PlayerStatus({
       );
     }
     case "clue_reading":
-      return compact ? null : <Status compact={compact}>Listen…</Status>;
+      if (compact) return null;
+      if (dailyDouble && state.controllingUserId === userId) {
+        return <Status compact={compact}>Listen… you'll answer when the clue ends.</Status>;
+      }
+      if (dailyDouble) {
+        return (
+          <Status compact={compact}>
+            {nameOf(state, state.controllingUserId) || "Someone"} is answering a Daily Double.
+          </Status>
+        );
+      }
+      return <Status compact={compact}>Listen…</Status>;
     case "buzzing_open":
       if (compact) return null; // the stage shows the countdown
       return (
@@ -192,13 +234,95 @@ function PlayerStatus({
   }
 }
 
-/** Whether something on screen is this player's own: their pick, answer, or verdict. */
+/** Whether something on screen is this player's own: their pick, wager, answer, or verdict. */
 function mine(state: RoomState, userId: string): boolean {
   if (state.paused || state.results) return false;
   if (state.lastVerdict?.userId === userId && state.phase !== "answering") return true;
   if (state.roundIntro || state.clueEnd) return false;
-  if (state.phase === "board") return state.controllingUserId === userId;
+  if (state.phase === "board" || state.phase === "daily_double_wager") return state.controllingUserId === userId;
+  if (state.phase === "final_category" || state.phase === "final_wager" || state.phase === "final_answer") {
+    return state.finalistUserIds.includes(userId);
+  }
   return state.phase === "answering" && state.answeringUserId === userId;
+}
+
+/**
+ * A player's Final Schmegettes: a secret wager, then a typed answer. On the host device
+ * (compact) both are masked and the amount and answer are never shown: it is on the TV.
+ */
+function FinalStatus({
+  state,
+  userId,
+  send,
+  compact,
+}: {
+  state: RoomState;
+  userId: string;
+  send: (m: ClientMessage) => void;
+  compact: boolean;
+}) {
+  const clue = state.activeClue;
+  if (!state.finalistUserIds.includes(userId)) {
+    return compact ? null : <Status compact={compact}>You're not in Final. Watch the TV.</Status>;
+  }
+  const locked = state.lockedUserIds.includes(userId);
+  const score = state.scores[userId] ?? 0;
+
+  if (state.phase === "final_category" || state.phase === "final_wager") {
+    if (locked) {
+      if (compact || state.mine.wager === undefined) return <Status compact={compact}>✓ Wager locked</Status>;
+      return <Status compact={compact}>Wager locked: {money(state.mine.wager)}. Look at the TV.</Status>;
+    }
+    const pad = (
+      <WagerPad
+        min={0}
+        max={Math.max(0, score)}
+        masked={compact}
+        compact={compact}
+        confirmLabel="Lock in"
+        onWager={(amount) => send({ type: "submit_wager", amount })}
+      />
+    );
+    if (compact) return pad;
+    return (
+      <Stack gap="xs">
+        <Status compact={compact} extra={<Text fw={700}>{money(score)}</Text>}>
+          Final: {clue?.category}
+        </Status>
+        {pad}
+      </Stack>
+    );
+  }
+
+  if (state.phase === "final_answer" && clue) {
+    if (locked) {
+      if (compact || state.mine.answer === undefined) return <Status compact={compact}>✓ Submitted</Status>;
+      return (
+        <Status compact={compact}>
+          Submitted: <em>{state.mine.answer}</em>
+        </Status>
+      );
+    }
+    const field = (
+      <FinalAnswerField
+        key={clue.clueId}
+        deadlineAt={state.deadlineAt}
+        masked={compact}
+        compact={compact}
+        initial={compact ? "" : (state.mine.answer ?? "")}
+        onDraft={(text) => send({ type: "answer_progress", clueId: clue.clueId, text })}
+        onSubmit={(text) => send({ type: "submit_answer", clueId: clue.clueId, answer: text, source: "typed" })}
+      />
+    );
+    if (compact) return field;
+    return (
+      <Stack gap="xs">
+        <Status compact={compact}>Type your answer.</Status>
+        {field}
+      </Stack>
+    );
+  }
+  return <Status compact={compact}>Look at the TV.</Status>;
 }
 
 function Status({

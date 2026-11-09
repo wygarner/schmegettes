@@ -58,6 +58,8 @@ func (store) LoadGame(context.Context, string) (room.GameData, error) {
 }
 func (store) RevealClue(context.Context, string) error                      { return nil }
 func (store) RecordAnswer(context.Context, play.Record) error               { return nil }
+func (store) RecordWager(context.Context, play.Record) error                { return nil }
+func (store) SubmitFinalAnswer(context.Context, play.Record) error          { return nil }
 func (store) FinishClue(context.Context, string, contracts.ClueState) error { return nil }
 func (store) EndGame(context.Context, string, contracts.GameStatus) error   { return nil }
 

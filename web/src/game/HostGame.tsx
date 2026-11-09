@@ -2,15 +2,71 @@ import { Alert, Box, Button, Center, Paper, Stack, Text, Title } from "@mantine/
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { money } from "../lib/money";
-import { nameOf, type RoomState } from "../lib/room";
-import { announcement, speak, stopSpeaking } from "../lib/speech";
+import { inFinal, nameOf, type RoomState } from "../lib/room";
+import {
+  announcement,
+  DAILY_DOUBLE_INTRO,
+  dailyDoubleAnnouncement,
+  finalAnnouncement,
+  speak,
+  stopSpeaking,
+} from "../lib/speech";
 import { Board } from "./Board";
 import { Countdown } from "./Countdown";
+import { DailyDoubleStage } from "./DailyDoubleStage";
+import { FinalStage } from "./FinalStage";
 import { HostLayout } from "./HostLayout";
 import { usePickConfirm } from "./PickConfirm";
 import { PlayerColumn } from "./PlayerColumn";
 import { PlayerControls } from "./PlayerControls";
-import { BUZZ_WINDOW_MS } from "./timing";
+import { BUZZ_WINDOW_MS, FINAL_SKIPPED_MS } from "./timing";
+import { useSince } from "./useSince";
+
+/** Something the TV says. reportDone: tell the server when it ends (reading_done). */
+interface Speech {
+  key: string;
+  text: string;
+  clueId: string;
+  reportDone: boolean;
+}
+
+/** What the TV should be saying in this phase, if anything. */
+function currentSpeech(state: RoomState): Speech | null {
+  const clue = state.activeClue;
+  if (!clue) return null;
+  switch (state.phase) {
+    case "clue_reading": {
+      if (!clue.clueText) return null;
+      const intro =
+        clue.dailyDouble && state.wager !== undefined
+          ? dailyDoubleAnnouncement(state.wager)
+          : announcement(clue.category, clue.value);
+      // A resume re-reads with a new deadline.
+      return {
+        key: `read:${clue.clueId}:${state.deadlineAt}`,
+        text: `${intro} ${clue.clueText}`,
+        clueId: clue.clueId,
+        reportDone: true,
+      };
+    }
+    case "daily_double_wager":
+      if (state.wager !== undefined) return null;
+      return { key: `dd:${clue.clueId}`, text: DAILY_DOUBLE_INTRO, clueId: clue.clueId, reportDone: false };
+    case "final_category":
+      return {
+        key: `category:${clue.clueId}:${state.deadlineAt}`,
+        text: finalAnnouncement(clue.category),
+        clueId: clue.clueId,
+        reportDone: true,
+      };
+    case "final_answer":
+      // Read once; the window opening (a new deadline) doesn't read it again. A pause does.
+      if (!clue.clueText) return null;
+      return { key: `final:${clue.clueId}`, text: clue.clueText, clueId: clue.clueId, reportDone: true };
+    default:
+      return null;
+  }
+}
 
 /**
  * The host device during a game, mirrored to the TV: the board or clue on the stage, every
@@ -31,46 +87,64 @@ export function HostGame({
   const [soundBlocked, setSoundBlocked] = useState(false);
   const confirm = usePickConfirm(state, hostUserId, send);
 
-  // Read the announcement and clue aloud, as one utterance, once per reading (a resume
-  // re-reads with a new deadline). Only a reading that really ended opens buzzing early;
-  // otherwise the server's timer does, so nobody can buzz before the clue has been read.
-  const read = useCallback(
-    (clueId: string, text: string, key: string) => {
-      void speak(text).then((result) => {
+  // Say each announcement and clue once per showing. Only a reading that really ended
+  // reports reading_done; otherwise the server's timer moves on, so nobody can buzz (or
+  // the Final can't start) before the room has heard it.
+  const say = useCallback(
+    (speech: Speech) => {
+      void speak(speech.text).then((result) => {
         if (result === "failed") setSoundBlocked(true);
         if (result === "ended") {
           setSoundBlocked(false);
-          if (spokenRef.current === key) send({ type: "reading_done", clueId });
+          if (speech.reportDone && spokenRef.current === speech.key)
+            send({ type: "reading_done", clueId: speech.clueId });
         }
       });
     },
     [send],
   );
-  const reading = clue?.clueText ? `${announcement(clue.category, clue.value)} ${clue.clueText}` : "";
+  const speech = currentSpeech(state);
+  const speechKey = speech?.key ?? "";
+  // speech is rebuilt every render; its key says when it changed.
+  const speechRef = useRef(speech);
+  speechRef.current = speech;
 
   useEffect(() => {
-    if (state.phase !== "clue_reading" || state.paused || !clue || !reading) return;
-    const key = `${clue.clueId}:${state.deadlineAt}`;
-    if (spokenRef.current === key) return;
-    spokenRef.current = key;
-    read(clue.clueId, reading, key);
-  }, [state.phase, state.paused, state.deadlineAt, clue, reading, read]);
+    if (state.paused) {
+      spokenRef.current = ""; // the server reads again on resume
+      return;
+    }
+    const current = speechRef.current;
+    if (!speechKey || !current || spokenRef.current === speechKey) return;
+    spokenRef.current = speechKey;
+    say(current);
+  }, [speechKey, state.paused, say]);
 
   // The tap is the user gesture the browser wants before it plays sound.
   const unblockSound = () => {
     setSoundBlocked(false);
-    if (state.phase === "clue_reading" && clue && reading) read(clue.clueId, reading, spokenRef.current);
+    if (speech) say(speech);
     else void speak("Sound on");
   };
 
   useEffect(() => {
-    if (state.phase !== "clue_reading") stopSpeaking();
-  }, [state.phase]);
+    if (!speechKey) stopSpeaking();
+  }, [speechKey]);
+
+  const skipSince = useSince(state.finalSkipped ? "skipped" : "", FINAL_SKIPPED_MS);
 
   const hostPicks = state.hostPlays && state.controllingUserId === hostUserId;
 
   let main: ReactNode;
-  if (state.results) {
+  if (state.results && state.finalSkipped && skipSince < FINAL_SKIPPED_MS) {
+    main = (
+      <Center h="100%">
+        <Title order={2} ta="center">
+          Nobody's in the black: no Final Schmegettes.
+        </Title>
+      </Center>
+    );
+  } else if (state.results) {
     main = (
       <Center h="100%">
         <Stack align="center" gap="xs">
@@ -78,11 +152,16 @@ export function HostGame({
           {state.results.map((r) => (
             <Title order={2} key={r.userId}>
               {r.placement}. {r.displayName} {money(r.score)}
+              {r.placement === 1 && " 🏆"}
             </Title>
           ))}
         </Stack>
       </Center>
     );
+  } else if (state.phase === "daily_double_wager") {
+    main = <DailyDoubleStage state={state} />;
+  } else if (inFinal(state.phase)) {
+    main = <FinalStage state={state} />;
   } else if (state.roundIntro && state.phase !== "clue_reading") {
     main = (
       <Center h="100%">
@@ -144,7 +223,8 @@ function ClueView({ state }: { state: RoomState }) {
       }}
     >
       <Text c="white" tt="uppercase" fw={700} ta="center" size="sm">
-        {clue.category} · {money(clue.value)}
+        {clue.category} ·{" "}
+        {clue.dailyDouble && state.wager !== undefined ? `DD ${money(state.wager)}` : money(clue.value)}
       </Text>
       <Stack align="center" justify="center" gap="sm" style={{ flex: 1, minHeight: 0 }}>
         {/* The correct-response screen leaves the clue out. */}

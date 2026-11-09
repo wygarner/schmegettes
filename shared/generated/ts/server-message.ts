@@ -12,6 +12,8 @@ export type ServerMessage =
   | AnswerJudged
   | LiveTranscript
   | ClueEnded
+  | WagerLocked
+  | FinalSubmitted
   | RoundStarted
   | GameOver
   | GamePaused
@@ -59,6 +61,42 @@ export interface RoomSnapshot {
   attemptedUserIds?: string[];
   paused?: boolean;
   /**
+   * Daily Double: the lowest wager the picker may make ($5). Public.
+   */
+  wagerMin?: number;
+  /**
+   * Daily Double: the highest wager the picker may make, max(score, round's top value). Public.
+   */
+  wagerMax?: number;
+  /**
+   * Daily Double: the picker's wager once locked. Public. Never set for Final.
+   */
+  wager?: number;
+  /**
+   * Final: contestants above $0 when Double ended, in join order.
+   */
+  finalistUserIds?: string[];
+  /**
+   * Final: finalists who locked a wager (final_wager) or submitted an answer (final_answer). Never amounts or answers.
+   */
+  lockedUserIds?: string[];
+  /**
+   * final_reveal: finalists in reveal order, lowest pre-Final score first.
+   */
+  revealOrder?: string[];
+  /**
+   * This socket's user's own locked wager. Only in that user's copy, never for the host device.
+   */
+  myWager?: number;
+  /**
+   * This socket's user's own Final draft or submitted answer. Only in that user's copy, never for the host device.
+   */
+  myFinalAnswer?: string;
+  /**
+   * Whether myFinalAnswer is submitted (locked) rather than a draft.
+   */
+  myFinalSubmitted?: boolean;
+  /**
    * userId -> score.
    */
   scores?: {
@@ -84,6 +122,10 @@ export interface BoardClue {
   value: number;
   state: "unplayed" | "active" | "answered" | "unanswered";
   clueText?: string;
+  /**
+   * Set only on the active clue once a Daily Double is picked; never on board listings.
+   */
+  dailyDouble?: boolean;
 }
 /**
  * The lobby changed: someone joined, left, renamed, connected or disconnected, or the host joined or left the game. players is in join order; the host is listed only when hostPlays.
@@ -136,6 +178,30 @@ export interface PhaseChanged {
   attemptedUserIds?: string[];
   controllingUserId?: string;
   paused?: boolean;
+  /**
+   * Daily Double: the lowest wager the picker may make ($5). Public.
+   */
+  wagerMin?: number;
+  /**
+   * Daily Double: the highest wager the picker may make, max(score, round's top value). Public.
+   */
+  wagerMax?: number;
+  /**
+   * Daily Double: the picker's wager once locked. Public. Never set for Final.
+   */
+  wager?: number;
+  /**
+   * Final: contestants above $0 when Double ended, in join order.
+   */
+  finalistUserIds?: string[];
+  /**
+   * Final: finalists who locked a wager (final_wager) or submitted an answer (final_answer). Never amounts or answers.
+   */
+  lockedUserIds?: string[];
+  /**
+   * final_reveal: finalists in reveal order, lowest pre-Final score first.
+   */
+  revealOrder?: string[];
 }
 export interface BuzzResult {
   type: "buzz_result";
@@ -161,6 +227,10 @@ export interface AnswerJudged {
    */
   correctResponse?: string;
   scoreDelta: number;
+  /**
+   * Set for a Daily Double verdict and each Final reveal step.
+   */
+  wager?: number;
   /**
    * userId -> score after this verdict.
    */
@@ -197,6 +267,26 @@ export interface ClueEnded {
   };
 }
 /**
+ * A player locked a wager. Daily Double: amount is on every copy (public). Final: amount is only in the wagering player's own copy, never the host device's.
+ */
+export interface WagerLocked {
+  type: "wager_locked";
+  roomId: string;
+  seq: number;
+  userId: string;
+  amount?: number;
+}
+/**
+ * A finalist's typed answer is locked in. answer is only in that player's own copy, never the host device's.
+ */
+export interface FinalSubmitted {
+  type: "final_submitted";
+  roomId: string;
+  seq: number;
+  userId: string;
+  answer?: string;
+}
+/**
  * A round's board is up.
  */
 export interface RoundStarted {
@@ -220,6 +310,10 @@ export interface GameOver {
     score: number;
     placement: number;
   }[];
+  /**
+   * True when nobody was above $0 after Double Schmegettes, so Final was skipped.
+   */
+  finalSkipped?: boolean;
 }
 /**
  * The host device left (paused) or came back (resumed). Timers stop while paused.
@@ -252,7 +346,9 @@ export interface Error {
     | "game_started"
     | "invalid_name"
     | "not_in_control"
-    | "already_attempted";
+    | "already_attempted"
+    | "invalid_wager"
+    | "not_a_finalist";
   message?: string;
 }
 export interface Pong {

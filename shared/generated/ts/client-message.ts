@@ -69,7 +69,7 @@ export interface Buzz {
   clientSentAt?: number;
 }
 /**
- * The answering player's interim transcript, so the TV can show it live. The server drops more than 4 per second.
+ * The answering player's interim transcript, so the TV can show it live. The server drops more than 4 per second. In final_answer it is instead the sender's private draft of their typed answer: kept by the server, never relayed, and submitted for them if time runs out. Clients debounce drafts and always send the last one.
  */
 export interface AnswerProgress {
   type: "answer_progress";
@@ -81,12 +81,12 @@ export interface SubmitAnswer {
   clueId: string;
   answer: string;
   /**
-   * Answers are spoken; there is no typed input.
+   * voice for every clue and Daily Double; typed only in final_answer (Final Schmegettes answers are typed).
    */
-  source: "voice";
+  source: "voice" | "typed";
 }
 /**
- * Daily Double or Final round wager.
+ * Daily Double or Final round wager, in whole dollars. The server checks the range: Daily Double $5 to max(score, round's top value); Final $0 to score. The first valid wager locks.
  */
 export interface SubmitWager {
   type: "submit_wager";

@@ -144,25 +144,71 @@ func (s PGStore) LoadGame(ctx context.Context, roomID string) (GameData, error) 
 		}
 
 		rows, err = tx.Query(ctx, `
-			select b.id::text, b.round::text, b.column_index, b.row_index, b.category, b.value,
-			       c.clue_text, c.correct_response, b.state::text
+			select b.id::text, b.round::text, b.column_index, b.row_index, b.category, coalesce(b.value, 0),
+			       c.clue_text, c.correct_response, b.state::text, b.is_daily_double
 			from public.board_clues b
 			join public.clues c on c.id = b.clue_id
-			where b.game_id = $1 and b.round in ('single', 'double')`, d.GameID)
+			where b.game_id = $1`, d.GameID)
 		if err != nil {
 			return err
 		}
-		d.Board, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (play.Clue, error) {
+		clues, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (play.Clue, error) {
 			var c play.Clue
 			var round, state string
-			err := row.Scan(&c.ID, &round, &c.Col, &c.Row, &c.Category, &c.Value, &c.Text, &c.Response, &state)
+			err := row.Scan(&c.ID, &round, &c.Col, &c.Row, &c.Category, &c.Value, &c.Text, &c.Response, &state, &c.DailyDouble)
 			c.Round, c.State = contracts.Round(round), contracts.ClueState(state)
-			if c.State == contracts.ClueStateActive {
-				d.ActiveClueID = c.ID
-			}
 			return c, err
 		})
 		if err != nil {
+			return err
+		}
+		for _, c := range clues {
+			if c.Round == contracts.RoundFinal {
+				c.DailyDouble = false
+				d.Final = &c
+				continue
+			}
+			if c.State == contracts.ClueStateActive {
+				d.ActiveClueID = c.ID
+			}
+			d.Board = append(d.Board, c)
+		}
+		finalID := ""
+		if d.Final != nil {
+			finalID = d.Final.ID
+		}
+
+		// Wagers: the active Daily Double's, and Final's with any submitted answers.
+		d.FinalWagers, d.FinalAnswers, d.FinalDeltas = map[string]int{}, map[string]string{}, map[string]int{}
+		rows, err = tx.Query(ctx, `
+			select gp.user_id::text, w.board_clue_id::text, w.amount, w.answer, w.submitted_at is not null
+			from public.wagers w
+			join public.game_players gp on gp.id = w.game_player_id
+			where w.game_id = $1 and gp.user_id is not null`, d.GameID)
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var user, clue string
+			var amount int
+			var answer *string
+			var submitted bool
+			if err := rows.Scan(&user, &clue, &amount, &answer, &submitted); err != nil {
+				rows.Close()
+				return err
+			}
+			switch {
+			case clue == d.ActiveClueID && d.ActiveClueID != "":
+				d.DDWager = &amount
+			case clue == finalID:
+				d.FinalWagers[user] = amount
+				if submitted && answer != nil {
+					d.FinalAnswers[user] = *answer
+				}
+			}
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
 			return err
 		}
 
@@ -191,6 +237,9 @@ func (s PGStore) LoadGame(ctx context.Context, roomID string) (GameData, error) 
 			if clue == d.ActiveClueID {
 				d.Attempted[user] = true
 			}
+			if clue == finalID {
+				d.FinalDeltas[user] += delta
+			}
 		}
 		return rows.Err()
 	})
@@ -204,8 +253,22 @@ func (s PGStore) RevealClue(ctx context.Context, clueID string) error {
 
 // RecordAnswer stores a judged answer. Its id is fixed before the first try, so a retry is a no-op.
 func (s PGStore) RecordAnswer(ctx context.Context, r play.Record) error {
-	return s.exec(ctx, "select public.record_answer($1, $2, $3, $4, 'voice', $5::public.verdict, $6)",
-		r.AnswerID, r.ClueID, r.UserID, r.Answer, string(r.Verdict), r.Delta)
+	source := r.Source
+	if source == "" {
+		source = contracts.AnswerSourceVoice
+	}
+	return s.exec(ctx, "select public.record_answer($1, $2, $3, $4, $5::public.answer_source, $6::public.verdict, $7)",
+		r.AnswerID, r.ClueID, r.UserID, r.Answer, string(source), string(r.Verdict), r.Delta)
+}
+
+// RecordWager stores a Daily Double or Final wager. The first one wins, so a retry is a no-op.
+func (s PGStore) RecordWager(ctx context.Context, r play.Record) error {
+	return s.exec(ctx, "select public.record_wager($1, $2, $3)", r.ClueID, r.UserID, r.Amount)
+}
+
+// SubmitFinalAnswer locks a finalist's typed answer. Only the first submission counts.
+func (s PGStore) SubmitFinalAnswer(ctx context.Context, r play.Record) error {
+	return s.exec(ctx, "select public.submit_final_answer($1, $2, $3)", r.ClueID, r.UserID, r.Answer)
 }
 
 // FinishClue marks a clue answered or unanswered.

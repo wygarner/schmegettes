@@ -234,3 +234,89 @@ test("players without control don't get the voice button", () => {
   setup({ ...base, phase: "board" });
   expect(screen.queryByRole("button", { name: "Say a clue" })).not.toBeInTheDocument();
 });
+
+const dd = { clueId: "c1", category: "SCIENCE", value: 400, state: "active" as const, dailyDouble: true };
+
+test("the Daily Double picker wagers on the phone; others wait", () => {
+  const ddState: RoomState = {
+    ...base,
+    phase: "daily_double_wager",
+    activeClue: dd,
+    controllingUserId: me,
+    wagerMin: 5,
+    wagerMax: 800,
+  };
+  const { send, update } = setup(ddState);
+  expect(screen.getByText(/Daily Double! SCIENCE/)).toBeInTheDocument();
+  for (const k of ["5", "0", "0"]) fireEvent.click(screen.getByRole("button", { name: k }));
+  fireEvent.click(screen.getByRole("button", { name: "Wager" }));
+  expect(send).toHaveBeenCalledWith({ type: "submit_wager", amount: 500 });
+
+  update({ ...ddState, controllingUserId: "bob" });
+  expect(screen.getByText("Bob is wagering…")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Wager" })).toBeNull();
+});
+
+test("nobody can buzz on a Daily Double", () => {
+  const { send } = setup({ ...base, phase: "clue_reading", activeClue: dd, controllingUserId: "bob" });
+  expect(screen.getByText("Bob is answering a Daily Double.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /buzz/i }));
+  expect(send).not.toHaveBeenCalled();
+});
+
+const finalClue = { clueId: "f", category: "ISLANDS", value: 0, state: "active" as const };
+
+test("a finalist wagers secretly, then types the answer", () => {
+  const wagerState: RoomState = {
+    ...base,
+    phase: "final_wager",
+    round: "final",
+    activeClue: { ...finalClue, state: "unplayed" },
+    finalistUserIds: [me, "bob"],
+    scores: { [me]: 600 },
+  };
+  const { send, update } = setup(wagerState);
+  expect(screen.getByText("Final: ISLANDS")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Max" }));
+  fireEvent.click(screen.getByRole("button", { name: "Lock in" }));
+  expect(send).toHaveBeenCalledWith({ type: "submit_wager", amount: 600 });
+
+  update({ ...wagerState, lockedUserIds: [me], mine: { wager: 600 } });
+  expect(screen.getByText(/Wager locked: \$600/)).toBeInTheDocument();
+
+  update({ ...wagerState, phase: "final_answer", activeClue: finalClue, lockedUserIds: [], mine: { wager: 600 } });
+  fireEvent.change(screen.getByLabelText("Your answer"), { target: { value: "krakatoa" } });
+  fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+  expect(send).toHaveBeenCalledWith({ type: "submit_answer", clueId: "f", answer: "krakatoa", source: "typed" });
+});
+
+test("a player not in Final is told to watch", () => {
+  setup({ ...base, phase: "final_wager", activeClue: finalClue, finalistUserIds: ["bob"] });
+  expect(screen.getByText("You're not in Final. Watch the TV.")).toBeInTheDocument();
+});
+
+test("on the host device the Final wager and answer are masked", () => {
+  const send = vi.fn();
+  const s: RoomState = {
+    ...base,
+    phase: "final_wager",
+    activeClue: finalClue,
+    finalistUserIds: [me],
+    scores: { [me]: 900 },
+  };
+  const r = render(
+    <MantineProvider>
+      <PlayerControls state={s} userId={me} send={send} compact />
+    </MantineProvider>,
+  );
+  for (const k of ["7", "0", "0"]) fireEvent.click(screen.getByRole("button", { name: k }));
+  expect(screen.getByLabelText("Wager amount")).toHaveTextContent("$ •••••");
+  expect(document.body.textContent).not.toMatch(/700|900/);
+  fireEvent.click(screen.getByRole("button", { name: "Lock in" }));
+  r.rerender(
+    <MantineProvider>
+      <PlayerControls state={{ ...s, phase: "final_answer", lockedUserIds: [] }} userId={me} send={send} compact />
+    </MantineProvider>,
+  );
+  expect(screen.getByLabelText("Your answer")).toHaveAttribute("type", "password");
+});

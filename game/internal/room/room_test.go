@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -148,6 +149,14 @@ func (s *fakeStore) RecordAnswer(_ context.Context, r play.Record) error {
 		return errors.New("check constraint")
 	}
 	s.log("answer " + r.ClueID + " " + r.UserID + " " + string(r.Verdict))
+	return nil
+}
+func (s *fakeStore) RecordWager(_ context.Context, r play.Record) error {
+	s.log(fmt.Sprintf("wager %s %s %d", r.ClueID, r.UserID, r.Amount))
+	return nil
+}
+func (s *fakeStore) SubmitFinalAnswer(_ context.Context, r play.Record) error {
+	s.log("final answer " + r.UserID + " " + r.Answer)
 	return nil
 }
 func (s *fakeStore) FinishClue(_ context.Context, id string, st contracts.ClueState) error {

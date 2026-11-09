@@ -212,3 +212,83 @@ test("the correct-response screen leaves the clue out", () => {
   expect(screen.queryByText("THIS GAS")).not.toBeInTheDocument();
   expect(screen.getByText("Nitrogen")).toBeInTheDocument();
 });
+
+const ddClue = { clueId: "c1", category: "SCIENCE", value: 400, state: "active" as const, dailyDouble: true };
+
+function showHost(s: RoomState, send = vi.fn()) {
+  const r = render(
+    <MantineProvider>
+      <HostGame state={s} send={send} hostUserId="host" />
+    </MantineProvider>,
+  );
+  return {
+    send,
+    update: (n: RoomState) =>
+      r.rerender(
+        <MantineProvider>
+          <HostGame state={n} send={send} hostUserId="host" />
+        </MantineProvider>,
+      ),
+  };
+}
+
+test("a Daily Double: the reveal, the wager, then the clue read with the wager", () => {
+  const dd: RoomState = { ...state, phase: "daily_double_wager", activeClue: ddClue, controllingUserId: "a" };
+  const { update } = showHost(dd);
+  expect(screen.getByText("DAILY DOUBLE")).toBeInTheDocument();
+  expect(spoken.map((u) => u.text)).toEqual(["It's a Daily Double."]);
+  update({ ...dd, wager: 1000 });
+  expect(screen.getByText("Alice wagers $1,000")).toBeInTheDocument();
+  update({ ...dd, phase: "clue_reading", wager: 1000, activeClue: { ...ddClue, clueText: "THIS GAS" } });
+  expect(spoken.at(-1)?.text).toBe("For 1000, here's the clue. THIS GAS");
+  expect(screen.getByText(/DD \$1,000/)).toBeInTheDocument();
+});
+
+const finalState: RoomState = {
+  ...state,
+  phase: "final_category",
+  round: "final",
+  activeClue: { clueId: "f", category: "ISLANDS", value: 0, state: "unplayed" },
+  finalistUserIds: ["a"],
+  deadlineAt: 456,
+};
+
+test("Final: the category is announced and reported; the clue is read once", async () => {
+  const { send, update } = showHost(finalState);
+  expect(screen.getByText("FINAL SCHMEGETTES")).toBeInTheDocument();
+  expect(spoken.map((u) => u.text)).toEqual(["The Final Schmegettes category is: ISLANDS."]);
+  spoken[0]?.onend?.();
+  await waitFor(() => expect(send).toHaveBeenCalledWith({ type: "reading_done", clueId: "f" }));
+
+  const answering: RoomState = {
+    ...finalState,
+    phase: "final_answer",
+    activeClue: { clueId: "f", category: "ISLANDS", value: 0, state: "active", clueText: "THIS VOLCANO" },
+  };
+  update(answering);
+  expect(screen.getByLabelText("Clue")).toHaveTextContent("THIS VOLCANO");
+  update({ ...answering, deadlineAt: 999 }); // the answer window opens: no second reading
+  expect(spoken.map((u) => u.text)).toEqual(["The Final Schmegettes category is: ISLANDS.", "THIS VOLCANO"]);
+});
+
+test("Final reveal shows the finalist's response and verdict", () => {
+  showHost({
+    ...finalState,
+    phase: "final_reveal",
+    scores: { a: 1200 },
+    reveals: [{ userId: "a", answer: "krakatoa", verdict: "correct", delta: 400, wager: 400 }],
+  });
+  const reveal = screen.getByLabelText("Reveal");
+  expect(reveal).toHaveTextContent("Alice · $800");
+  expect(reveal).toHaveTextContent("krakatoa");
+});
+
+test("a skipped Final says so before the scores", () => {
+  showHost({
+    ...state,
+    phase: "finished",
+    results: [{ userId: "a", displayName: "Alice", score: -200, placement: 1 }],
+    finalSkipped: true,
+  });
+  expect(screen.getByText("Nobody's in the black: no Final Schmegettes.")).toBeInTheDocument();
+});

@@ -37,3 +37,23 @@ test("a disconnected player is dimmed", () => {
   expect(screen.getByText("Alice (reconnecting)")).toBeInTheDocument();
   expect(screen.getByLabelText("Alice $0")).toHaveStyle({ opacity: "0.5" });
 });
+
+test("in Final, tiles say who has locked in, never an amount, and dim non-finalists", () => {
+  show([p("a", "Alice"), p("b", "Bob"), p("c", "Cara")], {
+    phase: "final_wager",
+    finalistUserIds: ["a", "b"],
+    lockedUserIds: ["a"],
+    scores: { a: 900, b: 300, c: -100 },
+    mine: { wager: 777 },
+  });
+  expect(screen.getByLabelText("Alice $900, ✓ locked")).toBeInTheDocument();
+  expect(screen.getByLabelText("Bob $300, wagering…")).toBeInTheDocument();
+  expect(screen.getByLabelText("Cara −$100, not in final")).toHaveStyle({ opacity: "0.5" });
+  expect(document.body.textContent).not.toContain("777");
+  expect(screen.queryByText("PICKING")).toBeNull();
+});
+
+test("the Daily Double picker's tile says WAGERING", () => {
+  show([p("a", "Alice")], { phase: "daily_double_wager", controllingUserId: "a" });
+  expect(screen.getByText("WAGERING")).toBeInTheDocument();
+});

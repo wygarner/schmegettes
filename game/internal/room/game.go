@@ -23,6 +23,14 @@ type GameData struct {
 	LastCorrect  string
 	ActiveClueID string
 	Attempted    map[string]bool
+
+	// Wagers, from the wagers table: the active Daily Double's, and Final's with any
+	// submitted answers. FinalDeltas are the Final answers already revealed.
+	Final        *play.Clue
+	DDWager      *int
+	FinalWagers  map[string]int
+	FinalAnswers map[string]string
+	FinalDeltas  map[string]int
 }
 
 // loadGame builds the play.Game for the room's game in progress, fresh or after a restart.
@@ -38,6 +46,8 @@ func (r *Room) loadGame(ctx context.Context) bool {
 		Players: data.Players, Board: data.Board,
 		Scores: data.Scores, LastCorrect: data.LastCorrect,
 		ActiveClueID: data.ActiveClueID, AttemptedByID: data.Attempted,
+		Final: data.Final, DDWager: data.DDWager,
+		FinalWagers: data.FinalWagers, FinalAnswers: data.FinalAnswers, FinalDeltas: data.FinalDeltas,
 		NextSeq: func() int { r.seq++; return r.seq },
 		NewID:   uuid.NewString,
 		Pick:    rand.IntN,
@@ -55,13 +65,34 @@ func (r *Room) applyGame(ctx context.Context, e play.Effects) {
 	r.pending = append(r.pending, e.Records...)
 	r.flush(ctx)
 	if r.game != nil {
+		prev := r.phase
 		r.phase = r.game.Phase()
+		r.logPhase(prev)
 	}
 	r.schedule()
 }
 
+// logPhase logs the wager-flow lifecycle: a Daily Double picked, Final started or skipped.
+func (r *Room) logPhase(prev contracts.GamePhase) {
+	if prev == r.phase {
+		return
+	}
+	switch r.phase {
+	case contracts.GamePhaseDailyDoubleWager:
+		r.log.Info("daily double", "game_id", r.gameID, "user_id", r.game.Controller())
+	case contracts.GamePhaseFinalCategory:
+		r.log.Info("final started", "game_id", r.gameID, "finalists", r.game.Finalists())
+	case contracts.GamePhaseFinished:
+		if r.game.FinalSkipped() {
+			r.log.Info("final skipped", "game_id", r.gameID)
+		}
+	}
+}
+
 // sendGame delivers one broadcast: the host's sockets get the copy with TV-only fields
-// (clue text, correct response), everyone else gets the plain copy. Both share one seq.
+// (clue text, correct response); a player with a private copy (their own Final wager or
+// answer) gets that; everyone else gets the plain copy. All share one seq. The host user
+// never gets a private copy, because the host device is on the TV.
 func (r *Room) sendGame(b play.Broadcast) {
 	all, err := json.Marshal(b.All)
 	if err != nil {
@@ -75,10 +106,26 @@ func (r *Room) sendGame(b play.Broadcast) {
 			return
 		}
 	}
+	private := map[string][]byte{}
+	for user, m := range b.Private {
+		if user == r.lobby.HostID {
+			continue
+		}
+		data, err := json.Marshal(m)
+		if err != nil {
+			r.log.Error("encode failed", "err", err)
+			return
+		}
+		private[user] = data
+	}
 	for c := range r.clients {
-		if c.UserID == r.lobby.HostID {
+		mine, ok := private[c.UserID]
+		switch {
+		case c.UserID == r.lobby.HostID:
 			r.deliver(c, host)
-		} else {
+		case ok:
+			r.deliver(c, mine)
+		default:
 			r.deliver(c, all)
 		}
 	}
@@ -122,7 +169,15 @@ func (r *Room) write(ctx context.Context, rec play.Record) error {
 		return r.store.RevealClue(ctx, rec.ClueID)
 	case play.RecordAnswer:
 		r.log.Debug("answer judged", "game_id", r.gameID, "user_id", rec.UserID, "verdict", rec.Verdict, "answer", rec.Answer)
+		rec.Answer = clip(rec.Answer)
 		return r.store.RecordAnswer(ctx, rec)
+	case play.RecordWager:
+		r.log.Debug("wager locked", "game_id", r.gameID, "user_id", rec.UserID, "board_clue_id", rec.ClueID, "amount", rec.Amount)
+		return r.store.RecordWager(ctx, rec)
+	case play.SubmitFinalAnswer:
+		r.log.Debug("final answer submitted", "game_id", r.gameID, "user_id", rec.UserID, "answer", rec.Answer)
+		rec.Answer = clip(rec.Answer)
+		return r.store.SubmitFinalAnswer(ctx, rec)
 	case play.FinishClue:
 		return r.store.FinishClue(ctx, rec.ClueID, rec.State)
 	case play.EndGame:
@@ -244,7 +299,22 @@ func (r *Room) handleGame(ctx context.Context, c *Client, kind string, data []by
 			r.fail(c, contracts.ErrorCodeWrongPhase, "")
 			return true
 		}
-		e, err = r.game.Answer(now, c.UserID, string(m.ClueId), clip(m.Answer))
+		if m.Source == contracts.SubmitAnswerSourceTyped {
+			e, err = r.game.TypedAnswer(now, c.UserID, string(m.ClueId), clip(m.Answer))
+		} else {
+			e, err = r.game.Answer(now, c.UserID, string(m.ClueId), clip(m.Answer))
+		}
+	case "submit_wager":
+		var m contracts.SubmitWager
+		if !decode(data, &m) {
+			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+			return true
+		}
+		if r.game == nil {
+			r.fail(c, contracts.ErrorCodeWrongPhase, "")
+			return true
+		}
+		e, err = r.game.Wager(now, c.UserID, m.Amount)
 	default:
 		return false
 	}

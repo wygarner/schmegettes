@@ -1,18 +1,11 @@
 import { Text } from "@mantine/core";
 import { useState } from "react";
 import { money } from "../lib/money";
+import { ordinal, PLACE_COLOR } from "../lib/placement";
 import type { Result, RoomState } from "../lib/room";
 import { GoldButton } from "../ui/GoldButton";
 import { Stage } from "../ui/Stage";
 import { DISPLAY, GOLD, RED, SOFT } from "../ui/tokens";
-
-export const PLACE_COLOR: Record<number, string> = { 1: GOLD, 2: "#d5d9e6", 3: "#e0a370" };
-
-export function ordinal(n: number): string {
-  const tens = n % 100;
-  if (tens >= 11 && tens <= 13) return `${n}th`;
-  return `${n}${n % 10 === 1 ? "st" : n % 10 === 2 ? "nd" : n % 10 === 3 ? "rd" : "th"}`;
-}
 
 /** "Nov 9 · 8:14 PM · 41 min", or less when the times aren't known. */
 export function gameWhen(startedAt?: number, finishedAt?: number): string {

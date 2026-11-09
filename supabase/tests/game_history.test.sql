@@ -3,7 +3,7 @@
 -- users run as authenticated with request.jwt.claims, as in rls.test.sql.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(51);
+select plan(54);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (all rolled back)
@@ -298,6 +298,17 @@ select is(
    where game_id = tests.game('g3') and role = 'contestant'),
   array['Dave:600:1', 'Fay:200:2'], 'an override changes the score and placement'
 );
+select lives_ok($$
+  select public.update_verdict('b0b0b0b0-0000-4000-8000-000000000001', 'overridden_incorrect', -200)
+$$, 'override a correct answer to incorrect');
+select is(
+  (select array_agg(display_name || ':' || score || ':' || placement order by placement) from public.game_results
+   where game_id = tests.game('g3') and role = 'contestant'),
+  array['Dave:600:1', 'Fay:-200:2'], 'an override to incorrect takes the value off'
+);
+select lives_ok($$
+  select public.update_verdict('b0b0b0b0-0000-4000-8000-000000000001', 'correct', 200)
+$$, 'restore it for the checks below');
 select ok(
   (select bool_and(r.score = (select coalesce(sum(a.score_delta), 0) from public.answers a
                               where a.game_player_id = r.game_player_id))

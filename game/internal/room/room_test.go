@@ -159,6 +159,10 @@ func (s *fakeStore) SubmitFinalAnswer(_ context.Context, r play.Record) error {
 	s.log("final answer " + r.UserID + " " + r.Answer)
 	return nil
 }
+func (s *fakeStore) UpdateVerdict(_ context.Context, r play.Record) error {
+	s.log(fmt.Sprintf("override %s %s %d", r.AnswerID, r.Verdict, r.Delta))
+	return nil
+}
 func (s *fakeStore) FinishClue(_ context.Context, id string, st contracts.ClueState) error {
 	s.log("finish " + id + " " + string(st))
 	return nil

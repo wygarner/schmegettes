@@ -60,6 +60,7 @@ func (store) RevealClue(context.Context, string) error                      { re
 func (store) RecordAnswer(context.Context, play.Record) error               { return nil }
 func (store) RecordWager(context.Context, play.Record) error                { return nil }
 func (store) SubmitFinalAnswer(context.Context, play.Record) error          { return nil }
+func (store) UpdateVerdict(context.Context, play.Record) error              { return nil }
 func (store) FinishClue(context.Context, string, contracts.ClueState) error { return nil }
 func (store) EndGame(context.Context, string, contracts.GameStatus) error   { return nil }
 

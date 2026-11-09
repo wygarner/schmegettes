@@ -56,6 +56,7 @@ type Store interface {
 	RecordAnswer(ctx context.Context, rec play.Record) error
 	RecordWager(ctx context.Context, rec play.Record) error
 	SubmitFinalAnswer(ctx context.Context, rec play.Record) error
+	UpdateVerdict(ctx context.Context, rec play.Record) error
 	FinishClue(ctx context.Context, clueID string, state contracts.ClueState) error
 	EndGame(ctx context.Context, gameID string, status contracts.GameStatus) error
 }
@@ -534,7 +535,8 @@ func (r *Room) handle(ctx context.Context, c *Client, data []byte) {
 			r.fail(c, contracts.ErrorCodeInvalidMessage, "The host can't leave the room")
 			return
 		}
-		if r.phase != contracts.GamePhaseLobby {
+		// A player may leave in the lobby, or on the final scoreboard (the game has ended).
+		if r.phase != contracts.GamePhaseLobby && r.phase != contracts.GamePhaseFinished {
 			r.fail(c, contracts.ErrorCodeWrongPhase, "")
 			return
 		}
@@ -549,7 +551,26 @@ func (r *Room) handle(ctx context.Context, c *Client, data []byte) {
 			}
 		}
 		r.reload(ctx)
-		r.broadcast(r.lobbyUpdated())
+		if r.phase == contracts.GamePhaseLobby {
+			r.broadcast(r.lobbyUpdated())
+		}
+
+	case "rematch":
+		if !decode(data, &contracts.Rematch{}) {
+			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+			return
+		}
+		if !isHost {
+			r.fail(c, contracts.ErrorCodeNotHost, "")
+			return
+		}
+		if r.phase != contracts.GamePhaseFinished {
+			if r.phase != contracts.GamePhaseLobby { // a second press once back in the lobby is a no-op
+				r.fail(c, contracts.ErrorCodeWrongPhase, "")
+			}
+			return
+		}
+		r.rematch(ctx)
 
 	case "start_game":
 		if !decode(data, &contracts.StartGame{}) {
@@ -620,6 +641,26 @@ func (r *Room) start(ctx context.Context, host *Client) {
 		return
 	}
 	r.startRound(ctx)
+}
+
+// rematch takes everyone still in the room back to the lobby after a finished game. The
+// database already reopened the room (end_game), so Start builds a fresh board as usual.
+func (r *Room) rematch(ctx context.Context) {
+	r.flush(ctx)
+	if r.stopTimer != nil {
+		r.stopTimer()
+		r.stopTimer = nil
+	}
+	r.game, r.gameID, r.pending, r.writeTries = nil, "", nil, 0
+	r.phase = contracts.GamePhaseLobby
+	r.reload(ctx)
+	r.lobby.Status = contracts.RoomStatusOpen
+	r.log.Info("rematch", "members", len(r.lobby.Members))
+	// A fresh snapshot resets every client to the lobby, scores at $0.
+	r.seq++
+	for c := range r.clients {
+		r.sendTo(c, r.snapshotFor(c))
+	}
 }
 
 func (r *Room) setPhase(p contracts.GamePhase) {

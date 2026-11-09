@@ -13,12 +13,15 @@ export function PlayerGame({
   userId,
   send,
   lobby,
+  onLeave,
 }: {
   state: RoomState;
   userId: string;
   send: (m: ClientMessage) => void;
   /** The lobby's status area ("You're in", name, Leave), shown before the game. */
   lobby?: ReactNode;
+  /** Leave the room from the final scoreboard. */
+  onLeave?: () => void;
 }) {
   return (
     <div style={{ minHeight: "100dvh", background: PHONE_BG, color: "#fff" }}>
@@ -31,7 +34,7 @@ export function PlayerGame({
             "max(12px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left))",
         }}
       >
-        <PlayerControls state={state} userId={userId} send={send} lobby={lobby} buzzerHeight={120} />
+        <PlayerControls state={state} userId={userId} send={send} lobby={lobby} buzzerHeight={120} onLeave={onLeave} />
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
-import { Text } from "@mantine/core";
+import { Button, Text } from "@mantine/core";
 import type { ReactNode } from "react";
 import { money } from "../lib/money";
-import { nameOf, type Reveal, type RoomState } from "../lib/room";
+import { isCorrect, nameOf, type Reveal, type RoomState } from "../lib/room";
 import { BigMoment, Stage, StageBody, StageHeader } from "../ui/Stage";
 import { DISPLAY, GOLD, GREEN, RED, SOFT } from "../ui/tokens";
 import { ClueText } from "./ClueText";
@@ -14,7 +14,15 @@ import { useSince } from "./useSince";
  * then one finalist at a time, lowest score first. No wager amount or answer appears
  * before its reveal. `hostInput` is the playing host's masked wager pad or blind keypad.
  */
-export function FinalStage({ state, hostInput }: { state: RoomState; hostInput?: ReactNode }) {
+export function FinalStage({
+  state,
+  hostInput,
+  onOverride,
+}: {
+  state: RoomState;
+  hostInput?: ReactNode;
+  onOverride?: (answerId: string) => void;
+}) {
   const clue = state.activeClue;
   const since = useSince(state.phase, FINAL_TITLE_MS);
 
@@ -77,7 +85,9 @@ export function FinalStage({ state, hostInput }: { state: RoomState; hostInput?:
     );
   } else {
     const current = state.reveals[state.reveals.length - 1];
-    body = current ? <RevealView state={state} reveal={current} step={state.reveals.length} /> : null;
+    body = current ? (
+      <RevealView state={state} reveal={current} step={state.reveals.length} onOverride={onOverride} />
+    ) : null;
   }
 
   return (
@@ -93,10 +103,23 @@ export function FinalStage({ state, hostInput }: { state: RoomState; hostInput?:
 }
 
 /** One finalist: response, verdict, wager, new score, about 2 s apart. */
-function RevealView({ state, reveal, step }: { state: RoomState; reveal: Reveal; step: number }) {
+function RevealView({
+  state,
+  reveal,
+  step,
+  onOverride,
+}: {
+  state: RoomState;
+  reveal: Reveal;
+  step: number;
+  onOverride?: (answerId: string) => void;
+}) {
   const since = useSince(`${reveal.userId}:${step}`, REVEAL_STEP_MS);
   const lines = 1 + Math.floor(since / REVEAL_LINE_MS);
-  const right = reveal.verdict === "correct" || reveal.verdict === "overridden_correct";
+  const right = isCorrect(reveal.verdict);
+  const overridden = reveal.answerId !== undefined && state.overridden.includes(reveal.answerId);
+  // Only the finalist on the stage can be overridden.
+  const canOverride = Boolean(onOverride && reveal.answerId && state.answers[0]?.answerId === reveal.answerId);
   const before = (state.scores[reveal.userId] ?? 0) - reveal.delta;
   const after = before + reveal.delta;
   const line = (label: string, value: ReactNode) => (
@@ -132,15 +155,43 @@ function RevealView({ state, reveal, step }: { state: RoomState; reveal: Reveal;
       {lines >= 2 &&
         line(
           "",
-          <span
-            style={{
-              fontFamily: DISPLAY,
-              fontWeight: 700,
-              fontSize: "clamp(14px, 8cqh, 34px)",
-              color: right ? GREEN : RED,
-            }}
-          >
-            {right ? "✓ correct" : "✗ incorrect"}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {overridden && (
+              <span
+                style={{
+                  background: GOLD,
+                  color: "#1f1600",
+                  fontWeight: 800,
+                  fontSize: "clamp(9px, 3.6cqh, 14px)",
+                  letterSpacing: ".1em",
+                  padding: "2px 7px",
+                  borderRadius: 4,
+                }}
+              >
+                HOST OVERRIDE
+              </span>
+            )}
+            <span
+              style={{
+                fontFamily: DISPLAY,
+                fontWeight: 700,
+                fontSize: "clamp(14px, 8cqh, 34px)",
+                color: right ? GREEN : RED,
+              }}
+            >
+              {right ? "✓ correct" : "✗ incorrect"}
+            </span>
+            {canOverride && (
+              <Button
+                size="compact-xs"
+                variant="outline"
+                color="boardBlue.1"
+                aria-label={`Override ${nameOf(state, reveal.userId)}'s answer`}
+                onClick={() => reveal.answerId && onOverride?.(reveal.answerId)}
+              >
+                Override
+              </Button>
+            )}
           </span>,
         )}
       {lines >= 3 &&

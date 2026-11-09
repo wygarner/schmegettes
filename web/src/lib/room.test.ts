@@ -1,5 +1,5 @@
-import { expect, test } from "vitest";
-import { contestantCount, initialRoom, reduceRoom } from "./room";
+import { describe, expect, test } from "vitest";
+import { contestantCount, initialRoom, type RoomState, reduceRoom } from "./room";
 
 const ROOM = "6f0d2a5e-8a0b-4c39-9a4e-2d1f0b7a9c11";
 const alice = { userId: "a", displayName: "Alice", role: "contestant" as const, score: 0, connected: true };
@@ -192,7 +192,9 @@ test("Final answers, the reveal, and a skipped Final", () => {
     wager: 200,
     scores: { a: 900, b: 0 },
   });
-  expect(s.reveals).toEqual([{ userId: "b", answer: "", verdict: "incorrect", delta: -200, wager: 200 }]);
+  expect(s.reveals).toEqual([
+    { answerId: "x", userId: "b", answer: "", verdict: "incorrect", delta: -200, wager: 200 },
+  ]);
   expect(s.lastVerdict).toBeUndefined();
 
   s = reduceRoom(s, { type: "game_over", roomId: ROOM, seq: 5, results: [], finalSkipped: true });
@@ -215,4 +217,107 @@ test("a snapshot restores this player's own Final state", () => {
   });
   expect(s.mine).toEqual({ wager: 400, answer: "krak", submitted: false });
   expect(s.finalistUserIds).toEqual(["a"]);
+});
+
+describe("overrides, the scoreboard and Rematch", () => {
+  const players = [
+    { userId: "a", displayName: "Alice", role: "contestant" as const, score: 0, connected: true },
+    { userId: "b", displayName: "Bob", role: "contestant" as const, score: 0, connected: true },
+  ];
+  const playing: RoomState = { ...initialRoom, connection: "open", phase: "answering", players };
+  const judged = (s: RoomState, answerId: string, userId: string, verdict: string, delta: number) =>
+    reduceRoom(s, {
+      type: "answer_judged",
+      roomId: "r",
+      seq: 1,
+      answerId,
+      userId,
+      answer: "x",
+      verdict: verdict as "correct" | "incorrect",
+      scoreDelta: delta,
+      scores: {},
+    });
+
+  test("a clue's judged answers are kept for overrides; an override flips one", () => {
+    let s = judged(playing, "a1", "b", "incorrect", -400);
+    s = judged(s, "a2", "a", "correct", 400);
+    expect(s.answers.map((a) => a.answerId)).toEqual(["a1", "a2"]);
+    s = reduceRoom(s, {
+      type: "verdict_overridden",
+      roomId: "r",
+      seq: 2,
+      answerId: "a1",
+      userId: "b",
+      verdict: "overridden_correct",
+      scoreDelta: 400,
+      scores: { a: 400, b: 400 },
+      controllingUserId: "a",
+    });
+    expect(s.answers[0]).toMatchObject({ verdict: "overridden_correct", delta: 400 });
+    expect(s.overridden).toEqual(["a1"]);
+    expect(s.lastOverride).toMatchObject({ userId: "b", delta: 400 });
+    expect(s.scores).toEqual({ a: 400, b: 400 });
+    // The next clue starts clean.
+    s = reduceRoom(s, { type: "phase_changed", roomId: "r", seq: 3, phase: "board" });
+    expect(s.answers).toEqual([]);
+    expect(s.overridden).toEqual([]);
+    expect(s.lastOverride).toBeUndefined();
+  });
+
+  test("the review pauses the clock until it closes", () => {
+    let s: RoomState = { ...playing, deadlineAt: 100 };
+    s = reduceRoom(s, { type: "override_review_changed", roomId: "r", seq: 1, open: true, userIds: ["b"] });
+    expect(s.review).toEqual({ open: true, userIds: ["b"] });
+    expect(s.deadlineAt).toBeUndefined();
+    s = reduceRoom(s, {
+      type: "override_review_changed",
+      roomId: "r",
+      seq: 2,
+      open: false,
+      userIds: ["b"],
+      deadlineAt: 900,
+    });
+    expect(s.review?.open).toBe(false);
+    expect(s.deadlineAt).toBe(900);
+  });
+
+  test("game_over carries the game's times; a rematch snapshot clears the old game", () => {
+    let s = reduceRoom(playing, {
+      type: "game_over",
+      roomId: "r",
+      seq: 1,
+      results: [{ userId: "a", displayName: "Alice", score: 400, placement: 1 }],
+      startedAt: 1000,
+      finishedAt: 5000,
+    });
+    s = { ...s, phase: "finished" };
+    expect(s.startedAt).toBe(1000);
+    expect(s.finishedAt).toBe(5000);
+    s = reduceRoom(s, {
+      type: "room_snapshot",
+      roomId: "r",
+      seq: 2,
+      phase: "lobby",
+      round: "single",
+      players,
+      board: [],
+    });
+    expect(s.results).toBeUndefined();
+    expect(s.rematch).toBe(true);
+    expect(s.phase).toBe("lobby");
+  });
+
+  test("a reconnect on the final scoreboard rebuilds the results from the scores", () => {
+    const s = reduceRoom(initialRoom, {
+      type: "room_snapshot",
+      roomId: "r",
+      seq: 9,
+      phase: "finished",
+      round: "final",
+      players,
+      board: [],
+      scores: { a: 800, b: 800 },
+    });
+    expect(s.results?.map((r) => r.placement)).toEqual([1, 1]);
+  });
 });

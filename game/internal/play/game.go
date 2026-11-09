@@ -66,11 +66,13 @@ type Player struct {
 
 // Setup builds a game: fresh after start_game, or recovered from Postgres after a restart.
 type Setup struct {
-	RoomID  string
-	GameID  string
-	HostID  string
-	Players []Player
-	Board   []Clue
+	RoomID string
+	GameID string
+	HostID string
+	// StartedAt is when the game started (games.started_at), for the final scoreboard.
+	StartedAt time.Time
+	Players   []Player
+	Board     []Clue
 	// Recovery: scores so far, who last answered correctly (control), and who already
 	// tried the active clue. Empty for a fresh game.
 	Scores        map[string]int
@@ -119,6 +121,8 @@ const (
 	EndGame
 	RecordWager
 	SubmitFinalAnswer
+	// UpdateVerdict is a host override (override.go).
+	UpdateVerdict
 )
 
 // Broadcast is one message for every socket. Host, when set, is the same message with the
@@ -222,6 +226,14 @@ type Game struct {
 	revealIdx     int
 	finalRevealed map[string]bool
 	finalSkipped  bool
+
+	// Overrides (override.go): the judged answers that may still be overridden (the clue just
+	// played, or the finalist being revealed), who had control when the clue was picked, and
+	// the host's open review with the time the step had left.
+	clueAnswers   []*judged
+	controlAtPick string
+	reviewing     bool
+	reviewLeft    time.Duration
 }
 
 // New builds a game. It starts paused until the host device connects (Connect).
@@ -450,6 +462,7 @@ func (g *Game) SnapshotFields(m *contracts.RoomSnapshot, host bool) {
 	w := g.wagerFields()
 	m.WagerMin, m.WagerMax, m.Wager = w.min, w.max, w.wager
 	m.FinalistUserIds, m.LockedUserIds, m.RevealOrder = w.finalists, w.locked, w.order
+	g.overrideSnapshot(m, host)
 }
 
 // Pick starts a clue. Only the controller may pick, the host device included.
@@ -473,6 +486,8 @@ func (g *Game) Pick(now time.Time, user, clueID string) (Effects, error) {
 	g.attempted = map[string]bool{}
 	g.lockouts = map[string]time.Time{}
 	g.handoffAt = time.Time{}
+	g.clueAnswers = nil
+	g.controlAtPick = g.control
 	e.record(Record{Kind: RevealClue, ClueID: c.ID})
 	if c.DailyDouble {
 		g.startDailyDouble(now, &e)
@@ -630,6 +645,7 @@ func (g *Game) judge(now time.Time, e *Effects, text string) {
 	id := g.s.NewID()
 	e.record(Record{Kind: RecordAnswer, AnswerID: id, ClueID: c.ID, UserID: user, Answer: text, Verdict: verdict, Delta: delta,
 		Source: contracts.AnswerSourceVoice})
+	g.clueAnswers = append(g.clueAnswers, &judged{id: id, user: user, text: text, verdict: verdict, delta: delta, amount: value})
 
 	seq := g.s.NextSeq()
 	all := contracts.AnswerJudged{
@@ -789,18 +805,20 @@ func (g *Game) nextAfterClue(now time.Time, e *Effects) {
 		g.startFinal(now, e)
 		return
 	}
-	g.finish(e)
+	g.finish(now, e)
 }
 
-func (g *Game) finish(e *Effects) {
+func (g *Game) finish(now time.Time, e *Effects) {
 	g.over = true
 	g.phase = contracts.GamePhaseFinished
 	g.step = stepNone
 	g.deadline = time.Time{}
+	g.clueAnswers = nil
 	e.record(Record{Kind: EndGame})
 	g.emitPhase(e)
 	over := contracts.GameOver{
 		Type: "game_over", RoomId: contracts.Uuid(g.s.RoomID), Seq: g.s.NextSeq(), Results: g.Results(),
+		StartedAt: ms(g.s.StartedAt), FinishedAt: ms(now),
 	}
 	if g.finalSkipped {
 		skipped := true
@@ -869,8 +887,13 @@ func (g *Game) pause(now time.Time) Effects {
 		g.paused = true
 		return e
 	}
+	left := g.timeLeft(now)
+	if g.reviewing && g.step == stepClueEnd {
+		left = g.reviewLeft
+	}
+	g.closeReview(&e) // the review closes; the step keeps its time left
 	g.paused = true
-	g.remaining = g.timeLeft(now)
+	g.remaining = left
 	g.deadline = time.Time{}
 	g.handoffAt = time.Time{}
 	// A player cut off mid-answer may try again when the clue is re-read.
@@ -894,7 +917,11 @@ func (g *Game) resume(now time.Time) Effects {
 		g.lockouts = map[string]time.Time{}
 		g.startReading(now, &e)
 	case stepClueEnd:
-		g.deadline = now.Add(ClueEndPause)
+		left := g.remaining
+		if left <= 0 {
+			left = ClueEndPause
+		}
+		g.deadline = now.Add(left)
 	case stepInterstitial:
 		g.deadline = now.Add(Interstitial)
 	case stepNone:

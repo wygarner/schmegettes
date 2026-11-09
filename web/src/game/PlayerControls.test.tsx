@@ -196,7 +196,58 @@ test("paused and game over", () => {
   const { update } = setup({ ...base, phase: "buzzing_open", activeClue: clue, paused: true });
   expect(screen.getByText("Waiting for the TV…")).toBeInTheDocument();
   update({ ...base, phase: "finished", results: [{ userId: me, displayName: "Alice", score: 1200, placement: 1 }] });
-  expect(screen.getByText("Final: $1,200 · place 1")).toBeInTheDocument();
+  expect(screen.getByText("You finished").nextElementSibling).toHaveTextContent("1st");
+});
+
+test("the final scoreboard on a phone: my place, the standings, and Leave", () => {
+  const onLeave = vi.fn();
+  render(
+    <MantineProvider>
+      <PlayerControls
+        state={{
+          ...base,
+          hostDisplayName: "Wyatt",
+          phase: "finished",
+          results: [
+            { userId: "bob", displayName: "Bob", score: 2900, placement: 1 },
+            { userId: me, displayName: "Alice", score: 800, placement: 2 },
+          ],
+        }}
+        userId={me}
+        send={vi.fn()}
+        onLeave={onLeave}
+      />
+    </MantineProvider>,
+  );
+  expect(screen.getByText("You finished")).toBeInTheDocument();
+  expect(screen.getByText("You finished").nextElementSibling).toHaveTextContent("2nd");
+  const standings = screen.getByLabelText("Standings");
+  expect(standings).toHaveTextContent("Bob");
+  expect(standings.querySelector("[aria-current]")).toHaveTextContent("Alice");
+  expect(screen.getByText("Waiting for Wyatt: stay for a rematch, or leave.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Leave" }));
+  expect(onLeave).toHaveBeenCalled();
+});
+
+test("while the host reviews my answer, and after an override", () => {
+  const ended: RoomState = {
+    ...base,
+    hostDisplayName: "Wyatt",
+    phase: "buzzing_open",
+    activeClue: clue,
+    clueEnd: { state: "unanswered" },
+    lastVerdict: { answerId: "a1", userId: me, answer: "crack a toe a", verdict: "incorrect", delta: -400 },
+  };
+  const { update } = setup({ ...ended, review: { open: true, userIds: [me] } });
+  expect(screen.getByText("Wyatt is reviewing your answer…")).toBeInTheDocument();
+  update({
+    ...ended,
+    review: { open: false, userIds: [me] },
+    lastOverride: { answerId: "a1", userId: me, answer: "crack a toe a", verdict: "overridden_correct", delta: 400 },
+  });
+  expect(screen.getByText("HOST OVERRIDE")).toBeInTheDocument();
+  expect(screen.getByText("+$400")).toBeInTheDocument();
+  expect(screen.getByText("Wyatt changed your answer to correct.")).toBeInTheDocument();
 });
 
 test("no lit buzzer once the clue has ended or between rounds", () => {

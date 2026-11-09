@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/rand/v2"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -17,6 +18,7 @@ import (
 // responses, and what the answers so far imply (scores, control, who tried the active clue).
 type GameData struct {
 	GameID       string
+	StartedAt    time.Time
 	Players      []play.Player
 	Board        []play.Clue
 	Scores       map[string]int
@@ -42,7 +44,7 @@ func (r *Room) loadGame(ctx context.Context) bool {
 	}
 	r.gameID = data.GameID
 	r.game = play.New(play.Setup{
-		RoomID: r.id, GameID: data.GameID, HostID: r.lobby.HostID,
+		RoomID: r.id, GameID: data.GameID, HostID: r.lobby.HostID, StartedAt: data.StartedAt,
 		Players: data.Players, Board: data.Board,
 		Scores: data.Scores, LastCorrect: data.LastCorrect,
 		ActiveClueID: data.ActiveClueID, AttemptedByID: data.Attempted,
@@ -178,6 +180,10 @@ func (r *Room) write(ctx context.Context, rec play.Record) error {
 		r.log.Debug("final answer submitted", "game_id", r.gameID, "user_id", rec.UserID, "answer", rec.Answer)
 		rec.Answer = clip(rec.Answer)
 		return r.store.SubmitFinalAnswer(ctx, rec)
+	case play.UpdateVerdict:
+		r.log.Info("verdict overridden", "game_id", r.gameID, "answer_id", rec.AnswerID, "user_id", rec.UserID,
+			"to_verdict", rec.Verdict, "score_delta", rec.Delta)
+		return r.store.UpdateVerdict(ctx, rec)
 	case play.FinishClue:
 		return r.store.FinishClue(ctx, rec.ClueID, rec.State)
 	case play.EndGame:
@@ -315,12 +321,36 @@ func (r *Room) handleGame(ctx context.Context, c *Client, kind string, data []by
 			return true
 		}
 		e, err = r.game.Wager(now, c.UserID, m.Amount)
+	case "override_review":
+		var m contracts.OverrideReview
+		if !decode(data, &m) {
+			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+			return true
+		}
+		if r.game == nil {
+			r.fail(c, contracts.ErrorCodeWrongPhase, "")
+			return true
+		}
+		e, err = r.game.Review(now, c.UserID, m.Open)
+	case "override_verdict":
+		var m contracts.OverrideVerdict
+		if !decode(data, &m) {
+			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+			return true
+		}
+		if r.game == nil {
+			r.fail(c, contracts.ErrorCodeWrongPhase, "")
+			return true
+		}
+		e, err = r.game.Override(now, c.UserID, string(m.AnswerId), m.Correct)
 	default:
 		return false
 	}
 	var reject *play.Reject
 	switch {
 	case errors.As(err, &reject):
+		// A refused intent is a client mistake, not a server error.
+		r.log.Debug("intent rejected", "type", kind, "user_id", c.UserID, "code", reject.Code)
 		r.fail(c, reject.Code, "")
 	case err == nil:
 		r.applyGame(ctx, e)

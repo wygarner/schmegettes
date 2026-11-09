@@ -1,6 +1,6 @@
 # Scoreboard, Rematch, and Host Overrides: Interaction Design
 
-> Status: not yet implemented. Designed in [results/scoreboard-and-history](../../../../devtools/src/designs/results/scoreboard-and-history.tsx).
+> Status: built (`web/src/game/OverrideSheet.tsx`, `Scoreboard.tsx`; `game/internal/play/override.go`). The server messages are in [realtime-game-server.md](../../../system-docs/architecture/realtime-game-server.md#overrides). Reference design: [results/scoreboard-and-history](../../../../devtools/src/designs/results/scoreboard-and-history.tsx).
 
 ## Host override
 

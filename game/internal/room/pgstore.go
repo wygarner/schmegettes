@@ -116,9 +116,9 @@ func (s PGStore) LoadGame(ctx context.Context, roomID string) (GameData, error) 
 	var d GameData
 	err := s.DB.AsEngine(ctx, func(tx pgx.Tx) error {
 		err := tx.QueryRow(ctx, `
-			select id::text from public.games
+			select id::text, started_at from public.games
 			where room_id = $1 and status = 'in_progress'
-			order by started_at desc limit 1`, roomID).Scan(&d.GameID)
+			order by started_at desc limit 1`, roomID).Scan(&d.GameID, &d.StartedAt)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -264,6 +264,12 @@ func (s PGStore) RecordAnswer(ctx context.Context, r play.Record) error {
 // RecordWager stores a Daily Double or Final wager. The first one wins, so a retry is a no-op.
 func (s PGStore) RecordWager(ctx context.Context, r play.Record) error {
 	return s.exec(ctx, "select public.record_wager($1, $2, $3)", r.ClueID, r.UserID, r.Amount)
+}
+
+// UpdateVerdict records a host override: the answer's new verdict and score change. The
+// stored score is the sum of answers, so totals follow (game_results).
+func (s PGStore) UpdateVerdict(ctx context.Context, r play.Record) error {
+	return s.exec(ctx, "select public.update_verdict($1, $2::public.verdict, $3)", r.AnswerID, string(r.Verdict), r.Delta)
 }
 
 // SubmitFinalAnswer locks a finalist's typed answer. Only the first submission counts.

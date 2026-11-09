@@ -36,7 +36,8 @@ Proxies may log `Sec-WebSocket-Protocol`. If the chosen host does, switch to a s
 |---|---|---|
 | `set_display_name` | any member | `set_member_name()`, then `lobby_updated` |
 | `set_host_plays` | host | `set_host_plays()`, then `lobby_updated` (the host appears in `players` with role `host`) |
-| `leave_room` | non-host | `leave_room()`, the leaver's sockets close, then `lobby_updated` |
+| `leave_room` | non-host, in the lobby or on the final scoreboard (`finished`) | `leave_room()`, the leaver's sockets close, then `lobby_updated` (in the lobby) |
+| `rematch` | host, phase `finished` (else `wrong_phase`; a second press back in the lobby is ignored) | The finished game is dropped, the room reloads its members (players who left are gone), and every socket gets a fresh `room_snapshot` in `lobby` at $0. `end_game()` already reopened the room, so Start builds a fresh board as usual |
 | `start_game` | host, 2+ contestants (a playing host counts) | see Recording. Fewer than 2 → `error: not_enough_players`; a second press while starting is ignored |
 
 - Joining is REST (`POST /v1/rooms/join`), because membership must exist before the socket connects. Every new socket makes the room reload its members, which is how a join reaches the TV.
@@ -94,6 +95,16 @@ Game history and fresh boards are written through Postgres functions, called as 
 
 Scores shown live come from the room state; the stored score is the sum of answers (`game_results`), so the two match as long as every judged answer is recorded.
 
+## Overrides
+
+`internal/play/override.go`. Rules: [scoreboard and overrides](../../product-docs/features/scoreboard-and-overrides/feature-brief.md).
+
+- **Window.** The judged answers of the clue just played, while its correct response is on screen (`ClueEndPause`), or the Final answer of the finalist on the reveal stage, during their `RevealStep`. A clue nobody buzzed on, and a buzz that disconnected before an answer, have nothing to override. Earlier clues can't be changed.
+- **Review.** `override_review {open}` (host only) stops the step's clock and keeps its time left; closing restores it. Every socket gets `override_review_changed` with the answerers' ids, so their phones say the host is reviewing. A host-device pause closes the review; the clue's correct-response screen resumes with its time left.
+- **Override.** `override_verdict {answerId, correct}` (host only; `not_host`, `wrong_phase`, `unknown_answer` otherwise; the same verdict again is ignored). The answer scores ±its amount (the clue's value, or the wager), so the score swings by twice that. On a regular clue, control goes to the latest correct answer on it, else back to whoever had it at the pick; a Daily Double and Final never move control. Every socket gets `verdict_overridden`; the write is `update_verdict()` with `overridden_correct` / `overridden_incorrect` and the new delta, logged at `info` (`verdict overridden`, `answer_id`, `user_id`, `to_verdict`, `score_delta`; never the answer text).
+- **Snapshot.** In the window, `overrideReview` says whether a review is open, and the host's copy lists `clueAnswers`.
+- The board clue's `finish_clue` state isn't rewritten by an override.
+
 ## Judging
 
-`internal/judge` normalizes both strings (case, punctuation, "What is", articles, parenthetical hints) and allows one edit per five characters. The host can override any verdict (`override_verdict`). Disputes can be appealed to the worker (`appeal_answer` job).
+`internal/judge` normalizes both strings (case, punctuation, "What is", articles, parenthetical hints) and allows one edit per five characters. The host can override a verdict on the clue just played or the Final answer being revealed (see Overrides). Disputes can be appealed to the worker (`appeal_answer` job): **not yet implemented**.

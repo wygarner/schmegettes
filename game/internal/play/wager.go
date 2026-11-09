@@ -236,12 +236,13 @@ func (g *Game) startFinal(now time.Time, e *Effects) {
 	g.setFinalists(g.Scores())
 	if len(g.finalists) == 0 {
 		g.finalSkipped = true
-		g.finish(e)
+		g.finish(now, e)
 		return
 	}
 	g.round = contracts.RoundFinal
 	g.active = g.final
 	g.attempted = map[string]bool{}
+	g.clueAnswers = nil
 	g.startFinalCategory(now, e)
 }
 
@@ -383,6 +384,8 @@ func (g *Game) revealNext(now time.Time, e *Effects) {
 	id := g.s.NewID()
 	e.record(Record{Kind: RecordAnswer, AnswerID: id, ClueID: g.final.ID, UserID: user, Answer: text,
 		Verdict: verdict, Delta: delta, Source: contracts.AnswerSourceTyped})
+	// Only the finalist on the stage may be overridden (override.go).
+	g.clueAnswers = []*judged{{id: id, user: user, text: text, verdict: verdict, delta: delta, amount: wager}}
 	e.send(contracts.AnswerJudged{
 		Type: "answer_judged", RoomId: contracts.Uuid(g.s.RoomID), Seq: g.s.NextSeq(), AnswerId: contracts.Uuid(id),
 		UserId: contracts.Uuid(user), Answer: text, Verdict: verdict, ScoreDelta: delta, Wager: &wager,
@@ -438,14 +441,14 @@ func (g *Game) wagerTimeout(now time.Time, e *Effects) {
 	case stepFinalReveal:
 		g.revealNext(now, e)
 	case stepFinalEnd:
-		g.finish(e)
+		g.finish(now, e)
 	}
 }
 
 // timeLeft is what a timed wager-flow step keeps across a pause. A reveal step restarts.
 func (g *Game) timeLeft(now time.Time) time.Duration {
 	switch g.step {
-	case stepDDWager, stepDDShown, stepFinalWager, stepFinalAnswer, stepFinalEnd:
+	case stepClueEnd, stepDDWager, stepDDShown, stepFinalWager, stepFinalAnswer, stepFinalEnd:
 		return max(g.deadline.Sub(now), 0)
 	case stepFinalReveal:
 		return RevealStep

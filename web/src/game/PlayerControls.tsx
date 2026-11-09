@@ -1,8 +1,8 @@
-import { Box, Text } from "@mantine/core";
+import { Box, Button, Text } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { money } from "../lib/money";
-import { inFinal, nameOf, type RoomState } from "../lib/room";
+import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
 import { Meter } from "../ui/Meter";
 import { DISPLAY, GOLD, GREEN, RED, SOFT } from "../ui/tokens";
 import { Board } from "./Board";
@@ -11,6 +11,7 @@ import { buzzerState, canBuzz, canPick } from "./buzzerState";
 import { Countdown } from "./Countdown";
 import { FinalAnswerField } from "./FinalAnswerField";
 import { usePickConfirm } from "./PickConfirm";
+import { ordinal, PLACE_COLOR } from "./Scoreboard";
 import { ANSWER_TOTAL_MS, BUZZ_WINDOW_MS, WAGER_MS } from "./timing";
 import { useAnswerCapture } from "./useAnswerCapture";
 import { useVoicePick, type VoicePick } from "./VoicePick";
@@ -33,6 +34,7 @@ export function PlayerControls({
   spaceToBuzz = false,
   lobby,
   buzzerHeight,
+  onLeave,
 }: {
   state: RoomState;
   userId: string;
@@ -42,6 +44,8 @@ export function PlayerControls({
   /** What the status area shows before the game (lobby, building the board). */
   lobby?: ReactNode;
   buzzerHeight?: number;
+  /** Leave the room from the final scoreboard. */
+  onLeave?: () => void;
 }) {
   const capture = useAnswerCapture(state, userId, send);
   const confirm = usePickConfirm(state, userId, send, { bottom: !compact });
@@ -99,6 +103,7 @@ export function PlayerControls({
       listening={capture.listening}
       voice={voice}
       onTapPick={confirm.ask}
+      onLeave={onLeave}
     />
   );
   const buzzer = (
@@ -190,6 +195,7 @@ function PlayerStatus({
   listening,
   voice,
   onTapPick,
+  onLeave,
 }: {
   state: RoomState;
   userId: string;
@@ -200,6 +206,7 @@ function PlayerStatus({
   listening: boolean;
   voice: VoicePick;
   onTapPick: (clueId: string) => void;
+  onLeave?: () => void;
 }) {
   if (state.phase === "lobby" || state.phase === "building_board") return <>{lobby}</>;
   // On the host device the stage already says what's happening, and the host's wager pads
@@ -208,13 +215,36 @@ function PlayerStatus({
   if (compact) return <CompactStatus state={state} userId={userId} voice={voice} />;
   if (state.paused) return <Status sub="The game picks up where it left off.">Waiting for the TV…</Status>;
 
-  if (state.results) {
-    const me = state.results.find((r) => r.userId === userId);
-    return <Status>{me ? `Final: ${money(me.score)} · place ${me.placement}` : "Game over"}</Status>;
+  if (state.results) return <GameOver state={state} userId={userId} onLeave={onLeave} />;
+
+  // The host is reviewing this player's answer: the clock is paused.
+  if (state.review?.open && state.review.userIds.includes(userId)) {
+    return <Status sub="The clock is paused.">{state.hostDisplayName} is reviewing your answer…</Status>;
+  }
+  const override = state.lastOverride;
+  if (override?.userId === userId && (state.clueEnd || state.phase === "final_reveal")) {
+    const right = isCorrect(override.verdict);
+    return (
+      <div className="sg-pop" style={{ textAlign: "center" }}>
+        <Text c="yellow.4" fw={800} size="xs" style={{ letterSpacing: ".14em" }}>
+          HOST OVERRIDE
+        </Text>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 88, lineHeight: 1, color: right ? GREEN : RED }}>
+          {right ? "✓" : "✗"}
+        </div>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 40, color: right ? GREEN : RED }}>
+          {override.delta > 0 ? "+" : ""}
+          {money(override.delta)}
+        </div>
+        <Text size="sm" c={SOFT}>
+          {state.hostDisplayName} changed your answer to {right ? "correct" : "incorrect"}.
+        </Text>
+      </div>
+    );
   }
 
   if (state.lastVerdict?.userId === userId && state.phase !== "answering") {
-    const right = state.lastVerdict.verdict === "correct" || state.lastVerdict.verdict === "overridden_correct";
+    const right = isCorrect(state.lastVerdict.verdict);
     return (
       <div className="sg-pop" style={{ textAlign: "center", color: right ? GREEN : RED }}>
         <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 96, lineHeight: 1 }}>{right ? "✓" : "✗"}</div>
@@ -332,7 +362,7 @@ function CompactStatus({ state, userId, voice }: { state: RoomState; userId: str
     );
   }
   if (state.lastVerdict?.userId === userId && state.phase !== "answering" && !state.clueEnd && !state.roundIntro) {
-    const right = state.lastVerdict.verdict === "correct" || state.lastVerdict.verdict === "overridden_correct";
+    const right = isCorrect(state.lastVerdict.verdict);
     return (
       <Text ta="center" fw={700} ff={DISPLAY} c={right ? "green.4" : "red.4"}>
         {right ? "✓" : "✗"} {money(state.lastVerdict.delta)}
@@ -372,6 +402,70 @@ function VoiceFeedback({ voice }: { voice: VoicePick }) {
     <Text c="red.3" fw={600} ta="center" size="sm">
       {voice.problem} Press the buzzer to try again, or tap a clue.
     </Text>
+  );
+}
+
+/** The final scoreboard on a phone: my placement and score, the standings, and Leave. */
+function GameOver({ state, userId, onLeave }: { state: RoomState; userId: string; onLeave?: () => void }) {
+  const results = state.results ?? [];
+  const me = results.find((r) => r.userId === userId);
+  if (!me) return <Status sub="Look at the TV.">Game over</Status>;
+  const top = results[0]?.score ?? 0;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ textAlign: "center" }}>
+        <Text c={SOFT} fw={700} tt="uppercase" style={{ letterSpacing: ".14em" }}>
+          You finished
+        </Text>
+        <Text ff={DISPLAY} fw={700} fz={88} lh={1} c={PLACE_COLOR[me.placement] ?? "white"} className="sg-pop">
+          {ordinal(me.placement)}
+        </Text>
+        <Text ff={DISPLAY} fw={600} fz={32} c={me.score < 0 ? "red.4" : "white"}>
+          {money(me.score)} {me.score === top && "🏆"}
+        </Text>
+      </div>
+      <ol
+        aria-label="Standings"
+        style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}
+      >
+        {results.map((r) => {
+          const mine = r.userId === userId;
+          return (
+            <li
+              key={r.userId}
+              aria-current={mine ? "true" : undefined}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "8px 12px",
+                borderRadius: 10,
+                background: mine ? "rgba(255,212,59,.1)" : "rgba(255,255,255,.04)",
+                border: mine ? "1px solid rgba(255,212,59,.4)" : "1px solid transparent",
+              }}
+            >
+              <span style={{ display: "flex", gap: 12 }}>
+                <span style={{ width: 34, fontWeight: 800, fontSize: 14, color: "#a5abee" }}>
+                  {ordinal(r.placement)}
+                </span>
+                <span style={{ fontWeight: 700 }}>{r.displayName}</span>
+              </span>
+              <span style={{ fontFamily: DISPLAY, fontWeight: 600, color: r.score < 0 ? RED : GOLD }}>
+                {money(r.score)}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      <Text size="sm" c={SOFT} ta="center">
+        Waiting for {state.hostDisplayName}: stay for a rematch, or leave.
+      </Text>
+      {onLeave && (
+        <Button variant="subtle" color="red" onClick={onLeave}>
+          Leave
+        </Button>
+      )}
+    </div>
   );
 }
 

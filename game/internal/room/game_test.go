@@ -31,6 +31,9 @@ func startedGame(t *testing.T) (*fixture, *conn, *conn, *conn) {
 type gameMessage struct {
 	message
 	ControllingUserID string `json:"controllingUserId"`
+	AnswerID          string `json:"answerId"`
+	Open              bool   `json:"open"`
+	ScoreDelta        int    `json:"scoreDelta"`
 	UserID            string `json:"userId"`
 	Outcome           string `json:"outcome"`
 	Verdict           string `json:"verdict"`

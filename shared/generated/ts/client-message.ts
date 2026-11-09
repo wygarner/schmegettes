@@ -15,6 +15,8 @@ export type ClientMessage =
   | SubmitAnswer
   | SubmitWager
   | OverrideVerdict
+  | OverrideReview
+  | Rematch
   | Ping;
 
 /**
@@ -93,12 +95,25 @@ export interface SubmitWager {
   amount: number;
 }
 /**
- * Host only. Replaces the judge's verdict for one answer.
+ * Host only. Replaces the verdict on one answer of the clue just played, or of the Final answer being revealed.
  */
 export interface OverrideVerdict {
   type: "override_verdict";
   answerId: string;
   correct: boolean;
+}
+/**
+ * Host only. Opens or closes the review of a verdict on the clue just played (or the Final answer being revealed). While open, the clock is paused.
+ */
+export interface OverrideReview {
+  type: "override_review";
+  open: boolean;
+}
+/**
+ * Host only, once the game is finished: everyone still in the room goes back to the lobby for a new game.
+ */
+export interface Rematch {
+  type: "rematch";
 }
 export interface Ping {
   type: "ping";

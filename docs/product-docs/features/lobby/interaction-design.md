@@ -78,7 +78,7 @@ When the host joined, their controls live in the **player column** on the right 
 | Phase | Player column |
 |---|---|
 | Lobby, after **Join the game** | Buzzer `idle` (a tap only animates it) |
-| `board`, host has control | Host's tile highlighted. Tap the board and confirm, or say it |
+| `board`, host has control | Host's tile highlighted, buzzer in `pick`. Tap the board and confirm, or press the buzzer and say it |
 | `board`, someone else has control | Board taps do nothing |
 | `clue_reading` | **Buzz** dimmed. Pressing it early gives the same lockout as on a phone. |
 | `buzzing_open` | **Buzz** lit |

@@ -44,7 +44,7 @@ The host device is an iPhone in landscape, mirrored to the TV ([gameplay](../gam
 |---|---|
 | Buzz | The same **Buzz** button phones use, at the bottom of the player column, from the moment the host joins. The space bar also buzzes on a keyboard. |
 | Answer | Spoken into the host device's microphone |
-| Pick a clue when in control | Tap the board and confirm, or say it ("Science for 400"). Only when the host has control: the host device can't pick for anyone else. |
+| Pick a clue when in control | Tap the board and confirm, or press the buzzer (or the space bar) and say it ("Science for 400"). Only when the host has control: the host device can't pick for anyone else. |
 | Daily Double wager | A number pad on the stage (the player column has no room for one). Daily Double wagers are public anyway. |
 | Final wager | A masked number pad on the stage (`$ •••••`, keys never highlight). The host's tile says "wagering…", not the amount. |
 | Final answer | Typed on a blind keypad on the stage, into a masked field (`•••••`), not on the iOS keyboard (which is mirrored and pops up each key). The host device never shows the host's answer before the reveal. |

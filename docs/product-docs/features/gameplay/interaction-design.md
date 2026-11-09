@@ -93,14 +93,16 @@ Phones and the host device use the same `Buzzer` component: an oblong red dome t
 
 | State | Looks | Screen-reader label | A tap |
 |---|---|---|---|
-| `idle`: lobby, board, between clues, someone else answering | Unlit dark red | Buzz | Press animation only. Nothing is sent. |
+| `idle`: lobby, board (not in control), between clues, someone else answering | Unlit dark red | Buzz | Press animation only. Nothing is sent. |
 | `dim`: `clue_reading` | Unlit, faint red ring around the rim | Buzz (get ready) | Early buzz: 250 ms lockout |
 | `lit`: `buzzing_open` | Bright red, pulsing glow | Buzz | Buzz |
 | `early` | Dark red, shakes, 250 ms | Too early | Nothing |
 | `answering`: I won the buzz | Green, glowing | Answer now | Nothing |
 | `locked`: I already tried this clue | Grey, faded, disabled | You've answered this one | Nothing |
+| `pick`: `board`, I have control | Bright red, breathing slowly | Press and say your pick | Starts listening for a spoken pick. Nothing is sent until a pick is heard |
+| `listening`: listening for my pick | Green, glowing | Listening for your pick | Stops listening; nothing is picked |
 
-With no words on the button, the phone's screen above it says what the color means: "Listen… Buzz when it lights up. Too early locks you out for a moment." while the clue is read, "Say your answer" after a won buzz, and "You've answered this one" once locked.
+With no words on the button, the phone's screen above it says what the color means: "Listen… Buzz when it lights up. Too early locks you out for a moment." while the clue is read, "Say your answer" after a won buzz, "You've answered this one" once locked, and "Tap a clue, or press and say it" under the buzzer when I'm picking.
 
 The host device also buzzes with the space bar when a keyboard is attached.
 
@@ -111,7 +113,7 @@ The buzzer is pinned to the bottom of the phone screen on every screen from the 
 | Phase | Above the buzzer | Buzzer |
 |---|---|---|
 | Lobby | "You're in, Alice." Microphone prompt, **Edit name**, **Leave** | `idle` |
-| `board`, I have control | Mini board (category names and values) and **🎤 Say it**. No "Your pick" heading and no score. | `idle` |
+| `board`, I have control | Mini board (category names and values). No "Your pick" heading, no score, no microphone button: the buzzer is it. While listening, a green "Listening… Say a category and value, like “Opera for 600”" panel. | `pick`, `listening` while it listens |
 | `board`, someone else picks | "Alice is picking…" and my score | `idle` |
 | `clue_reading` | "Listen…" | `dim` |
 | `buzzing_open` | "Buzz in!" and the 5 s countdown | `lit` |
@@ -140,7 +142,7 @@ The phone never shows clue text or the correct response.
 
 ### Host device when the host plays
 
-The same states as the phone, in the player column, minus what the stage already shows: the column keeps only the host's own voice pick, live transcript and verdict above the buzzer. It shows: the host's tile, the buzzer at the bottom of the column, and the board on the stage tappable when the host has control. A tapped pick on the host device gets the same confirmation modal; a spoken pick doesn't. See the [lobby interaction design](../lobby/interaction-design.md).
+The same states as the phone, in the player column, minus what the stage already shows: the column keeps only the host's voice-pick errors, live transcript and verdict above the buzzer. When the host has control, the host's buzzer is in `pick`: pressing it (or the space bar) listens for the host's spoken pick. It shows: the host's tile, the buzzer at the bottom of the column, and the board on the stage tappable when the host has control. A tapped pick on the host device gets the same confirmation modal; a spoken pick doesn't. See the [lobby interaction design](../lobby/interaction-design.md).
 
 ## Flows
 
@@ -165,7 +167,9 @@ The same states as the phone, in the player column, minus what the stage already
 | Situation | Behavior |
 |---|---|
 | Controller taps a clue that's already done | Ignored; the cell is disabled |
-| Controller says a clue that's already done, or one that isn't on the board | "That one's already been played." / "Didn't catch the category." Nothing is picked; try again or tap |
+| Controller says a clue that's already done, or one that isn't on the board | "That one's already been played." / "Didn't catch the category." Nothing is picked; the buzzer goes back to `pick`: press it to try again, or tap |
+| Controller presses the buzzer while it's listening | Listening stops; nothing is picked |
+| Control passes or the phase changes while listening | Listening stops; nothing is picked |
 | Controller confirms a tap and says a clue at the same moment | The first pick the server receives wins; the other is ignored |
 | Someone taps the TV board without control (host not playing, or not their turn) | Nothing happens. No pick is sent |
 | A non-controller sends a pick anyway | The server rejects it (`not_in_control`) |
@@ -173,7 +177,7 @@ The same states as the phone, in the player column, minus what the stage already
 | Controller is the only connected contestant and disconnects | Control stays with them; the game waits |
 | Confirmation modal open when control passes or the phase changes | The modal closes; nothing is picked |
 | Speech synthesis unavailable on the host device | Clue shown silently; buzzing opens on the fallback timer |
-| A player taps the buzzer outside a clue (lobby, board, between clues) | Press animation only. No lockout, nothing sent |
+| A player taps the buzzer outside a clue (lobby, board, between clues) | Press animation only. No lockout, nothing sent. Exception: the player in control on the board starts a spoken pick |
 | A player buzzes during `answering` | Ignored (not a lockout) |
 | Everyone has tried and all were wrong | Clue ends, correct response shown for 6 s without the clue, control unchanged |
 | Transcript is empty after 14 s (connected) | Incorrect |

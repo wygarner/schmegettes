@@ -218,7 +218,8 @@ function PhoneDevice({ children }: { children: ReactNode }) {
   );
 }
 
-type BuzzerState = "idle" | "dim" | "lit" | "early" | "answering" | "locked";
+/** pick / listening: the player in control on the board; the buzzer is how they say their pick. */
+type BuzzerState = "idle" | "dim" | "lit" | "early" | "answering" | "locked" | "pick" | "listening";
 /** Dome gradient stops per state: highlight, body, shade, rim. Words go to screen readers only. */
 const DOME: Record<BuzzerState, { label: string; stops: [string, string, string, string]; glow?: string }> = {
   idle: { label: "Buzz", stops: ["#d98585", "#a3201f", "#6d0c0c", "#360303"] },
@@ -227,6 +228,16 @@ const DOME: Record<BuzzerState, { label: string; stops: [string, string, string,
   early: { label: "Too early", stops: ["#8f6060", "#5c1414", "#3a0808", "#1c0202"] },
   answering: { label: "Answer now", stops: ["#c2f7cd", "#37c95a", "#1c8f37", "#0b4a1a"], glow: "sg-glow-green 1.8s" },
   locked: { label: "You've answered this one", stops: ["#8a8c99", "#4b4d5c", "#30313d", "#18181f"] },
+  pick: {
+    label: "Press and say your pick",
+    stops: ["#ffb8b8", "#ff3030", "#d40c0c", "#7a0404"],
+    glow: "sg-glow-red 2.6s",
+  },
+  listening: {
+    label: "Listening for your pick",
+    stops: ["#c2f7cd", "#37c95a", "#1c8f37", "#0b4a1a"],
+    glow: "sg-glow-green 1.8s",
+  },
 };
 
 /**
@@ -252,7 +263,7 @@ function Buzzer({ state, onBuzz, height = 120 }: { state: BuzzerState; onBuzz?: 
       onPointerUp={() => setDown(false)}
       onPointerLeave={() => setDown(false)}
       onClick={() => {
-        if (state === "dim" || state === "lit") onBuzz?.();
+        if (state === "dim" || state === "lit" || state === "pick" || state === "listening") onBuzz?.();
       }}
       style={{
         width: "100%",
@@ -1227,6 +1238,12 @@ export default function ClueLoop() {
 
   function buzz(p: Pid) {
     const { g, online, early } = live.current;
+    // On the board, the controller's buzzer starts (or cancels) a spoken pick.
+    if (g.phase === "board") {
+      if (g.control === p && online[p])
+        setVoice((v) => (v?.who === p && v.listening ? null : { who: p, listening: true }));
+      return;
+    }
     const isDD = g.pick && ROUNDS[g.round].clues[g.pick.c][g.pick.r].dd;
     if (!online[p] || isDD || g.tried.includes(p)) return;
     if (g.phase === "reading") {
@@ -1434,6 +1451,7 @@ export default function ClueLoop() {
 
   function buzzerFor(p: Pid): BuzzerState {
     if (paused || !online[p]) return "idle";
+    if (g.phase === "board" && g.control === p) return voice?.who === p && voice.listening ? "listening" : "pick";
     if (early.includes(p)) return "early";
     if (g.phase === "answering" && g.answerer === p) return "answering";
     if (["reading", "open", "answering", "judged"].includes(g.phase) && g.tried.includes(p)) return "locked";
@@ -1643,31 +1661,10 @@ export default function ClueLoop() {
           g.phase === "judged" && g.verdict ? { [g.verdict.who]: { amount: g.verdict.delta, key: g.seq } } : undefined
         }
       />
-      {g.phase === "board" && g.control === "wyatt" && (
-        <div style={{ flexShrink: 0 }}>
-          {hostVoice && voice.listening ? (
-            <Group gap={8} justify="center" h={30} wrap="nowrap">
-              <Meter h={14} />
-              <Text size="xs" fw={700}>
-                Listening…
-              </Text>
-            </Group>
-          ) : (
-            <Button
-              size="compact-sm"
-              variant="light"
-              fullWidth
-              onClick={() => setVoice({ who: "wyatt", listening: true })}
-            >
-              🎤 Say it
-            </Button>
-          )}
-          {hostVoice && voice.error && (
-            <Text size="10px" c="red.3" ta="center" mt={2}>
-              {voice.error}
-            </Text>
-          )}
-        </div>
+      {g.phase === "board" && hostVoice && voice.error && (
+        <Text size="10px" c="red.3" ta="center" style={{ flexShrink: 0 }}>
+          {voice.error}
+        </Text>
       )}
       <Buzzer state={buzzerFor("wyatt")} onBuzz={() => buzz("wyatt")} height={64} />
     </>
@@ -1718,6 +1715,12 @@ export default function ClueLoop() {
   const other = NAME[g.control];
   let body: ReactNode;
   let showScore = true;
+  const picking = !paused && g.phase === "board" && mine && online[v];
+  const phoneHint = picking
+    ? voice?.who === v && voice.listening
+      ? "Listening… press again to cancel"
+      : "Tap a clue, or press and say it"
+    : undefined;
   const centered = (children: ReactNode) => (
     <Stack align="center" justify="center" ta="center" gap="xs" style={{ flex: 1 }}>
       {children}
@@ -1765,37 +1768,30 @@ export default function ClueLoop() {
                 cells={g.done.map((col) => col.map((done, r) => ({ value: R.values[r], done })))}
                 onPick={(c, r) => setConfirm({ who: v, c, r })}
               />
-              {myVoice?.listening ? (
+              {myVoice?.listening && (
                 <div
                   style={{
                     padding: 14,
                     borderRadius: 16,
-                    background: "rgba(255,212,59,.08)",
-                    border: "1px solid rgba(255,212,59,.35)",
+                    background: "rgba(64,192,87,.10)",
+                    border: "1px solid rgba(64,192,87,.4)",
                     display: "flex",
                     alignItems: "center",
                     gap: 12,
                   }}
                 >
-                  <Meter h={26} />
+                  <Meter h={26} color="var(--mantine-color-green-5)" />
                   <div style={{ flex: 1 }}>
                     <Text fw={700}>Listening…</Text>
                     <Text size="xs" c="boardBlue.1">
                       Say a category and value, like “Opera for 600”
                     </Text>
                   </div>
-                  <Button variant="subtle" size="xs" color="gray" onClick={() => setVoice(null)}>
-                    Cancel
-                  </Button>
                 </div>
-              ) : (
-                <Button size="lg" variant="light" fullWidth onClick={() => setVoice({ who: v, listening: true })}>
-                  🎤 Say it
-                </Button>
               )}
               {myVoice?.error && (
                 <Text c="red.3" fw={600} ta="center" size="sm">
-                  {myVoice.error} Try again or tap.
+                  {myVoice.error} Press the buzzer to try again, or tap a clue.
                 </Text>
               )}
               {micWarning}
@@ -2087,8 +2083,8 @@ export default function ClueLoop() {
         <div>
           <Title order={2}>The clue loop</Title>
           <Text c="dimmed" size="sm" maw={860}>
-            A live game, mid-Single round. Pick on {NAME[viewer]}'s phone, buzz there or on the host's column (or press
-            Space), and choose what gets said.{" "}
+            A live game, mid-Single round. Pick on {NAME[viewer]}'s phone by tapping a clue or pressing the buzzer and
+            saying it; buzz there or on the host's column (or press Space), and choose what gets said.{" "}
             {autoplay
               ? `${NAME[viewer === "alice" ? "bob" : "alice"]} plays on their own.`
               : "Nobody plays on their own."}{" "}
@@ -2185,6 +2181,7 @@ export default function ClueLoop() {
                 <PhoneScreen
                   top={<PhoneTop score={showScore ? g.scores[v] : undefined} />}
                   buzzer={<Buzzer state={buzzerFor(v)} onBuzz={() => buzz(v)} />}
+                  hint={phoneHint}
                 >
                   {body}
                 </PhoneScreen>

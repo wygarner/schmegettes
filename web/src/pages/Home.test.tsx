@@ -88,3 +88,8 @@ test("a failed create returns to Home with a message", async () => {
   expect(await screen.findByText("Couldn't create a room. Try again.")).toBeInTheDocument();
   await waitFor(() => expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument());
 });
+
+test("links to My games", () => {
+  renderHome();
+  expect(screen.getByRole("link", { name: "My games" })).toHaveAttribute("href", "/games");
+});

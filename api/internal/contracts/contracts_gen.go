@@ -62,12 +62,18 @@ type GameDetail struct {
 	FinishedAt *time.Time         `json:"finishedAt"`
 	GameId     openapi_types.UUID `json:"gameId"`
 
+	// HostDisplayName The host's name in that game; null when the host's account was deleted
+	HostDisplayName *string `json:"hostDisplayName"`
+
 	// Results Contestants ordered by placement; the host (the TV) and spectators are not listed
 	Results   []GameResult `json:"results"`
 	StartedAt time.Time    `json:"startedAt"`
 
 	// Status A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).
 	Status GameDetailStatus `json:"status"`
+
+	// Watched The caller hosted without playing
+	Watched *bool `json:"watched,omitempty"`
 }
 
 // GameDetailStatus A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).
@@ -78,6 +84,9 @@ type GameResult struct {
 	// DisplayName Name as it was in that game
 	DisplayName string `json:"displayName"`
 
+	// IsCaller This row is the caller
+	IsCaller *bool `json:"isCaller,omitempty"`
+
 	// Placement Ties share a place
 	Placement int `json:"placement"`
 	Score     int `json:"score"`
@@ -85,6 +94,9 @@ type GameResult struct {
 
 // GameSummary One of the caller's past games, from their point of view.
 type GameSummary struct {
+	// CallerDisplayName The caller's name in that game, so a list can say "You"; null if they only watched
+	CallerDisplayName *string `json:"callerDisplayName"`
+
 	// FinishedAt When the game ended
 	FinishedAt time.Time          `json:"finishedAt"`
 	GameId     openapi_types.UUID `json:"gameId"`
@@ -102,6 +114,9 @@ type GameSummary struct {
 
 	// Status A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).
 	Status GameSummaryStatus `json:"status"`
+
+	// Watched The caller hosted without playing
+	Watched *bool `json:"watched,omitempty"`
 }
 
 // GameSummaryStatus A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).
@@ -218,7 +233,7 @@ type ServerInterface interface {
 	// Liveness and dependency check
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
-	// The caller's ended games (finished or abandoned), newest first
+	// The caller's ended games (finished or abandoned), played or watched, newest first
 	// (GET /v1/games)
 	GetV1Games(w http.ResponseWriter, r *http.Request, params GetV1GamesParams)
 	// A game's scoreboard (anyone who played or watched it)

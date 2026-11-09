@@ -163,10 +163,12 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
   /v1/games:
     get:
-      summary: The caller's ended games (finished or abandoned), newest first
+      summary: The caller's ended games (finished or abandoned), played or watched, newest first
+      description: 20 per page. Pass nextCursor back as cursor for the next page; it is opaque.
       parameters:
         - { name: cursor, in: query, schema: { type: string } }
       responses:
+        "400": { $ref: "#/components/responses/Problem" }
         "200":
           description: Page of games
           content:
@@ -263,6 +265,10 @@ components:
           items: { type: string }
           description: Display names as they were in that game ("Former player" for deleted accounts)
         playerCount: { type: integer }
+        callerDisplayName:
+          type: [string, "null"]
+          description: The caller's name in that game, so a list can say "You"; null if they only watched
+        watched: { type: boolean, description: The caller hosted without playing, or was a spectator }
       required: [gameId, status, startedAt, finishedAt, score, placement, players, playerCount]
     GameDetail:
       type: object
@@ -275,6 +281,10 @@ components:
           type: array
           description: Contestants ordered by placement; the host (the TV) and spectators are not listed
           items: { $ref: "#/components/schemas/GameResult" }
+        hostDisplayName:
+          type: [string, "null"]
+          description: The host's name in that game; null when the host's account was deleted
+        watched: { type: boolean, description: The caller hosted without playing, or was a spectator }
       required: [gameId, status, startedAt, finishedAt, results]
     GameResult:
       type: object
@@ -282,6 +292,7 @@ components:
         displayName: { type: string, description: Name as it was in that game, or "Former player" }
         score: { type: integer }
         placement: { type: integer, description: Ties share a place }
+        isCaller: { type: boolean, description: This row is the caller }
       required: [displayName, score, placement]
     Problem:
       type: object

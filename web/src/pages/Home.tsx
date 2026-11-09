@@ -1,6 +1,6 @@
-import { Alert, Button, Container, Group, Modal, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Anchor, Button, Container, Group, Modal, Stack, Text, TextInput, Title } from "@mantine/core";
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { getLastName, isValidName, MAX_NAME, setLastName } from "../lib/displayName";
 import { createRoom } from "../lib/rooms";
 import { GoldButton } from "../ui/GoldButton";
@@ -88,6 +88,10 @@ export function Home() {
               Host on the device you'll put on the TV. Everyone else joins on their phone.
             </Text>
           </Stack>
+
+          <Anchor component={Link} to="/games" ta="center" c="boardBlue.2">
+            My games
+          </Anchor>
         </Stack>
       </Container>
 

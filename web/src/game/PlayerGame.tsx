@@ -1,7 +1,7 @@
-import { Box } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import type { ReactNode } from "react";
 import type { RoomState } from "../lib/room";
+import { PHONE_BG } from "../ui/tokens";
 import { PlayerControls } from "./PlayerControls";
 
 /**
@@ -21,16 +21,18 @@ export function PlayerGame({
   lobby?: ReactNode;
 }) {
   return (
-    <Box
-      h="100dvh"
-      maw={480}
-      mx="auto"
-      style={{
-        padding:
-          "max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))",
-      }}
-    >
-      <PlayerControls state={state} userId={userId} send={send} lobby={lobby} buzzerHeight={140} />
-    </Box>
+    <div style={{ minHeight: "100dvh", background: PHONE_BG, color: "#fff" }}>
+      <div
+        style={{
+          height: "100dvh",
+          maxWidth: 480,
+          margin: "0 auto",
+          padding:
+            "max(12px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left))",
+        }}
+      >
+        <PlayerControls state={state} userId={userId} send={send} lobby={lobby} buzzerHeight={120} />
+      </div>
+    </div>
   );
 }

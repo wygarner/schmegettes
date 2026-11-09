@@ -213,26 +213,55 @@ test("no lit buzzer once the clue has ended or between rounds", () => {
   expect(screen.getByText("Double Schmegettes!")).toBeInTheDocument();
 });
 
-test("the controller can say a clue instead of tapping it", () => {
+test("the controller presses the buzzer and says a clue instead of tapping it", () => {
   const { send } = setup({ ...base, phase: "board", controllingUserId: me });
   expect(screen.getByRole("button", { name: "SCIENCE for 400" })).toBeInTheDocument(); // the board is still there
-  fireEvent.click(screen.getByRole("button", { name: "Say a clue" }));
+  expect(screen.queryByRole("button", { name: /say/i })).not.toBeInTheDocument(); // no separate microphone button
+  const buzzer = screen.getByRole("button", { name: "Buzz" });
+  expect(buzzer).toHaveAttribute("data-state", "pick");
+  expect(screen.getByText("Tap a clue, or press and say it")).toBeInTheDocument();
+  fireEvent.click(buzzer);
   expect(rec.started).toBe(1);
+  expect(buzzer).toHaveAttribute("data-state", "listening");
   act(() => rec.onFinal?.("science for four hundred"));
+  // A spoken pick goes straight through: no confirmation.
   expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c1" });
+  expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "buzz" }));
+});
+
+test("pressing the buzzer again while listening cancels the pick", () => {
+  const { send } = setup({ ...base, phase: "board", controllingUserId: me });
+  const buzzer = screen.getByRole("button", { name: "Buzz" });
+  fireEvent.click(buzzer);
+  fireEvent.click(buzzer);
+  expect(rec.aborted).toBe(1);
+  expect(buzzer).toHaveAttribute("data-state", "pick");
+  act(() => rec.onFinal?.("science for four hundred")); // late result from the cancelled recognizer
+  expect(send).not.toHaveBeenCalled();
 });
 
 test("a voice pick that doesn't match says so and picks nothing", () => {
   const { send } = setup({ ...base, phase: "board", controllingUserId: me });
-  fireEvent.click(screen.getByRole("button", { name: "Say a clue" }));
+  fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
   act(() => rec.onFinal?.("opera for 200"));
   expect(screen.getByText(/Didn't catch the category/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Buzz" })).toHaveAttribute("data-state", "pick");
   expect(send).not.toHaveBeenCalled();
 });
 
-test("players without control don't get the voice button", () => {
-  setup({ ...base, phase: "board" });
-  expect(screen.queryByRole("button", { name: "Say a clue" })).not.toBeInTheDocument();
+test("listening stops when control moves on", () => {
+  const { update } = setup({ ...base, phase: "board", controllingUserId: me });
+  fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
+  update({ ...base, phase: "board", controllingUserId: "bob" });
+  expect(rec.aborted).toBe(1);
+  expect(screen.getByRole("button", { name: "Buzz" })).toHaveAttribute("data-state", "idle");
+});
+
+test("players without control press the buzzer on the board and nothing happens", () => {
+  const { send } = setup({ ...base, phase: "board" });
+  fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
+  expect(rec.started).toBe(0);
+  expect(send).not.toHaveBeenCalled();
 });
 
 const dd = { clueId: "c1", category: "SCIENCE", value: 400, state: "active" as const, dailyDouble: true };
@@ -295,7 +324,7 @@ test("a player not in Final is told to watch", () => {
   expect(screen.getByText("You're not in Final. Watch the TV.")).toBeInTheDocument();
 });
 
-test("on the host device the Final wager and answer are masked", () => {
+test("the host's column never shows a wager pad or a Final answer field (they're on the stage)", () => {
   const send = vi.fn();
   const s: RoomState = {
     ...base,
@@ -309,14 +338,12 @@ test("on the host device the Final wager and answer are masked", () => {
       <PlayerControls state={s} userId={me} send={send} compact />
     </MantineProvider>,
   );
-  for (const k of ["7", "0", "0"]) fireEvent.click(screen.getByRole("button", { name: k }));
-  expect(screen.getByLabelText("Wager amount")).toHaveTextContent("$ •••••");
-  expect(document.body.textContent).not.toMatch(/700|900/);
-  fireEvent.click(screen.getByRole("button", { name: "Lock in" }));
+  expect(screen.queryByLabelText("Wager amount")).toBeNull();
   r.rerender(
     <MantineProvider>
       <PlayerControls state={{ ...s, phase: "final_answer", lockedUserIds: [] }} userId={me} send={send} compact />
     </MantineProvider>,
   );
-  expect(screen.getByLabelText("Your answer")).toHaveAttribute("type", "password");
+  expect(screen.queryByLabelText("Your answer")).toBeNull();
+  expect(document.querySelector("input")).toBeNull();
 });

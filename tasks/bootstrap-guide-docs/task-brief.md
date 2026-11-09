@@ -272,3 +272,7 @@ None. No logs or failure paths change.
 ## Docs to update
 
 All of this task's changes are docs (subtasks 1–8).
+
+## Branch
+
+`technical-improvement/bootstrap-guide-docs-impl`, from and into `daily/2026-11-09`. No Jira ticket: Jira is not configured for this repo yet (`.github/jira.json` issue-type IDs are `REPLACE_ME`, and the repo has no `JIRA_*` secrets), so the folder keeps its name and the branch has no key.

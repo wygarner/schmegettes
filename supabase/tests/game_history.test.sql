@@ -3,7 +3,7 @@
 -- users run as authenticated with request.jwt.claims, as in rls.test.sql.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(51);
+select plan(54);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (all rolled back)
@@ -433,6 +433,23 @@ reset role;
 select is(
   (select count(*)::integer from public.game_players where user_id is null and display_name is not null),
   0, 'a deleted player''s name is not kept'
+);
+
+-- Who hosted: recorded at Start, so "Hosted by" survives the room (My games).
+select is(
+  (select host_user_id::text from public.games where id = tests.game('g1')),
+  '11111111-1111-4111-8111-111111111111', 'start_game records who hosted'
+);
+select is(
+  (select host_user_id::text from public.games where id = tests.game('g3')),
+  '33333333-3333-4333-8333-333333333333', 'a host who doesn''t play is recorded too'
+);
+select is(
+  (select confdeltype::text from pg_constraint
+   where conrelid = 'public.games'::regclass and contype = 'f'
+     and conkey = array[(select attnum from pg_attribute
+                         where attrelid = 'public.games'::regclass and attname = 'host_user_id')]),
+  'n', 'deleting the host''s account clears host_user_id (on delete set null)'
 );
 
 select * from finish();

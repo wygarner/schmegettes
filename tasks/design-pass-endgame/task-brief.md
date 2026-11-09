@@ -122,3 +122,7 @@ Rejected intents (`not_host`, `wrong_phase`, `unknown_answer`) are not errors: `
 - `docs/system-docs/architecture/realtime-game-server.md`: an "Overrides" section (window, review pause, control rule, records); Rematch in Lobby; `leave_room` in `finished`; the Judging line ("the host can override a verdict on the clue just played or the Final answer being revealed").
 - `docs/product-docs/features/scoreboard-and-overrides/*.md`: remove "not yet implemented"; `docs/product-docs/architecture/product-overview.md` if anything changed.
 - `docs/system-docs/architecture/api-contract.md`: nothing (no new contract file).
+
+## Branch
+
+`new-feature/design-pass-endgame-impl`, from and into `daily/2026-11-09`. Implementation PR title: `[New Feature] design-pass-endgame: …`.

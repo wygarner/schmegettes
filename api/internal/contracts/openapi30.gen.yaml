@@ -225,7 +225,10 @@ paths:
           $ref: "#/components/responses/Problem"
   /v1/games:
     get:
-      summary: The caller's ended games (finished or abandoned), newest first
+      summary: The caller's ended games (finished or abandoned), played or watched,
+        newest first
+      description: 20 per page. Pass nextCursor back as cursor for the next page; it
+        is opaque.
       parameters:
         - name: cursor
           in: query
@@ -249,6 +252,8 @@ paths:
                 required:
                   - items
                   - nextCursor
+        "400":
+          $ref: "#/components/responses/Problem"
   /v1/games/{gameId}:
     get:
       summary: A game's scoreboard (anyone who played or watched it)
@@ -414,6 +419,15 @@ components:
             deleted accounts)
         playerCount:
           type: integer
+        callerDisplayName:
+          type: string
+          description: The caller's name in that game, so a list can say "You"; null if
+            they only watched
+          nullable: true
+        watched:
+          type: boolean
+          description: The caller hosted without playing
+          or was a spectator: null
       required:
         - gameId
         - status
@@ -450,6 +464,15 @@ components:
             are not listed
           items:
             $ref: "#/components/schemas/GameResult"
+        hostDisplayName:
+          type: string
+          description: The host's name in that game; null when the host's account was
+            deleted
+          nullable: true
+        watched:
+          type: boolean
+          description: The caller hosted without playing
+          or was a spectator: null
       required:
         - gameId
         - status
@@ -468,6 +491,9 @@ components:
         placement:
           type: integer
           description: Ties share a place
+        isCaller:
+          type: boolean
+          description: This row is the caller
       required:
         - displayName
         - score

@@ -364,7 +364,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The caller's ended games (finished or abandoned), newest first */
+        /**
+         * The caller's ended games (finished or abandoned), played or watched, newest first
+         * @description 20 per page. Pass nextCursor back as cursor for the next page; it is opaque.
+         */
         get: {
             parameters: {
                 query?: {
@@ -388,6 +391,7 @@ export interface paths {
                         };
                     };
                 };
+                400: components["responses"]["Problem"];
             };
         };
         put?: never;
@@ -499,6 +503,10 @@ export interface components {
             /** @description Display names as they were in that game ("Former player" for deleted accounts) */
             players: string[];
             playerCount: number;
+            /** @description The caller's name in that game, so a list can say "You"; null if they only watched */
+            callerDisplayName?: string | null;
+            /** @description The caller hosted without playing */
+            watched?: boolean;
         };
         GameDetail: {
             /** Format: uuid */
@@ -510,6 +518,10 @@ export interface components {
             finishedAt: string | null;
             /** @description Contestants ordered by placement; the host (the TV) and spectators are not listed */
             results: components["schemas"]["GameResult"][];
+            /** @description The host's name in that game; null when the host's account was deleted */
+            hostDisplayName?: string | null;
+            /** @description The caller hosted without playing */
+            watched?: boolean;
         };
         GameResult: {
             /** @description Name as it was in that game */
@@ -517,6 +529,8 @@ export interface components {
             score: number;
             /** @description Ties share a place */
             placement: number;
+            /** @description This row is the caller */
+            isCaller?: boolean;
         };
         Problem: {
             type?: string;

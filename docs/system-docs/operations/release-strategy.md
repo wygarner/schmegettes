@@ -71,8 +71,8 @@ Players are anonymous by default, so there is no email list: players hear about 
 | Event | Audience | Channel | Timing | Owner |
 |---|---|---|---|---|
 | Release | Players | `user-release-notes.md`, shown as an in-app notice (**not yet implemented**) | After sign-off (Process step 7) | Wyatt Garner |
-| Planned maintenance or downtime | Players | In-app notice; status page once hosting exists | **Decision needed:** how many days ahead | Wyatt Garner |
-| Incident players notice | Affected players | In-app notice; status page once hosting exists | Within a set time of confirmation, then updates at a set interval (**Decision needed:** both times), then a resolution notice | Wyatt Garner |
+| Planned maintenance or downtime | Players | In-app notice; status page once hosting exists | At least 24 hours ahead | Wyatt Garner |
+| Incident players notice | Affected players | In-app notice; status page once hosting exists | A first notice once the incident is confirmed, then an update every 6 hours until resolved, then a resolution notice | Wyatt Garner |
 | Security or privacy incident | Affected players, and regulators where required | As the law requires | Within the legal deadline | Wyatt Garner |
 
 Every message:

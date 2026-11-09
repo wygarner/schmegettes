@@ -22,6 +22,12 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+  - package-ecosystem: "gomod"
+    directory: "/golib"
+    schedule: { interval: "weekly" }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "uv"
     directory: "/worker"
     schedule: { interval: "weekly" }

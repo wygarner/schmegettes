@@ -2,7 +2,7 @@
 
 Every other doc, agent prompt, and CI job refers to this file instead of repeating stack choices. When a decision changes, update this file in the same PR as the change.
 
-**Last updated:** 2026-10-27 (`golib/` created with the lobby)
+**Last updated:** 2026-11-09 (OpenTelemetry shipping marked not yet implemented; uv and Supabase CLI pinned)
 
 ## Context
 
@@ -28,7 +28,7 @@ Two goals shape the stack:
 | Cache / broker / job queue | **Redis** for realtime fan-out (pub/sub channel per room) and room ownership leases. **Supabase Queues (pgmq)** for background jobs. The job envelope is defined in `shared/schemas/jobs/`. | Pub/sub lets any game-server instance relay a room's events. pgmq keeps jobs transactional with the data that created them and needs no extra broker for the Go → Python handoff. |
 | Test frameworks (unit, component, end-to-end) | Web/devtools: Vitest 5 + Testing Library. Go: `go test` (`-race`). Python: pytest. Database: pgTAP via `supabase test db` (RLS tests). End-to-end: Playwright, run on release branches only. | Each language's default, so the learning effort goes into the language rather than the test framework. |
 | Lint and format | TS: Biome. Go: `gofmt` + `go vet` + `staticcheck`. Python: Ruff (lint + format) + mypy. SQL: `supabase db lint`. | One formatter per language, all runnable in CI without config debates. |
-| Observability backend | **Grafana Cloud** over OpenTelemetry (OTLP): logs, traces, metrics. Structured JSON logs: Go `log/slog`, Python `structlog`. Every service exposes `GET /healthz` and `GET /version`. | One backend for every language. OTel has first-party SDKs for both. See [logging-conventions.md](../operations/logging-conventions.md). |
+| Observability backend | **Grafana Cloud** over OpenTelemetry (OTLP): logs, traces, metrics. **Not yet implemented:** no service ships telemetry yet; logs go to stdout only. Built today: structured JSON logs (Go `log/slog`, Python `structlog`), and `GET /healthz` and `GET /version` on every service. | One backend for every language. OTel has first-party SDKs for both. See [logging-conventions.md](../operations/logging-conventions.md). |
 | AI features | Answer judging starts deterministic (normalization + fuzzy match, in Go, so buzz-to-verdict is instant). An optional LLM "appeal" judge runs in the Python worker. Prompts live in `worker/prompts/`; the eval harness is in `evals/` and runs in CI as a non-blocking check. | Fuzzy match handles most answers in microseconds. The LLM handles the disputed ones and is measured before it ships. |
 | Hosting per component | **To be decided.** Requirements are in [deployment.md](../operations/deployment.md). Candidates: Fly.io (prototype used it; good for Go WebSockets), Render, Railway; web on Cloudflare Pages or Vercel. Supabase hosts the database and auth either way. | Deferred on purpose. The deploy contract is host-agnostic: every component reports its commit at `/version`. |
 

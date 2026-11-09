@@ -8,8 +8,8 @@ node = "24"          # web, devtools, shared codegen, repo scripts
 bun = "1.3.14"       # package manager + workspace for the TypeScript packages
 go = "1.25"          # game/, api/
 python = "3.13"      # worker/, evals/, .github/scripts
-uv = "latest"        # Python package manager (pin after first install)
-"aqua:supabase/cli" = "latest" # database migrations, local Supabase (pin after first install)
+uv = "0.13.5"        # Python package manager
+"aqua:supabase/cli" = "2.122.0" # database migrations, local Supabase
 
 # ---------------------------------------------------------------------------
 # Tasks: `mise run <task>`. Test tasks take paths so you only run what you touched.

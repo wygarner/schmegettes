@@ -45,14 +45,14 @@ The host device is an iPhone in landscape, mirrored to the TV ([gameplay](../gam
 | Buzz | The same **Buzz** button phones use, at the bottom of the player column, from the moment the host joins. The space bar also buzzes on a keyboard. |
 | Answer | Spoken into the host device's microphone |
 | Pick a clue when in control | Tap the board and confirm, or say it ("Science for 400"). Only when the host has control: the host device can't pick for anyone else. |
-| Daily Double wager | Entered in the player column. Daily Double wagers are public anyway. |
-| Final wager | Masked input (`$ •••••`). The TV says "Wyatt is wagering…", not the amount. |
-| Final answer | Typed like everyone else's, into a masked field (`•••••`). The host device never shows the host's answer before the reveal. |
+| Daily Double wager | A number pad on the stage (the player column has no room for one). Daily Double wagers are public anyway. |
+| Final wager | A masked number pad on the stage (`$ •••••`, keys never highlight). The host's tile says "wagering…", not the amount. |
+| Final answer | Typed on a blind keypad on the stage, into a masked field (`•••••`), not on the iOS keyboard (which is mirrored and pops up each key). The host device never shows the host's answer before the reveal. |
 
 **Fairness:**
 - The host device never shows a correct response before an answer is judged, so playing on it tells the host nothing the others don't know.
 - Each player's buzzer lights up on their own device when the server opens buzzing, the host's included. The TV's mirroring delay affects only the shared picture, not anyone's buzzer.
-- A playing host can still override any verdict, their own included. Overrides of the host's own answers are labeled "Host override" on the TV, so the room sees them.
+- A playing host can still override verdicts, their own included ([scoreboard and overrides](../scoreboard-and-overrides/feature-brief.md)). Every override, the host's own included, is labeled HOST OVERRIDE on the TV, so the room sees it.
 
 ### The lobby (host device / TV)
 

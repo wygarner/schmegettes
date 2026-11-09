@@ -54,6 +54,8 @@ type Clue struct {
 	Text     string
 	Response string
 	State    contracts.ClueState
+	// DailyDouble marks the picker-only, wagered clues (Single and Double rounds).
+	DailyDouble bool
 }
 
 // Player is a contestant (a playing host included), in join order.
@@ -76,6 +78,16 @@ type Setup struct {
 	ActiveClueID  string
 	AttemptedByID map[string]bool
 
+	// Final is the Final Schmegettes clue. Nil means the game ends after Double.
+	Final *Clue
+	// Recovery of wagers: the active Daily Double's wager, if locked; Final wagers and
+	// submitted answers (from the wagers table); and the score change of each Final answer
+	// already revealed (answers rows on the Final clue).
+	DDWager      *int
+	FinalWagers  map[string]int
+	FinalAnswers map[string]string
+	FinalDeltas  map[string]int
+
 	NextSeq func() int
 	NewID   func() string
 	// Pick returns a number in [0, n) for the opening controller.
@@ -91,7 +103,9 @@ type Record struct {
 	Answer   string
 	Verdict  contracts.Verdict
 	Delta    int
-	State    contracts.ClueState // FinishClue
+	State    contracts.ClueState    // FinishClue
+	Source   contracts.AnswerSource // RecordAnswer
+	Amount   int                    // RecordWager
 }
 
 // RecordKind names a write.
@@ -103,13 +117,19 @@ const (
 	RecordAnswer
 	FinishClue
 	EndGame
+	RecordWager
+	SubmitFinalAnswer
 )
 
 // Broadcast is one message for every socket. Host, when set, is the same message with the
-// TV-only fields (clue text, correct response) filled in, for the host's sockets.
+// TV-only fields (clue text, correct response) filled in, for the host's sockets. Private,
+// when set, holds the same message with one user's own secrets (their Final wager or
+// answer) for that user's sockets. It never has an entry for the host user: the host
+// device is on the TV. Every copy shares one seq.
 type Broadcast struct {
-	All  any
-	Host any
+	All     any
+	Host    any
+	Private map[string]any
 }
 
 // Effects is what an input caused.
@@ -144,6 +164,15 @@ const (
 	stepAnswering
 	stepClueEnd
 	stepInterstitial
+	// Wagers (wager.go)
+	stepDDWager
+	stepDDShown
+	stepFinalCategory
+	stepFinalWager
+	stepFinalReading
+	stepFinalAnswer
+	stepFinalReveal
+	stepFinalEnd
 )
 
 // Game is one game's state.
@@ -169,6 +198,30 @@ type Game struct {
 	paused    bool
 	online    map[string]int // user -> open sockets
 	over      bool
+	// remaining is the time left on a wager-flow step when the host device left.
+	remaining time.Duration
+
+	// Daily Double: the active clue's wager range and the picker's wager.
+	ddMax    int
+	ddWager  int
+	ddLocked bool
+
+	// Final Schmegettes (wager.go).
+	final         *Clue
+	finalShown    bool // the clue text may reach the TV
+	phaseStart    time.Time
+	preFinal      map[string]int
+	finalists     []string
+	isFinal       map[string]bool
+	finalWagers   map[string]int
+	finalLocked   map[string]bool
+	drafts        map[string]string
+	finalAnswers  map[string]string
+	submitted     map[string]bool
+	revealOrder   []string
+	revealIdx     int
+	finalRevealed map[string]bool
+	finalSkipped  bool
 }
 
 // New builds a game. It starts paused until the host device connects (Connect).
@@ -181,6 +234,19 @@ func New(s Setup) *Game {
 		lockouts:  map[string]time.Time{},
 		online:    map[string]int{},
 		paused:    true,
+
+		preFinal:      map[string]int{},
+		isFinal:       map[string]bool{},
+		finalWagers:   map[string]int{},
+		finalLocked:   map[string]bool{},
+		drafts:        map[string]string{},
+		finalAnswers:  map[string]string{},
+		submitted:     map[string]bool{},
+		finalRevealed: map[string]bool{},
+	}
+	if s.Final != nil {
+		f := *s.Final
+		g.final = &f
 	}
 	for i := range s.Board {
 		c := s.Board[i]
@@ -212,10 +278,12 @@ func New(s Setup) *Game {
 		}
 		g.phase = contracts.GamePhaseClueReading
 		g.step = stepReading
+		if c.DailyDouble {
+			g.recoverDailyDouble(s.DDWager)
+		}
 	}
 	if g.roundDone(contracts.RoundDouble) {
-		g.phase = contracts.GamePhaseFinished
-		g.over = true
+		g.recoverFinal(s)
 	}
 	return g
 }
@@ -295,9 +363,13 @@ func uid(s string) *contracts.Uuid {
 
 func (g *Game) boardClue(c *Clue, host bool) contracts.BoardClue {
 	bc := contracts.BoardClue{ClueId: contracts.Uuid(c.ID), Category: c.Category, Value: c.Value, State: c.State}
-	if host && g.active == c {
+	if host && g.active == c && (c != g.final || g.finalShown) {
 		text := c.Text
 		bc.ClueText = &text
+	}
+	if g.active == c && c.DailyDouble {
+		dd := true
+		bc.DailyDouble = &dd
 	}
 	return bc
 }
@@ -342,6 +414,9 @@ func (g *Game) phaseChanged(host bool) contracts.PhaseChanged {
 		bc := g.boardClue(g.active, host)
 		m.ActiveClue = &bc
 	}
+	w := g.wagerFields()
+	m.WagerMin, m.WagerMax, m.Wager = w.min, w.max, w.wager
+	m.FinalistUserIds, m.LockedUserIds, m.RevealOrder = w.finalists, w.locked, w.order
 	return m
 }
 
@@ -372,6 +447,9 @@ func (g *Game) SnapshotFields(m *contracts.RoomSnapshot, host bool) {
 		id := contracts.Uuid(g.active.ID)
 		m.ActiveClueId = &id
 	}
+	w := g.wagerFields()
+	m.WagerMin, m.WagerMax, m.Wager = w.min, w.max, w.wager
+	m.FinalistUserIds, m.LockedUserIds, m.RevealOrder = w.finalists, w.locked, w.order
 }
 
 // Pick starts a clue. Only the controller may pick, the host device included.
@@ -396,6 +474,10 @@ func (g *Game) Pick(now time.Time, user, clueID string) (Effects, error) {
 	g.lockouts = map[string]time.Time{}
 	g.handoffAt = time.Time{}
 	e.record(Record{Kind: RevealClue, ClueID: c.ID})
+	if c.DailyDouble {
+		g.startDailyDouble(now, &e)
+		return e, nil
+	}
 	g.startReading(now, &e)
 	return e, nil
 }
@@ -404,8 +486,16 @@ func (g *Game) startReading(now time.Time, e *Effects) {
 	g.phase = contracts.GamePhaseClueReading
 	g.step = stepReading
 	g.answering = ""
-	g.deadline = now.Add(ReadingTime(Announcement(g.active.Category, g.active.Value) + " " + g.active.Text))
+	g.deadline = now.Add(ReadingTime(g.readingText()))
 	g.emitPhase(e)
+}
+
+// readingText is what the host device reads: the announcement, then the clue.
+func (g *Game) readingText() string {
+	if g.ddActive() {
+		return DailyDoubleAnnouncement(g.ddWager) + " " + g.active.Text
+	}
+	return Announcement(g.active.Category, g.active.Value) + " " + g.active.Text
 }
 
 // ReadingDone opens buzzing when the host device finishes reading the clue aloud.
@@ -414,11 +504,34 @@ func (g *Game) ReadingDone(now time.Time, user, clueID string) (Effects, error) 
 	if user != g.s.HostID {
 		return e, reject(contracts.ErrorCodeNotHost)
 	}
-	if g.paused || g.step != stepReading || g.active == nil || g.active.ID != clueID {
+	if g.paused || g.active == nil || g.active.ID != clueID {
 		return e, ErrIgnored
 	}
-	g.openBuzzing(now, &e)
+	switch g.step {
+	case stepReading:
+		g.afterReading(now, &e)
+	case stepFinalCategory:
+		// The title stays up at least FinalTitle, whatever the speech does.
+		if gate := g.phaseStart.Add(FinalTitle); now.Before(gate) {
+			g.deadline = gate
+			return e, nil
+		}
+		g.startFinalWager(now, &e)
+	case stepFinalReading:
+		g.openFinalAnswers(now, &e)
+	default:
+		return e, ErrIgnored
+	}
 	return e, nil
+}
+
+// afterReading opens buzzing, or for a Daily Double gives the picker the floor.
+func (g *Game) afterReading(now time.Time, e *Effects) {
+	if g.ddActive() {
+		g.startDDAnswer(now, e)
+		return
+	}
+	g.openBuzzing(now, e)
 }
 
 func (g *Game) openBuzzing(now time.Time, e *Effects) {
@@ -432,7 +545,7 @@ func (g *Game) openBuzzing(now time.Time, e *Effects) {
 // Buzz handles a buzzer press. Early presses lock the player out for 250 ms.
 func (g *Game) Buzz(now time.Time, user, clueID string) (Effects, error) {
 	var e Effects
-	if !g.isContestant(user) || g.paused || g.active == nil || g.active.ID != clueID {
+	if !g.isContestant(user) || g.paused || g.active == nil || g.active.ID != clueID || g.ddActive() {
 		return e, ErrIgnored
 	}
 	if g.attempted[user] {
@@ -469,6 +582,9 @@ func (g *Game) Buzz(now time.Time, user, clueID string) (Effects, error) {
 // Progress relays the answering player's interim transcript, at most every 250 ms.
 func (g *Game) Progress(now time.Time, user, text string) (Effects, error) {
 	var e Effects
+	if g.phase == contracts.GamePhaseFinalAnswer {
+		return e, g.saveDraft(user, text)
+	}
 	if g.step != stepAnswering || user != g.answering || g.paused {
 		return e, ErrIgnored
 	}
@@ -486,6 +602,9 @@ func (g *Game) Progress(now time.Time, user, text string) (Effects, error) {
 // Answer judges the answering player's final transcript.
 func (g *Game) Answer(now time.Time, user, clueID, text string) (Effects, error) {
 	var e Effects
+	if g.phase == contracts.GamePhaseFinalAnswer {
+		return e, reject(contracts.ErrorCodeWrongPhase) // Final answers are typed
+	}
 	if g.step != stepAnswering || user != g.answering || g.active == nil || g.active.ID != clueID || g.paused {
 		return e, ErrIgnored
 	}
@@ -495,22 +614,31 @@ func (g *Game) Answer(now time.Time, user, clueID, text string) (Effects, error)
 
 func (g *Game) judge(now time.Time, e *Effects, text string) {
 	c, user := g.active, g.answering
+	dd := g.ddActive()
+	value := c.Value
+	if dd {
+		value = g.ddWager
+	}
 	correct := text != "" && judge.IsCorrect(text, c.Response)
-	verdict, delta := contracts.VerdictIncorrect, -c.Value
+	verdict, delta := contracts.VerdictIncorrect, -value
 	if correct {
-		verdict, delta = contracts.VerdictCorrect, c.Value
+		verdict, delta = contracts.VerdictCorrect, value
 	}
 	g.scores[user] += delta
 	g.attempted[user] = true
 	g.answering = ""
 	id := g.s.NewID()
-	e.record(Record{Kind: RecordAnswer, AnswerID: id, ClueID: c.ID, UserID: user, Answer: text, Verdict: verdict, Delta: delta})
+	e.record(Record{Kind: RecordAnswer, AnswerID: id, ClueID: c.ID, UserID: user, Answer: text, Verdict: verdict, Delta: delta,
+		Source: contracts.AnswerSourceVoice})
 
 	seq := g.s.NextSeq()
 	all := contracts.AnswerJudged{
 		Type: "answer_judged", RoomId: contracts.Uuid(g.s.RoomID), Seq: seq, AnswerId: contracts.Uuid(id),
 		UserId: contracts.Uuid(user), Answer: text, Verdict: verdict, ScoreDelta: delta,
 		Scores: contracts.AnswerJudgedScores(g.Scores()),
+	}
+	if dd {
+		all.Wager = &value
 	}
 	host := all
 	if correct {
@@ -522,6 +650,11 @@ func (g *Game) judge(now time.Time, e *Effects, text string) {
 	if correct {
 		g.control = user
 		g.endClue(now, e, contracts.ClueStateAnswered)
+		return
+	}
+	if dd {
+		// Nobody else may answer a Daily Double.
+		g.endClue(now, e, contracts.ClueStateUnanswered)
 		return
 	}
 	g.afterMiss(now, e)
@@ -576,7 +709,7 @@ func (g *Game) Timeout(now time.Time) Effects {
 	g.deadline = time.Time{}
 	switch g.step {
 	case stepReading:
-		g.openBuzzing(now, &e)
+		g.afterReading(now, &e)
 	case stepBuzzing:
 		g.endClue(now, &e, contracts.ClueStateUnanswered)
 	case stepAnswering:
@@ -591,6 +724,8 @@ func (g *Game) Timeout(now time.Time) Effects {
 		g.step = stepNone
 		g.emitPhase(&e)
 		g.checkControl(now)
+	default:
+		g.wagerTimeout(now, &e)
 	}
 	return e
 }
@@ -650,6 +785,10 @@ func (g *Game) nextAfterClue(now time.Time, e *Effects) {
 		})
 		return
 	}
+	if g.final != nil {
+		g.startFinal(now, e)
+		return
+	}
 	g.finish(e)
 }
 
@@ -660,9 +799,14 @@ func (g *Game) finish(e *Effects) {
 	g.deadline = time.Time{}
 	e.record(Record{Kind: EndGame})
 	g.emitPhase(e)
-	e.send(contracts.GameOver{
+	over := contracts.GameOver{
 		Type: "game_over", RoomId: contracts.Uuid(g.s.RoomID), Seq: g.s.NextSeq(), Results: g.Results(),
-	})
+	}
+	if g.finalSkipped {
+		skipped := true
+		over.FinalSkipped = &skipped
+	}
+	e.send(over)
 }
 
 // Results ranks contestants, highest score first; ties share a placement (1, 1, 3).
@@ -695,7 +839,8 @@ func (g *Game) Connect(now time.Time, user string) Effects {
 }
 
 // Disconnect drops a socket. The host device's last socket pauses the game; a player who
-// drops while answering loses nothing and can't try this clue again.
+// drops while answering loses nothing and can't try this clue again. A Daily Double is the
+// exception: its answer window keeps running, and no answer costs the wager.
 func (g *Game) Disconnect(now time.Time, user string) Effects {
 	var e Effects
 	if g.online[user] > 0 {
@@ -705,12 +850,12 @@ func (g *Game) Disconnect(now time.Time, user string) Effects {
 		return e
 	}
 	if user == g.s.HostID {
-		return g.pause()
+		return g.pause(now)
 	}
 	if user == g.control {
 		g.checkControl(now)
 	}
-	if !g.paused && g.step == stepAnswering && g.answering == user {
+	if !g.paused && g.step == stepAnswering && g.answering == user && !g.ddActive() {
 		g.attempted[user] = true
 		g.answering = ""
 		g.afterMiss(now, &e)
@@ -718,13 +863,14 @@ func (g *Game) Disconnect(now time.Time, user string) Effects {
 	return e
 }
 
-func (g *Game) pause() Effects {
+func (g *Game) pause(now time.Time) Effects {
 	var e Effects
 	if g.paused || g.over {
 		g.paused = true
 		return e
 	}
 	g.paused = true
+	g.remaining = g.timeLeft(now)
 	g.deadline = time.Time{}
 	g.handoffAt = time.Time{}
 	// A player cut off mid-answer may try again when the clue is re-read.
@@ -751,9 +897,11 @@ func (g *Game) resume(now time.Time) Effects {
 		g.deadline = now.Add(ClueEndPause)
 	case stepInterstitial:
 		g.deadline = now.Add(Interstitial)
-	default:
+	case stepNone:
 		g.emitPhase(&e)
 		g.checkControl(now)
+	default:
+		g.resumeWager(now, &e)
 	}
 	return e
 }

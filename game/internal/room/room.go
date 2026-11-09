@@ -54,6 +54,8 @@ type Store interface {
 	LoadGame(ctx context.Context, roomID string) (GameData, error)
 	RevealClue(ctx context.Context, clueID string) error
 	RecordAnswer(ctx context.Context, rec play.Record) error
+	RecordWager(ctx context.Context, rec play.Record) error
+	SubmitFinalAnswer(ctx context.Context, rec play.Record) error
 	FinishClue(ctx context.Context, clueID string, state contracts.ClueState) error
 	EndGame(ctx context.Context, gameID string, status contracts.GameStatus) error
 }
@@ -396,6 +398,9 @@ func (r *Room) snapshotFor(c *Client) contracts.RoomSnapshot {
 	snap := r.snapshot()
 	if r.game != nil {
 		r.game.SnapshotFields(&snap, c.UserID == r.lobby.HostID)
+		if c.UserID != r.lobby.HostID {
+			r.game.PrivateSnapshot(&snap, c.UserID)
+		}
 	}
 	return snap
 }

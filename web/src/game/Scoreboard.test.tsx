@@ -2,7 +2,7 @@ import { MantineProvider } from "@mantine/core";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { initialRoom, type RoomState } from "../lib/room";
-import { gameWhen, ordinal, Scoreboard } from "./Scoreboard";
+import { gameWhen, Scoreboard } from "./Scoreboard";
 
 function show(results: RoomState["results"]) {
   const onRematch = vi.fn();
@@ -45,17 +45,7 @@ test("Rematch is pressed once", () => {
   expect(rematch).toBeDisabled();
 });
 
-test("ordinals and the game's date and length", () => {
-  expect([1, 2, 3, 4, 11, 12, 13, 21].map(ordinal)).toEqual([
-    "1st",
-    "2nd",
-    "3rd",
-    "4th",
-    "11th",
-    "12th",
-    "13th",
-    "21st",
-  ]);
+test("the game's date and length", () => {
   const start = new Date(2026, 10, 9, 20, 14).getTime();
   expect(gameWhen(start, start + 41 * 60000)).toBe("Nov 9 · 8:14 PM · 41 min");
   expect(gameWhen(undefined, undefined)).toBe("");

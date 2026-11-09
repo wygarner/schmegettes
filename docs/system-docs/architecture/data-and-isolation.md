@@ -40,7 +40,9 @@ commit;
 | `clues` | **nothing**: correct responses never reach a user role |
 | `rooms` | read if host or member; create only via `create_room(name)`; no direct writes (status, `host_plays`, and settings change only through functions) |
 | `room_members` | read fellow members; leave (non-host); join only via `join_room(code, name)`; never rename directly |
-| `board_clues`, `games`, `game_players`, `answers`, `game_results` (view) | read if they played or watched that game (`is_game_member`); no writes |
+| `board_clues` | read if they played or watched that game (`is_game_member`), but during a game only clues already revealed: an unrevealed row would show where the Daily Doubles are and the Final category. Everything once the game ends. No writes |
+| `games`, `game_players`, `answers`, `game_results` (view) | read if they played or watched that game (`is_game_member`); no writes |
+| `wagers` | **nothing**: Daily Double and Final wagers, and submitted Final answers, are secret until the reveal. Their outcomes reach players only as `answers` rows |
 | `seen_clues` | **nothing**: only used to build boards |
 
 Supabase's default grants to `anon`/`authenticated` are revoked, including default privileges for future tables. **Every new table needs an explicit grant, `enable row level security`, policies, and a test in `supabase/tests/`.**

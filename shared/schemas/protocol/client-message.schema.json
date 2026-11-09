@@ -100,7 +100,11 @@
         "type": { "const": "submit_answer" },
         "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
         "answer": { "type": "string", "maxLength": 200 },
-        "source": { "type": "string", "enum": ["voice", "typed"], "description": "voice for every clue and Daily Double; typed only in final_answer (Final Schmegettes answers are typed)." }
+        "source": {
+          "type": "string",
+          "enum": ["voice", "typed"],
+          "description": "voice for every clue and Daily Double; typed only in final_answer (Final Schmegettes answers are typed)."
+        }
       },
       "required": ["type", "clueId", "answer", "source"],
       "additionalProperties": false

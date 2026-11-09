@@ -1,6 +1,6 @@
 # Realtime Game Server (`game/`)
 
-> **Current state:** rooms run on a single `game/` instance with no Redis yet. Everything needed to resume is in Postgres: lobby members, names, `host_plays`, and status, and for a game its `board_clues` states and `answers`. A restart costs a reconnect. A game resumes paused on the active clue, which is re-read when the TV is back; scores and control come from the answers. Room ownership, Redis fan-out, and snapshots below are a later task.
+> **Current state:** rooms run on a single `game/` instance with no Redis yet. Everything needed to resume is in Postgres: lobby members, names, `host_plays`, and status, and for a game its `board_clues` states, `answers`, and `wagers`. A restart costs a reconnect. A game resumes paused on the active clue, which is re-read when the TV is back; scores and control come from the answers. Room ownership, Redis fan-out, and snapshots below are a later task.
 
 ## Principles
 
@@ -53,6 +53,16 @@ The rules live in `internal/play`, a pure state machine: inputs (pick, reading d
 - **Writes** happen in order through the Recording functions below plus `finish_clue`. A failed write is retried on the next event (they're idempotent). The in-memory game never waits on the database.
 - **Recovery** (`Store.LoadGame`): the game in progress, both rounds of `board_clues` with clue text and responses, and the answers so far (scores, last correct answerer for control, who tried the active clue). Control comes from the last correct answer, so a disconnect handoff made before a restart is not restored.
 
+## Wagers
+
+Daily Doubles and Final Schmegettes live in `internal/play/wager.go`. Rules and timings: [wagers interaction design](../../product-docs/features/wagers/interaction-design.md).
+
+- **Daily Double.** A pick on a `DailyDouble` clue goes to `daily_double_wager` (2 s reveal + 30 s). Only the picker may `submit_wager`, $5 to max(score, the round's top value), else `invalid_wager`; no wager in time is $5. The wager is public (`wager_locked` with `amount` on every copy, `wager` on `phase_changed`). After a 2 s "wagers" step the clue is read ("For {wager}, here's the clue.") and, with no buzzing, the picker answers for ± the wager. A disconnect doesn't end a Daily Double answer: the window runs and no answer costs the wager.
+- **Final.** When Double ends, contestants above $0 are finalists (none: `game_over` with `finalSkipped`, and the Final clue is never revealed). `final_category` holds at least 3 s (an earlier `reading_done` just moves the deadline), then `final_wager` (30 s, 0..score, $0 if none; wagers sent during the category count). `final_answer` reveals the clue; typing is open from then, and the 30 s window starts at `reading_done`. Answers are `submit_answer` with `source: typed`; `answer_progress` in this phase is a private draft, kept in memory and submitted at the deadline. `final_reveal` judges one finalist every 8 s, lowest pre-Final score first (join order on ties), recording each answer then. The correct response follows for 4 s, then `finish`.
+- **Private copies.** A `Broadcast` can carry `Private[userID]`: the same message (same `seq`) with that user's own Final wager (`wager_locked.amount`) or answer (`final_submitted.answer`). `sendGame` gives it to that user's sockets only, and never to the host user: the host device is on the TV. Snapshots add `myWager`, `myFinalAnswer`, `myFinalSubmitted` the same way. Nothing else carries a Final amount or answer before the reveal.
+- **Pause.** Wager and Final answer windows keep their remaining time across a host-device pause. A reading (the category, a clue) starts again, and a reveal step restarts.
+- **Recovery.** `LoadGame` loads the Daily Double flag, the Final clue, and `wagers`. An active Daily Double with no wager restarts the wager; with one, it is re-read. Final resumes at the category (no wagers), the wager (some), the answer window (the clue shown, fresh 30 s, submitted answers kept), or the reveal (from the first finalist with no `answers` row). Drafts not yet submitted are lost on a restart.
+
 ## Buzzing
 
 - Buzzing opens when the host (or the read timer) moves the clue to `buzzing_open`.
@@ -72,7 +82,9 @@ Game history and fresh boards are written through Postgres functions, called as 
 | Host presses Start | Send phase `building_board`, close joining, call `start_game(room)`. It records the game and its players and builds the board. On error, send the room back to `lobby` with "Couldn't build a board. Try again." |
 | A spectator joins mid-game | `add_spectator(game, user)` |
 | A clue's text is shown | `reveal_clue(board_clue)`: everyone in the game has now seen it |
-| An answer is judged | `record_answer(id, board_clue, user, answer, source, verdict, score_delta)`, with an `id` generated before the first attempt |
+| An answer is judged | `record_answer(id, board_clue, user, answer, source, verdict, score_delta)`, with an `id` generated before the first attempt. `source` is `voice`, or `typed` for Final; Final answers are recorded one by one at the reveal |
+| A Daily Double or Final wager locks | `record_wager(board_clue, user, amount)`: the first wager wins |
+| A finalist submits (or time runs out on their draft) | `submit_final_answer(board_clue, user, answer)`: the first submission wins |
 | A clue ends | `finish_clue(board_clue, 'answered' \| 'unanswered')` |
 | Host override or appeal result | `update_verdict(answer, verdict, score_delta)` |
 | A player leaves | `player_left(game, user)` |

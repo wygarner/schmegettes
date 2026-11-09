@@ -8,6 +8,7 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"schmegettes/api/internal/contracts"
+	"schmegettes/api/internal/games"
 	"schmegettes/api/internal/rooms"
 	"schmegettes/api/internal/server"
 )
@@ -16,6 +17,7 @@ import (
 // answer 501.
 type routes struct {
 	rooms rooms.Handler
+	games games.Handler
 	ping  func(context.Context) error
 }
 
@@ -47,11 +49,11 @@ func notImplemented(w http.ResponseWriter) {
 	server.Problem(w, http.StatusNotImplemented, "not-implemented", "Not implemented yet")
 }
 
-func (routes) GetV1Games(w http.ResponseWriter, _ *http.Request, _ contracts.GetV1GamesParams) {
-	notImplemented(w)
+func (rt routes) GetV1Games(w http.ResponseWriter, r *http.Request, params contracts.GetV1GamesParams) {
+	rt.games.List(w, r, params)
 }
-func (routes) GetV1GamesGameId(w http.ResponseWriter, _ *http.Request, _ openapi_types.UUID) {
-	notImplemented(w)
+func (rt routes) GetV1GamesGameId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	rt.games.Detail(w, r, id)
 }
 func (routes) GetV1Me(w http.ResponseWriter, _ *http.Request)   { notImplemented(w) }
 func (routes) PatchV1Me(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }

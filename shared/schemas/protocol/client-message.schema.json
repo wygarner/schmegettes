@@ -15,6 +15,8 @@
     { "$ref": "#/$defs/SubmitAnswer" },
     { "$ref": "#/$defs/SubmitWager" },
     { "$ref": "#/$defs/OverrideVerdict" },
+    { "$ref": "#/$defs/OverrideReview" },
+    { "$ref": "#/$defs/Rematch" },
     { "$ref": "#/$defs/Ping" }
   ],
   "$defs": {
@@ -120,7 +122,7 @@
       "additionalProperties": false
     },
     "OverrideVerdict": {
-      "description": "Host only. Replaces the judge's verdict for one answer.",
+      "description": "Host only. Replaces the verdict on one answer of the clue just played, or of the Final answer being revealed.",
       "type": "object",
       "properties": {
         "type": { "const": "override_verdict" },
@@ -128,6 +130,23 @@
         "correct": { "type": "boolean" }
       },
       "required": ["type", "answerId", "correct"],
+      "additionalProperties": false
+    },
+    "OverrideReview": {
+      "description": "Host only. Opens or closes the review of a verdict on the clue just played (or the Final answer being revealed). While open, the clock is paused.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "override_review" },
+        "open": { "type": "boolean" }
+      },
+      "required": ["type", "open"],
+      "additionalProperties": false
+    },
+    "Rematch": {
+      "description": "Host only, once the game is finished: everyone still in the room goes back to the lobby for a new game.",
+      "type": "object",
+      "properties": { "type": { "const": "rematch" } },
+      "required": ["type"],
       "additionalProperties": false
     },
     "Ping": {

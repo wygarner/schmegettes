@@ -10,6 +10,8 @@ export type ServerMessage =
   | PhaseChanged
   | BuzzResult
   | AnswerJudged
+  | VerdictOverridden
+  | OverrideReviewChanged
   | LiveTranscript
   | ClueEnded
   | WagerLocked
@@ -96,6 +98,23 @@ export interface RoomSnapshot {
    * Whether myFinalAnswer is submitted (locked) rather than a draft.
    */
   myFinalSubmitted?: boolean;
+  /**
+   * Host copy only: the answers that can still be overridden (the clue just played, or the Final answer being revealed).
+   */
+  clueAnswers?: {
+    answerId: string;
+    userId: string;
+    answer: string;
+    /**
+     * correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+     */
+    verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
+    scoreDelta: number;
+  }[];
+  /**
+   * The host is reviewing a verdict; the clock is paused.
+   */
+  overrideReview?: boolean;
   /**
    * userId -> score.
    */
@@ -239,6 +258,52 @@ export interface AnswerJudged {
   };
 }
 /**
+ * The host changed a verdict. Labeled HOST OVERRIDE on the TV and on that player's phone.
+ */
+export interface VerdictOverridden {
+  type: "verdict_overridden";
+  roomId: string;
+  seq: number;
+  answerId: string;
+  userId: string;
+  /**
+   * correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+   */
+  verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
+  /**
+   * The answer's new score change.
+   */
+  scoreDelta: number;
+  /**
+   * userId -> score after the override.
+   */
+  scores: {
+    [k: string]: number;
+  };
+  controllingUserId?: string;
+  /**
+   * Server ms when the current step ends; absent while the review is open.
+   */
+  deadlineAt?: number;
+}
+/**
+ * The host opened or closed a verdict review. While open, the clock is paused and the reviewed players' phones say so.
+ */
+export interface OverrideReviewChanged {
+  type: "override_review_changed";
+  roomId: string;
+  seq: number;
+  open: boolean;
+  /**
+   * The players whose answers are under review.
+   */
+  userIds: string[];
+  /**
+   * Server ms when the step ends, once the review closes.
+   */
+  deadlineAt?: number;
+}
+/**
  * The answering player's interim transcript, for the TV.
  */
 export interface LiveTranscript {
@@ -314,6 +379,14 @@ export interface GameOver {
    * True when nobody was above $0 after Double Schmegettes, so Final was skipped.
    */
   finalSkipped?: boolean;
+  /**
+   * Server ms when the game started.
+   */
+  startedAt?: number;
+  /**
+   * Server ms when the game ended.
+   */
+  finishedAt?: number;
 }
 /**
  * The host device left (paused) or came back (resumed). Timers stop while paused.
@@ -348,7 +421,8 @@ export interface Error {
     | "not_in_control"
     | "already_attempted"
     | "invalid_wager"
-    | "not_a_finalist";
+    | "not_a_finalist"
+    | "unknown_answer";
   message?: string;
 }
 export interface Pong {

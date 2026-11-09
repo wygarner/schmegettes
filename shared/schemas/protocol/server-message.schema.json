@@ -23,6 +23,12 @@
       "$ref": "#/$defs/AnswerJudged"
     },
     {
+      "$ref": "#/$defs/VerdictOverridden"
+    },
+    {
+      "$ref": "#/$defs/OverrideReviewChanged"
+    },
+    {
       "$ref": "#/$defs/LiveTranscript"
     },
     {
@@ -216,6 +222,36 @@
         "myFinalSubmitted": {
           "type": "boolean",
           "description": "Whether myFinalAnswer is submitted (locked) rather than a draft."
+        },
+        "clueAnswers": {
+          "type": "array",
+          "description": "Host copy only: the answers that can still be overridden (the clue just played, or the Final answer being revealed).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "answerId": {
+                "$ref": "../domain.schema.json#/$defs/Uuid"
+              },
+              "userId": {
+                "$ref": "../domain.schema.json#/$defs/Uuid"
+              },
+              "answer": {
+                "type": "string"
+              },
+              "verdict": {
+                "$ref": "../domain.schema.json#/$defs/Verdict"
+              },
+              "scoreDelta": {
+                "type": "integer"
+              }
+            },
+            "required": ["answerId", "userId", "answer", "verdict", "scoreDelta"],
+            "additionalProperties": false
+          }
+        },
+        "overrideReview": {
+          "type": "boolean",
+          "description": "The host is reviewing a verdict; the clock is paused."
         },
         "scores": {
           "type": "object",
@@ -619,6 +655,14 @@
         "finalSkipped": {
           "type": "boolean",
           "description": "True when nobody was above $0 after Double Schmegettes, so Final was skipped."
+        },
+        "startedAt": {
+          "type": "integer",
+          "description": "Server ms when the game started."
+        },
+        "finishedAt": {
+          "type": "integer",
+          "description": "Server ms when the game ended."
         }
       },
       "required": ["type", "roomId", "seq", "results"],
@@ -688,7 +732,8 @@
             "not_in_control",
             "already_attempted",
             "invalid_wager",
-            "not_a_finalist"
+            "not_a_finalist",
+            "unknown_answer"
           ]
         },
         "message": {
@@ -696,6 +741,83 @@
         }
       },
       "required": ["type", "code"],
+      "additionalProperties": false
+    },
+    "VerdictOverridden": {
+      "description": "The host changed a verdict. Labeled HOST OVERRIDE on the TV and on that player's phone.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "verdict_overridden"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "answerId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "userId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "verdict": {
+          "$ref": "../domain.schema.json#/$defs/Verdict"
+        },
+        "scoreDelta": {
+          "type": "integer",
+          "description": "The answer's new score change."
+        },
+        "scores": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "userId -> score after the override."
+        },
+        "controllingUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "deadlineAt": {
+          "type": "integer",
+          "description": "Server ms when the current step ends; absent while the review is open."
+        }
+      },
+      "required": ["type", "roomId", "seq", "answerId", "userId", "verdict", "scoreDelta", "scores"],
+      "additionalProperties": false
+    },
+    "OverrideReviewChanged": {
+      "description": "The host opened or closed a verdict review. While open, the clock is paused and the reviewed players' phones say so.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "override_review_changed"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open": {
+          "type": "boolean"
+        },
+        "userIds": {
+          "type": "array",
+          "items": {
+            "$ref": "../domain.schema.json#/$defs/Uuid"
+          },
+          "description": "The players whose answers are under review."
+        },
+        "deadlineAt": {
+          "type": "integer",
+          "description": "Server ms when the step ends, once the review closes."
+        }
+      },
+      "required": ["type", "roomId", "seq", "open", "userIds"],
       "additionalProperties": false
     },
     "Pong": {

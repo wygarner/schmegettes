@@ -54,6 +54,21 @@ class SubmitWager(BaseModel):
     amount: conint(ge=0)
 
 
+class OverrideReview(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['override_review']
+    open: bool
+
+
+class Rematch(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['rematch']
+
+
 class Ping(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -133,6 +148,8 @@ class ClientMessage(
             SubmitAnswer,
             SubmitWager,
             OverrideVerdict,
+            OverrideReview,
+            Rematch,
             Ping,
         ]
     ]
@@ -149,6 +166,8 @@ class ClientMessage(
         SubmitAnswer,
         SubmitWager,
         OverrideVerdict,
+        OverrideReview,
+        Rematch,
         Ping,
     ] = Field(
         ...,

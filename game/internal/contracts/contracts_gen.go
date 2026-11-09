@@ -211,6 +211,7 @@ const ErrorCodeNotHost ErrorCode = "not_host"
 const ErrorCodeNotInControl ErrorCode = "not_in_control"
 const ErrorCodeNotYourTurn ErrorCode = "not_your_turn"
 const ErrorCodeRoomFull ErrorCode = "room_full"
+const ErrorCodeUnknownAnswer ErrorCode = "unknown_answer"
 const ErrorCodeWrongPhase ErrorCode = "wrong_phase"
 
 // A finalist's typed answer is locked in. answer is only in that player's own
@@ -237,6 +238,9 @@ type GameOver struct {
 	// True when nobody was above $0 after Double Schmegettes, so Final was skipped.
 	FinalSkipped *bool `json:"finalSkipped,omitempty" yaml:"finalSkipped,omitempty" mapstructure:"finalSkipped,omitempty"`
 
+	// Server ms when the game ended.
+	FinishedAt *int `json:"finishedAt,omitempty" yaml:"finishedAt,omitempty" mapstructure:"finishedAt,omitempty"`
+
 	// Results corresponds to the JSON schema field "results".
 	Results []GameOverResultsElem `json:"results" yaml:"results" mapstructure:"results"`
 
@@ -245,6 +249,9 @@ type GameOver struct {
 
 	// Seq corresponds to the JSON schema field "seq".
 	Seq int `json:"seq" yaml:"seq" mapstructure:"seq"`
+
+	// Server ms when the game started.
+	StartedAt *int `json:"startedAt,omitempty" yaml:"startedAt,omitempty" mapstructure:"startedAt,omitempty"`
 
 	// Type corresponds to the JSON schema field "type".
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
@@ -370,7 +377,40 @@ type LobbyUpdated struct {
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
 }
 
-// Host only. Replaces the judge's verdict for one answer.
+// Host only. Opens or closes the review of a verdict on the clue just played (or
+// the Final answer being revealed). While open, the clock is paused.
+type OverrideReview struct {
+	// Open corresponds to the JSON schema field "open".
+	Open bool `json:"open" yaml:"open" mapstructure:"open"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
+
+// The host opened or closed a verdict review. While open, the clock is paused and
+// the reviewed players' phones say so.
+type OverrideReviewChanged struct {
+	// Server ms when the step ends, once the review closes.
+	DeadlineAt *int `json:"deadlineAt,omitempty" yaml:"deadlineAt,omitempty" mapstructure:"deadlineAt,omitempty"`
+
+	// Open corresponds to the JSON schema field "open".
+	Open bool `json:"open" yaml:"open" mapstructure:"open"`
+
+	// RoomId corresponds to the JSON schema field "roomId".
+	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
+
+	// Seq corresponds to the JSON schema field "seq".
+	Seq int `json:"seq" yaml:"seq" mapstructure:"seq"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+
+	// The players whose answers are under review.
+	UserIds []Uuid `json:"userIds" yaml:"userIds" mapstructure:"userIds"`
+}
+
+// Host only. Replaces the verdict on one answer of the clue just played, or of the
+// Final answer being revealed.
 type OverrideVerdict struct {
 	// AnswerId corresponds to the JSON schema field "answerId".
 	AnswerId Uuid `json:"answerId" yaml:"answerId" mapstructure:"answerId"`
@@ -480,6 +520,13 @@ type ReadingDone struct {
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
 }
 
+// Host only, once the game is finished: everyone still in the room goes back to
+// the lobby for a new game.
+type Rematch struct {
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
+
 // The room closed. host_absent: no host device for 30 minutes in the lobby.
 // replaced: the host created a new room. closed: it had already closed when this
 // socket connected. Clients stop reconnecting on any room_closed, whatever its
@@ -525,6 +572,10 @@ type RoomSnapshot struct {
 	// Board corresponds to the JSON schema field "board".
 	Board []BoardClue `json:"board" yaml:"board" mapstructure:"board"`
 
+	// Host copy only: the answers that can still be overridden (the clue just played,
+	// or the Final answer being revealed).
+	ClueAnswers []RoomSnapshotClueAnswersElem `json:"clueAnswers,omitempty" yaml:"clueAnswers,omitempty" mapstructure:"clueAnswers,omitempty"`
+
 	// ControllingUserId corresponds to the JSON schema field "controllingUserId".
 	ControllingUserId *Uuid `json:"controllingUserId,omitempty" yaml:"controllingUserId,omitempty" mapstructure:"controllingUserId,omitempty"`
 
@@ -557,6 +608,9 @@ type RoomSnapshot struct {
 	// This socket's user's own locked wager. Only in that user's copy, never for the
 	// host device.
 	MyWager *int `json:"myWager,omitempty" yaml:"myWager,omitempty" mapstructure:"myWager,omitempty"`
+
+	// The host is reviewing a verdict; the clock is paused.
+	OverrideReview *bool `json:"overrideReview,omitempty" yaml:"overrideReview,omitempty" mapstructure:"overrideReview,omitempty"`
 
 	// Paused corresponds to the JSON schema field "paused".
 	Paused *bool `json:"paused,omitempty" yaml:"paused,omitempty" mapstructure:"paused,omitempty"`
@@ -594,6 +648,23 @@ type RoomSnapshot struct {
 
 	// Daily Double: the lowest wager the picker may make ($5). Public.
 	WagerMin *int `json:"wagerMin,omitempty" yaml:"wagerMin,omitempty" mapstructure:"wagerMin,omitempty"`
+}
+
+type RoomSnapshotClueAnswersElem struct {
+	// Answer corresponds to the JSON schema field "answer".
+	Answer string `json:"answer" yaml:"answer" mapstructure:"answer"`
+
+	// AnswerId corresponds to the JSON schema field "answerId".
+	AnswerId Uuid `json:"answerId" yaml:"answerId" mapstructure:"answerId"`
+
+	// ScoreDelta corresponds to the JSON schema field "scoreDelta".
+	ScoreDelta int `json:"scoreDelta" yaml:"scoreDelta" mapstructure:"scoreDelta"`
+
+	// UserId corresponds to the JSON schema field "userId".
+	UserId Uuid `json:"userId" yaml:"userId" mapstructure:"userId"`
+
+	// Verdict corresponds to the JSON schema field "verdict".
+	Verdict Verdict `json:"verdict" yaml:"verdict" mapstructure:"verdict"`
 }
 
 // userId -> score.
@@ -721,8 +792,46 @@ type Verdict string
 const VerdictAppealPending Verdict = "appeal_pending"
 const VerdictCorrect Verdict = "correct"
 const VerdictIncorrect Verdict = "incorrect"
+
+// The host changed a verdict. Labeled HOST OVERRIDE on the TV and on that player's
+// phone.
+type VerdictOverridden struct {
+	// AnswerId corresponds to the JSON schema field "answerId".
+	AnswerId Uuid `json:"answerId" yaml:"answerId" mapstructure:"answerId"`
+
+	// ControllingUserId corresponds to the JSON schema field "controllingUserId".
+	ControllingUserId *Uuid `json:"controllingUserId,omitempty" yaml:"controllingUserId,omitempty" mapstructure:"controllingUserId,omitempty"`
+
+	// Server ms when the current step ends; absent while the review is open.
+	DeadlineAt *int `json:"deadlineAt,omitempty" yaml:"deadlineAt,omitempty" mapstructure:"deadlineAt,omitempty"`
+
+	// RoomId corresponds to the JSON schema field "roomId".
+	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
+
+	// The answer's new score change.
+	ScoreDelta int `json:"scoreDelta" yaml:"scoreDelta" mapstructure:"scoreDelta"`
+
+	// userId -> score after the override.
+	Scores VerdictOverriddenScores `json:"scores" yaml:"scores" mapstructure:"scores"`
+
+	// Seq corresponds to the JSON schema field "seq".
+	Seq int `json:"seq" yaml:"seq" mapstructure:"seq"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+
+	// UserId corresponds to the JSON schema field "userId".
+	UserId Uuid `json:"userId" yaml:"userId" mapstructure:"userId"`
+
+	// Verdict corresponds to the JSON schema field "verdict".
+	Verdict Verdict `json:"verdict" yaml:"verdict" mapstructure:"verdict"`
+}
+
 const VerdictOverriddenCorrect Verdict = "overridden_correct"
 const VerdictOverriddenIncorrect Verdict = "overridden_incorrect"
+
+// userId -> score after the override.
+type VerdictOverriddenScores map[string]int
 
 // A player locked a wager. Daily Double: amount is on every copy (public). Final:
 // amount is only in the wagering player's own copy, never the host device's.

@@ -102,3 +102,7 @@ Through the api's request logger (request id bound). `games list failed` / `game
 - `docs/system-docs/architecture/data-and-isolation.md`: `games.host_user_id`, and the deletion rule (nulls it).
 - `docs/system-docs/architecture/api-contract.md`: nothing structural; if the REST table lists implemented endpoints, mark `/v1/games` built.
 - `docs/product-docs/features/game-history/interaction-design.md`: remove "Not yet implemented" from My games.
+
+## Branch
+
+`new-feature/design-pass-history-impl`, from and into `daily/2026-11-09`. Implementation PR title: `[New Feature] design-pass-history: …`.

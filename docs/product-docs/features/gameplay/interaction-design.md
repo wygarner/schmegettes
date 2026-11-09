@@ -43,7 +43,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 │  600   │  600   │  600   │  600   │  600  │  600   │  Bob       $400   │
 │  800   │  800   │  800   │  800   │  800  │  800   │  Wyatt    −$200   │
 │                                                    │ ┌───────────────┐ │
-│                                                    │ │     BUZZ      │ │ ◀ only when the
+│                                                    │ │ (red buzzer)  │ │ ◀ only when the
 │                                                    │ └───────────────┘ │   host plays
 └───────────────────────────────────────────────────┴───────────────────┘
 ```
@@ -89,16 +89,18 @@ The verdict line appears only when the clue ended on a judged answer. A clue nob
 
 ### The buzzer (one component everywhere)
 
-Phones and the host device use the same `Buzzer` component: same look, labels and states. Only its size changes with its container (full width and at least 64 px tall in every view).
+Phones and the host device use the same `Buzzer` component: an oblong red dome the full width of its container, in a dark rim, with **no lettering** ([design system](../../architecture/design-system.md#buzzer)). Only its height changes: 120 px on phones, 64 px in the host's column. State shows in the dome's color, light and motion; the words are for screen readers.
 
-| State | Looks | Label | A tap |
+| State | Looks | Screen-reader label | A tap |
 |---|---|---|---|
-| `idle`: lobby, board, between clues, someone else answering | Dim | BUZZ | Press animation only. Nothing is sent. |
-| `dim`: `clue_reading` | Dim | BUZZ | Early buzz: 250 ms lockout |
-| `lit`: `buzzing_open` | `yellow` filled | BUZZ | Buzz |
-| `early` | `red` filled, 250 ms | Too early | Nothing |
-| `answering`: I won the buzz | `green` filled | Answer now | Nothing |
-| `locked`: I already tried this clue | Disabled | You've answered this one | Nothing |
+| `idle`: lobby, board, between clues, someone else answering | Unlit dark red | Buzz | Press animation only. Nothing is sent. |
+| `dim`: `clue_reading` | Unlit, faint red ring around the rim | Buzz (get ready) | Early buzz: 250 ms lockout |
+| `lit`: `buzzing_open` | Bright red, pulsing glow | Buzz | Buzz |
+| `early` | Dark red, shakes, 250 ms | Too early | Nothing |
+| `answering`: I won the buzz | Green, glowing | Answer now | Nothing |
+| `locked`: I already tried this clue | Grey, faded, disabled | You've answered this one | Nothing |
+
+With no words on the button, the phone's screen above it says what the color means: "Listen… Buzz when it lights up. Too early locks you out for a moment." while the clue is read, "Say your answer" after a won buzz, and "You've answered this one" once locked.
 
 The host device also buzzes with the space bar when a keyboard is attached.
 
@@ -132,7 +134,7 @@ The phone never shows clue text or the correct response.
 └──────────────────────────────┘
 ```
 
-- A tap on a board cell opens the modal; **Pick** sends the pick, **Cancel** or a tap outside closes it.
+- A tap on a board cell opens the confirmation: a sheet that slides up from the bottom on a phone, a centered sheet on the host device. **Pick** (gold) sends the pick, **Cancel** or a tap outside closes it.
 - A spoken pick ("Volcanoes for 400") goes straight through, with no modal.
 - The modal closes on its own if the phase leaves `board` or the player loses control while it's open.
 
@@ -147,7 +149,7 @@ The same states as the phone, in the player column, minus what the stage already
 1. Alice has control; her tile on the TV is highlighted. She taps "VOLCANOES 400" on her phone and confirms **Pick**.
 2. The TV shows the clue. The narrator says "Here's Volcanoes for 400." and reads the clue.
 3. Speech ends, buzzing opens, and every buzzer lights.
-4. Bob buzzes 180 ms later and wins. His buzzer turns green: "Answer now".
+4. Bob buzzes 180 ms later and wins. His buzzer turns green and his phone says "Say your answer".
 5. Bob says "Kilauea" and is judged incorrect: −$400. Buzzing reopens for everyone except Bob.
 6. Alice buzzes and says "what is Mauna Loa": correct, +$400, and she keeps control.
 7. The clue text disappears. The TV shows "Correct response: Mauna Loa" for 6 s, then the board with VOLCANOES 400 gone. Alice's tile is still highlighted.

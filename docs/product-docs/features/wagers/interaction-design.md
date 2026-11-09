@@ -99,12 +99,12 @@ Lines appear about 2 s apart. The score in that player's tile updates on the las
 
 ### Host device when the host plays
 
-| Phase | Player column |
+| Phase | On the host device |
 |---|---|
-| `daily_double_wager`, host's | Number pad and **Wager**, visible to the room. Daily Double wagers are public. |
-| DD `answering`, host's | Buzzer green "Answer now"; mic level meter |
-| `final_wager` | Masked field `$ •••••`. Digits show as dots. **Min** / **Max** don't show the amount. The tile shows "wagering…" like anyone else's. |
-| `final_answer` | Masked text field `•••••` and **Submit**, then "✓ submitted". **The answer is never shown.** |
+| `daily_double_wager`, host's | Number pad and **Wager** on the **stage**, under "VOLCANOES · DAILY DOUBLE", visible to the room. Daily Double wagers are public. |
+| DD `answering`, host's | Buzzer turns green; mic level meter |
+| `final_wager` | Masked number pad on the stage, under the category. Digits show as dots, keys never highlight, **Min** / **Max** don't show the amount. The tile shows "wagering…" like anyone else's. |
+| `final_answer` | Blind keypad on the stage under the clue (the clue text shrinks to fit): A to Z, space, backspace, a masked field `•••••` and **Submit**, then "✓ submitted". Keys never highlight. **The answer is never shown.** |
 
 ## Flows
 

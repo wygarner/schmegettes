@@ -213,3 +213,8 @@ export async function requestMicrophone(): Promise<MicState> {
     return "denied";
   }
 }
+
+/** Clue text as it should sound: "&" is read as "and" (the dataset writes "Lewis & Clark"). */
+export function spokenText(text: string): string {
+  return text.replace(/\s*&(?:amp;)?\s*/g, " and ");
+}

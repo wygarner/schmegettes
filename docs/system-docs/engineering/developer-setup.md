@@ -37,6 +37,14 @@ mise run db:test       # RLS tests
 
 Copy each `.env.example` next to it (`web/.env.local`, `api/.env`, `game/.env`, `worker/.env`) and fill in the anon key from `db:start`. Local env files point at local Supabase only. Staging and production credentials are never put in a local file.
 
+### Real clues (optional)
+
+The seed has only "SAMPLE" categories. To play with real clues, load a few seasons into local Supabase (about 1 s per season; safe to run again):
+
+```bash
+mise run clues:import -- --seasons 1-3     # all 40 seasons: about 160 MB, 40 s
+```
+
 ## 5. Run
 
 `bun run dev` starts web, game, and worker in one terminal (`mise run dev`). Start Redis first. The API is not in it yet; run it on its own.

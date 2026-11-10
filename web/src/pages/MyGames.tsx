@@ -47,7 +47,7 @@ export function MyGames() {
   if (load.kind === "loading") {
     body = (
       <Group justify="center" mt="xl">
-        <Loader color="yellow.4" />
+        <Loader color="green.4" />
       </Group>
     );
   } else if (load.kind === "error") {
@@ -101,7 +101,7 @@ export function MyGames() {
           <Title order={1} ff={DISPLAY} fw={700} fz={34}>
             My games
           </Title>
-          <Anchor component={Link} to="/" size="sm" c="boardBlue.2">
+          <Anchor component={Link} to="/" size="sm" c="slate.2">
             Home
           </Anchor>
         </Group>
@@ -151,7 +151,7 @@ function GameRow({ game, onOpen }: { game: GameSummary; onOpen: () => void }) {
           fontWeight: 700,
           fontSize: watched ? 10 : 18,
           letterSpacing: watched ? ".06em" : 0,
-          color: watched ? "#a5abee" : (PLACE_COLOR[game.placement ?? 0] ?? "#fff"),
+          color: watched ? "#8fc7a0" : (PLACE_COLOR[game.placement ?? 0] ?? "#fff"),
         }}
       >
         {watched ? "WATCHED" : ordinal(game.placement ?? 0)}
@@ -172,7 +172,7 @@ function GameRow({ game, onOpen }: { game: GameSummary; onOpen: () => void }) {
         </Text>
       </span>
       {!watched && (
-        <Text ff={DISPLAY} fw={600} fz={18} c={game.score < 0 ? RED : "yellow.4"}>
+        <Text ff={DISPLAY} fw={600} fz={18} c={game.score < 0 ? RED : "green.4"}>
           {money(game.score)}
         </Text>
       )}

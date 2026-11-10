@@ -69,7 +69,7 @@ export function JoinRoom() {
       <Container size="xs" py={48}>
         <form onSubmit={join}>
           <Stack>
-            <Text size="xs" fw={700} c="#a5abee" style={{ letterSpacing: ".14em" }}>
+            <Text size="xs" fw={700} c="#8fc7a0" style={{ letterSpacing: ".14em" }}>
               ROOM {code}
             </Text>
             <Title order={2} ff={DISPLAY} fw={600} fz={34}>
@@ -202,7 +202,7 @@ export function PlayerView({
       {state.error?.code === "invalid_name" && <Alert color="red">Names are 1 to 20 characters.</Alert>}
       <div>
         {state.rematch && (
-          <Text c="yellow.4" fw={800} size="xs" style={{ letterSpacing: ".14em" }}>
+          <Text c="green.4" fw={800} size="xs" style={{ letterSpacing: ".14em" }}>
             REMATCH
           </Text>
         )}
@@ -262,7 +262,7 @@ export function Shuffle() {
             width: 36,
             height: 48,
             borderRadius: 4,
-            background: "var(--mantine-color-boardBlue-9)",
+            background: "var(--mantine-color-slate-9)",
             boxShadow: "inset 0 1px 0 rgba(255,255,255,.22), inset 0 -3px 0 rgba(0,0,0,.35)",
             animationDelay: `${i * 110}ms`,
           }}

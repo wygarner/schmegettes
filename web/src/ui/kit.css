@@ -1,6 +1,6 @@
 /* Motion and small shared rules for the design system. Reference: devtools/src/designs/system/components.tsx. */
 body {
-  background: #03041c;
+  background: #0c1a21;
 }
 
 @keyframes sg-pop {
@@ -92,10 +92,10 @@ body {
 @keyframes sg-glow-green {
   0%,
   100% {
-    filter: drop-shadow(0 0 4px rgba(64, 192, 87, 0.5));
+    filter: drop-shadow(0 0 4px rgba(56, 217, 169, 0.5));
   }
   50% {
-    filter: drop-shadow(0 0 14px rgba(64, 192, 87, 0.9));
+    filter: drop-shadow(0 0 14px rgba(56, 217, 169, 0.9));
   }
 }
 

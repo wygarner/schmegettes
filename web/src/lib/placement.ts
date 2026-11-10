@@ -6,7 +6,7 @@ export function ordinal(n: number): string {
 }
 
 /** Gold, silver, bronze for the top three places. */
-export const PLACE_COLOR: Record<number, string> = { 1: "var(--mantine-color-yellow-4)", 2: "#d5d9e6", 3: "#e0a370" };
+export const PLACE_COLOR: Record<number, string> = { 1: "var(--mantine-color-green-4)", 2: "#d5d9e6", 3: "#e0a370" };
 
 function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();

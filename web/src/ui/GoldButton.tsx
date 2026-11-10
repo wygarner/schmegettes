@@ -8,7 +8,7 @@ type Props = Omit<ButtonProps, "color" | "styles"> & Omit<ComponentPropsWithoutR
 export function GoldButton(props: Props) {
   return (
     <Button
-      color="yellow.4"
+      color="green.4"
       autoContrast
       {...props}
       styles={{

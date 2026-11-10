@@ -14,7 +14,7 @@ import {
 import { GoldButton } from "../ui/GoldButton";
 import { Meter } from "../ui/Meter";
 import { BigMoment, Stage, StageBody, StageHeader } from "../ui/Stage";
-import { DISPLAY, GOLD, INK, SOFT } from "../ui/tokens";
+import { ACCENT, DISPLAY, INK, SOFT } from "../ui/tokens";
 import { BlindKeypad } from "./BlindKeypad";
 import { Board } from "./Board";
 import { ClueText } from "./ClueText";
@@ -197,7 +197,7 @@ export function HostGame({
               position: "absolute",
               inset: 0,
               borderRadius: 12,
-              background: "rgba(3,4,28,.85)",
+              background: "rgba(12,26,33,.85)",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -206,7 +206,7 @@ export function HostGame({
               color: "#fff",
             }}
           >
-            <Loader color="yellow.4" size="sm" />
+            <Loader color="green.4" size="sm" />
             <Text ff={DISPLAY} fz={28} fw={600}>
               Paused
             </Text>
@@ -335,7 +335,7 @@ function ClueView({
         <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: "12cqh", flexShrink: 0 }}>
           <span
             style={{
-              background: GOLD,
+              background: ACCENT,
               color: INK,
               fontWeight: 800,
               fontSize: "clamp(10px, 4.4cqh, 18px)",
@@ -356,7 +356,7 @@ function ClueView({
               textOverflow: "ellipsis",
             }}
           >
-            {state.liveText ? `“${state.liveText}”` : <span style={{ color: "#7f87e6" }}>listening…</span>}
+            {state.liveText ? `“${state.liveText}”` : <span style={{ color: "#6a9a80" }}>listening…</span>}
           </span>
         </div>
       )}

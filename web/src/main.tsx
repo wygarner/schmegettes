@@ -22,19 +22,50 @@ import { MyGames } from "./pages/MyGames";
 
 // Shared with devtools/ prototypes via the same values; see docs/product-docs/architecture/design-system.md.
 export const theme = createTheme({
-  primaryColor: "boardBlue",
+  // Slate backgrounds, cobalt-green accent, turquoise-green secondary text
+  // (docs/product-docs/architecture/design-system.md, "Color").
+  primaryColor: "green",
+  primaryShade: 4,
+  autoContrast: true,
   colors: {
-    boardBlue: [
-      "#e8eaff",
-      "#c9cdf7",
-      "#a5abee",
-      "#7f87e6",
-      "#5f68df",
-      "#4a53da",
-      "#3f48d9",
-      "#3139c1",
-      "#2932ad",
-      "#060ce9",
+    // Slate: backgrounds, board cells, tiles. slate.9 is the brand slate #1B3644.
+    slate: [
+      "#e9f2f5",
+      "#cbdee5",
+      "#abc8d3",
+      "#8bb1c0",
+      "#6e9aac",
+      "#578497",
+      "#446f82",
+      "#345a6b",
+      "#264756",
+      "#1b3644",
+    ],
+    // Cobalt green: the accent. green.4 is #94FF94; green.2 is near the turquoise green #B5FFC2.
+    green: [
+      "#effff1",
+      "#d9ffdf",
+      "#b5ffc2",
+      "#a6ffaf",
+      "#94ff94",
+      "#7af07a",
+      "#5fdb5f",
+      "#46c246",
+      "#33a633",
+      "#238a23",
+    ],
+    // Mantine's dark scheme (inputs, modals, borders) in slate.
+    dark: [
+      "#c1d2d9",
+      "#a6bdc7",
+      "#8aa4b0",
+      "#5e7b88",
+      "#3c5a68",
+      "#2a4553",
+      "#1f3946",
+      "#183039",
+      "#12262e",
+      "#0c1a21",
     ],
   },
   fontFamily: "Inter, system-ui, sans-serif",

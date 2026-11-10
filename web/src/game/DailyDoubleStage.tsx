@@ -51,7 +51,7 @@ export function DailyDoubleStage({ state, hostWager }: { state: RoomState; hostW
           {who} is wagering…
         </Text>
         {state.wagerMin !== undefined && state.wagerMax !== undefined && (
-          <Text ff={DISPLAY} fw={700} c="yellow.4" style={{ fontSize: "min(8cqh, 5cqw)" }}>
+          <Text ff={DISPLAY} fw={700} c="green.4" style={{ fontSize: "min(8cqh, 5cqw)" }}>
             {money(state.wagerMin)} – {money(state.wagerMax)}
           </Text>
         )}

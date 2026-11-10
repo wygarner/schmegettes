@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { money } from "../lib/money";
 import { inFinal, type Player, type RoomState } from "../lib/room";
-import { BEVEL, DISPLAY, GOLD, GREEN, INK, RED, SOFT, TILE_BG } from "../ui/tokens";
+import { ACCENT, BEVEL, DISPLAY, GREEN, INK, RED, SOFT, TILE_BG } from "../ui/tokens";
 import { REVEAL_LINE_MS, REVEAL_STEP_MS } from "./timing";
 import { useSince } from "./useSince";
 
@@ -115,7 +115,7 @@ function Tile({
         fontWeight: 600,
         fontSize: oneLine ? 17 : 21,
         lineHeight: 1,
-        color: score < 0 ? RED : GOLD,
+        color: score < 0 ? RED : ACCENT,
         fontVariantNumeric: "tabular-nums",
       }}
     >
@@ -132,9 +132,9 @@ function Tile({
         lineHeight: 1.2,
         padding: "2px 5px",
         borderRadius: 3,
-        background: strong ? GOLD : "transparent",
+        background: strong ? ACCENT : "transparent",
         color: strong ? INK : SOFT,
-        border: strong ? "none" : "1px solid rgba(201,205,247,.45)",
+        border: strong ? "none" : "1px solid rgba(181,255,194,.45)",
       }}
     >
       {text}
@@ -159,8 +159,8 @@ function Tile({
         maxHeight: oneLine ? 48 : 64,
         borderRadius: 8,
         background: TILE_BG,
-        border: `3px solid ${highlight ? GOLD : "transparent"}`,
-        boxShadow: highlight ? "0 0 16px rgba(255,212,59,.35)" : BEVEL,
+        border: `3px solid ${highlight ? ACCENT : "transparent"}`,
+        boxShadow: highlight ? "0 0 16px rgba(148,255,148,.35)" : BEVEL,
         opacity: player.connected && !dim ? 1 : 0.45,
         padding: "0 8px",
         display: "flex",

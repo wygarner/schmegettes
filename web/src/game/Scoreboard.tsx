@@ -5,7 +5,7 @@ import { ordinal, PLACE_COLOR } from "../lib/placement";
 import type { Result, RoomState } from "../lib/room";
 import { GoldButton } from "../ui/GoldButton";
 import { Stage } from "../ui/Stage";
-import { DISPLAY, GOLD, RED, SOFT } from "../ui/tokens";
+import { ACCENT, DISPLAY, RED, SOFT } from "../ui/tokens";
 
 /** "Nov 9 · 8:14 PM · 41 min", or less when the times aren't known. */
 export function gameWhen(startedAt?: number, finishedAt?: number): string {
@@ -32,10 +32,10 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
   return (
     <Stage>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-        <Text ff={DISPLAY} fw={700} c="yellow.4" tt="uppercase" style={{ fontSize: "8cqh", letterSpacing: ".06em" }}>
+        <Text ff={DISPLAY} fw={700} c="green.4" tt="uppercase" style={{ fontSize: "8cqh", letterSpacing: ".06em" }}>
           Final scores
         </Text>
-        <Text c="#a5abee" style={{ fontSize: "clamp(10px, 4cqh, 16px)" }}>
+        <Text c="#8fc7a0" style={{ fontSize: "clamp(10px, 4cqh, 16px)" }}>
           {gameWhen(state.startedAt, state.finishedAt)}
         </Text>
       </div>
@@ -54,9 +54,9 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
           className="sg-pop"
           style={{
             borderRadius: 14,
-            background: "rgba(255,212,59,.08)",
-            border: `2px solid ${GOLD}`,
-            boxShadow: "0 0 30px rgba(255,212,59,.25)",
+            background: "rgba(148,255,148,.08)",
+            border: `2px solid ${ACCENT}`,
+            boxShadow: "0 0 30px rgba(148,255,148,.25)",
             padding: "4cqh 3cqw",
             textAlign: "center",
             minWidth: 0,
@@ -84,7 +84,7 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
             style={{
               fontFamily: DISPLAY,
               fontWeight: 700,
-              color: top < 0 ? RED : GOLD,
+              color: top < 0 ? RED : ACCENT,
               fontSize: "11cqh",
               lineHeight: 1.1,
             }}
@@ -115,7 +115,7 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
                   width: "6cqw",
                   fontWeight: 800,
                   fontSize: "4.6cqh",
-                  color: PLACE_COLOR[r.placement] ?? "#a5abee",
+                  color: PLACE_COLOR[r.placement] ?? "#8fc7a0",
                 }}
               >
                 {ordinal(r.placement)}
@@ -134,7 +134,9 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
               >
                 {r.displayName}
               </span>
-              <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "6cqh", color: r.score < 0 ? RED : GOLD }}>
+              <span
+                style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "6cqh", color: r.score < 0 ? RED : ACCENT }}
+              >
                 {money(r.score)}
               </span>
             </li>
@@ -142,7 +144,7 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
         </ol>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 6 }}>
-        <Text c="#a5abee" style={{ fontSize: "clamp(10px, 4cqh, 16px)" }}>
+        <Text c="#8fc7a0" style={{ fontSize: "clamp(10px, 4cqh, 16px)" }}>
           Saved to everyone's game history
         </Text>
         <GoldButton

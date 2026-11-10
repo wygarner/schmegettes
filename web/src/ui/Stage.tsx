@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { GOLD, STAGE_BG } from "./tokens";
+import { ACCENT, STAGE_BG } from "./tokens";
 
 /**
  * The panel behind clues, the lobby, Daily Double and Final on the host screen. `lit` is the
@@ -16,7 +16,7 @@ export function Stage({ children, lit = false, pad = 14 }: { children: ReactNode
         borderRadius: 12,
         background: STAGE_BG,
         boxShadow: lit
-          ? `inset 0 0 0 3px ${GOLD}, 0 0 26px rgba(255,212,59,.45)`
+          ? `inset 0 0 0 3px ${ACCENT}, 0 0 26px rgba(148,255,148,.45)`
           : "inset 0 0 0 1px rgba(255,255,255,.08)",
         transition: "box-shadow 150ms",
         overflow: "hidden",
@@ -41,7 +41,7 @@ export function StageHeader({ children, right }: { children: ReactNode; right?: 
         justifyContent: "space-between",
         alignItems: "center",
         gap: 8,
-        color: "#c9cdf7",
+        color: "#b5ffc2",
         fontWeight: 700,
         letterSpacing: ".12em",
         fontSize: "clamp(10px, 4.4cqh, 18px)",
@@ -87,7 +87,7 @@ export function BigMoment({ children, size = "min(24cqh, 13cqw)" }: { children: 
         fontFamily: "Oswald, Impact, sans-serif",
         fontWeight: 700,
         textTransform: "uppercase",
-        color: "var(--mantine-color-yellow-4)",
+        color: "var(--mantine-color-green-4)",
         lineHeight: 1,
         fontSize: size,
         textShadow: "0 4px 0 rgba(0,0,0,.45)",

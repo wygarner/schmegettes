@@ -39,6 +39,10 @@ Hosting needs host access. Locally, enter **`DEVS-TEST`** when **Host a game** a
 
 Copy each `.env.example` next to it (`web/.env.local`, `api/.env`, `game/.env`, `worker/.env`) and fill in the anon key from `db:start`. Local env files point at local Supabase only. Staging and production credentials are never put in a local file.
 
+### Apple and Google sign-in (optional)
+
+Everything but signing in works without this. To sign in locally, create a development Apple Services ID and a Google OAuth client whose redirect URL is `http://127.0.0.1:54321/auth/v1/callback`, then export the four `SUPABASE_AUTH_EXTERNAL_{APPLE,GOOGLE}_{CLIENT_ID,SECRET}` variables in your shell (never in a committed file) and restart Supabase (`supabase stop && mise run db:start`).
+
 ### Real clues (optional)
 
 The seed has only "SAMPLE" categories. To play with real clues, load a few seasons into local Supabase (about 1 s per season; safe to run again):

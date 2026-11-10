@@ -12,12 +12,16 @@ Who can reach each part of Schmegettes, how each part checks its caller, what ea
 | `api` | Anyone on the internet | A Supabase JWT in `Authorization: Bearer` on every route except `/healthz` and `/version`, verified against the JWKS (`golib/auth`). CORS limited to `ALLOWED_ORIGINS` | Postgres as `app_service`, switching to `authenticated` per transaction |
 | `game` | Anyone on the internet (WebSocket) | The JWT arrives as the subprotocol `bearer.{jwt}` and is verified before the upgrade; the `Origin` header must be in `ALLOWED_ORIGINS`; the caller must be a member of the room | Postgres as `app_service`, switching to `authenticated` or `game_engine` per transaction |
 | `worker` | Nobody: no inbound traffic | — | Postgres as `app_service`; the owner role only for `import-clues`, run from `load-clues.yml` (staging, production) or a developer machine (local). The queue loop is **not yet implemented** |
-| Supabase Auth | Anyone, with the public anon key | Supabase; anonymous sign-in is enabled | Issues the JWTs every other component trusts |
+| Supabase Auth | Anyone, with the public anon key | Supabase; anonymous sign-in, Apple, and Google are enabled; manual linking is on (the Account page connects a second provider) | Issues the JWTs every other component trusts |
 | Supabase Data API (PostgREST) | **Any signed-in player**, with their own JWT | Supabase; the `public` schema is exposed (`supabase/config.toml`, `[api] schemas`) | Whatever the `authenticated` grants and RLS policies allow, including the `create_room` and `join_room` functions. See Known gaps |
 | Postgres | `api`, `game`, `worker` (as `app_service`); `deploy-prod.yml` and `load-clues.yml` (owner); the Data API | Role password; TLS | Everything, within each role's grants |
 | Redis | `game` only | Password in `REDIS_URL`, private network or TLS | Room fan-out. **Not yet implemented**: no service uses Redis |
 | CI (GitHub Actions) | Pushes and PRs to the repo | GitHub | Production credentials only inside the GitHub Environment `production` (`deploy-prod.yml`). Jira credentials as repo secrets |
 | Agents (Claude) | The developer, in their checkout | `.claude/settings.json` allow / ask / deny rules | The local checkout. Denied: force-push, pushing to `production` or `develop`, `supabase db push` and `supabase link`, Jira API calls, reading `.env` files and `supabase/signing_keys.json`. Agents never call the Jira API |
+
+**Merge tickets.** A guest moving into an account proves it owned the guest with a one-use merge ticket: 32 random bytes, stored only as a SHA-256 hash, valid 24 hours, spent in the same transaction as the move ([data-and-isolation.md](../architecture/data-and-isolation.md), "Account functions"). The client keeps it in `localStorage` until it's redeemed. Anyone holding it can only move that guest's history into their own account. Tickets are never logged.
+
+**Tokens outlive deleted users.** A merged-away guest's or a deleted account's access token stays valid until it expires (at most 1 h, `jwt_expiry`). Writes with it fail (no profile; foreign keys), and reads find nothing of theirs. The client drops the session at once.
 
 **Services do not call each other.** `api` returns the game socket URL to the client, and the client connects to `game` itself. Services share state only through Postgres, plus pgmq and Redis when those are built. Service-to-service tokens therefore don't apply. Revisit this if a direct call between services is ever added.
 
@@ -29,7 +33,7 @@ Who can reach each part of Schmegettes, how each part checks its caller, what ea
 |---|---|---|
 | Anonymous player | Play and join by code. History is kept while the session lasts | Supabase Auth issues a JWT; services treat it as any other user |
 | Host | An anonymous player whose device spent a one-use host code: also create rooms, Start, Rematch | `public.hosts`, checked in `create_room()` and `start_game()` (and before a Rematch). Removing the row removes access |
-| Linked player | Same as anonymous, plus history across devices. **Not yet implemented**; email sign-in is off (private access), so linking would use another provider | Supabase Auth |
+| Signed-in player | Same as anonymous, plus history, seen clues, and host access on every device they sign in on. Signs in with Apple or Google | Supabase Auth issues the JWT (`is_anonymous: false`); account-only actions are refused for guests by `private.*` functions, which check both the token and `auth.users.is_anonymous` |
 
 Supabase Auth's Email provider is off and anonymous sign-ups are limited per IP: nobody signs in with email, and Schmegettes sends no email ([private access](../../product-docs/features/private-access/feature-brief.md)).
 

@@ -22,6 +22,8 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `REDIS_URL` | game | **yes** | host secret store. Listed in `game/.env.example` but not read yet: no service uses Redis |
 | `CLUE_DATASET_BASE_URL` | worker | no | `worker/.env`; in `load-clues.yml`, the optional repo variable `CLUE_DATASET_BASE_URL` (defaults to the dataset URL) |
 | `ANTHROPIC_API_KEY` | worker | **yes** | host secret store. Not read yet: the LLM judge is not built |
+| `SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID`, `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` | supabase (local CLI) | no | Local only, read by `supabase/config.toml`; optional (developer-setup.md). Staging and production: each project's Auth settings |
+| `SUPABASE_AUTH_EXTERNAL_APPLE_SECRET`, `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET` | supabase (local CLI) | **yes** | Same. Never commit them; export them in your shell |
 | `VITE_SUPABASE_URL` | web | no | web host build config |
 | `VITE_SUPABASE_ANON_KEY` | web | no (public by design) | web host build config |
 | `VITE_API_URL` | web | no | web host build config |
@@ -50,6 +52,8 @@ Owner of every secret: **Wyatt Garner**.
 | `REDIS_URL` credentials | Rotate in the Redis provider, then update the game's secret and restart it. |
 | `ANTHROPIC_API_KEY` | Create a new key in the Anthropic console, update the worker's secret and the repo secret, then revoke the old key. |
 | `JIRA_API_TOKEN` | Create a new Atlassian API token, update the repo secret, then revoke the old token. |
+| Apple sign-in secret | **Expires after at most 6 months** (it is a JWT signed with the Apple key). Generate a new one from the Services ID's key before it expires and paste it into each Supabase project's Apple provider settings; sign-in with Apple fails once it lapses. Set a calendar reminder when you create one. |
+| Google OAuth client secret | Create a new secret on the OAuth client in Google Cloud, update each Supabase project's Google provider settings, then delete the old secret. |
 
 Rotate a secret:
 

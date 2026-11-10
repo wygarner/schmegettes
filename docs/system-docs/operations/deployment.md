@@ -62,6 +62,9 @@ Set once per Supabase project (Authentication settings), matching `supabase/conf
 
 - **Anonymous sign-ins**: on. Rate limit for anonymous users: 30 per hour per IP.
 - **Email provider**: off. Nobody signs in with email, and Schmegettes sends no email ([private access](../../product-docs/features/private-access/feature-brief.md)).
+- **Apple** and **Google** providers: on, with that environment's Services ID / OAuth client and secret ([accounts](../../product-docs/features/accounts/feature-brief.md); rotation in [configuration-and-secrets.md](../security/configuration-and-secrets.md)). Each provider's console must list the project's callback URL (`https://<project>.supabase.co/auth/v1/callback`).
+- **Manual linking**: on.
+- **Redirect URLs**: the web origin and `<origin>/**`, so sign-in returns to the page it started on.
 
 ## Host access after a release
 

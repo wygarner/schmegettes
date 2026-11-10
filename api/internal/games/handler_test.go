@@ -61,6 +61,9 @@ func (routes) GetV1HostAccess(http.ResponseWriter, *http.Request)               
 func (routes) PostV1HostAccessRedeem(http.ResponseWriter, *http.Request)                 {}
 func (routes) GetV1Me(http.ResponseWriter, *http.Request)                                {}
 func (routes) PatchV1Me(http.ResponseWriter, *http.Request)                              {}
+func (routes) DeleteV1Me(http.ResponseWriter, *http.Request)                             {}
+func (routes) PostV1MeMerge(http.ResponseWriter, *http.Request)                          {}
+func (routes) PostV1MeMergeTickets(http.ResponseWriter, *http.Request)                   {}
 func (routes) GetV1RoomsRoomId(http.ResponseWriter, *http.Request, openapi_types.UUID)   {}
 func (routes) PatchV1RoomsRoomId(http.ResponseWriter, *http.Request, openapi_types.UUID) {}
 func (routes) PostV1Rooms(http.ResponseWriter, *http.Request)                            {}

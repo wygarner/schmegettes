@@ -20,6 +20,9 @@ var ErrInvalidToken = errors.New("invalid token")
 type Claims struct {
 	// UserID is the token's subject (auth.uid() in Postgres).
 	UserID string
+	// IsAnonymous is true for a guest (Supabase anonymous sign-in); false when the claim is
+	// missing.
+	IsAnonymous bool
 	// Raw is the full claim set as JSON, for request.jwt.claims.
 	Raw json.RawMessage
 }
@@ -61,5 +64,6 @@ func (v *Verifier) Verify(token string) (Claims, error) {
 	if err != nil {
 		return Claims{}, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}
-	return Claims{UserID: sub, Raw: raw}, nil
+	anon, _ := claims["is_anonymous"].(bool)
+	return Claims{UserID: sub, IsAnonymous: anon, Raw: raw}, nil
 }

@@ -57,6 +57,9 @@ func (routes) GetV1Games(http.ResponseWriter, *http.Request, contracts.GetV1Game
 func (routes) GetV1GamesGameId(http.ResponseWriter, *http.Request, openapi_types.UUID)   {}
 func (routes) GetV1Me(http.ResponseWriter, *http.Request)                                {}
 func (routes) PatchV1Me(http.ResponseWriter, *http.Request)                              {}
+func (routes) DeleteV1Me(http.ResponseWriter, *http.Request)                             {}
+func (routes) PostV1MeMerge(http.ResponseWriter, *http.Request)                          {}
+func (routes) PostV1MeMergeTickets(http.ResponseWriter, *http.Request)                   {}
 func (routes) PostV1Rooms(http.ResponseWriter, *http.Request)                            {}
 func (routes) PostV1RoomsJoin(http.ResponseWriter, *http.Request)                        {}
 func (routes) GetV1RoomsByCodeCode(http.ResponseWriter, *http.Request, string)           {}

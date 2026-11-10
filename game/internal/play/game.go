@@ -18,8 +18,8 @@ import (
 // Timings from the gameplay interaction design.
 const (
 	Lockout      = 250 * time.Millisecond
-	BuzzWindow   = 5 * time.Second
-	AnswerWindow = 14 * time.Second
+	BuzzWindow   = 9 * time.Second
+	AnswerWindow = 9 * time.Second
 	// AnswerGrace lets the final transcript arrive after the phone stops listening.
 	AnswerGrace   = 1500 * time.Millisecond
 	ClueEndPause  = 6 * time.Second

@@ -180,8 +180,8 @@ func TestReadingTime(t *testing.T) {
 }
 
 func TestTimings(t *testing.T) {
-	if AnswerWindow != 14*time.Second || ClueEndPause != 6*time.Second || ControlGrace != 10*time.Second {
-		t.Errorf("answer %v, clue end %v, grace %v", AnswerWindow, ClueEndPause, ControlGrace)
+	if BuzzWindow != 9*time.Second || AnswerWindow != 9*time.Second || ClueEndPause != 6*time.Second || ControlGrace != 10*time.Second {
+		t.Errorf("buzz %v, answer %v, clue end %v, grace %v", BuzzWindow, AnswerWindow, ClueEndPause, ControlGrace)
 	}
 }
 

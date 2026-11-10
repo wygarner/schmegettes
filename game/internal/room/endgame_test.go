@@ -29,7 +29,7 @@ func wrongAnswer(t *testing.T, f *fixture, host, a, b *conn) (answerer *conn, an
 	if judged.Verdict != "incorrect" {
 		t.Fatalf("verdict %q", judged.Verdict)
 	}
-	f.timers.fireAfter(host) // the reopened 5 s run out
+	f.timers.fireAfter(host) // the reopened 9 s run out
 	host.raw("clue_ended")
 	return answerer, judged.AnswerID
 }

@@ -117,7 +117,7 @@ ROOM K7RXM                         $800
 |---|---|
 | Host taps Override on a clue where nobody buzzed | Not possible: there's no verdict line, so no Override |
 | A buzz that disconnected before answering | Never judged, so not listed and not overridable |
-| "No answer heard" (silence for 14 s) | Overridable, like any judged answer. The sheet says "No answer heard" |
+| "No answer heard" (silence for 9 s) | Overridable, like any judged answer. The sheet says "No answer heard" |
 | Host overrides their own answer | Allowed; labeled HOST OVERRIDE like any other |
 | Override to correct on a clue someone else then answered correctly | Both are correct and both score; control goes to the later correct answer |
 | Override a correct answer to incorrect | −value in place of +value; control goes to the latest remaining correct answer on the clue, or back to who had it when the clue was picked |

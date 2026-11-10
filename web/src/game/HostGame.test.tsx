@@ -6,6 +6,7 @@ import { type Recognizer, setRecognizerFactory } from "../lib/speech";
 import { HostGame } from "./HostGame";
 
 class FakeUtterance {
+  onstart?: () => void;
   onend?: () => void;
   onerror?: () => void;
   constructor(public text: string) {}
@@ -17,7 +18,14 @@ beforeEach(() => {
   vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
   Object.defineProperty(window, "speechSynthesis", {
     configurable: true,
-    value: { cancel: vi.fn(), speak: (u: FakeUtterance) => spoken.push(u) },
+    // A browser that starts speaking at once. The silent unlock utterance isn't narration.
+    value: {
+      cancel: vi.fn(),
+      speak: (u: FakeUtterance) => {
+        u.onstart?.();
+        if (u.text.trim()) spoken.push(u);
+      },
+    },
   });
 });
 afterEach(() => vi.unstubAllGlobals());

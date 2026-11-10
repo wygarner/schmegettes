@@ -4,8 +4,17 @@
 /** How a reading went. Only "ended" means the room heard the clue. */
 export type SpeakResult = "ended" | "failed" | "unavailable";
 
-/** Reads text aloud. "failed" usually means the browser blocked sound because the page
- * hasn't been tapped since it loaded; a tap (speak again from the click) fixes it. */
+/** How long speech may take to start before it counts as blocked. */
+export const SPEECH_START_TIMEOUT_MS = 2500;
+
+/**
+ * Reads text aloud. "failed" usually means the browser blocked sound because the page
+ * hasn't been tapped since it loaded; a tap (speak again from the click) fixes it. iOS
+ * Safari blocks it silently (no error, no end), so speech that still hasn't started after
+ * SPEECH_START_TIMEOUT_MS counts as "failed" too. Safari doesn't always fire `start`, so
+ * speech also counts as started once a word boundary fires or the browser says it's
+ * speaking; speech that is playing is never cut off.
+ */
 export function speak(text: string): Promise<SpeakResult> {
   return new Promise((resolve) => {
     const synth = typeof window !== "undefined" ? window.speechSynthesis : undefined;
@@ -13,13 +22,54 @@ export function speak(text: string): Promise<SpeakResult> {
       resolve("unavailable");
       return;
     }
-    synth.cancel();
+    // Cancelling right before speaking makes Safari drop the new utterance's events, so only
+    // cancel when something is actually playing or queued.
+    if (synth.speaking || synth.pending) synth.cancel();
+    let started = false;
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const done = (result: SpeakResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1;
-    utterance.onend = () => resolve("ended");
-    utterance.onerror = () => resolve("failed");
+    utterance.onstart = () => {
+      started = true;
+    };
+    utterance.onboundary = () => {
+      started = true;
+    };
+    utterance.onend = () => done("ended");
+    utterance.onerror = () => done("failed");
     synth.speak(utterance);
+    timer = setTimeout(() => {
+      if (started || synth.speaking) return;
+      synth.cancel();
+      done("failed");
+    }, SPEECH_START_TIMEOUT_MS);
   });
+}
+
+let unlocked = false;
+
+/**
+ * Call from a tap. iOS only lets a page speak once speech has been started inside a user
+ * gesture; a silent utterance from the first tap unlocks narration for the rest of the visit.
+ */
+export function unlockSpeech() {
+  if (unlocked || typeof window === "undefined" || !window.speechSynthesis) return;
+  if (typeof SpeechSynthesisUtterance === "undefined") return;
+  try {
+    const silent = new SpeechSynthesisUtterance(" ");
+    silent.volume = 0;
+    window.speechSynthesis.speak(silent);
+    unlocked = true;
+  } catch {
+    // try again on the next tap
+  }
 }
 
 /** What the host device says before a clue: "Here's VOLCANOES for 400." The value is a

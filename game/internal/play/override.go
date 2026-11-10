@@ -18,6 +18,9 @@ type judged struct {
 	delta   int
 	// amount is what the answer is worth: the clue's value, or the wager.
 	amount int
+	// judgeVerdict and rule are the judge's verdict and why; an override never changes them.
+	judgeVerdict contracts.Verdict
+	rule         contracts.MatchRule
 }
 
 func (a *judged) correct() bool {
@@ -127,7 +130,8 @@ func (g *Game) Override(now time.Time, user, answerID string, correct bool) (Eff
 		}
 	}
 
-	e.record(Record{Kind: UpdateVerdict, AnswerID: a.id, UserID: a.user, Verdict: verdict, Delta: delta})
+	e.record(Record{Kind: UpdateVerdict, AnswerID: a.id, UserID: a.user, Verdict: verdict, Delta: delta,
+		JudgeVerdict: a.judgeVerdict, Rule: a.rule})
 	e.send(contracts.VerdictOverridden{
 		Type: "verdict_overridden", RoomId: contracts.Uuid(g.s.RoomID), Seq: g.s.NextSeq(),
 		AnswerId: contracts.Uuid(a.id), UserId: contracts.Uuid(a.user), Verdict: verdict, ScoreDelta: delta,

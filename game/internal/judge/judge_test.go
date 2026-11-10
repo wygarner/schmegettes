@@ -90,6 +90,7 @@ func TestJudgeRules(t *testing.T) {
 		{"chi kof ski", "Tchaikovsky", true, sounds},
 		{"yo semitee", "Yosemite", true, sounds},
 		{"grenich", "Greenwich", true, sounds},
+		{"what is crack a toe a", "Krakatoa", true, sounds},
 		{"sane river", "Seine River", true, slip},
 		{"candinsky", "Kandinsky", true, sounds}, // same first sound, different letter
 		{"what is the war of eighteen twelve", "War of 1812", true, exact},

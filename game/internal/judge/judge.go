@@ -30,7 +30,13 @@ var foldLetters = map[rune]string{'ø': "o", 'æ': "ae", 'œ': "oe", 'ß': "ss",
 // Normalize lowercases, folds accents, strips punctuation and parenthetical hints, removes
 // question phrasing ("What is ...") and articles, expands St/Mt/Dr, and writes spoken numbers
 // as digits.
-func Normalize(s string) string {
+func Normalize(s string) string { return normalize(s, false) }
+
+// spoken is Normalize, but filler words are dropped only at the start ("what is the ..."). An
+// "a" in the middle may be a syllable of a word heard in pieces: "crack a toe a" (Krakatoa).
+func spoken(s string) string { return normalize(s, true) }
+
+func normalize(s string, leadingFillersOnly bool) string {
 	s = strings.ToLower(stripParens(s))
 	var b strings.Builder
 	rs := []rune(norm.NFD.String(s))
@@ -53,7 +59,7 @@ func Normalize(s string) string {
 	words := strings.Fields(b.String())
 	kept := words[:0]
 	for _, w := range words {
-		if fillers[w] {
+		if fillers[w] && (!leadingFillersOnly || len(kept) == 0) {
 			continue
 		}
 		if full, ok := abbreviations[w]; ok {
@@ -82,8 +88,9 @@ func Judge(heard []string, response string) Result {
 	if r == "" {
 		return Result{Rule: contracts.MatchRuleNoMatch}
 	}
+	rs := spoken(response)
 	for i, h := range heard {
-		if rule, ok := match(Normalize(h), r); ok {
+		if rule, ok := match(Normalize(h), r, spoken(h), rs); ok {
 			return Result{Correct: true, Rule: rule, Index: i}
 		}
 	}
@@ -104,7 +111,9 @@ func allEmpty(heard []string) bool {
 	return true
 }
 
-func match(a, r string) (contracts.MatchRule, bool) {
+// match compares the normalized answer and response; as and rs are the same with articles
+// kept in the middle, for the sound-alike check.
+func match(a, r, as, rs string) (contracts.MatchRule, bool) {
 	if a == "" {
 		return "", false
 	}
@@ -120,7 +129,7 @@ func match(a, r string) (contracts.MatchRule, bool) {
 	if sameFirst(a, r) && levenshtein(a, r) <= len([]rune(r))/5 {
 		return contracts.MatchRuleSpellingSlip, true
 	}
-	if soundsAlike(a, r) {
+	if soundsAlike(a, r) || soundsAlike(as, rs) {
 		return contracts.MatchRuleSoundsAlike, true
 	}
 	return "", false

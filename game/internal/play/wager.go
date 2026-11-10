@@ -374,7 +374,8 @@ func (g *Game) revealNext(now time.Time, e *Effects) {
 	user := g.revealOrder[g.revealIdx]
 	g.revealIdx++
 	text, wager := g.finalAnswers[user], g.finalWagers[user]
-	correct := text != "" && judge.IsCorrect(text, g.final.Response)
+	res := judge.Judge([]string{text}, g.final.Response)
+	correct := res.Correct
 	verdict, delta := contracts.VerdictIncorrect, -wager
 	if correct {
 		verdict, delta = contracts.VerdictCorrect, wager
@@ -383,9 +384,10 @@ func (g *Game) revealNext(now time.Time, e *Effects) {
 	g.finalRevealed[user] = true
 	id := g.s.NewID()
 	e.record(Record{Kind: RecordAnswer, AnswerID: id, ClueID: g.final.ID, UserID: user, Answer: text,
-		Verdict: verdict, Delta: delta, Source: contracts.AnswerSourceTyped})
+		Verdict: verdict, Delta: delta, Source: contracts.AnswerSourceTyped, Rule: res.Rule, Heard: []string{text}})
 	// Only the finalist on the stage may be overridden (override.go).
-	g.clueAnswers = []*judged{{id: id, user: user, text: text, verdict: verdict, delta: delta, amount: wager}}
+	g.clueAnswers = []*judged{{id: id, user: user, text: text, verdict: verdict, delta: delta, amount: wager,
+		judgeVerdict: verdict, rule: res.Rule}}
 	e.send(contracts.AnswerJudged{
 		Type: "answer_judged", RoomId: contracts.Uuid(g.s.RoomID), Seq: g.s.NextSeq(), AnswerId: contracts.Uuid(id),
 		UserId: contracts.Uuid(user), Answer: text, Verdict: verdict, ScoreDelta: delta, Wager: &wager,

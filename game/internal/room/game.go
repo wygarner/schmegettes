@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/rand/v2"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -165,12 +166,30 @@ func clip(s string) string {
 	return string([]rune(s)[:limit])
 }
 
+// maxAlternatives is how many of the recognizer's other guesses are judged (SubmitAnswer.alternatives).
+const maxAlternatives = 4
+
+// alternatives clips each guess, drops empty ones and keeps at most maxAlternatives.
+func alternatives(in []string) []string {
+	var out []string
+	for _, s := range in {
+		if len(out) == maxAlternatives {
+			break
+		}
+		if s = clip(s); strings.TrimSpace(s) != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 func (r *Room) write(ctx context.Context, rec play.Record) error {
 	switch rec.Kind {
 	case play.RevealClue:
 		return r.store.RevealClue(ctx, rec.ClueID)
 	case play.RecordAnswer:
-		r.log.Debug("answer judged", "game_id", r.gameID, "user_id", rec.UserID, "verdict", rec.Verdict, "answer", rec.Answer)
+		r.log.Debug("answer judged", "game_id", r.gameID, "user_id", rec.UserID, "answer_id", rec.AnswerID,
+			"verdict", rec.Verdict, "match_rule", rec.Rule, "heard_count", len(rec.Heard), "matched_index", rec.MatchedIndex)
 		rec.Answer = clip(rec.Answer)
 		return r.store.RecordAnswer(ctx, rec)
 	case play.RecordWager:
@@ -182,7 +201,7 @@ func (r *Room) write(ctx context.Context, rec play.Record) error {
 		return r.store.SubmitFinalAnswer(ctx, rec)
 	case play.UpdateVerdict:
 		r.log.Info("verdict overridden", "game_id", r.gameID, "answer_id", rec.AnswerID, "user_id", rec.UserID,
-			"to_verdict", rec.Verdict, "score_delta", rec.Delta)
+			"to_verdict", rec.Verdict, "score_delta", rec.Delta, "judge_verdict", rec.JudgeVerdict, "match_rule", rec.Rule)
 		return r.store.UpdateVerdict(ctx, rec)
 	case play.FinishClue:
 		return r.store.FinishClue(ctx, rec.ClueID, rec.State)
@@ -308,7 +327,7 @@ func (r *Room) handleGame(ctx context.Context, c *Client, kind string, data []by
 		if m.Source == contracts.SubmitAnswerSourceTyped {
 			e, err = r.game.TypedAnswer(now, c.UserID, string(m.ClueId), clip(m.Answer))
 		} else {
-			e, err = r.game.Answer(now, c.UserID, string(m.ClueId), clip(m.Answer))
+			e, err = r.game.Answer(now, c.UserID, string(m.ClueId), clip(m.Answer), alternatives(m.Alternatives)...)
 		}
 	case "submit_wager":
 		var m contracts.SubmitWager

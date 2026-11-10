@@ -6,6 +6,17 @@ import { ANSWER_MS } from "./timing";
 
 const PROGRESS_MS = 250;
 
+type Alternatives = NonNullable<Extract<ClientMessage, { type: "submit_answer" }>["alternatives"]>;
+
+/** The first four guesses, as the contract's 0–4 item tuple. */
+function upToFour([a, b, c, d]: string[]): Alternatives {
+  if (a === undefined) return [];
+  if (b === undefined) return [a];
+  if (c === undefined) return [a, b];
+  if (d === undefined) return [a, b, c];
+  return [a, b, c, d];
+}
+
 /**
  * Listens for this player's spoken answer. iOS only starts the microphone from a tap, so
  * listening starts inside the buzz tap (begin), before the server says who won. If this
@@ -16,17 +27,24 @@ export function useAnswerCapture(state: RoomState, userId: string, send: (m: Cli
   const recRef = useRef<Recognizer | null>(null);
   const clueRef = useRef<string>("");
   const confirmedRef = useRef(false);
-  const finalRef = useRef<string | null>(null);
+  const finalRef = useRef<{ text: string; alternatives: string[] } | null>(null);
   const lastSentRef = useRef(0);
   const capRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [listening, setListening] = useState(false);
   const [heard, setHeard] = useState("");
 
   const submit = useCallback(
-    (text: string) => {
+    (text: string, alternatives: string[] = []) => {
       confirmedRef.current = false;
       clearTimeout(capRef.current);
-      send({ type: "submit_answer", clueId: clueRef.current, answer: text.slice(0, 200), source: "voice" });
+      send({
+        type: "submit_answer",
+        clueId: clueRef.current,
+        answer: text.slice(0, 200),
+        source: "voice",
+        // Other guesses only when the recognizer gave some, so the message stays as before.
+        ...(alternatives.length > 0 && { alternatives: upToFour(alternatives.map((a) => a.slice(0, 200))) }),
+      });
     },
     [send],
   );
@@ -57,11 +75,11 @@ export function useAnswerCapture(state: RoomState, userId: string, send: (m: Cli
           send({ type: "answer_progress", clueId: clueRef.current, text: text.slice(0, 200) });
         }
       };
-      rec.onFinal = (text) => {
+      rec.onFinal = (text, alternatives = []) => {
         recRef.current = null;
         setListening(false);
-        if (confirmedRef.current) submit(text);
-        else finalRef.current = text;
+        if (confirmedRef.current) submit(text, alternatives);
+        else finalRef.current = { text, alternatives };
       };
       try {
         rec.start();
@@ -89,7 +107,7 @@ export function useAnswerCapture(state: RoomState, userId: string, send: (m: Cli
       confirmedRef.current = true;
       clueRef.current = clueId;
       if (finalRef.current !== null) {
-        submit(finalRef.current);
+        submit(finalRef.current.text, finalRef.current.alternatives);
         return;
       }
       if (!recRef.current) start(clueId);

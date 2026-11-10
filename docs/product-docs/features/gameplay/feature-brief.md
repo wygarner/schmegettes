@@ -49,6 +49,33 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 - A clue ends when someone answers correctly, everyone has tried, or a buzz window closes with no buzz. Then the TV shows the correct response for **6 s** and returns to the board. The correct-response screen does not show the clue text.
 - **Daily Doubles:** the player who picks one wagers and answers alone, with no buzzing ([wagers](../wagers/feature-brief.md)).
 
+### How an answer is matched
+
+Built today: both sides are lowercased, and punctuation, parenthetical hints ("(Abraham) Lincoln"), question phrasing ("what is", "who are") and articles are dropped. Then the answer may be off by one letter per five letters of the response ("Parris" for Paris). Words that sound right but are spelled differently are marked wrong.
+
+**Sound-alike matching. Not yet implemented.** Speech-to-text often writes a right answer the way it sounds, so an answer that **sounds like** the whole correct response is correct, however it's spelled or split into words.
+
+| Heard as | Correct response | Verdict |
+|---|---|---|
+| "mona lowa" | Mauna Loa | ✓ sounds the same |
+| "linkin" | Lincoln | ✓ sounds the same |
+| "sane" | Seine | ✓ sounds the same |
+| "neechee" | Nietzsche | ✓ sounds the same |
+| "war of eighteen twelve" | War of 1812 | ✓ numbers said as words |
+| "dvorak" | Dvořák | ✓ accents don't matter |
+| "st louis" | Saint Louis | ✓ St/Saint, Mt/Mount, Dr/Doctor |
+| "austria" | Australia | ✗ a different word |
+| "russia" | Prussia | ✗ a different word |
+| "kilauea" | Mauna Loa | ✗ a different answer |
+| "eighteen twenty one" | 1812 | ✗ numbers must be the same number |
+| "soos" | Zeus | ✗ short responses keep the spelling rule |
+
+- **The whole response, in order.** Sounding like part of it, or like a different word that shares some sounds, is wrong.
+- **Short one-word responses** (4 letters or fewer: Zeus, Oslo, Ra) keep the spelling rule above, because short words sound like too many others.
+- **Several hearings.** When the phone's speech recognition offers more than one possible transcript, the answer is correct if any of them matches. The TV shows the one that matched, or the most likely one when none did.
+- **Final Schmegettes** uses the same rules for typed answers, so a phonetic spelling of the right answer counts.
+- Judging stays instant and on the server. The host can still override any verdict ([overrides](../scoreboard-and-overrides/feature-brief.md)).
+
 ### Rounds and the end
 
 - When every clue on the Single board is done, the TV shows "Double Schmegettes!" for 3 s, then the Double board.

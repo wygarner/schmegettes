@@ -167,3 +167,6 @@ No service log changes. Workflow logs never contain the owner URL, Fly or Vercel
 3. Run prerequisite 3 (`app_service` password) and set the Fly secrets (prerequisite 5) with that password in `DATABASE_URL`. Re-run the staging deploy.
 4. Run `load-clues.yml` on staging. Create a host code (deployment.md, "Host access after a release"). Check success criteria 3 to 8.
 5. Production: the same prerequisites, then release 0.1.0 through the normal release process.
+
+## Branch
+`technical-improvement/hosting-and-deploys-impl`, from and into `daily/YYYY-MM-DD` (no Jira key: Jira is not connected)

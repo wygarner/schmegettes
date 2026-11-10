@@ -1,6 +1,8 @@
 // Browser speech: the TV reads clues aloud (speechSynthesis) and players answer out loud
 // (SpeechRecognition). Recognition runs on the device; only text is sent to the server.
 
+import { chooseVoice, currentVoices, getSavedVoice } from "./narratorVoice";
+
 /** How a reading went. Only "ended" means the room heard the clue. */
 export type SpeakResult = "ended" | "failed" | "unavailable";
 
@@ -14,8 +16,12 @@ export const SPEECH_START_TIMEOUT_MS = 2500;
  * SPEECH_START_TIMEOUT_MS counts as "failed" too. Safari doesn't always fire `start`, so
  * speech also counts as started once a word boundary fires or the browser says it's
  * speaking; speech that is playing is never cut off.
+ *
+ * The narrator's voice is `voice` (the lobby's sample) or the one chosen for this device,
+ * looked up on every call so a late voice list or a reload picks it up. With no voices yet,
+ * it speaks at once with the browser default; it never waits for the list.
  */
-export function speak(text: string): Promise<SpeakResult> {
+export function speak(text: string, voice?: SpeechSynthesisVoice): Promise<SpeakResult> {
   return new Promise((resolve) => {
     const synth = typeof window !== "undefined" ? window.speechSynthesis : undefined;
     if (!synth || typeof SpeechSynthesisUtterance === "undefined") {
@@ -35,7 +41,12 @@ export function speak(text: string): Promise<SpeakResult> {
       resolve(result);
     };
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1;
+    utterance.rate = 1; // every voice at its normal pace: the server's reading estimate assumes it
+    const narrator = voice ?? chooseVoice(currentVoices(), getSavedVoice());
+    if (narrator) {
+      utterance.voice = narrator;
+      utterance.lang = narrator.lang;
+    }
     utterance.onstart = () => {
       started = true;
     };

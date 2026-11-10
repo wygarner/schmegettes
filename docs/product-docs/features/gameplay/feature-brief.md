@@ -37,8 +37,6 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
 ### The narrator's voice
 
-**Not yet implemented.** Today the narrator uses the browser's default voice.
-
 - The narrator uses the **best English voice installed on the host device**, not the browser's default. Best means, in order: a **Premium** voice, then an **Enhanced** one, then any other US English voice, then any other English voice. Within a group, the device's default voice comes first. Phones never speak.
 - **Novelty voices are never used**: voices that sing, whisper, or add robot effects (on Apple devices, for example, Bells, Whisper, and Zarvox). They can't read a clue in the time the server allows, and they're hard to follow.
 - The host can **change the voice in the lobby** and hear a sample first ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). Once the game starts the voice stays fixed. The same voice speaks every line: announcements, clues, Daily Double and Final lines, and the correct response.

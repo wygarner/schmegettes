@@ -18,10 +18,12 @@ import { Link, useParams } from "react-router";
 import { HostGame } from "../game/HostGame";
 import { HostLayout } from "../game/HostLayout";
 import { MicPrompt } from "../game/MicPrompt";
+import { NarratorVoicePicker } from "../game/NarratorVoicePicker";
 import { PlayerControls } from "../game/PlayerControls";
 import { isValidName, MAX_NAME, setLastName } from "../lib/displayName";
 import { contestantCount, type RoomState, useRoom } from "../lib/room";
 import { type RoomJoin, roomByCode } from "../lib/rooms";
+import { stopSpeaking } from "../lib/speech";
 import { getUserId } from "../lib/supabase";
 import { GoldButton } from "../ui/GoldButton";
 import { Stage, StageBody } from "../ui/Stage";
@@ -245,6 +247,7 @@ export function HostLobbyView({
           )}
           {state.hostPlays && <MicPrompt compact />}
         </Stack>
+        <NarratorVoicePicker />
         <Group gap="xs" wrap="nowrap" align="center">
           {!canStart && (
             <Text size="sm" c={SOFT}>
@@ -255,6 +258,7 @@ export function HostLobbyView({
             disabled={!canStart}
             loading={starting}
             onClick={() => {
+              stopSpeaking(); // a voice sample still playing
               setStarting(true);
               send({ type: "start_game" });
             }}

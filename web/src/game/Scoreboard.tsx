@@ -151,15 +151,9 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
         </ol>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 6 }}>
-        {refusal ? (
-          <Text role="alert" c={RED} style={{ fontSize: "clamp(10px, 4cqh, 16px)" }}>
-            {refusal}
-          </Text>
-        ) : (
-          <Text c="#a5abee" style={{ fontSize: "clamp(10px, 4cqh, 16px)" }}>
-            Saved to everyone's game history
-          </Text>
-        )}
+        <Text c="#a5abee" style={{ fontSize: "clamp(10px, 4cqh, 16px)" }}>
+          Saved to everyone's game history
+        </Text>
         <GoldButton
           loading={asked}
           disabled={asked}
@@ -173,6 +167,11 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
           Rematch
         </GoldButton>
       </div>
+      {refusal && (
+        <Text role="alert" c={RED} ta="right" style={{ fontSize: "clamp(10px, 4cqh, 16px)" }}>
+          {refusal}
+        </Text>
+      )}
     </Stage>
   );
 }

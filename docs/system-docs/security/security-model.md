@@ -12,7 +12,7 @@ Who can reach each part of Schmegettes, how each part checks its caller, what ea
 | `api` | Anyone on the internet | A Supabase JWT in `Authorization: Bearer` on every route except `/healthz` and `/version`, verified against the JWKS (`golib/auth`). CORS limited to `ALLOWED_ORIGINS` | Postgres as `app_service`, switching to `authenticated` per transaction |
 | `game` | Anyone on the internet (WebSocket) | The JWT arrives as the subprotocol `bearer.{jwt}` and is verified before the upgrade; the `Origin` header must be in `ALLOWED_ORIGINS`; the caller must be a member of the room | Postgres as `app_service`, switching to `authenticated` or `game_engine` per transaction |
 | `worker` | Nobody: no inbound traffic | — | Postgres as `app_service`; the owner role for import jobs only. The queue loop and import jobs are **not yet implemented** |
-| Supabase Auth | Anyone, with the public anon key | Supabase; anonymous sign-in is enabled and limited per IP; the Email provider is off, so nothing signs in or sends mail by email | Issues the JWTs every other component trusts |
+| Supabase Auth | Anyone, with the public anon key | Supabase; anonymous sign-in is enabled | Issues the JWTs every other component trusts |
 | Supabase Data API (PostgREST) | **Any signed-in player**, with their own JWT | Supabase; the `public` schema is exposed (`supabase/config.toml`, `[api] schemas`) | Whatever the `authenticated` grants and RLS policies allow, including the `create_room` and `join_room` functions. See Known gaps |
 | Postgres | `api`, `game`, `worker` (as `app_service`); `deploy-prod.yml` and the worker's import jobs (owner); the Data API | Role password; TLS | Everything, within each role's grants |
 | Redis | `game` only | Password in `REDIS_URL`, private network or TLS | Room fan-out. **Not yet implemented**: no service uses Redis |
@@ -30,6 +30,8 @@ Who can reach each part of Schmegettes, how each part checks its caller, what ea
 | Anonymous player | Play and join by code. History is kept while the session lasts | Supabase Auth issues a JWT; services treat it as any other user |
 | Host | An anonymous player whose device spent a one-use host code: also create rooms, Start, Rematch | `public.hosts`, checked in `create_room()` and `start_game()` (and before a Rematch). Removing the row removes access |
 | Linked player | Same as anonymous, plus history across devices. **Not yet implemented**; email sign-in is off (private access), so linking would use another provider | Supabase Auth |
+
+Supabase Auth's Email provider is off and anonymous sign-ups are limited per IP: nobody signs in with email, and Schmegettes sends no email ([private access](../../product-docs/features/private-access/feature-brief.md)).
 
 **In a room** (`public.player_role`)
 

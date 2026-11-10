@@ -61,7 +61,7 @@ The rules are applied **at load time**: only categories that can reach a board a
 
 - Use `argparse` subcommands. With no subcommand, the current idle loop runs (deploys are unchanged).
 - `import-clues [--seasons 1-40]`: accepts ranges and lists ("1-5,12"); the default is 1–40. It prints the summary table from the interaction design to stdout (the CLI's deliverable, so `print` is allowed) and exits non-zero if any season failed.
-- **Production guard**: when `APP_ENV=production`, it refuses to run (exit 2, "private access is not live") unless `to_regclass('public.host_invites')` is not null (the private-access migration). Local and staging are not guarded.
+- **Production guard**: when `APP_ENV=production`, it refuses to run (exit 2, "private access is not live") unless `to_regclass('public.hosts')` is not null (the private-access migration). Local and staging are not guarded.
 - `mise.toml`: add `[tasks."clues:import"]`, which loads `worker/.env` like `dev:*` and runs `uv run python -m schmegettes_worker import-clues`. Usage: `mise run clues:import -- --seasons 1-5`.
 
 ### 4. Remote load (`.github/workflows/load-clues.yml`, new)
@@ -90,7 +90,7 @@ No contract change. `shared/` is untouched. `ImportClueSeason` stays unused, and
 - No row in `public.clues` with `source_key not like 'seed-%'` matches the show-name or sound/picture patterns, and none comes from a category with a note. Check with SQL in the PR description.
 - With the full catalog loaded locally, `select public.start_game(…)` on a 6-contestant room takes **under 1 s**. Post the `explain analyze` timings of `build_board_round` in the PR. Over 1 s: stop and report. The fix (a per-category summary table) is a separate task.
 - Database size after a full local load is reported in the PR (`select pg_size_pretty(pg_total_relation_size('public.clues'))`). The estimate is about 160 MB.
-- `load-clues.yml` with `environment=production` exits 2 against a database without `public.host_invites`.
+- `load-clues.yml` with `environment=production` exits 2 against a database without `public.hosts`.
 - A spoken clue containing "&" says "and".
 
 ## Test plan
@@ -98,7 +98,7 @@ No contract change. `shared/` is untouched. `ImportClueSeason` stays unused, and
 | Package | Tests | Command |
 |---|---|---|
 | worker | `tests/test_clue_import.py`: one fixture TSV per rule (incomplete, host note, show name, sound/picture), a passing category, a Final with a note (dropped), rule precedence, and the report counts | `mise run test:worker -- tests/test_clue_import.py` |
-| worker | `tests/test_clue_load.py` with a fake `fetch` and fake `store`: a failing season among good ones (others still load, exit non-zero), season-list parsing (`1-5,12`), the production guard (fake store reports no `host_invites`) | `mise run test:worker -- tests/test_clue_load.py` |
+| worker | `tests/test_clue_load.py` with a fake `fetch` and fake `store`: a failing season among good ones (others still load, exit non-zero), season-list parsing (`1-5,12`), the production guard (fake store reports no `hosts`) | `mise run test:worker -- tests/test_clue_load.py` |
 | worker | `tests/test_clue_load_db.py`: loads a fixture season twice into local Supabase. The second run inserts 0, and the `id`s are unchanged. Skipped when `DATABASE_OWNER_URL` is unset (CI's worker job has no database) | `mise run test:worker -- tests/test_clue_load_db.py` (with `mise run db:start`) |
 | web | `src/lib/speech.test.ts`: the "&" replacement | `mise run test:web -- src/lib/speech.test.ts` |
 

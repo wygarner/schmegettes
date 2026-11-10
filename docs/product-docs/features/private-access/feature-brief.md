@@ -41,10 +41,12 @@ select private.new_host_code('for Sam');                              -- an extr
 delete from public.hosts where code = 'K7RXM2PQ';                     -- remove that person's host access
 ```
 
-### Host access belongs to the device
+### Host access belongs to the player
 
-- No email, no password, no account. Entering a code gives host access to the anonymous account the device already plays with, so its history and seen clues are unchanged.
-- Clearing the browser's data, or switching to another device or browser, loses host access. The host asks the admin for a new code.
+- Entering a code gives host access to whoever the device is playing as: the guest, or the signed-in account ([accounts](../accounts/feature-brief.md)). History and seen clues are unchanged.
+- A signed-in host can host from any device they sign in on. When a guest with host access signs in, the access moves to the account.
+- A guest host who clears the browser's data, or switches device or browser, loses host access and asks the admin for a new code. Signing in first avoids this.
+- Signing in never grants host access; only a code does.
 - **Removing host access**: the admin deletes the host (found by the code they used). It takes effect at the next create, Start, or Rematch. A game already in progress plays to the end.
 
 ### Decisions (2026-11-09)
@@ -58,6 +60,8 @@ delete from public.hosts where code = 'K7RXM2PQ';                     -- remove 
 | C. One shared password to host | No accounts | It leaks, one person can't be removed, and there's no record of who hosted |
 
 **Host codes, not email or Google** (owner's choice): nothing is ever emailed, there's no email provider or sign-in service to set up, and there's nothing to phish. The cost: host access is per device, and a lost browser means a new code.
+
+> **Changed 2026-11-10** (owner's choice): players can now sign in with Apple or Google ([accounts](../accounts/feature-brief.md#decisions-2026-11-10)), so host access follows a signed-in host to any device. Host codes are still the only way to get host access, and nothing is ever emailed.
 
 ### Staying unlisted
 
@@ -73,8 +77,8 @@ delete from public.hosts where code = 'K7RXM2PQ';                     -- remove 
 ## Out of scope
 
 - An admin screen for codes and hosts
-- Accounts, email, Google, or passwords
-- Moving host access to another device without a new code
+- Email or password sign-in (Apple and Google sign-in are in [accounts](../accounts/feature-brief.md))
+- Moving a guest's host access to another device without signing in or a new code
 - Hosts inviting other hosts
 - Limits per host (rooms per day, players per room)
 - Hosting from a phone while a separate screen shows the TV view

@@ -29,6 +29,11 @@ export function announcement(category: string, value: number): string {
   return `Here's ${category} for ${value}.`;
 }
 
+/** Said on the correct-response screen, after every clue and after Final. */
+export function correctResponseAnnouncement(response: string): string {
+  return `The correct response is ${response}.`;
+}
+
 /** Said when a Daily Double is revealed. */
 export const DAILY_DOUBLE_INTRO = "It's a Daily Double.";
 

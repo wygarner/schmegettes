@@ -5,6 +5,7 @@ import { money } from "../lib/money";
 import { inFinal, nameOf, type RoomState } from "../lib/room";
 import {
   announcement,
+  correctResponseAnnouncement,
   DAILY_DOUBLE_INTRO,
   dailyDoubleAnnouncement,
   finalAnnouncement,
@@ -43,6 +44,17 @@ interface Speech {
 function currentSpeech(state: RoomState): Speech | null {
   const clue = state.activeClue;
   if (!clue) return null;
+  // The correct-response screen (after a clue, or after Final): read the response once. The
+  // server's timer moves on regardless, so nothing waits on it.
+  const response = state.clueEnd?.correctResponse;
+  if (response) {
+    return {
+      key: `response:${clue.clueId}`,
+      text: correctResponseAnnouncement(response),
+      clueId: clue.clueId,
+      reportDone: false,
+    };
+  }
   switch (state.phase) {
     case "clue_reading": {
       if (!clue.clueText) return null;

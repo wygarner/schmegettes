@@ -70,7 +70,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 - Correct: "✓ Alice: *what is Paris*" in `green` and "+$400".
 - Incorrect: "✗ Alice: *Lyon*" in `red` and "−$400". Buzzing reopens.
 
-**Correct response (6 s):** the clue text is **gone**. The stage shows:
+**Correct response (6 s):** the clue text is **gone**, and the narrator says "The correct response is Mauna Loa." The stage shows:
 
 ```text
 │            VOLCANOES · $400               │

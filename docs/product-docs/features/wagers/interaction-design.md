@@ -77,7 +77,7 @@ Then "Alice wagers $1,000" for 2 s, the reading ("For 1,000, here's the clue."),
 │        Score:     $800                      │
 ```
 
-Lines appear about 2 s apart. The score in that player's tile updates on the last line. After the last finalist, the correct response is shown for 4 s, then the final scores (highest first, winners marked 🏆).
+Lines appear about 2 s apart. The score in that player's tile updates on the last line. After the last finalist, the correct response is shown for 4 s and read aloud ("The correct response is Krakatoa."), then the final scores (highest first, winners marked 🏆).
 
 ### Phone
 

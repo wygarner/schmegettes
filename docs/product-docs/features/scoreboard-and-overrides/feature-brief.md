@@ -32,7 +32,7 @@ The game also needs an ending worth staying for: a scoreboard that names the win
 - **Control** goes to whoever now has the latest correct answer on that clue. If no answer on it is correct, control goes back to whoever had it when the clue was picked. A Daily Double never moves control.
 - **Two right answers on one clue** are possible after an override (Bob overridden to correct, then Alice also correct). Each answer is scored on its own; both gain the value.
 - **Visible to the room:** the verdict line gets a gold **HOST OVERRIDE** chip, the tile shows the score change, and the player's phone shows "Host override: ✓ +$400".
-- **Recorded** with the answer: the original verdict and that the host changed it.
+- **Recorded** with the answer: that the host changed it (`overridden_correct` or `overridden_incorrect`) and its new score change. **Not yet implemented:** the judge's original verdict, kept even when the host flips a verdict and flips it back, and when the host last changed it. Today only the current verdict is kept, so after a flip and a flip back the record says the judge gave the opposite of its real verdict. Overrides are how we find answers the judge got wrong ([how an answer is matched](../gameplay/feature-brief.md#how-an-answer-is-matched)).
 - **Final:** while a finalist is on the reveal stage, after their verdict line, the host can override it. The reveal pauses during the review and continues with the new verdict, wager line and score. Once the reveal has moved to the next finalist, that answer can't be changed.
 - Earlier clues can't be overridden.
 

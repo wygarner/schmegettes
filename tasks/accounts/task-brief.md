@@ -200,3 +200,6 @@ Per `docs/system-docs/operations/logging-conventions.md`, api service logger:
 
 - An Apple Developer Services ID, key, and client secret, and a Google OAuth client, for staging and production. Configure both providers, manual linking, and the site's redirect URLs in each Supabase project's dashboard.
 - Staging rehearsal proves `private.delete_account` and `private.merge_guest` can delete from `auth.users`.
+
+## Branch
+`new-feature/accounts-impl`, from and into `daily/2026-11-10`. No Jira ticket: Jira setup is not done for this repo (development-workflow.md, "Jira setup"), so the folder stays `tasks/accounts/` and PR titles use `accounts` in place of `SCH-{N}`.

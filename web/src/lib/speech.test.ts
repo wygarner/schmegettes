@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { saveVoice, type Voice } from "./narratorVoice";
 import {
   announcement,
   type RecognitionResultList,
@@ -20,14 +21,18 @@ class FakeUtterance {
   onerror?: () => void;
   volume = 1;
   rate = 1;
+  voice: Voice | null = null;
+  lang = "";
   constructor(public text: string) {}
 }
 
 let spoken: FakeUtterance[];
 let cancel: ReturnType<typeof vi.fn>;
+let voices: Voice[];
 let synth: {
   cancel: ReturnType<typeof vi.fn>;
   speak: (u: FakeUtterance) => void;
+  getVoices: () => Voice[];
   speaking: boolean;
   pending: boolean;
 };
@@ -36,12 +41,20 @@ beforeEach(() => {
   spoken = [];
   cancel = vi.fn();
   vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
-  synth = { cancel, speak: (u: FakeUtterance) => spoken.push(u), speaking: false, pending: false };
+  voices = [];
+  synth = {
+    cancel,
+    speak: (u: FakeUtterance) => spoken.push(u),
+    getVoices: () => voices,
+    speaking: false,
+    pending: false,
+  };
   Object.defineProperty(window, "speechSynthesis", { configurable: true, value: synth });
 });
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  window.localStorage.clear();
 });
 
 test("speech that ends reports ended", async () => {
@@ -130,4 +143,49 @@ test("transcripts: drops empty and repeated guesses and keeps at most 4", () => 
 test("transcripts: one guess means no alternatives", () => {
   expect(transcripts(results(["paris"]))).toEqual({ text: "paris", alternatives: [] });
   expect(transcripts(results())).toEqual({ text: "", alternatives: [] });
+});
+
+const ava: Voice = { name: "Ava", lang: "en-US", voiceURI: "com.apple.voice.premium.en-US.Ava", default: false };
+const samantha: Voice = {
+  name: "Samantha",
+  lang: "en-US",
+  voiceURI: "com.apple.voice.compact.en-US.Samantha",
+  default: true,
+};
+const daniel: Voice = {
+  name: "Daniel",
+  lang: "en-GB",
+  voiceURI: "com.apple.voice.compact.en-GB.Daniel",
+  default: false,
+};
+// speak() takes a browser voice; the fakes carry the fields it reads.
+const asBrowserVoice = (v: Voice) => v as SpeechSynthesisVoice;
+
+test("with nothing saved, the narrator uses the best installed voice at normal pace", () => {
+  voices = [samantha, daniel, ava];
+  void speak("x");
+  expect(spoken[0]?.voice).toBe(ava);
+  expect(spoken[0]?.lang).toBe("en-US");
+  expect(spoken[0]?.rate).toBe(1);
+});
+
+test("the voice saved on this device wins", () => {
+  voices = [samantha, daniel, ava];
+  saveVoice(daniel.voiceURI);
+  void speak("x");
+  expect(spoken[0]?.voice).toBe(daniel);
+  expect(spoken[0]?.lang).toBe("en-GB");
+});
+
+test("a sample voice passed in wins over the saved one", () => {
+  voices = [samantha, daniel, ava];
+  saveVoice(daniel.voiceURI);
+  void speak("x", asBrowserVoice(samantha));
+  expect(spoken[0]?.voice).toBe(samantha);
+});
+
+test("with no voices loaded yet, it speaks at once with the browser default", () => {
+  void speak("x");
+  expect(spoken).toHaveLength(1);
+  expect(spoken[0]?.voice).toBeNull();
 });

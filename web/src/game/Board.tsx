@@ -1,7 +1,7 @@
 import { UnstyledButton } from "@mantine/core";
 import { useState } from "react";
 import type { BoardClue } from "../lib/room";
-import { BEVEL, CELL, DISPLAY, GOLD } from "../ui/tokens";
+import { ACCENT, BEVEL, CELL, DISPLAY } from "../ui/tokens";
 
 /** Groups clues into columns by category, keeping the server's order. */
 export function columns(board: BoardClue[]): { category: string; clues: BoardClue[] }[] {
@@ -137,7 +137,7 @@ function Cell({
           style={{
             fontFamily: DISPLAY,
             fontWeight: 700,
-            color: GOLD,
+            color: ACCENT,
             textShadow: "0 2px 0 rgba(0,0,0,.55)",
             fontSize: tv ? "clamp(14px, min(3vw, 6.5vh), 46px)" : 18,
             lineHeight: 1,

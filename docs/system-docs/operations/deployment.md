@@ -46,7 +46,45 @@ The `app_service` role is created by the first migration without LOGIN. In each 
 alter role app_service with login password '<generated, stored only in the secret store>';
 ```
 
-Services connect through the Supabase pooler (transaction mode) as `app_service`. Only `deploy-prod.yml` and the worker's import job hold an owner credential (`*_OWNER_URL`).
+Services connect through the Supabase pooler (transaction mode) as `app_service`. Only `deploy-prod.yml` and `load-clues.yml` hold an owner credential (`*_OWNER_URL`).
+
+## Loading the clue catalog
+
+A new environment has no clues: Start fails until the catalog is loaded. Run **Load Clues** (`.github/workflows/load-clues.yml`) from the Actions tab:
+
+- `environment`: `staging` or `production`; `seasons`: `1-40` for everything. It reads `STAGING_SUPABASE_DB_OWNER_URL` or `PROD_SUPABASE_DB_OWNER_URL` from that GitHub Environment.
+- It takes about a minute for all 40 seasons (about 413,000 clues, 160 MB). The run's summary shows one row per season. Running it again inserts nothing; it retries seasons that failed.
+- **Production**: run it on the `production` branch, and only after private access is live. The loader refuses a database without `public.hosts` ([clue catalog](../../product-docs/features/clue-catalog/feature-brief.md#source)).
+
+## Supabase Auth settings
+
+Set once per Supabase project (Authentication settings), matching `supabase/config.toml`:
+
+- **Anonymous sign-ins**: on. Rate limit for anonymous users: 30 per hour per IP.
+- **Email provider**: on, for email and password accounts ([accounts](../../product-docs/features/accounts/feature-brief.md)). **Confirm email: off** and **Secure password change: off**, so Schmegettes never sends email and needs no SMTP. Minimum password length 8, no other password requirements. Rate limit for sign-ins and sign-ups: 30 per 5 minutes per IP.
+- No OAuth providers.
+
+### Resetting a player's password
+
+There is no reset email. When a player asks, set a new password in the project's SQL editor and tell them in person or by message; they can change it on their Account page. Devices already signed in stay signed in.
+
+```sql
+update auth.users
+set encrypted_password = extensions.crypt('<new password>', extensions.gen_salt('bf'))
+where email = lower('<their email>');
+```
+
+To free an email someone else registered, delete that user (Authentication → Users); it follows the account deletion rules.
+
+## Host access after a release
+
+The `private_access` migration creates the first host code, and nobody can host until someone uses it. Read it in the project's SQL editor and give it to the first host:
+
+```sql
+select code from public.host_codes where used_at is null;
+```
+
+The web host must also send `X-Robots-Tag: noindex, nofollow` on every response (the pages already carry the meta tag, and `robots.txt` disallows everything).
 
 ## Environment variables
 

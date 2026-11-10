@@ -27,7 +27,7 @@ This is feature 2 of 3 ([gameplay](../gameplay/feature-brief.md) is feature 1). 
 - **Entering the wager.** The player enters it on their phone (or on the host device's stage, when the host plays: the player column has no room for a number pad) with a number pad and two shortcuts: **Min** ($5) and **Max** (the limit). **Wager** confirms it. The TV shows "Alice is wagering…" with the range ("$5 – $1,200").
 - **Wager timeout: 30 s.** If no wager is confirmed in time, the wager is the minimum, $5. The game never waits forever.
 - **The wager is public.** Once confirmed, the TV shows "Alice wagers $1,000" for 2 s.
-- **Reading and answering.** The narrator says "For 1,000, here's the clue." and reads it. When the reading ends, the player's phone **starts listening on its own**, as after a won buzz: until they go quiet, at most **14 s**.
+- **Reading and answering.** The narrator says "For 1,000, here's the clue." and reads it. When the reading ends, the player's phone **starts listening on its own**, as after a won buzz: until they go quiet, at most **9 s**.
 - **Judging.** Same generous judging as any clue. Correct: **+wager**. Incorrect or no answer: **−wager**. There is no reopen: nobody else can answer.
 - **Control.** The player keeps control either way.
 - **After.** The TV shows the correct response for 6 s, as for any clue, then the board.

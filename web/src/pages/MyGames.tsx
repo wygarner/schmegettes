@@ -6,6 +6,7 @@ import { money } from "../lib/money";
 import { listWhen, ordinal, PLACE_COLOR } from "../lib/placement";
 import { isAnonymous } from "../lib/supabase";
 import { GoldButton } from "../ui/GoldButton";
+import { SignInSheet } from "../ui/SignInSheet";
 import { BEVEL, CELL, DISPLAY, PHONE_BG, RED, SOFT } from "../ui/tokens";
 
 type Load = { kind: "loading" } | { kind: "error" } | { kind: "ready" };
@@ -18,6 +19,7 @@ export function MyGames() {
   const [next, setNext] = useState<string | null>(null);
   const [more, setMore] = useState(false);
   const [anonymous, setAnonymous] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
 
   const first = useCallback(async () => {
     setLoad({ kind: "loading" });
@@ -47,7 +49,7 @@ export function MyGames() {
   if (load.kind === "loading") {
     body = (
       <Group justify="center" mt="xl">
-        <Loader color="yellow.4" />
+        <Loader color="green.4" />
       </Group>
     );
   } else if (load.kind === "error") {
@@ -101,17 +103,30 @@ export function MyGames() {
           <Title order={1} ff={DISPLAY} fw={700} fz={34}>
             My games
           </Title>
-          <Anchor component={Link} to="/" size="sm" c="boardBlue.2">
+          <Anchor component={Link} to="/" size="sm" c="mauve.2">
             Home
           </Anchor>
         </Group>
         {body}
         {anonymous && load.kind === "ready" && games.length > 0 && (
-          <Text size="xs" c="dimmed" ta="center" mt="md">
-            Played without an account. Link Google or email to keep these if you switch phones.
-          </Text>
+          <Stack align="center" gap={4} mt="md">
+            <Text size="xs" c="dimmed" ta="center">
+              Played without an account. Sign in to keep these on any phone.
+            </Text>
+            <Button variant="subtle" size="compact-sm" onClick={() => setSigningIn(true)}>
+              Sign in
+            </Button>
+          </Stack>
         )}
       </Container>
+      <SignInSheet
+        opened={signingIn}
+        onClose={() => setSigningIn(false)}
+        onSignedIn={() => {
+          setSigningIn(false);
+          void first();
+        }}
+      />
     </div>
   );
 }
@@ -151,7 +166,7 @@ function GameRow({ game, onOpen }: { game: GameSummary; onOpen: () => void }) {
           fontWeight: 700,
           fontSize: watched ? 10 : 18,
           letterSpacing: watched ? ".06em" : 0,
-          color: watched ? "#a5abee" : (PLACE_COLOR[game.placement ?? 0] ?? "#fff"),
+          color: watched ? "#d6a3c8" : (PLACE_COLOR[game.placement ?? 0] ?? "#fff"),
         }}
       >
         {watched ? "WATCHED" : ordinal(game.placement ?? 0)}
@@ -172,7 +187,7 @@ function GameRow({ game, onOpen }: { game: GameSummary; onOpen: () => void }) {
         </Text>
       </span>
       {!watched && (
-        <Text ff={DISPLAY} fw={600} fz={18} c={game.score < 0 ? RED : "yellow.4"}>
+        <Text ff={DISPLAY} fw={600} fz={18} c={game.score < 0 ? RED : "green.4"}>
           {money(game.score)}
         </Text>
       )}

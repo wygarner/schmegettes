@@ -79,7 +79,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The caller's profile (created on first call) */
+        /**
+         * The caller's profile
+         * @description A caller with no profile yet (a guest who hasn't joined a room) gets an empty
+         *     displayName and a null accountName.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -102,10 +106,54 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete the caller's account
+         * @description Their results stay on other players' scoreboards as "Former player"; their seen clues
+         *     and host access are deleted. Refused while they are in a game in progress.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The caller is a guest (problem type `not-signed-in`) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description The caller is in a game in progress (problem type `in-game`) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["RateLimited"];
+            };
+        };
         options?: never;
         head?: never;
-        /** Update display name */
+        /**
+         * Set the account's name
+         * @description Signed-in players only (problem type `not-signed-in` for guests).
+         */
         patch: {
             parameters: {
                 query?: never;
@@ -116,7 +164,7 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        displayName: string;
+                        accountName: components["schemas"]["DisplayName"];
                     };
                 };
             };
@@ -130,8 +178,142 @@ export interface paths {
                         "application/json": components["schemas"]["Profile"];
                     };
                 };
+                400: components["responses"]["Problem"];
+                /** @description The caller is a guest (problem type `not-signed-in`) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
             };
         };
+        trace?: never;
+    };
+    "/v1/me/merge-tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A one-use ticket that lets this guest be moved into an account
+         * @description Called by a guest just before signing in with Apple or Google. A new ticket replaces
+         *     the guest's earlier ones. Valid for 24 hours.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ticket */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MergeTicket"];
+                    };
+                };
+                /** @description The caller isn't a guest (problem type `not-a-guest`) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a guest's games, seen clues, and host access into the caller's account
+         * @description Spends the ticket and deletes the guest. When the guest and the account were in the
+         *     same game, the account's result is kept and the guest's shows as "Former player".
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        ticket: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Moved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MergeResult"];
+                    };
+                };
+                /** @description The ticket is wrong, used, expired, or the caller's own (problem type `invalid-ticket`) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description The caller is a guest (problem type `not-signed-in`) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description The guest is in a game in progress (problem type `guest-in-game`); the ticket stays valid */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/rooms": {
@@ -172,6 +354,15 @@ export interface paths {
                     };
                 };
                 400: components["responses"]["Problem"];
+                /** @description The caller has no host access (problem type `not-a-host`). Hosting is invite-only. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -239,6 +430,7 @@ export interface paths {
                         "application/problem+json": components["schemas"]["Problem"];
                     };
                 };
+                429: components["responses"]["RateLimited"];
             };
         };
         delete?: never;
@@ -276,10 +468,104 @@ export interface paths {
                     };
                 };
                 404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
             };
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/host-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether the caller's device can host */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Host access */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HostAccess"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/host-access/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Spend a one-use host code to give the caller host access
+         * @description A spent code is replaced by a new unused one. A caller who can already host keeps
+         *     the code unspent. Wrong, spent, and malformed codes get the same answer.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description 8 characters; case, spaces, and dashes are ignored */
+                        code: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description The caller can host */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HostAccess"];
+                    };
+                };
+                /** @description The code didn't work (problem type `invalid-code`) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["RateLimited"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -459,6 +745,8 @@ export interface components {
             userId: string;
             displayName: string;
             isAnonymous: boolean;
+            /** @description The signed-in player's name (leaderboard, name prefill); null for guests and new accounts */
+            accountName: string | null;
         };
         Room: {
             /** Format: uuid */
@@ -532,6 +820,23 @@ export interface components {
             /** @description This row is the caller */
             isCaller?: boolean;
         };
+        HostAccess: {
+            canHost: boolean;
+        };
+        MergeTicket: {
+            /** @description Secret; keep it only until it's redeemed */
+            ticket: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        MergeResult: {
+            /** @description Finished and abandoned games moved into the account */
+            gamesAdded: number;
+            /** @description The account can host now and couldn't before */
+            hostAccessAdded: boolean;
+            /** @description The account had no name yet (first sign-in) */
+            accountWasNew: boolean;
+        };
         Problem: {
             type?: string;
             title: string;
@@ -552,6 +857,16 @@ export interface components {
         /** @description Error (RFC 9457 problem details) */
         Problem: {
             headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description Too many tries (problem type `rate-limited`). Try again after `Retry-After` seconds. */
+        RateLimited: {
+            headers: {
+                "Retry-After"?: number;
                 [name: string]: unknown;
             };
             content: {

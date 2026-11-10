@@ -11,6 +11,12 @@ insert into auth.users (id, email) values
   ('11111111-1111-4111-8111-111111111111', 'host@example.test'),
   ('22222222-2222-4222-8222-222222222222', 'alice@example.test'),
   ('33333333-3333-4333-8333-333333333333', 'outsider@example.test');
+
+-- Hosting is invite-only; these fixture users can host. The gate itself is tested in
+-- private_access.test.sql.
+insert into public.host_codes (code) values ('TESTHSTS');
+insert into public.hosts (user_id, code)
+select id, 'TESTHSTS' from auth.users where email like '%@example.test';
 insert into public.profiles (user_id, display_name) values
   ('11111111-1111-4111-8111-111111111111', 'Wyatt'),
   ('22222222-2222-4222-8222-222222222222', 'Alice'),

@@ -25,6 +25,26 @@ jwt_expiry = 3600
 enable_signup = true
 # Players start anonymous (docs/system-docs/engineering/stack.md, Identity provider).
 enable_anonymous_sign_ins = true
+# Accounts: email and password, at least 8 characters, no other rules
+# (docs/product-docs/features/accounts/).
+minimum_password_length = 8
+password_requirements = ""
 # Services verify JWTs against JWKS, which needs asymmetric keys. Generate once with
 # `supabase gen signing-key --algorithm ES256 > supabase/signing_keys.json` (git-ignored).
 signing_keys_path = "./signing_keys.json"
+
+# Accounts: players sign in with email and password. The email is only a username:
+# confirmation is off and Schmegettes sends no email, so there is no SMTP and no reset email.
+# Hosted projects need the same in their Auth settings (deployment.md, "Supabase Auth").
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+secure_password_change = false
+double_confirm_changes = false
+
+[auth.rate_limit]
+# Per hour per IP. Each anonymous identity also gets its own api rate limits, so this bounds
+# how fast one address can guess room or host codes.
+anonymous_users = 30
+# Per 5 minutes per IP: sign-ins and sign-ups, the only brake on password guessing.
+sign_in_sign_ups = 30

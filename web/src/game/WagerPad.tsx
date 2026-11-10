@@ -2,7 +2,7 @@ import { UnstyledButton } from "@mantine/core";
 import { useState } from "react";
 import { money } from "../lib/money";
 import { GoldButton } from "../ui/GoldButton";
-import { DISPLAY, GOLD, RED } from "../ui/tokens";
+import { ACCENT, DISPLAY, RED } from "../ui/tokens";
 
 const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
@@ -80,14 +80,14 @@ export function WagerPad({
           fontWeight: 700,
           fontSize: phone ? 58 : "clamp(22px, 11cqh, 40px)",
           lineHeight: 1,
-          color: amount === undefined ? "rgba(255,255,255,.28)" : GOLD,
+          color: amount === undefined ? "rgba(255,255,255,.28)" : ACCENT,
         }}
       >
         {masked ? (amount === undefined ? "$" : "$ •••••") : amount === undefined ? "$" : money(amount)}
       </output>
       {hint && (
         <div
-          style={{ marginTop: 6, fontSize: phone ? 14 : 12, fontWeight: bad ? 700 : 500, color: bad ? RED : "#a5abee" }}
+          style={{ marginTop: 6, fontSize: phone ? 14 : 12, fontWeight: bad ? 700 : 500, color: bad ? RED : "#d6a3c8" }}
         >
           {hint}
         </div>

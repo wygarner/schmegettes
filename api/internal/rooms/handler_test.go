@@ -56,8 +56,13 @@ func (routes) GetHealthz(http.ResponseWriter, *http.Request)                    
 func (routes) GetVersion(http.ResponseWriter, *http.Request)                             {}
 func (routes) GetV1Games(http.ResponseWriter, *http.Request, contracts.GetV1GamesParams) {}
 func (routes) GetV1GamesGameId(http.ResponseWriter, *http.Request, openapi_types.UUID)   {}
+func (routes) GetV1HostAccess(http.ResponseWriter, *http.Request)                        {}
+func (routes) PostV1HostAccessRedeem(http.ResponseWriter, *http.Request)                 {}
 func (routes) GetV1Me(http.ResponseWriter, *http.Request)                                {}
 func (routes) PatchV1Me(http.ResponseWriter, *http.Request)                              {}
+func (routes) DeleteV1Me(http.ResponseWriter, *http.Request)                             {}
+func (routes) PostV1MeMerge(http.ResponseWriter, *http.Request)                          {}
+func (routes) PostV1MeMergeTickets(http.ResponseWriter, *http.Request)                   {}
 func (routes) GetV1RoomsRoomId(http.ResponseWriter, *http.Request, openapi_types.UUID)   {}
 func (routes) PatchV1RoomsRoomId(http.ResponseWriter, *http.Request, openapi_types.UUID) {}
 func (r routes) PostV1Rooms(w http.ResponseWriter, req *http.Request)                    { r.Create(w, req) }
@@ -121,6 +126,13 @@ func TestCreate(t *testing.T) {
 	}
 	if s.got[0] != "Wyatt" {
 		t.Errorf("store got %v", s.got)
+	}
+}
+
+func TestCreateWithoutHostAccessIs403(t *testing.T) {
+	rec := call(t, &fakeStore{err: ErrNotAHost}, "POST", "/v1/rooms", `{"displayName":"Wyatt"}`)
+	if rec.Code != http.StatusForbidden || !bytes.Contains(rec.Body.Bytes(), []byte("/problems/not-a-host")) {
+		t.Errorf("%d %s", rec.Code, rec.Body)
 	}
 }
 

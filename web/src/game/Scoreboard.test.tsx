@@ -50,3 +50,35 @@ test("the game's date and length", () => {
   expect(gameWhen(start, start + 41 * 60000)).toBe("Nov 9 · 8:14 PM · 41 min");
   expect(gameWhen(undefined, undefined)).toBe("");
 });
+
+test("a refused rematch says why and lets the host try again", () => {
+  const onRematch = vi.fn();
+  const results: RoomState["results"] = [{ userId: "a", displayName: "Alice", score: 0, placement: 1 }];
+  const state: RoomState = { ...initialRoom, phase: "finished", results };
+  const { rerender } = render(
+    <MantineProvider>
+      <Scoreboard state={state} onRematch={onRematch} />
+    </MantineProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Rematch" }));
+  const message = "Your host access was removed, so you can't start games.";
+  rerender(
+    <MantineProvider>
+      <Scoreboard state={{ ...state, error: { code: "not_a_host", message } }} onRematch={onRematch} />
+    </MantineProvider>,
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent(message);
+  expect(screen.getByRole("button", { name: "Rematch" })).toBeEnabled();
+});
+
+test("an error from before the scoreboard isn't shown as a refusal", () => {
+  render(
+    <MantineProvider>
+      <Scoreboard
+        state={{ ...initialRoom, phase: "finished", results: [], error: { code: "wrong_phase" } }}
+        onRematch={vi.fn()}
+      />
+    </MantineProvider>,
+  );
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});

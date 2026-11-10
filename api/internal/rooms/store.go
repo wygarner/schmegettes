@@ -20,6 +20,7 @@ var (
 	ErrRoomFull    = errors.New("room full")
 	ErrGameStarted = errors.New("game started")
 	ErrInvalidName = errors.New("invalid name")
+	ErrNotAHost    = errors.New("not a host") // the caller has no host access (private access)
 )
 
 // Room is a room as its members see it.
@@ -119,6 +120,8 @@ func mapError(err error) error {
 		return ErrGameStarted
 	case "22023", "23514":
 		return ErrInvalidName
+	case "42501":
+		return ErrNotAHost
 	}
 	return err
 }

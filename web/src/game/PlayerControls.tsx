@@ -5,7 +5,7 @@ import { money } from "../lib/money";
 import { ordinal, PLACE_COLOR } from "../lib/placement";
 import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
 import { Meter } from "../ui/Meter";
-import { DISPLAY, GOLD, GREEN, RED, SOFT } from "../ui/tokens";
+import { ACCENT, DISPLAY, GREEN, RED, SOFT } from "../ui/tokens";
 import { Board } from "./Board";
 import { Buzzer } from "./Buzzer";
 import { buzzerState, canBuzz, canPick } from "./buzzerState";
@@ -145,7 +145,7 @@ export function PlayerControls({
               fontSize: 12,
               fontWeight: 700,
               letterSpacing: ".1em",
-              color: "#a5abee",
+              color: "#d6a3c8",
               textTransform: "uppercase",
             }}
           >
@@ -159,7 +159,7 @@ export function PlayerControls({
                 fontFamily: DISPLAY,
                 fontWeight: 600,
                 fontSize: 22,
-                color: (state.scores[userId] ?? 0) < 0 ? RED : GOLD,
+                color: (state.scores[userId] ?? 0) < 0 ? RED : ACCENT,
               }}
             >
               {money(state.scores[userId] ?? 0)}
@@ -175,7 +175,7 @@ export function PlayerControls({
       <div style={{ flexShrink: 0, paddingTop: 10 }}>
         {buzzer}
         {hint && (
-          <Text ta="center" size="xs" c="rgba(201,205,247,.75)" mt={8}>
+          <Text ta="center" size="xs" c="rgba(255,166,217,.75)" mt={8}>
             {hint}
           </Text>
         )}
@@ -226,7 +226,7 @@ function PlayerStatus({
     const right = isCorrect(override.verdict);
     return (
       <div className="sg-pop" style={{ textAlign: "center" }}>
-        <Text c="yellow.4" fw={800} size="xs" style={{ letterSpacing: ".14em" }}>
+        <Text c="green.4" fw={800} size="xs" style={{ letterSpacing: ".14em" }}>
           HOST OVERRIDE
         </Text>
         <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 88, lineHeight: 1, color: right ? GREEN : RED }}>
@@ -269,7 +269,7 @@ function PlayerStatus({
       if (state.wager !== undefined) return <Status>Wager locked: {money(state.wager)}</Status>;
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <Text ta="center" ff={DISPLAY} fw={700} c="yellow.4" fz={24} tt="uppercase">
+          <Text ta="center" ff={DISPLAY} fw={700} c="green.4" fz={24} tt="uppercase">
             Daily Double! {state.activeClue?.category}
           </Text>
           <WagerPad
@@ -321,7 +321,7 @@ function PlayerStatus({
         return <Status sub="You've answered this one.">Others can buzz now</Status>;
       return (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-          <Text ff={DISPLAY} fw={700} fz={64} lh={1} c="yellow.4" className="sg-pop">
+          <Text ff={DISPLAY} fw={700} fz={64} lh={1} c="green.4" className="sg-pop">
             BUZZ IN!
           </Text>
           <Countdown deadlineAt={state.deadlineAt} total={BUZZ_WINDOW_MS} height={10} />
@@ -334,11 +334,11 @@ function PlayerStatus({
             <Text ff={DISPLAY} fw={600} fz={34} lh={1.1}>
               Say your answer
             </Text>
-            <Meter color="var(--mantine-color-green-5)" height={44} />
+            <Meter color="var(--mantine-color-teal-5)" height={44} />
             <Text fz={22} fs="italic" mih={60} aria-label="What we heard">
-              {heard ? `“${heard}”` : <span style={{ color: "#7f87e6" }}>{listening ? "Listening…" : "…"}</span>}
+              {heard ? `“${heard}”` : <span style={{ color: "#9a7aad" }}>{listening ? "Listening…" : "…"}</span>}
             </Text>
-            <Countdown deadlineAt={state.deadlineAt} total={ANSWER_TOTAL_MS} color="var(--mantine-color-green-6)" />
+            <Countdown deadlineAt={state.deadlineAt} total={ANSWER_TOTAL_MS} color="var(--mantine-color-teal-6)" />
             <Text size="sm" c={SOFT}>
               “What is” is optional. It stops when you go quiet.
             </Text>
@@ -354,17 +354,38 @@ function PlayerStatus({
 /** The host device's column: only what's the host's own and not already on the stage. */
 function CompactStatus({ state, userId, voice }: { state: RoomState; userId: string; voice: VoicePick }) {
   if (state.paused || state.results) return null;
-  if (canPick(state, userId) && voice.problem) {
+  // A spoken pick: what it's hearing, then what it heard and why nothing was picked. The
+  // pick is public (it goes on the board), so showing the words on the TV is fine.
+  if (canPick(state, userId) && (voice.listening || voice.problem)) {
     return (
-      <Text size="xs" c="red.3" ta="center">
-        {voice.problem}
-      </Text>
+      <div aria-live="polite" style={{ textAlign: "center", minWidth: 0 }}>
+        {voice.listening && (
+          <Text
+            size="xs"
+            fw={700}
+            c="teal.4"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+          >
+            <Meter height={12} color="var(--mantine-color-teal-5)" /> Listening…
+          </Text>
+        )}
+        {voice.heard && (
+          <Text size="xs" fs="italic" c="white" truncate="end" aria-label="What we heard">
+            “{voice.heard}”
+          </Text>
+        )}
+        {!voice.listening && voice.problem && (
+          <Text size="xs" c="red.3">
+            {voice.problem}
+          </Text>
+        )}
+      </div>
     );
   }
   if (state.lastVerdict?.userId === userId && state.phase !== "answering" && !state.clueEnd && !state.roundIntro) {
     const right = isCorrect(state.lastVerdict.verdict);
     return (
-      <Text ta="center" fw={700} ff={DISPLAY} c={right ? "green.4" : "red.4"}>
+      <Text ta="center" fw={700} ff={DISPLAY} c={right ? "teal.4" : "red.4"}>
         {right ? "✓" : "✗"} {money(state.lastVerdict.delta)}
       </Text>
     );
@@ -380,14 +401,14 @@ function VoiceFeedback({ voice }: { voice: VoicePick }) {
         style={{
           padding: 14,
           borderRadius: 16,
-          background: "rgba(64,192,87,.10)",
-          border: "1px solid rgba(64,192,87,.4)",
+          background: "rgba(56,217,169,.10)",
+          border: "1px solid rgba(56,217,169,.4)",
           display: "flex",
           alignItems: "center",
           gap: 12,
         }}
       >
-        <Meter height={26} color="var(--mantine-color-green-5)" />
+        <Meter height={26} color="var(--mantine-color-teal-5)" />
         <div style={{ flex: 1 }}>
           <Text fw={700}>Listening…</Text>
           <Text size="xs" c={SOFT} aria-label="What we heard">
@@ -440,17 +461,17 @@ function GameOver({ state, userId, onLeave }: { state: RoomState; userId: string
                 alignItems: "center",
                 padding: "8px 12px",
                 borderRadius: 10,
-                background: mine ? "rgba(255,212,59,.1)" : "rgba(255,255,255,.04)",
-                border: mine ? "1px solid rgba(255,212,59,.4)" : "1px solid transparent",
+                background: mine ? "rgba(107,255,179,.1)" : "rgba(255,255,255,.04)",
+                border: mine ? "1px solid rgba(107,255,179,.4)" : "1px solid transparent",
               }}
             >
               <span style={{ display: "flex", gap: 12 }}>
-                <span style={{ width: 34, fontWeight: 800, fontSize: 14, color: "#a5abee" }}>
+                <span style={{ width: 34, fontWeight: 800, fontSize: 14, color: "#d6a3c8" }}>
                   {ordinal(r.placement)}
                 </span>
                 <span style={{ fontWeight: 700 }}>{r.displayName}</span>
               </span>
-              <span style={{ fontFamily: DISPLAY, fontWeight: 600, color: r.score < 0 ? RED : GOLD }}>
+              <span style={{ fontFamily: DISPLAY, fontWeight: 600, color: r.score < 0 ? RED : ACCENT }}>
                 {money(r.score)}
               </span>
             </li>
@@ -486,7 +507,7 @@ function FinalStatus({ state, userId, send }: { state: RoomState; userId: string
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ textAlign: "center" }}>
-          <Text c="boardBlue.1" size="xs" fw={700} tt="uppercase" style={{ letterSpacing: ".14em" }}>
+          <Text c="mauve.1" size="xs" fw={700} tt="uppercase" style={{ letterSpacing: ".14em" }}>
             Final: {clue?.category}
           </Text>
           <Text size="sm" c={SOFT}>

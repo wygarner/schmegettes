@@ -53,13 +53,13 @@ A clue is **seen** by everyone in the game at the moment its text is **revealed*
 
 - Closing or deleting a room never deletes its games.
 - When a player's account is deleted, their results stay on other players' scoreboards as **"Former player"**, and their seen-clue record is deleted.
-- Anonymous players keep their history and seen clues as long as their anonymous account exists. Linking Google or email keeps both. If they clear their browser before linking, a new anonymous account starts with no history (and may see repeats); this is the expected tradeoff of no-account play.
+- Anonymous players keep their history and seen clues as long as their anonymous account exists. Creating an account or signing in keeps both ([accounts](../accounts/feature-brief.md)). If they clear their browser before signing in, a new anonymous account starts with no history (and may see repeats); this is the expected tradeoff of no-account play.
 - Any cleanup of old anonymous accounts follows the deletion rule above.
 
 ## Out of scope
 
 - Matching boards to real aired episodes ("play the March 4, 1998 episode")
 - Public or shareable results pages
-- Stats and leaderboards across games (win rate, all-time high score)
+- Stats and leaderboards across games: see [stats and leaderboard](../stats-and-leaderboard/feature-brief.md)
 - Letting a player reset their seen clues
 - Showing players how many clues they have seen

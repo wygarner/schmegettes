@@ -1,7 +1,7 @@
 import { UnstyledButton } from "@mantine/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GoldButton } from "../ui/GoldButton";
-import { GOLD } from "../ui/tokens";
+import { ACCENT } from "../ui/tokens";
 import { DRAFT_DEBOUNCE_MS } from "./timing";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
@@ -89,7 +89,7 @@ export function BlindKeypad({
             display: "flex",
             alignItems: "center",
             padding: "0 10px",
-            color: GOLD,
+            color: ACCENT,
             letterSpacing: ".2em",
             fontWeight: 800,
             overflow: "hidden",
@@ -99,7 +99,7 @@ export function BlindKeypad({
           {text ? (
             "•".repeat(Math.min(text.length, 40))
           ) : (
-            <span style={{ color: "#7f87e6", letterSpacing: 0, fontWeight: 500, fontSize: 13 }}>
+            <span style={{ color: "#9a7aad", letterSpacing: 0, fontWeight: 500, fontSize: 13 }}>
               Type your answer (hidden from the TV)
             </span>
           )}

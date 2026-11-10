@@ -68,9 +68,7 @@ test("rows: placement, You, Unfinished, watched games, and the account nudge", a
   expect(list).toHaveTextContent("$12,400");
   expect(screen.getByText("Unfinished")).toBeInTheDocument();
   expect(screen.getByText("WATCHED")).toBeInTheDocument();
-  expect(
-    screen.getByText("Played without an account. Link Google or email to keep these if you switch phones."),
-  ).toBeInTheDocument();
+  expect(screen.getByText("Played without an account. Sign in to keep these on any phone.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
   fireEvent.click(screen.getAllByRole("button", { name: /2026|Oct|, / })[0] as HTMLElement);
   expect(screen.getByText("scoreboard")).toBeInTheDocument();

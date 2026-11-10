@@ -5,7 +5,7 @@
 ```text
 board ──pick──▶ clue_reading ──speech ends / timer──▶ buzzing_open ──buzz──▶ answering
   ▲                                                     │   ▲                  │
-  │                                       5 s, no buzz  │   └── incorrect, ────┤
+  │                                       9 s, no buzz  │   └── incorrect, ────┤
   │                                                     ▼       others left    │ correct, or
   └────────────── 6 s (TV shows correct response) ◀── clue ends ◀──────────────┘ nobody left
 ```
@@ -19,8 +19,8 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 | Pick a clue | No limit while the controller is connected. Controller disconnected for 10 s: control passes to the next connected contestant in join order. |
 | Reading | "Here's {category} for {value}." then the clue, until speech ends. Fallback: about 2.5 words per second + 1 s over both, at most 14 s |
 | Early-buzz lockout | 250 ms |
-| Buzz window (and each reopen) | 5 s |
-| Answer | Until the player goes quiet, at most 14 s |
+| Buzz window (and each reopen) | 9 s |
+| Answer | Until the player goes quiet, at most 9 s |
 | Correct response on screen | 6 s |
 | "Double Schmegettes!" interstitial | 3 s |
 
@@ -62,7 +62,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 
 **Clue (`clue_reading`, `buzzing_open`, `answering`):** the stage shows the category and value small at the top ("VOLCANOES · $400"), and the clue text uppercase, white on `boardBlue.9`, as large as fits. The narrator says "Here's Volcanoes for 400." and then reads the clue.
 
-**Buzzing open:** a lit `yellow.4` border around the stage and a 5 s countdown bar.
+**Buzzing open:** a lit `yellow.4` border around the stage and a 9 s countdown bar.
 
 **Answering:** the answering player's name under the clue, with a listening indicator and their live transcript.
 
@@ -70,7 +70,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 - Correct: "✓ Alice: *what is Paris*" in `green` and "+$400".
 - Incorrect: "✗ Alice: *Lyon*" in `red` and "−$400". Buzzing reopens.
 
-**Correct response (6 s):** the clue text is **gone**. The stage shows:
+**Correct response (6 s):** the clue text is **gone**, and the narrator says "Correct, Mauna Loa is the right answer." when someone got it, or "Sorry, we were looking for Mauna Loa." when nobody did (wrong answers, no buzz, a missed Daily Double) The stage shows:
 
 ```text
 │            VOLCANOES · $400               │
@@ -116,7 +116,7 @@ The buzzer is pinned to the bottom of the phone screen on every screen from the 
 | `board`, I have control | Mini board (category names and values). No "Your pick" heading, no score, no microphone button: the buzzer is it. While listening, a green "Listening… Say a category and value, like “Opera for 600”" panel. | `pick`, `listening` while it listens |
 | `board`, someone else picks | "Alice is picking…" and my score | `idle` |
 | `clue_reading` | "Listen…" | `dim` |
-| `buzzing_open` | "Buzz in!" and the 5 s countdown | `lit` |
+| `buzzing_open` | "Buzz in!" and the 9 s countdown | `lit` |
 | Early buzz | — | `early` |
 | I won the buzz | Mic level meter and my live transcript | `answering` |
 | Someone else answering | "Bob is answering…" | `idle` (or `locked` if I already tried) |
@@ -142,7 +142,7 @@ The phone never shows clue text or the correct response.
 
 ### Host device when the host plays
 
-The same states as the phone, in the player column, minus what the stage already shows: the column keeps only the host's voice-pick errors, live transcript and verdict above the buzzer. When the host has control, the host's buzzer is in `pick`: pressing it (or the space bar) listens for the host's spoken pick. It shows: the host's tile, the buzzer at the bottom of the column, and the board on the stage tappable when the host has control. A tapped pick on the host device gets the same confirmation modal; a spoken pick doesn't. See the [lobby interaction design](../lobby/interaction-design.md).
+The same states as the phone, in the player column, minus what the stage already shows: the column keeps only the host's spoken pick ("Listening…", the words as they're heard, and why a pick failed), live transcript and verdict above the buzzer. When the host has control, the host's buzzer is in `pick`: pressing it (or the space bar) listens for the host's spoken pick. It shows: the host's tile, the buzzer at the bottom of the column, and the board on the stage tappable when the host has control. A tapped pick on the host device gets the same confirmation modal; a spoken pick doesn't. See the [lobby interaction design](../lobby/interaction-design.md).
 
 ## Flows
 
@@ -177,10 +177,14 @@ The same states as the phone, in the player column, minus what the stage already
 | Controller is the only connected contestant and disconnects | Control stays with them; the game waits |
 | Confirmation modal open when control passes or the phase changes | The modal closes; nothing is picked |
 | Speech synthesis unavailable on the host device | Clue shown silently; buzzing opens on the fallback timer |
+| The device's voice list hasn't loaded when the first clue is read | The reading starts at once with the default voice and never waits for the list. Later lines use the chosen voice ([feature brief](./feature-brief.md#the-narrators-voice)) |
+| The saved narrator voice was removed from the device | The best installed voice reads instead, without a message |
 | A player taps the buzzer outside a clue (lobby, board, between clues) | Press animation only. No lockout, nothing sent. Exception: the player in control on the board starts a spoken pick |
 | A player buzzes during `answering` | Ignored (not a lockout) |
 | Everyone has tried and all were wrong | Clue ends, correct response shown for 6 s without the clue, control unchanged |
-| Transcript is empty after 14 s (connected) | Incorrect |
+| Transcript is empty after 9 s (connected) | Incorrect |
+| The answer sounds like the response but is spelled differently ("mona lowa" for Mauna Loa) | Correct. The verdict line shows what was heard: "✓ Alice: *mona lowa*". Rules in the [feature brief](./feature-brief.md#how-an-answer-is-matched) |
+| Speech recognition offers several transcripts and only a less likely one matches | Correct. The verdict line shows the transcript that matched |
 | Phone disconnects while answering | No penalty, buzzing reopens for the others, and that player is out for this clue |
 | Phone reconnects mid-clue | It gets the current phase and buzzer state. If it already tried this clue, its buzzer is locked |
 | Host device disconnects mid-clue | Paused. On return the announcement and clue are read again from the start, and buzzing reopens for those who haven't tried |

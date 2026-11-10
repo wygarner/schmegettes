@@ -4,7 +4,8 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { MicPrompt } from "../game/MicPrompt";
 import { PlayerGame } from "../game/PlayerGame";
-import { getLastName, isValidName, MAX_NAME, setLastName } from "../lib/displayName";
+import { markGamePlayed } from "../lib/accountFlags";
+import { getPrefillName, isValidName, MAX_NAME, setLastName } from "../lib/displayName";
 import { type RoomState, useRoom } from "../lib/room";
 import { joinRoom, type RoomJoin, type RoomProblem, roomByCode } from "../lib/rooms";
 import { getUserId } from "../lib/supabase";
@@ -16,6 +17,8 @@ export const JOIN_ERRORS: Record<RoomProblem, string> = {
   "room-full": "This room is full.",
   "game-started": "This game has already started.",
   "invalid-name": "Names are 1 to 20 characters.",
+  "not-a-host": "Hosting is invite-only.",
+  "rate-limited": "Too many tries. Wait a minute and try again.",
   error: "Couldn't join. Try again.",
 };
 
@@ -25,7 +28,7 @@ type Stage = { kind: "checking" } | { kind: "name" } | { kind: "joined"; room: R
 export function JoinRoom() {
   const { code = "" } = useParams();
   const [stage, setStage] = useState<Stage>({ kind: "checking" });
-  const [name, setName] = useState(getLastName);
+  const [name, setName] = useState(getPrefillName);
   const [joining, setJoining] = useState(false);
   const [problem, setProblem] = useState<RoomProblem | null>(null);
 
@@ -69,7 +72,7 @@ export function JoinRoom() {
       <Container size="xs" py={48}>
         <form onSubmit={join}>
           <Stack>
-            <Text size="xs" fw={700} c="#a5abee" style={{ letterSpacing: ".14em" }}>
+            <Text size="xs" fw={700} c="#d6a3c8" style={{ letterSpacing: ".14em" }}>
               ROOM {code}
             </Text>
             <Title order={2} ff={DISPLAY} fw={600} fz={34}>
@@ -154,6 +157,12 @@ export function PlayerView({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const me = state.players.find((p) => p.userId === userId);
+  const finishedAsContestant = state.phase === "finished" && me?.role === "contestant";
+
+  // A contestant who finished a game is offered "Save your games" back on Home (guests only).
+  useEffect(() => {
+    if (finishedAsContestant) markGamePlayed();
+  }, [finishedAsContestant]);
 
   if (state.connection === "closed") {
     return (
@@ -202,7 +211,7 @@ export function PlayerView({
       {state.error?.code === "invalid_name" && <Alert color="red">Names are 1 to 20 characters.</Alert>}
       <div>
         {state.rematch && (
-          <Text c="yellow.4" fw={800} size="xs" style={{ letterSpacing: ".14em" }}>
+          <Text c="green.4" fw={800} size="xs" style={{ letterSpacing: ".14em" }}>
             REMATCH
           </Text>
         )}
@@ -262,7 +271,7 @@ export function Shuffle() {
             width: 36,
             height: 48,
             borderRadius: 4,
-            background: "var(--mantine-color-boardBlue-9)",
+            background: "var(--mantine-color-mauve-9)",
             boxShadow: "inset 0 1px 0 rgba(255,255,255,.22), inset 0 -3px 0 rgba(0,0,0,.35)",
             animationDelay: `${i * 110}ms`,
           }}

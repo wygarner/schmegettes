@@ -86,6 +86,12 @@ export interface SubmitAnswer {
    * voice for every clue and Daily Double; typed only in final_answer (Final Schmegettes answers are typed).
    */
   source: "voice" | "typed";
+  /**
+   * Other transcripts the speech recognizer offered, most likely first, after answer (which stays its best guess). Voice only; omitted for typed answers and by recognizers that return one transcript. The server judges answer first, then each of these.
+   *
+   * @maxItems 4
+   */
+  alternatives?: [] | [string] | [string, string] | [string, string, string] | [string, string, string, string];
 }
 /**
  * Daily Double or Final round wager, in whole dollars. The server checks the range: Daily Double $5 to max(score, round's top value); Final $0 to score. The first valid wager locks.

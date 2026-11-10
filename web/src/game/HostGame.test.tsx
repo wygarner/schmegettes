@@ -6,6 +6,7 @@ import { type Recognizer, setRecognizerFactory } from "../lib/speech";
 import { HostGame } from "./HostGame";
 
 class FakeUtterance {
+  onstart?: () => void;
   onend?: () => void;
   onerror?: () => void;
   constructor(public text: string) {}
@@ -17,7 +18,14 @@ beforeEach(() => {
   vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
   Object.defineProperty(window, "speechSynthesis", {
     configurable: true,
-    value: { cancel: vi.fn(), speak: (u: FakeUtterance) => spoken.push(u) },
+    // A browser that starts speaking at once. The silent unlock utterance isn't narration.
+    value: {
+      cancel: vi.fn(),
+      speak: (u: FakeUtterance) => {
+        u.onstart?.();
+        if (u.text.trim()) spoken.push(u);
+      },
+    },
   });
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -395,6 +403,19 @@ describe("the host picks by voice", () => {
     expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c2" });
   });
 
+  test("the column shows what it hears, and why a pick failed", () => {
+    const send = host({ ...onBoard, hostPlays: true, controllingUserId: "host" });
+    fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
+    expect(screen.getByText("Listening…")).toBeInTheDocument();
+    act(() => rec.onInterim?.("opra for"));
+    expect(screen.getByLabelText("What we heard")).toHaveTextContent("“opra for”");
+    act(() => rec.onFinal?.("science for 400"));
+    expect(screen.queryByText("Listening…")).toBeNull();
+    expect(screen.getByLabelText("What we heard")).toHaveTextContent("“science for 400”");
+    expect(screen.getByText("Didn't catch the category.")).toBeInTheDocument();
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "select_clue" }));
+  });
+
   test("with the space bar", () => {
     host({ ...onBoard, hostPlays: true, controllingUserId: "host" });
     fireEvent.keyDown(window, { code: "Space" });
@@ -438,4 +459,41 @@ test("the final scoreboard has Rematch", () => {
   expect(screen.getByText("Nov 9 · 8:14 PM · 41 min")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Rematch" }));
   expect(send).toHaveBeenCalledWith({ type: "rematch" });
+});
+
+test("the correct response is read aloud once: right, missed, and Final", () => {
+  const { update } = showHost({ ...state, phase: "answering" });
+  update({ ...state, phase: "answering", clueEnd: { state: "answered", correctResponse: "Nitrogen" } });
+  expect(spoken.at(-1)?.text).toBe("Correct, Nitrogen is the right answer.");
+  const count = spoken.length;
+  update({
+    ...state,
+    phase: "answering",
+    clueEnd: { state: "answered", correctResponse: "Nitrogen" },
+    scores: { a: 1 },
+  });
+  expect(spoken).toHaveLength(count); // a re-render doesn't read it again
+
+  update({ ...state, phase: "board", activeClue: undefined, clueEnd: undefined });
+  const c2 = { ...clue, clueId: "c2" };
+  update({
+    ...state,
+    phase: "buzzing_open",
+    activeClue: c2,
+    clueEnd: { state: "unanswered", correctResponse: "Paris" },
+  });
+  expect(spoken.at(-1)?.text).toBe("Sorry, we were looking for Paris.");
+
+  update({
+    ...finalState,
+    phase: "final_reveal",
+    activeClue: { clueId: "f", category: "ISLANDS", value: 0, state: "answered" },
+    clueEnd: { state: "answered", correctResponse: "Krakatoa" },
+  });
+  expect(spoken.at(-1)?.text).toBe("The correct response is Krakatoa.");
+});
+
+test("phones never get the correct response, so a host without it reads nothing", () => {
+  showHost({ ...state, phase: "answering", clueEnd: { state: "unanswered" } });
+  expect(spoken.map((u) => u.text)).not.toContainEqual(expect.stringContaining("looking for"));
 });

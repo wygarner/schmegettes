@@ -33,9 +33,23 @@ mise run db:reset      # re-apply migrations + seed any time
 mise run db:test       # RLS tests
 ```
 
+Hosting needs host access. Locally, enter **`DEVS-TEST`** when **Host a game** asks for a code. It works once; after that, read the new code with `select code from public.host_codes where used_at is null;` (Studio's SQL editor), or `mise run db:reset`. Auth settings (`[auth.*]` in `config.toml`) take effect on `supabase stop && mise run db:start`, not on `db:reset`.
+
 ## 4. Environment files
 
 Copy each `.env.example` next to it (`web/.env.local`, `api/.env`, `game/.env`, `worker/.env`) and fill in the anon key from `db:start`. Local env files point at local Supabase only. Staging and production credentials are never put in a local file.
+
+### Accounts
+
+Email and password accounts work locally with no setup: confirmation is off and nothing is emailed. Mailpit (`http://127.0.0.1:54324`) should stay empty; anything there is a bug. After changing `[auth.*]` in `config.toml`, restart Supabase (`supabase stop && mise run db:start`).
+
+### Real clues (optional)
+
+The seed has only "SAMPLE" categories. To play with real clues, load a few seasons into local Supabase (about 1 s per season; safe to run again):
+
+```bash
+mise run clues:import -- --seasons 1-3     # all 40 seasons: about 160 MB, 40 s
+```
 
 ## 5. Run
 

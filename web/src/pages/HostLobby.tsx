@@ -18,10 +18,12 @@ import { Link, useParams } from "react-router";
 import { HostGame } from "../game/HostGame";
 import { HostLayout } from "../game/HostLayout";
 import { MicPrompt } from "../game/MicPrompt";
+import { NarratorVoicePicker } from "../game/NarratorVoicePicker";
 import { PlayerControls } from "../game/PlayerControls";
 import { isValidName, MAX_NAME, setLastName } from "../lib/displayName";
 import { contestantCount, type RoomState, useRoom } from "../lib/room";
 import { type RoomJoin, roomByCode } from "../lib/rooms";
+import { stopSpeaking } from "../lib/speech";
 import { getUserId } from "../lib/supabase";
 import { GoldButton } from "../ui/GoldButton";
 import { Stage, StageBody } from "../ui/Stage";
@@ -93,6 +95,7 @@ const ERRORS: Record<string, string> = {
   room_full: "The room is full.",
   not_enough_players: "Need at least 2 players.",
   invalid_name: "Names are 1 to 20 characters.",
+  not_a_host: "Your host access was removed, so you can't start games.",
 };
 
 export function HostLobbyView({
@@ -191,7 +194,7 @@ export function HostLobbyView({
             </Text>
             <ActionIcon
               variant="subtle"
-              color="boardBlue.1"
+              color="mauve.1"
               aria-label="Edit your name"
               onClick={() => {
                 setName(state.hostDisplayName);
@@ -231,7 +234,7 @@ export function HostLobbyView({
         <Stack gap={4}>
           <Button
             variant="outline"
-            color="boardBlue.1"
+            color="mauve.1"
             disabled={!state.hostPlays && full}
             onClick={() => send({ type: "set_host_plays", plays: !state.hostPlays })}
           >
@@ -244,6 +247,7 @@ export function HostLobbyView({
           )}
           {state.hostPlays && <MicPrompt compact />}
         </Stack>
+        <NarratorVoicePicker />
         <Group gap="xs" wrap="nowrap" align="center">
           {!canStart && (
             <Text size="sm" c={SOFT}>
@@ -254,6 +258,7 @@ export function HostLobbyView({
             disabled={!canStart}
             loading={starting}
             onClick={() => {
+              stopSpeaking(); // a voice sample still playing
               setStarting(true);
               send({ type: "start_game" });
             }}
@@ -331,7 +336,7 @@ function LobbyPlayers({ state, count }: { state: RoomState; count: number }) {
                     height: 8,
                     borderRadius: 8,
                     flexShrink: 0,
-                    background: p.connected ? "var(--mantine-color-green-5)" : "transparent",
+                    background: p.connected ? "var(--mantine-color-teal-5)" : "transparent",
                     border: p.connected ? "none" : `1.5px solid ${SOFT}`,
                   }}
                 />
@@ -356,7 +361,7 @@ function LobbyPlayers({ state, count }: { state: RoomState; count: number }) {
                       fontWeight: 800,
                       letterSpacing: ".08em",
                       color: SOFT,
-                      border: "1px solid rgba(201,205,247,.45)",
+                      border: "1px solid rgba(255,166,217,.45)",
                       padding: "1px 4px",
                       borderRadius: 3,
                     }}
@@ -385,7 +390,7 @@ function CodeTiles({ code }: { code: string }) {
             width: "min(13cqw, 30cqh)",
             height: "min(17cqw, 38cqh)",
             borderRadius: 8,
-            background: "var(--mantine-color-boardBlue-9)",
+            background: "var(--mantine-color-mauve-9)",
             boxShadow: `${BEVEL}, 0 6px 18px rgba(0,0,0,.35)`,
             display: "flex",
             alignItems: "center",
@@ -393,7 +398,7 @@ function CodeTiles({ code }: { code: string }) {
             fontFamily: DISPLAY,
             fontWeight: 700,
             fontSize: "min(12cqw, 28cqh)",
-            color: "var(--mantine-color-yellow-4)",
+            color: "var(--mantine-color-green-4)",
             textShadow: "0 3px 0 rgba(0,0,0,.5)",
           }}
         >

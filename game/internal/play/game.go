@@ -18,8 +18,8 @@ import (
 // Timings from the gameplay interaction design.
 const (
 	Lockout      = 250 * time.Millisecond
-	BuzzWindow   = 5 * time.Second
-	AnswerWindow = 14 * time.Second
+	BuzzWindow   = 9 * time.Second
+	AnswerWindow = 9 * time.Second
 	// AnswerGrace lets the final transcript arrive after the phone stops listening.
 	AnswerGrace   = 1500 * time.Millisecond
 	ClueEndPause  = 6 * time.Second
@@ -108,6 +108,14 @@ type Record struct {
 	State    contracts.ClueState    // FinishClue
 	Source   contracts.AnswerSource // RecordAnswer
 	Amount   int                    // RecordWager
+	// Rule is the judging rule that decided the verdict (RecordAnswer; UpdateVerdict, for the log).
+	Rule contracts.MatchRule
+	// Heard is every transcript, most likely first (RecordAnswer).
+	Heard []string
+	// JudgeVerdict is the judge's own verdict, before any override (UpdateVerdict, for the log).
+	JudgeVerdict contracts.Verdict
+	// MatchedIndex is which transcript in Heard decided the verdict (RecordAnswer, for the log).
+	MatchedIndex int
 }
 
 // RecordKind names a write.
@@ -614,8 +622,9 @@ func (g *Game) Progress(now time.Time, user, text string) (Effects, error) {
 	return e, nil
 }
 
-// Answer judges the answering player's final transcript.
-func (g *Game) Answer(now time.Time, user, clueID, text string) (Effects, error) {
+// Answer judges the answering player's final transcript, and the recognizer's other guesses
+// (most likely first) when the phone sent them.
+func (g *Game) Answer(now time.Time, user, clueID, text string, alternatives ...string) (Effects, error) {
 	var e Effects
 	if g.phase == contracts.GamePhaseFinalAnswer {
 		return e, reject(contracts.ErrorCodeWrongPhase) // Final answers are typed
@@ -623,18 +632,21 @@ func (g *Game) Answer(now time.Time, user, clueID, text string) (Effects, error)
 	if g.step != stepAnswering || user != g.answering || g.active == nil || g.active.ID != clueID || g.paused {
 		return e, ErrIgnored
 	}
-	g.judge(now, &e, text)
+	g.judge(now, &e, append([]string{text}, alternatives...))
 	return e, nil
 }
 
-func (g *Game) judge(now time.Time, e *Effects, text string) {
+// judge scores the answering player's transcripts, most likely first.
+func (g *Game) judge(now time.Time, e *Effects, heard []string) {
 	c, user := g.active, g.answering
 	dd := g.ddActive()
 	value := c.Value
 	if dd {
 		value = g.ddWager
 	}
-	correct := text != "" && judge.IsCorrect(text, c.Response)
+	res := judge.Judge(heard, c.Response)
+	correct := res.Correct
+	text := heard[res.Index] // what the TV shows and history keeps: the transcript that matched
 	verdict, delta := contracts.VerdictIncorrect, -value
 	if correct {
 		verdict, delta = contracts.VerdictCorrect, value
@@ -644,8 +656,9 @@ func (g *Game) judge(now time.Time, e *Effects, text string) {
 	g.answering = ""
 	id := g.s.NewID()
 	e.record(Record{Kind: RecordAnswer, AnswerID: id, ClueID: c.ID, UserID: user, Answer: text, Verdict: verdict, Delta: delta,
-		Source: contracts.AnswerSourceVoice})
-	g.clueAnswers = append(g.clueAnswers, &judged{id: id, user: user, text: text, verdict: verdict, delta: delta, amount: value})
+		Source: contracts.AnswerSourceVoice, Rule: res.Rule, Heard: heard, MatchedIndex: res.Index})
+	g.clueAnswers = append(g.clueAnswers, &judged{id: id, user: user, text: text, verdict: verdict, delta: delta, amount: value,
+		judgeVerdict: verdict, rule: res.Rule})
 
 	seq := g.s.NextSeq()
 	all := contracts.AnswerJudged{
@@ -730,7 +743,7 @@ func (g *Game) Timeout(now time.Time) Effects {
 		g.endClue(now, &e, contracts.ClueStateUnanswered)
 	case stepAnswering:
 		// Silence counts as wrong, as on the show.
-		g.judge(now, &e, "")
+		g.judge(now, &e, []string{""})
 	case stepClueEnd:
 		g.active = nil
 		g.attempted = map[string]bool{}

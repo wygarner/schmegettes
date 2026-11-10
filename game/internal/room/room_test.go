@@ -25,6 +25,8 @@ type fakeStore struct {
 	mu       sync.Mutex
 	lobby    Lobby
 	startErr error
+	notAHost bool  // the host's access was removed
+	hostErr  error // HostCanHost fails
 	started  int
 	closed   bool
 
@@ -34,6 +36,7 @@ type fakeStore struct {
 
 	failAnswers bool // RecordAnswer always fails
 	answerLen   int  // characters in the last answer written
+	lastAnswer  play.Record
 }
 
 func newFakeStore() *fakeStore {
@@ -109,11 +112,20 @@ func (s *fakeStore) StartGame(context.Context, string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.started++
+	if s.notAHost {
+		return "", ErrNotAHost // start_game refuses a host without access
+	}
 	if s.startErr != nil {
 		return "", s.startErr
 	}
 	s.lobby.Status = contracts.RoomStatusInGame
 	return "game-1", nil
+}
+
+func (s *fakeStore) HostCanHost(context.Context, string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return !s.notAHost, s.hostErr
 }
 
 func (s *fakeStore) Close(context.Context, string) error {
@@ -144,6 +156,7 @@ func (s *fakeStore) RecordAnswer(_ context.Context, r play.Record) error {
 	s.mu.Lock()
 	fail := s.failAnswers
 	s.answerLen = utf8.RuneCountInString(r.Answer)
+	s.lastAnswer = r
 	s.mu.Unlock()
 	if fail {
 		return errors.New("check constraint")

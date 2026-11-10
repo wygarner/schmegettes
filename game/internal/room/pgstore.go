@@ -3,6 +3,7 @@ package room
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -80,6 +81,16 @@ func (s PGStore) StartGame(ctx context.Context, roomID string) (string, error) {
 	return gameID, err
 }
 
+// HostCanHost reports whether the room's host still has host access (private access).
+func (s PGStore) HostCanHost(ctx context.Context, roomID string) (bool, error) {
+	var ok bool
+	err := s.DB.AsEngine(ctx, func(tx pgx.Tx) error {
+		return mapError(tx.QueryRow(ctx,
+			"select private.user_is_host(host_id) from public.rooms where id = $1", roomID).Scan(&ok))
+	})
+	return ok, err
+}
+
 // Close closes a room that is still in the lobby.
 func (s PGStore) Close(ctx context.Context, roomID string) error {
 	return s.exec(ctx, "update public.rooms set status = 'closed' where id = $1 and status = 'open'", roomID)
@@ -106,6 +117,8 @@ func mapError(err error) error {
 		return ErrNotOpen
 	case "22023", "23514":
 		return ErrInvalidName
+	case "42501":
+		return ErrNotAHost
 	}
 	return err
 }
@@ -257,8 +270,20 @@ func (s PGStore) RecordAnswer(ctx context.Context, r play.Record) error {
 	if source == "" {
 		source = contracts.AnswerSourceVoice
 	}
-	return s.exec(ctx, "select public.record_answer($1, $2, $3, $4, $5::public.answer_source, $6::public.verdict, $7)",
-		r.AnswerID, r.ClueID, r.UserID, r.Answer, string(source), string(r.Verdict), r.Delta)
+	var rule *string
+	if r.Rule != "" {
+		v := string(r.Rule)
+		rule = &v
+	}
+	var heard []string // nil (nothing heard) is stored as null
+	for _, h := range r.Heard {
+		if strings.TrimSpace(h) != "" {
+			heard = append(heard, clip(h))
+		}
+	}
+	return s.exec(ctx, `select public.record_answer($1, $2, $3, $4, $5::public.answer_source, $6::public.verdict, $7,
+		$8::public.match_rule, $9::text[])`,
+		r.AnswerID, r.ClueID, r.UserID, r.Answer, string(source), string(r.Verdict), r.Delta, rule, heard)
 }
 
 // RecordWager stores a Daily Double or Final wager. The first one wins, so a retry is a no-op.

@@ -139,7 +139,7 @@ export function VerdictRow({
         justifyContent: "center",
         flexWrap: "wrap",
         gap: 10,
-        color: right ? "var(--mantine-color-green-4)" : "var(--mantine-color-red-4)",
+        color: right ? "var(--mantine-color-teal-4)" : "var(--mantine-color-red-4)",
         fontWeight: 700,
         fontSize: small ? "clamp(11px, 4.6cqh, 20px)" : "clamp(14px, 7cqh, 32px)",
       }}
@@ -147,8 +147,8 @@ export function VerdictRow({
       {overridden && (
         <span
           style={{
-            background: "var(--mantine-color-yellow-4)",
-            color: "#1f1600",
+            background: "var(--mantine-color-green-4)",
+            color: "#140b2b",
             fontWeight: 800,
             fontSize: "clamp(9px, 3.6cqh, 14px)",
             letterSpacing: ".1em",
@@ -171,7 +171,7 @@ export function VerdictRow({
         <Button
           size="compact-xs"
           variant="outline"
-          color="boardBlue.1"
+          color="mauve.1"
           aria-label={`Override ${nameOf(state, verdict.userId)}'s answer`}
           onClick={() => verdict.answerId && onOverride(verdict.answerId)}
         >

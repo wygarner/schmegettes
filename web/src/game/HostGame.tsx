@@ -2,19 +2,21 @@ import { Box, Loader, Text, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { money } from "../lib/money";
-import { inFinal, nameOf, type RoomState } from "../lib/room";
+import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
 import {
   announcement,
+  correctResponseAnnouncement,
   DAILY_DOUBLE_INTRO,
   dailyDoubleAnnouncement,
   finalAnnouncement,
   speak,
+  spokenText,
   stopSpeaking,
 } from "../lib/speech";
 import { GoldButton } from "../ui/GoldButton";
 import { Meter } from "../ui/Meter";
 import { BigMoment, Stage, StageBody, StageHeader } from "../ui/Stage";
-import { DISPLAY, GOLD, INK, SOFT } from "../ui/tokens";
+import { ACCENT, DISPLAY, INK, SOFT } from "../ui/tokens";
 import { BlindKeypad } from "./BlindKeypad";
 import { Board } from "./Board";
 import { ClueText } from "./ClueText";
@@ -43,6 +45,19 @@ interface Speech {
 function currentSpeech(state: RoomState): Speech | null {
   const clue = state.activeClue;
   if (!clue) return null;
+  // The correct-response screen (after a clue, or after Final): read the response once. The
+  // server's timer moves on regardless, so nothing waits on it.
+  const response = state.clueEnd?.correctResponse;
+  if (response) {
+    const right = state.clueEnd?.state === "answered" || state.answers.some((a) => isCorrect(a.verdict));
+    const outcome = inFinal(state.phase) ? "final" : right ? "right" : "missed";
+    return {
+      key: `response:${clue.clueId}`,
+      text: correctResponseAnnouncement(response, outcome),
+      clueId: clue.clueId,
+      reportDone: false,
+    };
+  }
   switch (state.phase) {
     case "clue_reading": {
       if (!clue.clueText) return null;
@@ -101,7 +116,7 @@ export function HostGame({
   // the Final can't start) before the room has heard it.
   const say = useCallback(
     (speech: Speech) => {
-      void speak(speech.text).then((result) => {
+      void speak(spokenText(speech.text)).then((result) => {
         if (result === "failed") setSoundBlocked(true);
         if (result === "ended") {
           setSoundBlocked(false);
@@ -197,7 +212,7 @@ export function HostGame({
               position: "absolute",
               inset: 0,
               borderRadius: 12,
-              background: "rgba(3,4,28,.85)",
+              background: "rgba(20,11,43,.85)",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -206,7 +221,7 @@ export function HostGame({
               color: "#fff",
             }}
           >
-            <Loader color="yellow.4" size="sm" />
+            <Loader color="green.4" size="sm" />
             <Text ff={DISPLAY} fz={28} fw={600}>
               Paused
             </Text>
@@ -335,7 +350,7 @@ function ClueView({
         <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: "12cqh", flexShrink: 0 }}>
           <span
             style={{
-              background: GOLD,
+              background: ACCENT,
               color: INK,
               fontWeight: 800,
               fontSize: "clamp(10px, 4.4cqh, 18px)",
@@ -356,7 +371,7 @@ function ClueView({
               textOverflow: "ellipsis",
             }}
           >
-            {state.liveText ? `“${state.liveText}”` : <span style={{ color: "#7f87e6" }}>listening…</span>}
+            {state.liveText ? `“${state.liveText}”` : <span style={{ color: "#9a7aad" }}>listening…</span>}
           </span>
         </div>
       )}

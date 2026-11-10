@@ -1,7 +1,9 @@
 import { MantineProvider } from "@mantine/core";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { VOICE_SAMPLE, VOICE_TIPS } from "../game/NarratorVoicePicker";
+import { getSavedVoice, type Voice } from "../lib/narratorVoice";
 import { initialRoom, type Player, type RoomState } from "../lib/room";
 import { HostLobbyView } from "./HostLobby";
 
@@ -118,4 +120,152 @@ test("building the board, server errors, and a closed room", () => {
 test("a closed room says so", () => {
   renderView(lobby({ connection: "closed" }));
   expect(screen.getByText("This room has closed.")).toBeInTheDocument();
+});
+
+test("the host device (on the TV) never shows sign-in", () => {
+  renderView(lobby());
+  expect(screen.queryByText(/sign in/i)).toBeNull();
+  expect(screen.queryByRole("link", { name: "Account" })).toBeNull();
+});
+
+describe("narrator voice", () => {
+  class FakeUtterance {
+    voice: Voice | null = null;
+    lang = "";
+    rate = 1;
+    volume = 1;
+    onstart?: () => void;
+    onboundary?: () => void;
+    onend?: () => void;
+    onerror?: () => void;
+    constructor(public text: string) {}
+  }
+  class FakeSynth extends EventTarget {
+    voices: Voice[] = [];
+    spoken: FakeUtterance[] = [];
+    speaking = false;
+    pending = false;
+    cancel = vi.fn(() => {
+      this.speaking = false;
+    });
+    getVoices() {
+      return this.voices;
+    }
+    speak(u: FakeUtterance) {
+      this.spoken.push(u);
+      this.speaking = true;
+    }
+  }
+
+  const v = (name: string, lang: string, quality = "compact", isDefault = false): Voice => ({
+    name,
+    lang,
+    voiceURI: `com.apple.voice.${quality}.${lang}.${name}`,
+    default: isDefault,
+  });
+  const ava = v("Ava", "en-US", "premium");
+  const samantha = v("Samantha", "en-US", "compact", true);
+  const daniel = v("Daniel", "en-GB");
+  const bells = v("Bells", "en-US");
+  const thomas = v("Thomas", "fr-FR");
+
+  let synth: FakeSynth;
+  beforeEach(() => {
+    synth = new FakeSynth();
+    vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
+    Object.defineProperty(window, "speechSynthesis", { configurable: true, value: synth });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    Reflect.deleteProperty(window, "speechSynthesis");
+    window.localStorage.clear();
+  });
+
+  const asIPhone = () =>
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X)");
+  const voiceButton = () => screen.getByRole("button", { name: /^Narrator voice:/ });
+  const openPicker = () => {
+    fireEvent.click(voiceButton());
+    return screen.getByRole("dialog", { name: "Narrator voice" });
+  };
+  const rows = (dialog: HTMLElement) =>
+    within(dialog)
+      .getAllByRole("button")
+      .filter((b) => b.hasAttribute("aria-pressed"));
+
+  test("hidden when the device can't speak", () => {
+    Reflect.deleteProperty(window, "speechSynthesis");
+    renderView(lobby());
+    expect(screen.queryByRole("button", { name: /^Narrator voice:/ })).toBeNull();
+  });
+
+  test("shows the best voice, or Default voice until the list loads", () => {
+    renderView(lobby());
+    expect(voiceButton()).toHaveAccessibleName("Narrator voice: Default voice");
+    synth.voices = [samantha, ava];
+    act(() => {
+      synth.dispatchEvent(new Event("voiceschanged"));
+    });
+    expect(voiceButton()).toHaveAccessibleName("Narrator voice: Ava (Premium)");
+  });
+
+  test("the picker lists English voices best first; a tap saves the voice and says the sample", () => {
+    synth.voices = [thomas, daniel, bells, samantha, ava];
+    renderView(lobby());
+    const dialog = openPicker();
+    const list = rows(dialog);
+    expect(list.map((b) => b.textContent?.replace("✓", ""))).toEqual(["Ava (Premium)", "Samantha", "Daniel (UK)"]);
+    expect(list[0]).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Daniel (UK)" }));
+    expect(getSavedVoice()).toBe(daniel.voiceURI);
+    expect(synth.spoken.at(-1)?.text).toBe(VOICE_SAMPLE);
+    expect(synth.spoken.at(-1)?.voice).toBe(daniel);
+    expect(within(dialog).getByRole("button", { name: "Daniel (UK)" })).toHaveAttribute("aria-pressed", "true");
+    expect(voiceButton()).toHaveAccessibleName("Narrator voice: Daniel (UK)");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  test("the download tip shows on Apple devices with only standard voices", () => {
+    asIPhone();
+    synth.voices = [samantha, daniel];
+    renderView(lobby());
+    expect(openPicker()).toHaveTextContent(VOICE_TIPS.ios);
+  });
+
+  test("no tip when a Premium voice is installed", () => {
+    asIPhone();
+    synth.voices = [samantha, ava];
+    renderView(lobby());
+    expect(openPicker()).not.toHaveTextContent("Want a more natural voice?");
+  });
+
+  test("no tip on other devices", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    synth.voices = [samantha];
+    renderView(lobby());
+    expect(openPicker()).not.toHaveTextContent("Want a more natural voice?");
+  });
+
+  test("a device with no English voice says so", () => {
+    asIPhone();
+    synth.voices = [thomas];
+    renderView(lobby());
+    const dialog = openPicker();
+    expect(dialog).toHaveTextContent("No English voices on this device.");
+    expect(dialog).toHaveTextContent(VOICE_TIPS.ios);
+  });
+
+  test("Start stops a sample that's still playing", () => {
+    synth.voices = [samantha, ava];
+    const send = renderView(lobby({ players: [player("a", "Alice"), player("b", "Bob")] }));
+    fireEvent.click(within(openPicker()).getByRole("button", { name: "Samantha" }));
+    expect(synth.cancel).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Start" }));
+    expect(synth.cancel).toHaveBeenCalled();
+    expect(send).toHaveBeenCalledWith({ type: "start_game" });
+  });
 });

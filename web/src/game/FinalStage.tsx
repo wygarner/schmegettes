@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { money } from "../lib/money";
 import { isCorrect, nameOf, type Reveal, type RoomState } from "../lib/room";
 import { BigMoment, Stage, StageBody, StageHeader } from "../ui/Stage";
-import { DISPLAY, GOLD, GREEN, RED, SOFT } from "../ui/tokens";
+import { ACCENT, DISPLAY, GREEN, RED, SOFT } from "../ui/tokens";
 import { ClueText } from "./ClueText";
 import { Countdown } from "./Countdown";
 import { FINAL_ANSWER_MS, FINAL_TITLE_MS, REVEAL_LINE_MS, REVEAL_STEP_MS, WAGER_MS } from "./timing";
@@ -159,8 +159,8 @@ function RevealView({
             {overridden && (
               <span
                 style={{
-                  background: GOLD,
-                  color: "#1f1600",
+                  background: ACCENT,
+                  color: "#140b2b",
                   fontWeight: 800,
                   fontSize: "clamp(9px, 3.6cqh, 14px)",
                   letterSpacing: ".1em",
@@ -185,7 +185,7 @@ function RevealView({
               <Button
                 size="compact-xs"
                 variant="outline"
-                color="boardBlue.1"
+                color="mauve.1"
                 aria-label={`Override ${nameOf(state, reveal.userId)}'s answer`}
                 onClick={() => reveal.answerId && onOverride?.(reveal.answerId)}
               >
@@ -210,7 +210,7 @@ function RevealView({
               fontFamily: DISPLAY,
               fontWeight: 700,
               fontSize: "clamp(18px, 13cqh, 54px)",
-              color: after < 0 ? RED : GOLD,
+              color: after < 0 ? RED : ACCENT,
             }}
           >
             {money(after)}

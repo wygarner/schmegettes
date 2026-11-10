@@ -9,6 +9,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
+
 	"schmegettes/golib/auth"
 	"schmegettes/golib/db"
 )
@@ -40,7 +42,10 @@ func setupDB(t *testing.T) env {
 		t.Skipf("local database not reachable: %v", err)
 	}
 	t.Cleanup(d.Close)
-	base := "http://127.0.0.1:54321"
+	base := os.Getenv("SUPABASE_URL")
+	if base == "" {
+		base = "http://127.0.0.1:54321"
+	}
 	v, err := auth.NewVerifier(ctx, base+"/auth/v1/.well-known/jwks.json")
 	if err != nil {
 		t.Fatal(err)
@@ -72,10 +77,36 @@ func (e env) player(t *testing.T) auth.Claims {
 	return c
 }
 
+// grantHost gives a test player host access directly, on the owner connection (players can't
+// write hosts; redeeming a code is tested in hostaccess and private_access.test.sql).
+func grantHost(t *testing.T, userID string) {
+	t.Helper()
+	url := os.Getenv("DATABASE_OWNER_URL")
+	if url == "" {
+		url = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+	}
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(ctx)
+	if _, err := conn.Exec(ctx, `
+		with code as (select private.new_host_code('rooms store test') as c)
+		insert into public.hosts (user_id, code) select $1, c from code`, userID); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestStoreLobby(t *testing.T) {
 	e := setupDB(t)
 	ctx := context.Background()
 	host, alice, bob := e.player(t), e.player(t), e.player(t)
+
+	if _, err := e.store.Create(ctx, host, "Wyatt"); !errors.Is(err, ErrNotAHost) {
+		t.Fatalf("create without host access: %v", err)
+	}
+	grantHost(t, host.UserID)
 
 	room, err := e.store.Create(ctx, host, "Wyatt")
 	if err != nil {

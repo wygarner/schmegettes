@@ -27,7 +27,7 @@ Every game starts with one person pressing **Host a game** on the device that wi
 
 - **Host a game** asks "What's your name?" (prefilled), then creates the room with the default settings: up to 6 contestants (also the maximum), every season. The host lands on the lobby showing the new code.
 - The device that pressed it is the **host device**. It shows the TV view and controls Start. It plays only if the host joins the game (below).
-- No account is needed. If the device has no session, it signs in anonymously first, without showing anything.
+- No account is needed. If the device has no session, it signs in anonymously first, without showing anything. Hosting is invite-only: a device without host access enters a one-use host code first ([private access](../private-access/feature-brief.md)). Joining stays anonymous.
 - **Room codes**: 5 characters made of letters and digits, with look-alikes (`0 O 1 I L`) left out so a code read off a TV is never ambiguous. Codes are unique among rooms that aren't closed.
 - **One open lobby per host device.** When a host creates a room while they already have a room in `lobby`, the old room is closed. A room with a game in progress isn't touched.
 
@@ -59,6 +59,7 @@ The host device is an iPhone in landscape, mirrored to the TV ([gameplay](../gam
 - Shows the **room code**, the join URL in plain text, and "Hosted by {name}".
 - Shows **joined contestants** live, by display name, in the order they joined, with a count against the limit ("3 / 6").
 - **Join the game** / **Leave the game**: adds or removes the host as a contestant.
+- **Voice** shows the narrator's voice by name and opens a list of the device's English voices, best first. Tapping a voice selects it and plays a sample line on the TV ("Here's Volcanoes for 400."), so the host hears it before Start. It's available only in the lobby. The rules for choosing a voice are in [gameplay](../gameplay/feature-brief.md#the-narrators-voice).
 - **Start** is enabled once at least **2 contestants** have joined, counting the host if they joined. It closes joining, and the room moves to `building_board`. What happens after that belongs to game-history and gameplay.
 
 ### Joining (contestant phone)

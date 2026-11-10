@@ -3,7 +3,7 @@
 -- users run as authenticated with request.jwt.claims, as in rls.test.sql.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(54);
+select plan(57);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (all rolled back)
@@ -55,7 +55,9 @@ create function tests.game(p_name text) returns uuid language sql stable as $$
   select current_setting('tests.' || p_name)::uuid;
 $$;
 
--- Ignore the seed catalog; each test season below has a known shape.
+-- Ignore the seed catalog and any games already in a local database (dev play, api tests);
+-- each test season below has a known shape. Rolled back with the rest.
+delete from public.games;
 delete from public.clues;
 
 -- Season 1: plenty of fresh categories.

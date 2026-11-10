@@ -183,8 +183,8 @@ The same states as the phone, in the player column, minus what the stage already
 | A player buzzes during `answering` | Ignored (not a lockout) |
 | Everyone has tried and all were wrong | Clue ends, correct response shown for 6 s without the clue, control unchanged |
 | Transcript is empty after 9 s (connected) | Incorrect |
-| The answer sounds like the response but is spelled differently ("mona lowa" for Mauna Loa) | **Not yet implemented.** Correct. The verdict line shows what was heard: "✓ Alice: *mona lowa*". Rules in the [feature brief](./feature-brief.md#how-an-answer-is-matched) |
-| Speech recognition offers several transcripts and only a less likely one matches | **Not yet implemented.** Correct. The verdict line shows the transcript that matched |
+| The answer sounds like the response but is spelled differently ("mona lowa" for Mauna Loa) | Correct. The verdict line shows what was heard: "✓ Alice: *mona lowa*". Rules in the [feature brief](./feature-brief.md#how-an-answer-is-matched) |
+| Speech recognition offers several transcripts and only a less likely one matches | Correct. The verdict line shows the transcript that matched |
 | Phone disconnects while answering | No penalty, buzzing reopens for the others, and that player is out for this clue |
 | Phone reconnects mid-clue | It gets the current phase and buzzer state. If it already tried this clue, its buzzer is locked |
 | Host device disconnects mid-clue | Paused. On return the announcement and clue are read again from the start, and buzzing reopens for those who haven't tried |

@@ -2,7 +2,7 @@ import { Box, Loader, Text, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { money } from "../lib/money";
-import { inFinal, nameOf, type RoomState } from "../lib/room";
+import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
 import {
   announcement,
   correctResponseAnnouncement,
@@ -48,9 +48,11 @@ function currentSpeech(state: RoomState): Speech | null {
   // server's timer moves on regardless, so nothing waits on it.
   const response = state.clueEnd?.correctResponse;
   if (response) {
+    const right = state.clueEnd?.state === "answered" || state.answers.some((a) => isCorrect(a.verdict));
+    const outcome = inFinal(state.phase) ? "final" : right ? "right" : "missed";
     return {
       key: `response:${clue.clueId}`,
-      text: correctResponseAnnouncement(response),
+      text: correctResponseAnnouncement(response, outcome),
       clueId: clue.clueId,
       reportDone: false,
     };

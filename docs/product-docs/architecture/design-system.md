@@ -12,16 +12,17 @@ One component library for product UI and prototypes: **Mantine 9**. Prototypes i
   primaryShade: 4,
   autoContrast: true,
   colors: {
-    slate: ["#e9f2f5", "#cbdee5", "#abc8d3", "#8bb1c0", "#6e9aac", "#578497", "#446f82", "#345a6b", "#264756", "#1b3644"],
-    green: ["#effff1", "#d9ffdf", "#b5ffc2", "#a6ffaf", "#94ff94", "#7af07a", "#5fdb5f", "#46c246", "#33a633", "#238a23"],
-    dark:  ["#c1d2d9", "#a6bdc7", "#8aa4b0", "#5e7b88", "#3c5a68", "#2a4553", "#1f3946", "#183039", "#12262e", "#0c1a21"],
+    mauve: ["#f3edfe", "#e2d6fc", "#c9b3f9", "#ad8cf6", "#9161f2", "#7a48e0", "#6436c4", "#4e2a9c", "#3b2075", "#2a1754"],
+    green: ["#eafff4", "#cfffe6", "#a6ffd2", "#8affc3", "#6bffb3", "#4ff09e", "#36d986", "#25bd6f", "#18a05c", "#0e8049"],
+    pink:  ["#fff0f8", "#ffd9ef", "#ffa6d9", "#ff8fce", "#ff78c3", "#f25eb2", "#d9479b", "#bd3383", "#9e226c", "#801655"],
+    dark:  ["#d6cfe6", "#bbb0d4", "#9f92bf", "#75679a", "#524478", "#3c3060", "#2e244d", "#241c3e", "#1b1433", "#140b2b"],
   },
   fontFamily: "Inter, system-ui, sans-serif",
   headings: { fontFamily: "Oswald, Impact, sans-serif" },
 }
 ```
 
-Default color scheme: dark. The palette is three colors: **slate `#1B3644`** (`slate.9`), **cobalt green `#94FF94`** (`green.4`), and **turquoise green `#B5FFC2`** (`green.2`). Mantine's `dark` scale is slate too, so inputs and dialogs match. `/product` and `/designer` refine this file; `web/src/main.tsx` is the source of truth for the values.
+Default color scheme: dark. The palette is three colors: **light mauve `#9161F2`** (`mauve.4`), **Venice green `#6BFFB3`** (`green.4`), and **Corinthian pink `#FFA6D9`** (`pink.2`). Backgrounds use the deep end of the mauve scale, built around the light mauve, so white text and the green accent stay readable; the light mauve itself shows in the stage's top glow and border. Mantine's `dark` scale is mauve too, so inputs and dialogs match. `/product` and `/designer` refine this file; `web/src/main.tsx` is the source of truth for the values.
 
 ## Fonts
 
@@ -40,15 +41,15 @@ Board values are Oswald 700. Oswald has no 800 weight.
 
 | Token (`web/src/ui/tokens.ts`) | Value | Use |
 |---|---|---|
-| `NIGHT` | `#0c1a21` (darkest slate) | Host screen behind the stage and board; base of the phone background |
-| `STAGE_BG` | radial gradient `#2c5468` → `#1b3644` → `#10232c`, lighter at the top | The panel behind clues, the lobby, Daily Double, Final, and the scoreboard |
-| `PHONE_BG` | `#23465a` at the top, fading to `NIGHT` | Every phone screen |
-| `CELL` (`slate.9`) | `#1b3644` | Board cells and category headers, with a bevel (light top edge, dark bottom edge) |
-| `TILE_BG` | slate gradient, slightly lighter at the top | Player tiles, lobby rows |
-| `ACCENT` (`green.4`) | `#94ff94`, cobalt green | Values, scores, the control ring, the stage's lit border, **the main action** (Start, Pick, Wager, Lock in, Submit, Rematch), "BUZZ IN!" |
-| `INK` | `#0c1a21` | Text on the accent |
-| `SOFT` (`green.2`) | `#b5ffc2`, turquoise green | Secondary text and labels on slate |
-| `MUTED` / `DIM` | `#8fc7a0` / `#6a9a80` | Quieter text (dates, hints) / placeholders and "listening…" |
+| `NIGHT` | `#140b2b` (darkest mauve) | Host screen behind the stage and board; base of the phone background |
+| `STAGE_BG` | radial gradient `#5a36b4` → `#2a1754` → `#1a0f38`, lighter at the top, with a light-mauve border | The panel behind clues, the lobby, Daily Double, Final, and the scoreboard |
+| `PHONE_BG` | `#4a2b94` at the top, fading to `NIGHT` | Every phone screen |
+| `CELL` (`mauve.9`) | `#2a1754` | Board cells and category headers, with a bevel (light top edge, dark bottom edge) |
+| `TILE_BG` | deep mauve gradient, slightly lighter at the top | Player tiles, lobby rows |
+| `ACCENT` (`green.4`) | `#6bffb3`, Venice green | Values, scores, the control ring, the stage's lit border, **the main action** (Start, Pick, Wager, Lock in, Submit, Rematch), "BUZZ IN!" |
+| `INK` | `#140b2b` | Text on the accent |
+| `SOFT` (`pink.2`) | `#ffa6d9`, Corinthian pink | Secondary text and labels on mauve |
+| `MUTED` / `DIM` | `#d6a3c8` / `#9a7aad` | Quieter text (dates, hints) / placeholders and "listening…" |
 | `GREEN` (`teal.4`) / `RED` (`red.4`) | Mantine | Correct / incorrect, and negative scores. Correct uses teal, not the accent green, so right and wrong still read at a glance |
 | Buzzer red | dome gradient `#ffb8b8` → `#ff3030` → `#d40c0c` → `#7a0404` | The buzzer, lit. It stays red: it's the one thing that should look like a button to hit |
 
@@ -90,7 +91,7 @@ Name and score, in join order, sharing the player column's height.
 
 ### Board
 
-6 categories × 4 values. `slate.9` cells with a bevel, values in the accent (`green.4`) Oswald 700 with a dark drop shadow, no "$" on the board. Headers wrap to at most 3 lines and shrink to fit. A played cell is an empty cell. Pressed cells shrink slightly, and only when the board is tappable. Phones show the same board, compact (48 px rows).
+6 categories × 4 values. `mauve.9` cells with a bevel, values in the accent (`green.4`) Oswald 700 with a dark drop shadow, no "$" on the board. Headers wrap to at most 3 lines and shrink to fit. A played cell is an empty cell. Pressed cells shrink slightly, and only when the board is tappable. Phones show the same board, compact (48 px rows).
 
 ### Stage
 

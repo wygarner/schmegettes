@@ -160,7 +160,7 @@ function RevealView({
               <span
                 style={{
                   background: ACCENT,
-                  color: "#0c1a21",
+                  color: "#140b2b",
                   fontWeight: 800,
                   fontSize: "clamp(9px, 3.6cqh, 14px)",
                   letterSpacing: ".1em",
@@ -185,7 +185,7 @@ function RevealView({
               <Button
                 size="compact-xs"
                 variant="outline"
-                color="slate.1"
+                color="mauve.1"
                 aria-label={`Override ${nameOf(state, reveal.userId)}'s answer`}
                 onClick={() => reveal.answerId && onOverride?.(reveal.answerId)}
               >

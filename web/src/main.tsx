@@ -22,50 +22,64 @@ import { MyGames } from "./pages/MyGames";
 
 // Shared with devtools/ prototypes via the same values; see docs/product-docs/architecture/design-system.md.
 export const theme = createTheme({
-  // Slate backgrounds, cobalt-green accent, turquoise-green secondary text
+  // Mauve backgrounds, Venice green accent, Corinthian pink secondary text
   // (docs/product-docs/architecture/design-system.md, "Color").
   primaryColor: "green",
   primaryShade: 4,
   autoContrast: true,
   colors: {
-    // Slate: backgrounds, board cells, tiles. slate.9 is the brand slate #1B3644.
-    slate: [
-      "#e9f2f5",
-      "#cbdee5",
-      "#abc8d3",
-      "#8bb1c0",
-      "#6e9aac",
-      "#578497",
-      "#446f82",
-      "#345a6b",
-      "#264756",
-      "#1b3644",
+    // Mauve: backgrounds, board cells, tiles. mauve.4 is the brand light mauve #9161F2;
+    // mauve.9 is the deep mauve under the board.
+    mauve: [
+      "#f3edfe",
+      "#e2d6fc",
+      "#c9b3f9",
+      "#ad8cf6",
+      "#9161f2",
+      "#7a48e0",
+      "#6436c4",
+      "#4e2a9c",
+      "#3b2075",
+      "#2a1754",
     ],
-    // Cobalt green: the accent. green.4 is #94FF94; green.2 is near the turquoise green #B5FFC2.
+    // Venice green: the accent. green.4 is #6BFFB3.
     green: [
-      "#effff1",
-      "#d9ffdf",
-      "#b5ffc2",
-      "#a6ffaf",
-      "#94ff94",
-      "#7af07a",
-      "#5fdb5f",
-      "#46c246",
-      "#33a633",
-      "#238a23",
+      "#eafff4",
+      "#cfffe6",
+      "#a6ffd2",
+      "#8affc3",
+      "#6bffb3",
+      "#4ff09e",
+      "#36d986",
+      "#25bd6f",
+      "#18a05c",
+      "#0e8049",
     ],
-    // Mantine's dark scheme (inputs, modals, borders) in slate.
+    // Corinthian pink: secondary text. pink.2 is #FFA6D9.
+    pink: [
+      "#fff0f8",
+      "#ffd9ef",
+      "#ffa6d9",
+      "#ff8fce",
+      "#ff78c3",
+      "#f25eb2",
+      "#d9479b",
+      "#bd3383",
+      "#9e226c",
+      "#801655",
+    ],
+    // Mantine's dark scheme (inputs, modals, borders) in mauve.
     dark: [
-      "#c1d2d9",
-      "#a6bdc7",
-      "#8aa4b0",
-      "#5e7b88",
-      "#3c5a68",
-      "#2a4553",
-      "#1f3946",
-      "#183039",
-      "#12262e",
-      "#0c1a21",
+      "#d6cfe6",
+      "#bbb0d4",
+      "#9f92bf",
+      "#75679a",
+      "#524478",
+      "#3c3060",
+      "#2e244d",
+      "#241c3e",
+      "#1b1433",
+      "#140b2b",
     ],
   },
   fontFamily: "Inter, system-ui, sans-serif",

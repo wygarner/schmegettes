@@ -192,7 +192,7 @@ export function HostLobbyView({
             </Text>
             <ActionIcon
               variant="subtle"
-              color="slate.1"
+              color="mauve.1"
               aria-label="Edit your name"
               onClick={() => {
                 setName(state.hostDisplayName);
@@ -232,7 +232,7 @@ export function HostLobbyView({
         <Stack gap={4}>
           <Button
             variant="outline"
-            color="slate.1"
+            color="mauve.1"
             disabled={!state.hostPlays && full}
             onClick={() => send({ type: "set_host_plays", plays: !state.hostPlays })}
           >
@@ -357,7 +357,7 @@ function LobbyPlayers({ state, count }: { state: RoomState; count: number }) {
                       fontWeight: 800,
                       letterSpacing: ".08em",
                       color: SOFT,
-                      border: "1px solid rgba(181,255,194,.45)",
+                      border: "1px solid rgba(255,166,217,.45)",
                       padding: "1px 4px",
                       borderRadius: 3,
                     }}
@@ -386,7 +386,7 @@ function CodeTiles({ code }: { code: string }) {
             width: "min(13cqw, 30cqh)",
             height: "min(17cqw, 38cqh)",
             borderRadius: 8,
-            background: "var(--mantine-color-slate-9)",
+            background: "var(--mantine-color-mauve-9)",
             boxShadow: `${BEVEL}, 0 6px 18px rgba(0,0,0,.35)`,
             display: "flex",
             alignItems: "center",

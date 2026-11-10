@@ -148,7 +148,7 @@ export function VerdictRow({
         <span
           style={{
             background: "var(--mantine-color-green-4)",
-            color: "#0c1a21",
+            color: "#140b2b",
             fontWeight: 800,
             fontSize: "clamp(9px, 3.6cqh, 14px)",
             letterSpacing: ".1em",
@@ -171,7 +171,7 @@ export function VerdictRow({
         <Button
           size="compact-xs"
           variant="outline"
-          color="slate.1"
+          color="mauve.1"
           aria-label={`Override ${nameOf(state, verdict.userId)}'s answer`}
           onClick={() => verdict.answerId && onOverride(verdict.answerId)}
         >

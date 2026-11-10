@@ -141,3 +141,6 @@ None. The web client ships no telemetry yet (Grafana Faro is not implemented), a
 - `docs/product-docs/features/lobby/feature-brief.md`: remove the marker on **Voice**.
 - `docs/product-docs/features/lobby/interaction-design.md`: remove the markers on the 🔊 button, "Narrator voice picker", and the five voice edge cases; correct the tip text and the labels if they changed.
 - `docs/system-docs/engineering/stack.md`: `web/` row: "Voice input (Web Speech API)" → "Voice input and narration (Web Speech API)".
+
+## Branch
+`enhancement/narrator-voice-impl`, from and into `daily/2026-11-10`. No Jira ticket: Jira setup is not done for this repo (development-workflow.md, "Jira setup"), so the folder stays `tasks/narrator-voice/` and PR titles use `narrator-voice` in place of `SCH-{N}`.

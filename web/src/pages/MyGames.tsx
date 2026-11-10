@@ -6,6 +6,7 @@ import { money } from "../lib/money";
 import { listWhen, ordinal, PLACE_COLOR } from "../lib/placement";
 import { isAnonymous } from "../lib/supabase";
 import { GoldButton } from "../ui/GoldButton";
+import { SignInSheet } from "../ui/SignInSheet";
 import { BEVEL, CELL, DISPLAY, PHONE_BG, RED, SOFT } from "../ui/tokens";
 
 type Load = { kind: "loading" } | { kind: "error" } | { kind: "ready" };
@@ -18,6 +19,7 @@ export function MyGames() {
   const [next, setNext] = useState<string | null>(null);
   const [more, setMore] = useState(false);
   const [anonymous, setAnonymous] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
 
   const first = useCallback(async () => {
     setLoad({ kind: "loading" });
@@ -107,11 +109,17 @@ export function MyGames() {
         </Group>
         {body}
         {anonymous && load.kind === "ready" && games.length > 0 && (
-          <Text size="xs" c="dimmed" ta="center" mt="md">
-            Played without an account. Link Google or email to keep these if you switch phones.
-          </Text>
+          <Stack align="center" gap={4} mt="md">
+            <Text size="xs" c="dimmed" ta="center">
+              Played without an account. Sign in to keep these on any phone.
+            </Text>
+            <Button variant="subtle" size="compact-sm" onClick={() => setSigningIn(true)}>
+              Sign in
+            </Button>
+          </Stack>
         )}
       </Container>
+      <SignInSheet opened={signingIn} onClose={() => setSigningIn(false)} />
     </div>
   );
 }

@@ -18,10 +18,13 @@ export function HostCodeSheet({
   opened,
   onClose,
   onUnlocked,
+  onSignIn,
 }: {
   opened: boolean;
   onClose: () => void;
   onUnlocked: () => void;
+  /** For a guest: sign in first, so host access follows them to any device. */
+  onSignIn?: () => void;
 }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -90,6 +93,16 @@ export function HostCodeSheet({
             <Text size="xs" c={SOFT}>
               Try again in {waitSeconds} s.
             </Text>
+          )}
+          {onSignIn && (
+            <Group justify="space-between" wrap="nowrap">
+              <Text size="xs" c={SOFT}>
+                Sign in first so you can host from any device.
+              </Text>
+              <Button variant="subtle" size="compact-sm" onClick={onSignIn}>
+                Sign in
+              </Button>
+            </Group>
           )}
         </Stack>
       </form>

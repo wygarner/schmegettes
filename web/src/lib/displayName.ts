@@ -1,3 +1,5 @@
+import { cachedAccountName } from "./accountFlags";
+
 // The name this device used last, to prefill the next name prompt. Browser storage can be
 // missing or blocked (private windows, previews), so every access is guarded.
 const KEY = "schmegettes.displayName";
@@ -27,4 +29,9 @@ export function setLastName(name: string): void {
   } catch {
     // Not remembering a name is fine.
   }
+}
+
+/** The name to prefill: the account's name when signed in, else the last name used here. */
+export function getPrefillName(): string {
+  return cachedAccountName() ?? getLastName();
 }

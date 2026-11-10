@@ -16,8 +16,8 @@ export function Stage({ children, lit = false, pad = 14 }: { children: ReactNode
         borderRadius: 12,
         background: STAGE_BG,
         boxShadow: lit
-          ? `inset 0 0 0 3px ${ACCENT}, 0 0 26px rgba(148,255,148,.45)`
-          : "inset 0 0 0 1px rgba(255,255,255,.08)",
+          ? `inset 0 0 0 3px ${ACCENT}, 0 0 26px rgba(107,255,179,.45)`
+          : "inset 0 0 0 1px rgba(145,97,242,.4)",
         transition: "box-shadow 150ms",
         overflow: "hidden",
         display: "flex",
@@ -41,7 +41,7 @@ export function StageHeader({ children, right }: { children: ReactNode; right?: 
         justifyContent: "space-between",
         alignItems: "center",
         gap: 8,
-        color: "#b5ffc2",
+        color: "#ffa6d9",
         fontWeight: 700,
         letterSpacing: ".12em",
         fontSize: "clamp(10px, 4.4cqh, 18px)",

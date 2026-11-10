@@ -29,7 +29,7 @@ export function GameScoreboard() {
   return (
     <div style={{ minHeight: "100dvh", background: PHONE_BG, color: "#fff" }}>
       <Container size="xs" py="lg">
-        <Anchor component={Link} to="/games" size="sm" c="slate.2">
+        <Anchor component={Link} to="/games" size="sm" c="mauve.2">
           ‹ My games
         </Anchor>
         {load.kind === "loading" && (
@@ -87,12 +87,12 @@ function Board({ game }: { game: GameDetail }) {
                   gap: 8,
                   padding: "10px 12px",
                   borderRadius: 12,
-                  background: r.isCaller ? "rgba(148,255,148,.1)" : "rgba(255,255,255,.04)",
-                  border: r.isCaller ? "1px solid rgba(148,255,148,.4)" : "1px solid transparent",
+                  background: r.isCaller ? "rgba(107,255,179,.1)" : "rgba(255,255,255,.04)",
+                  border: r.isCaller ? "1px solid rgba(107,255,179,.4)" : "1px solid transparent",
                 }}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-                  <span style={{ width: 38, fontWeight: 800, color: PLACE_COLOR[r.placement] ?? "#8fc7a0" }}>
+                  <span style={{ width: 38, fontWeight: 800, color: PLACE_COLOR[r.placement] ?? "#d6a3c8" }}>
                     {ordinal(r.placement)}
                   </span>
                   <span

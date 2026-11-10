@@ -71,7 +71,7 @@ export function JoinRoom() {
       <Container size="xs" py={48}>
         <form onSubmit={join}>
           <Stack>
-            <Text size="xs" fw={700} c="#8fc7a0" style={{ letterSpacing: ".14em" }}>
+            <Text size="xs" fw={700} c="#d6a3c8" style={{ letterSpacing: ".14em" }}>
               ROOM {code}
             </Text>
             <Title order={2} ff={DISPLAY} fw={600} fz={34}>
@@ -264,7 +264,7 @@ export function Shuffle() {
             width: 36,
             height: 48,
             borderRadius: 4,
-            background: "var(--mantine-color-slate-9)",
+            background: "var(--mantine-color-mauve-9)",
             boxShadow: "inset 0 1px 0 rgba(255,255,255,.22), inset 0 -3px 0 rgba(0,0,0,.35)",
             animationDelay: `${i * 110}ms`,
           }}

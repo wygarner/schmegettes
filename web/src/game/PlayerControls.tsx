@@ -145,7 +145,7 @@ export function PlayerControls({
               fontSize: 12,
               fontWeight: 700,
               letterSpacing: ".1em",
-              color: "#8fc7a0",
+              color: "#d6a3c8",
               textTransform: "uppercase",
             }}
           >
@@ -175,7 +175,7 @@ export function PlayerControls({
       <div style={{ flexShrink: 0, paddingTop: 10 }}>
         {buzzer}
         {hint && (
-          <Text ta="center" size="xs" c="rgba(181,255,194,.75)" mt={8}>
+          <Text ta="center" size="xs" c="rgba(255,166,217,.75)" mt={8}>
             {hint}
           </Text>
         )}
@@ -336,7 +336,7 @@ function PlayerStatus({
             </Text>
             <Meter color="var(--mantine-color-teal-5)" height={44} />
             <Text fz={22} fs="italic" mih={60} aria-label="What we heard">
-              {heard ? `“${heard}”` : <span style={{ color: "#6a9a80" }}>{listening ? "Listening…" : "…"}</span>}
+              {heard ? `“${heard}”` : <span style={{ color: "#9a7aad" }}>{listening ? "Listening…" : "…"}</span>}
             </Text>
             <Countdown deadlineAt={state.deadlineAt} total={ANSWER_TOTAL_MS} color="var(--mantine-color-teal-6)" />
             <Text size="sm" c={SOFT}>
@@ -461,12 +461,12 @@ function GameOver({ state, userId, onLeave }: { state: RoomState; userId: string
                 alignItems: "center",
                 padding: "8px 12px",
                 borderRadius: 10,
-                background: mine ? "rgba(148,255,148,.1)" : "rgba(255,255,255,.04)",
-                border: mine ? "1px solid rgba(148,255,148,.4)" : "1px solid transparent",
+                background: mine ? "rgba(107,255,179,.1)" : "rgba(255,255,255,.04)",
+                border: mine ? "1px solid rgba(107,255,179,.4)" : "1px solid transparent",
               }}
             >
               <span style={{ display: "flex", gap: 12 }}>
-                <span style={{ width: 34, fontWeight: 800, fontSize: 14, color: "#8fc7a0" }}>
+                <span style={{ width: 34, fontWeight: 800, fontSize: 14, color: "#d6a3c8" }}>
                   {ordinal(r.placement)}
                 </span>
                 <span style={{ fontWeight: 700 }}>{r.displayName}</span>
@@ -507,7 +507,7 @@ function FinalStatus({ state, userId, send }: { state: RoomState; userId: string
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ textAlign: "center" }}>
-          <Text c="slate.1" size="xs" fw={700} tt="uppercase" style={{ letterSpacing: ".14em" }}>
+          <Text c="mauve.1" size="xs" fw={700} tt="uppercase" style={{ letterSpacing: ".14em" }}>
             Final: {clue?.category}
           </Text>
           <Text size="sm" c={SOFT}>

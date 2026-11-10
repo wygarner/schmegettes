@@ -99,7 +99,7 @@ export function BlindKeypad({
           {text ? (
             "•".repeat(Math.min(text.length, 40))
           ) : (
-            <span style={{ color: "#6a9a80", letterSpacing: 0, fontWeight: 500, fontSize: 13 }}>
+            <span style={{ color: "#9a7aad", letterSpacing: 0, fontWeight: 500, fontSize: 13 }}>
               Type your answer (hidden from the TV)
             </span>
           )}

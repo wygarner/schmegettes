@@ -44,7 +44,7 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
         <Text ff={DISPLAY} fw={700} c="green.4" tt="uppercase" style={{ fontSize: "8cqh", letterSpacing: ".06em" }}>
           Final scores
         </Text>
-        <Text c="#8fc7a0" style={{ fontSize: "clamp(10px, 4cqh, 16px)" }}>
+        <Text c="#d6a3c8" style={{ fontSize: "clamp(10px, 4cqh, 16px)" }}>
           {gameWhen(state.startedAt, state.finishedAt)}
         </Text>
       </div>
@@ -63,9 +63,9 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
           className="sg-pop"
           style={{
             borderRadius: 14,
-            background: "rgba(148,255,148,.08)",
+            background: "rgba(107,255,179,.08)",
             border: `2px solid ${ACCENT}`,
-            boxShadow: "0 0 30px rgba(148,255,148,.25)",
+            boxShadow: "0 0 30px rgba(107,255,179,.25)",
             padding: "4cqh 3cqw",
             textAlign: "center",
             minWidth: 0,
@@ -124,7 +124,7 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
                   width: "6cqw",
                   fontWeight: 800,
                   fontSize: "4.6cqh",
-                  color: PLACE_COLOR[r.placement] ?? "#8fc7a0",
+                  color: PLACE_COLOR[r.placement] ?? "#d6a3c8",
                 }}
               >
                 {ordinal(r.placement)}
@@ -153,7 +153,7 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
         </ol>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 6 }}>
-        <Text c="#8fc7a0" style={{ fontSize: "clamp(10px, 4cqh, 16px)" }}>
+        <Text c="#d6a3c8" style={{ fontSize: "clamp(10px, 4cqh, 16px)" }}>
           Saved to everyone's game history
         </Text>
         <GoldButton

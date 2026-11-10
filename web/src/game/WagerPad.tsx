@@ -87,7 +87,7 @@ export function WagerPad({
       </output>
       {hint && (
         <div
-          style={{ marginTop: 6, fontSize: phone ? 14 : 12, fontWeight: bad ? 700 : 500, color: bad ? RED : "#8fc7a0" }}
+          style={{ marginTop: 6, fontSize: phone ? 14 : 12, fontWeight: bad ? 700 : 500, color: bad ? RED : "#d6a3c8" }}
         >
           {hint}
         </div>

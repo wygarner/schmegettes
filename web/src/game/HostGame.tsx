@@ -212,7 +212,7 @@ export function HostGame({
               position: "absolute",
               inset: 0,
               borderRadius: 12,
-              background: "rgba(12,26,33,.85)",
+              background: "rgba(20,11,43,.85)",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -371,7 +371,7 @@ function ClueView({
               textOverflow: "ellipsis",
             }}
           >
-            {state.liveText ? `“${state.liveText}”` : <span style={{ color: "#6a9a80" }}>listening…</span>}
+            {state.liveText ? `“${state.liveText}”` : <span style={{ color: "#9a7aad" }}>listening…</span>}
           </span>
         </div>
       )}

@@ -134,7 +134,7 @@ function Tile({
         borderRadius: 3,
         background: strong ? ACCENT : "transparent",
         color: strong ? INK : SOFT,
-        border: strong ? "none" : "1px solid rgba(181,255,194,.45)",
+        border: strong ? "none" : "1px solid rgba(255,166,217,.45)",
       }}
     >
       {text}
@@ -160,7 +160,7 @@ function Tile({
         borderRadius: 8,
         background: TILE_BG,
         border: `3px solid ${highlight ? ACCENT : "transparent"}`,
-        boxShadow: highlight ? "0 0 16px rgba(148,255,148,.35)" : BEVEL,
+        boxShadow: highlight ? "0 0 16px rgba(107,255,179,.35)" : BEVEL,
         opacity: player.connected && !dim ? 1 : 0.45,
         padding: "0 8px",
         display: "flex",

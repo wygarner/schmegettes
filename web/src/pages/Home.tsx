@@ -101,7 +101,7 @@ export function Home() {
             </Text>
           </Stack>
 
-          <Anchor component={Link} to="/games" ta="center" c="slate.2">
+          <Anchor component={Link} to="/games" ta="center" c="mauve.2">
             My games
           </Anchor>
         </Stack>

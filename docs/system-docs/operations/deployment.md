@@ -61,10 +61,20 @@ A new environment has no clues: Start fails until the catalog is loaded. Run **L
 Set once per Supabase project (Authentication settings), matching `supabase/config.toml`:
 
 - **Anonymous sign-ins**: on. Rate limit for anonymous users: 30 per hour per IP.
-- **Email provider**: off. Nobody signs in with email, and Schmegettes sends no email ([private access](../../product-docs/features/private-access/feature-brief.md)).
-- **Apple** and **Google** providers: on, with that environment's Services ID / OAuth client and secret ([accounts](../../product-docs/features/accounts/feature-brief.md); rotation in [configuration-and-secrets.md](../security/configuration-and-secrets.md)). Each provider's console must list the project's callback URL (`https://<project>.supabase.co/auth/v1/callback`).
-- **Manual linking**: on.
-- **Redirect URLs**: the web origin and `<origin>/**`, so sign-in returns to the page it started on.
+- **Email provider**: on, for email and password accounts ([accounts](../../product-docs/features/accounts/feature-brief.md)). **Confirm email: off** and **Secure password change: off**, so Schmegettes never sends email and needs no SMTP. Minimum password length 8, no other password requirements. Rate limit for sign-ins and sign-ups: 30 per 5 minutes per IP.
+- No OAuth providers.
+
+### Resetting a player's password
+
+There is no reset email. When a player asks, set a new password in the project's SQL editor and tell them in person or by message; they can change it on their Account page. Devices already signed in stay signed in.
+
+```sql
+update auth.users
+set encrypted_password = extensions.crypt('<new password>', extensions.gen_salt('bf'))
+where email = lower('<their email>');
+```
+
+To free an email someone else registered, delete that user (Authentication → Users); it follows the account deletion rules.
 
 ## Host access after a release
 

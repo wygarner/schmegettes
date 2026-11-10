@@ -80,7 +80,7 @@ Schema `private` holds functions the Data API doesn't expose, so calling them me
 
 ## Account functions
 
-Accounts ([accounts](../../product-docs/features/accounts/feature-brief.md)): players sign in with Apple or Google, and every sign-in moves the device's guest into the account. All four are `security definer` in schema `private`, granted to `authenticated`, and called by api (`api/internal/account`; the three that change state are rate-limited). A caller is a guest if either the token's `is_anonymous` or `auth.users.is_anonymous` says so.
+Accounts ([accounts](../../product-docs/features/accounts/feature-brief.md)): players sign in with email and password, and every sign-in moves the device's guest into the account. All four are `security definer` in schema `private`, granted to `authenticated`, and called by api (`api/internal/account`; the three that change state are rate-limited). A caller is a guest if either the token's `is_anonymous` or `auth.users.is_anonymous` says so.
 
 | Function | Does |
 |---|---|

@@ -58,7 +58,7 @@ A wrong answer, a rejected buzz, or a full room is normal gameplay, not an error
 ## 5. Never log
 
 - Supabase JWTs, refresh tokens, the `Authorization` header, `Sec-WebSocket-Protocol` (it carries the token), database URLs or passwords, API keys
-- Email addresses, OAuth profile data
+- Email addresses, passwords (including failed attempts), OAuth profile data
 - Whole request/response bodies or whole WebSocket messages
 - LLM prompts or completions in full (log the model, token counts, latency, verdict)
 

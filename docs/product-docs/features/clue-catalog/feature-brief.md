@@ -1,6 +1,6 @@
 # Clue Catalog
 
-> **Not yet implemented.** Today the catalog (`public.clues`) holds only local seed data (`supabase/seed.sql`: a few real-looking clues and "SAMPLE" categories). The worker can parse a season file (`worker/src/schmegettes_worker/clue_import.py`), but nothing loads one.
+Built in `worker/src/schmegettes_worker/clue_import.py` (rules) and `clue_load.py` (loading). Local development still starts with the seed's "SAMPLE" categories until real clues are loaded.
 
 ## Why
 
@@ -41,11 +41,11 @@ Boards are built from whole categories, so a problem with one clue keeps its **w
 
 - Final categories have one clue; every rule but completeness applies.
 - "Names the show" is checked on the word itself, in any form. Ordinary uses ("double jeopardy" in a law category) are dropped too. Losing a handful is cheaper than a miss.
-- Measured on seasons 1 and 40 (2026-11-09): 64% and 85% of Single/Double categories pass, and every Final passes. Across 40 seasons that is roughly **80,000 board categories and 8,000 Finals**: about 8,000 games before a group runs out of Finals.
+- Measured on the full load (2026-11-10): **80,835 board categories and 8,801 Finals** (412,976 clues, about 160 MB). That's about 8,800 games before a group runs out of Finals. Left out: 15,534 incomplete, 6,116 with a host note, 3,365 naming the show (mostly on-location video clues), 230 needing sound or a picture.
 
 ### Loading
 
-- One command per environment loads every season, or a chosen list. Only an admin runs it.
+- One command per environment loads every season, or a chosen list. Only an admin runs it: `mise run clues:import -- --seasons 1-40` locally, the **Load Clues** workflow for staging and production ([deployment](../../system-docs/operations/deployment.md#loading-the-clue-catalog)).
 - **Safe to run again.** A clue already loaded is never duplicated or changed, so players' seen-clue history stays valid.
 - One season failing (download error, malformed file) doesn't undo the others. Running again finishes the job.
 - Loading while games are in progress doesn't touch them. New categories are eligible from the next **Start**.

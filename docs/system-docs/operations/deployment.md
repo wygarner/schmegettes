@@ -46,7 +46,15 @@ The `app_service` role is created by the first migration without LOGIN. In each 
 alter role app_service with login password '<generated, stored only in the secret store>';
 ```
 
-Services connect through the Supabase pooler (transaction mode) as `app_service`. Only `deploy-prod.yml` and the worker's import job hold an owner credential (`*_OWNER_URL`).
+Services connect through the Supabase pooler (transaction mode) as `app_service`. Only `deploy-prod.yml` and `load-clues.yml` hold an owner credential (`*_OWNER_URL`).
+
+## Loading the clue catalog
+
+A new environment has no clues: Start fails until the catalog is loaded. Run **Load Clues** (`.github/workflows/load-clues.yml`) from the Actions tab:
+
+- `environment`: `staging` or `production`; `seasons`: `1-40` for everything. It reads `STAGING_SUPABASE_DB_OWNER_URL` or `PROD_SUPABASE_DB_OWNER_URL` from that GitHub Environment.
+- It takes about a minute for all 40 seasons (about 413,000 clues, 160 MB). The run's summary shows one row per season. Running it again inserts nothing; it retries seasons that failed.
+- **Production**: run it on the `production` branch, and only after private access is live. The loader refuses a database without `public.hosts` ([clue catalog](../../product-docs/features/clue-catalog/feature-brief.md#source)).
 
 ## Environment variables
 

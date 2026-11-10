@@ -1,7 +1,5 @@
 # Clue Catalog: Interaction Design
 
-> **Not yet implemented.** See the [feature brief](./feature-brief.md).
-
 Players never interact with the catalog directly. What changes for them is the board: real categories instead of "SAMPLE" ones. The admin runs the load.
 
 ## What players see
@@ -46,20 +44,20 @@ pending ──▶ downloading ──▶ checking ──▶ loaded
 
 ### A run
 
-1. The admin runs the load for an environment: every season, or a list ("seasons 1–5").
+1. The admin runs the load for an environment: every season, or a list ("seasons 1–5"). Locally `mise run clues:import -- --seasons 1-5`; staging and production with the **Load Clues** workflow.
 2. Each season is downloaded, its rows are checked against the rules, and its clues are saved.
 3. The run ends with one summary line per season and a total:
 
 ```text
-season    clues read  categories kept  left out: incomplete  host note  show name  sound/picture
-     1          8,252            1,368                   647         13          3              8
-    40         13,784            2,566                   213        198          8              5
+season  clues read  new clues  categories kept  incomplete  host note  show name  sound picture
+     1       8,252      6,188            1,368         647         13          3              8
 …
- total       …                …                       …          …          …              …
-failed: season 17 (download timed out) — run again to finish
+    40      13,784     11,920            2,568         213        198          8              3
+ total     515,894    412,976           89,636      15,534      6,116      3,365            230
+failed: season 17 (download timed out) - run again to finish
 ```
 
-4. Running again loads nothing new for seasons already loaded ("0 new clues") and retries the failed ones.
+4. Running again loads nothing new for seasons already loaded (0 in **new clues**) and retries the failed ones.
 
 ### Edge cases
 
@@ -69,4 +67,4 @@ failed: season 17 (download timed out) — run again to finish
 | Run stopped partway (laptop closed, deploy) | Seasons that finished stay loaded. Running again finishes the rest. |
 | A game is on the board during a load | Unaffected. Its board was built at Start. |
 | Upstream fixes a clue's text later | Loads as a new clue; its category then has 6 clues and is left out as incomplete. It never reaches a board with a duplicate. |
-| The production load is attempted before private access is live | Not allowed: the admin doesn't run it ([feature brief](./feature-brief.md#source)). |
+| The production load is attempted before private access is live | Refused: the loader exits with "private access is not live" when the database has no `public.hosts` ([feature brief](./feature-brief.md#source)). |

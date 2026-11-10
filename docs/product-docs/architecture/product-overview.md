@@ -27,6 +27,7 @@ There is no remote play: a player has to see the TV to play.
 ## Principles
 
 - **No account required to play.** Players start anonymous and can link an account later to keep history.
+- **Private.** Only invited people can host; anyone in the room joins with the code. The clue catalog may be used only privately. **Not yet implemented** ([private access](../features/private-access/feature-brief.md)).
 - **Fair buzzing.** The server decides who buzzed first; latency is measured, not trusted.
 - **Generous judging.** Small mishearings, transcription slips, and a missing "What is" don't cost points; the host can always override.
 - **Correct responses stay secret** until a clue is judged. Phones never receive clue text or responses.

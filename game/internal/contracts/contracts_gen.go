@@ -378,6 +378,14 @@ type LobbyUpdated struct {
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
 }
 
+type MatchRule string
+
+const MatchRuleExact MatchRule = "exact"
+const MatchRuleNoMatch MatchRule = "no_match"
+const MatchRuleNothingHeard MatchRule = "nothing_heard"
+const MatchRuleSoundsAlike MatchRule = "sounds_alike"
+const MatchRuleSpellingSlip MatchRule = "spelling_slip"
+
 // Host only. Opens or closes the review of a verdict on the clue just played (or
 // the Final answer being revealed). While open, the clock is paused.
 type OverrideReview struct {
@@ -740,6 +748,12 @@ type StartGame struct {
 }
 
 type SubmitAnswer struct {
+	// Other transcripts the speech recognizer offered, most likely first, after
+	// answer (which stays its best guess). Voice only; omitted for typed answers and
+	// by recognizers that return one transcript. The server judges answer first, then
+	// each of these.
+	Alternatives []string `json:"alternatives,omitempty" yaml:"alternatives,omitempty" mapstructure:"alternatives,omitempty"`
+
 	// Answer corresponds to the JSON schema field "answer".
 	Answer string `json:"answer" yaml:"answer" mapstructure:"answer"`
 

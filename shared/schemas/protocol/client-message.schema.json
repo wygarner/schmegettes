@@ -106,6 +106,12 @@
           "type": "string",
           "enum": ["voice", "typed"],
           "description": "voice for every clue and Daily Double; typed only in final_answer (Final Schmegettes answers are typed)."
+        },
+        "alternatives": {
+          "description": "Other transcripts the speech recognizer offered, most likely first, after answer (which stays its best guess). Voice only; omitted for typed answers and by recognizers that return one transcript. The server judges answer first, then each of these.",
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "maxItems": 4
         }
       },
       "required": ["type", "clueId", "answer", "source"],

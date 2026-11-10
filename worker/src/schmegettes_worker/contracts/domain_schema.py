@@ -38,6 +38,14 @@ class AnswerSource(Enum):
     typed = 'typed'
 
 
+class MatchRule(Enum):
+    exact = 'exact'
+    spelling_slip = 'spelling_slip'
+    sounds_alike = 'sounds_alike'
+    no_match = 'no_match'
+    nothing_heard = 'nothing_heard'
+
+
 class Round(Enum):
     single = 'single'
     double = 'double'

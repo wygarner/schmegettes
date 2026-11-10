@@ -20,7 +20,7 @@ import { HostLobby } from "./pages/HostLobby";
 import { JoinCode } from "./pages/JoinCode";
 import { JoinRoom } from "./pages/JoinRoom";
 import { MyGames } from "./pages/MyGames";
-import { SignInReturn } from "./ui/SignInReturn";
+import { MergeRetry } from "./ui/MergeRetry";
 
 // Shared with devtools/ prototypes via the same values; see docs/product-docs/architecture/design-system.md.
 export const theme = createTheme({
@@ -104,7 +104,7 @@ createRoot(root).render(
           <Route path="/games/:gameId" element={<GameScoreboard />} />
           <Route path="/account" element={<Account />} />
         </Routes>
-        <SignInReturn />
+        <MergeRetry />
       </BrowserRouter>
     </MantineProvider>
   </StrictMode>,

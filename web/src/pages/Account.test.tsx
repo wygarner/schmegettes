@@ -2,19 +2,16 @@ import { MantineProvider } from "@mantine/core";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, expect, test, vi } from "vitest";
-import { connectedProviders, currentAccount, deleteAccount, signOut, takeAuthError } from "../lib/account";
+import { accountEmail, changePassword, currentAccount, deleteAccount, signOut } from "../lib/account";
 import { Account } from "./Account";
 
-vi.mock("../lib/account", () => ({
+vi.mock("../lib/account", async (original) => ({
+  ...(await original<typeof import("../lib/account")>()),
   currentAccount: vi.fn(),
-  connectedProviders: vi.fn(),
-  connectProvider: vi.fn(),
-  disconnectProvider: vi.fn(),
+  accountEmail: vi.fn(),
+  changePassword: vi.fn(),
   deleteAccount: vi.fn(),
   signOut: vi.fn(),
-  takeAuthError: vi.fn(),
-  isEmbeddedBrowser: () => false,
-  startSignIn: vi.fn(),
   setAccountName: vi.fn(),
 }));
 
@@ -33,27 +30,44 @@ function show() {
 
 beforeEach(() => {
   vi.mocked(currentAccount).mockReset().mockResolvedValue({ kind: "signed-in", name: "Wyatt" });
-  vi.mocked(connectedProviders).mockReset().mockResolvedValue(["apple"]);
+  vi.mocked(accountEmail).mockReset().mockResolvedValue("sam@example.com");
+  vi.mocked(changePassword).mockReset();
   vi.mocked(deleteAccount).mockReset();
   vi.mocked(signOut).mockReset().mockResolvedValue();
-  vi.mocked(takeAuthError).mockReset().mockReturnValue(null);
 });
 
-test("shows the name and sign-in methods, never an email", async () => {
+test("shows the name and the owner's email", async () => {
   show();
   expect(await screen.findByText("Wyatt")).toBeInTheDocument();
-  expect(screen.getByText("Connected")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
-  expect(screen.queryByText(/@/)).toBeNull();
+  expect(await screen.findByText("sam@example.com")).toBeInTheDocument();
+});
+
+test("change password: a wrong current password says so; success says so", async () => {
+  vi.mocked(changePassword).mockResolvedValueOnce("wrong-password").mockResolvedValueOnce("ok");
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: "Change password" }));
+  const dialog = await screen.findByRole("dialog", { name: "Change password" });
+  const save = within(dialog).getByRole("button", { name: "Save" });
+  fireEvent.change(within(dialog).getByLabelText("Current password"), { target: { value: "oldpassword" } });
+  fireEvent.change(within(dialog).getByLabelText("New password"), { target: { value: "short" } });
+  expect(save).toBeDisabled();
+  fireEvent.change(within(dialog).getByLabelText("New password"), { target: { value: "newpassword9" } });
+  fireEvent.click(save);
+  expect(await within(dialog).findByText("That password isn't right.")).toBeInTheDocument();
+  expect(changePassword).toHaveBeenCalledWith("oldpassword", "newpassword9");
+
+  fireEvent.change(within(dialog).getByLabelText("Current password"), { target: { value: "oldpassword2" } });
+  fireEvent.click(save);
+  expect(await screen.findByText("Password changed.")).toBeInTheDocument();
 });
 
 test("sign out asks first, then goes home", async () => {
   show();
   fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
-  expect(
-    await screen.findByText("Your games stay in your account. This phone starts fresh as a guest."),
-  ).toBeInTheDocument();
   const dialog = await screen.findByRole("dialog", { name: "Sign out?" });
+  expect(
+    within(dialog).getByText("Your games stay in your account. This phone starts fresh as a guest."),
+  ).toBeInTheDocument();
   fireEvent.click(within(dialog).getByRole("button", { name: "Sign out" }));
   expect(await screen.findByText("home")).toBeInTheDocument();
   expect(signOut).toHaveBeenCalledOnce();
@@ -67,16 +81,11 @@ test("delete while in a game says so", async () => {
   expect(await screen.findByText("Finish or leave your game first.")).toBeInTheDocument();
 });
 
-test("a provider already used by another account says so", async () => {
-  vi.mocked(takeAuthError).mockReturnValue("identity-taken");
-  show();
-  expect(await screen.findByText("That account is already used by another Schmegettes account.")).toBeInTheDocument();
-});
-
 test("a guest is offered sign-in", async () => {
   vi.mocked(currentAccount).mockResolvedValue({ kind: "guest" });
   show();
   expect(await screen.findByText("You're playing as a guest.")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-  expect(await screen.findByRole("button", { name: "Continue with Apple" })).toBeInTheDocument();
+  expect(await screen.findByLabelText("Email")).toBeInTheDocument();
+  expect(screen.queryByText("sam@example.com")).toBeNull();
 });

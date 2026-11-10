@@ -1,33 +1,32 @@
-// Accounts: signing in with Apple or Google, moving this device's guest into the account,
-// the account's name, signing out, deleting. Rules: docs/product-docs/features/accounts/.
+// Accounts: email and password, moving this device's guest into the account, the account's
+// name and password, signing out, deleting. Rules: docs/product-docs/features/accounts/.
 //
 // Every sign-in works the same way: while still a guest, get a one-use merge ticket from
-// the api and keep it; sign in (a redirect to Apple or Google and back); then redeem the
-// ticket as the account, which moves the guest's games, seen clues, and host access in.
-// A merge that fails for a passing reason keeps the ticket and is tried again on the next
-// load.
-
+// the api and keep it; create an account or sign in; then redeem the ticket as the account,
+// which moves the guest's games, seen clues, and host access in. A merge that fails for a
+// passing reason keeps the ticket and is tried again on the next load. Nothing is ever
+// emailed: the email is only a username.
+import type { AuthError } from "@supabase/supabase-js";
 import {
   clearSavePrompt,
   setCachedAccountName,
   setHadAccount,
   setSignedOutNotice,
-  setSignInPending,
-  signInPending,
   storedTicket,
   storeTicket,
 } from "./accountFlags";
 import { api } from "./api";
 import { supabase } from "./supabase";
 
-export type Provider = "apple" | "google";
-
 /** Who this device is playing as. */
 export type Account = { kind: "guest" } | { kind: "signed-in"; name: string | null };
 
-/** In-app browsers (Instagram, Facebook, TikTok, …) where Google refuses to sign in. */
-export function isEmbeddedBrowser(userAgent: string): boolean {
-  return /Instagram|FBAN|FBAV|FB_IAB|Messenger|\bLine\/|TikTok|musical_ly|Snapchat|; wv\)/i.test(userAgent);
+/** Same rule as Supabase Auth's minimum_password_length (supabase/config.toml). */
+export const MIN_PASSWORD = 8;
+
+/** A plausible email: something@something.something. The server has the final say. */
+export function looksLikeEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
 /** Who this device is, without creating a guest. Null while that can't be told. */
@@ -45,79 +44,112 @@ export async function currentAccount(): Promise<Account | null> {
   }
 }
 
-/** Starts Apple or Google sign-in. Leaves the page on success; returns false when it couldn't start. */
-export async function startSignIn(provider: Provider): Promise<boolean> {
+/** The signed-in player's own email, for their Account page only. */
+export async function accountEmail(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user.email ?? null;
+}
+
+export type SignedIn = { gamesAdded: number; needsName: boolean; mergeFailed: boolean };
+
+export type SignInResult =
+  | { kind: "ok"; result: SignedIn }
+  | { kind: "wrong-credentials" }
+  | { kind: "email-taken" }
+  | { kind: "weak-password" }
+  | { kind: "rate-limited" }
+  | { kind: "error" };
+
+function authFailure(error: AuthError): Exclude<SignInResult, { kind: "ok" }> {
+  switch (error.code) {
+    case "invalid_credentials":
+      return { kind: "wrong-credentials" };
+    case "user_already_exists":
+    case "email_exists":
+      return { kind: "email-taken" };
+    case "weak_password":
+      return { kind: "weak-password" };
+    case "over_request_rate_limit":
+      return { kind: "rate-limited" };
+  }
+  return error.status === 429 ? { kind: "rate-limited" } : { kind: "error" };
+}
+
+/** A guest keeps a merge ticket before switching identity, so its games can follow. */
+async function ticketForGuest(): Promise<boolean> {
+  const { data: session } = await supabase.auth.getSession();
+  if (session.session && !session.session.user.is_anonymous) return true; // already an account
+  // A guest with nothing yet still gets a ticket: the guest is removed after sign-in.
+  const { data } = await api.POST("/v1/me/merge-tickets");
+  if (!data) return false;
+  storeTicket({ ticket: data.ticket, expiresAt: data.expiresAt });
+  return true;
+}
+
+async function withTicket(auth: () => Promise<{ error: AuthError | null }>): Promise<SignInResult> {
   try {
-    const { data: session } = await supabase.auth.getSession();
-    if (!session.session || session.session.user.is_anonymous) {
-      // A guest with nothing yet still gets a ticket: the guest is removed after sign-in.
-      const { data } = await api.POST("/v1/me/merge-tickets");
-      if (!data) return false;
-      storeTicket({ ticket: data.ticket, expiresAt: data.expiresAt });
-    }
-    setSignInPending(true);
-    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.href } });
-    if (error) {
-      setSignInPending(false);
-      return false;
-    }
-    return true;
+    if (!(await ticketForGuest())) return { kind: "error" };
+    const { error } = await auth();
+    if (error) return authFailure(error);
+    return { kind: "ok", result: await finishSignIn() };
   } catch {
-    setSignInPending(false);
-    return false;
+    return { kind: "error" };
   }
 }
 
-export type SignInReturn =
-  | { kind: "none" }
-  | { kind: "signed-in"; gamesAdded: number; needsName: boolean; mergeFailed: boolean };
+export function signIn(email: string, password: string): Promise<SignInResult> {
+  return withTicket(() => supabase.auth.signInWithPassword({ email: email.trim(), password }));
+}
 
-/**
- * Runs once per page load. Finishes a sign-in that just returned, and retries a merge that
- * failed before. Returns what to tell the player.
- */
-export async function completeSignIn(): Promise<SignInReturn> {
-  const justSignedIn = signInPending();
-  setSignInPending(false);
-  let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"];
+export function createAccount(email: string, password: string): Promise<SignInResult> {
+  return withTicket(() => supabase.auth.signUp({ email: email.trim(), password }));
+}
+
+/** Redeems a stored ticket. Moved, or a ticket that can never work: forget it. */
+async function redeemTicket(): Promise<{ gamesAdded: number; failed: boolean }> {
+  const ticket = storedTicket();
+  if (!ticket) return { gamesAdded: 0, failed: false };
   try {
-    session = (await supabase.auth.getSession()).data.session;
+    const { data, response } = await api.POST("/v1/me/merge", { body: { ticket: ticket.ticket } });
+    if (data || response.status === 400) storeTicket(null);
+    return { gamesAdded: data?.gamesAdded ?? 0, failed: !data && response.status !== 400 };
   } catch {
-    return { kind: "none" };
+    return { gamesAdded: 0, failed: true };
   }
-  if (!session || session.user.is_anonymous) return { kind: "none" }; // cancelled, or a guest
+}
+
+/** Right after signing in: move the guest in, and see whether the account needs a name. */
+export async function finishSignIn(): Promise<SignedIn> {
   setHadAccount(true);
   setSignedOutNotice(false);
-
-  const ticket = storedTicket();
-  let gamesAdded = 0;
-  let mergeFailed = false;
-  if (ticket) {
-    try {
-      const { data, response } = await api.POST("/v1/me/merge", { body: { ticket: ticket.ticket } });
-      if (data) gamesAdded = data.gamesAdded;
-      // Moved, or a ticket that can never work: done with it. Anything else: try again later.
-      if (data || response.status === 400) storeTicket(null);
-      else mergeFailed = true;
-    } catch {
-      mergeFailed = true;
-    }
-  }
-  // On an ordinary load, speak up only when a retried merge added games.
-  if (!justSignedIn && gamesAdded === 0) return { kind: "none" };
-
   clearSavePrompt();
+  const { gamesAdded, failed } = await redeemTicket();
   const account = await currentAccount();
   const needsName = account?.kind === "signed-in" && account.name === null;
-  return { kind: "signed-in", gamesAdded, needsName, mergeFailed };
+  return { gamesAdded, needsName, mergeFailed: failed };
 }
 
-/** The toast after a sign-in (interaction-design.md, "Sign in"). */
-export function signInMessage(r: Extract<SignInReturn, { kind: "signed-in" }>, wasNew: boolean): string {
+/** On app load: retry a merge that failed before. The number of games added, if any. */
+export async function retryMerge(): Promise<number> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session || data.session.user.is_anonymous || !storedTicket()) return 0;
+  } catch {
+    return 0;
+  }
+  return (await redeemTicket()).gamesAdded;
+}
+
+/** The toast after a sign-in (interaction-design.md, "Sign in or create an account"). */
+export function signInMessage(r: SignedIn, created: boolean): string {
   if (r.mergeFailed) return "Signed in. Some games from this phone couldn't be added yet.";
-  if (wasNew) return "Signed in. Your games are saved.";
-  if (r.gamesAdded === 1) return "Signed in. Added 1 game from this phone.";
-  if (r.gamesAdded > 1) return `Signed in. Added ${r.gamesAdded} games from this phone.`;
+  if (created) return "Account created. Your games are saved.";
+  return addedMessage(r.gamesAdded);
+}
+
+export function addedMessage(gamesAdded: number): string {
+  if (gamesAdded === 1) return "Signed in. Added 1 game from this phone.";
+  if (gamesAdded > 1) return `Signed in. Added ${gamesAdded} games from this phone.`;
   return "Signed in.";
 }
 
@@ -130,6 +162,31 @@ export async function setAccountName(name: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+export type PasswordChange = "ok" | "wrong-password" | "weak-password" | "rate-limited" | "error";
+
+/**
+ * Changes the password after checking the current one. The check runs here, by signing in
+ * with it, because Supabase's own check needs email (security-model.md, Known gaps).
+ * Supabase signs out the account's other devices; this one stays signed in.
+ */
+export async function changePassword(current: string, next: string): Promise<PasswordChange> {
+  try {
+    const email = await accountEmail();
+    if (!email) return "error";
+    const check = await supabase.auth.signInWithPassword({ email, password: current });
+    if (check.error) {
+      const f = authFailure(check.error).kind;
+      return f === "wrong-credentials" ? "wrong-password" : f === "rate-limited" ? "rate-limited" : "error";
+    }
+    const { error } = await supabase.auth.updateUser({ password: next });
+    if (!error) return "ok";
+    const f = authFailure(error).kind;
+    return f === "weak-password" || f === "rate-limited" ? f : "error";
+  } catch {
+    return "error";
   }
 }
 
@@ -158,41 +215,4 @@ export async function deleteAccount(): Promise<DeleteResult> {
   forgetAccount();
   await supabase.auth.signOut({ scope: "local" });
   return "ok";
-}
-
-/** The sign-in methods connected to this account. */
-export async function connectedProviders(): Promise<Provider[]> {
-  const { data } = await supabase.auth.getUserIdentities();
-  return (data?.identities ?? []).map((i) => i.provider).filter((p): p is Provider => p === "apple" || p === "google");
-}
-
-/** Adds the other sign-in method. Leaves the page on success. */
-export async function connectProvider(provider: Provider): Promise<boolean> {
-  const { error } = await supabase.auth.linkIdentity({ provider, options: { redirectTo: window.location.href } });
-  return !error;
-}
-
-/** Removes a sign-in method; only allowed while another one is connected. */
-export async function disconnectProvider(provider: Provider): Promise<boolean> {
-  const { data } = await supabase.auth.getUserIdentities();
-  const identities = data?.identities ?? [];
-  const identity = identities.find((i) => i.provider === provider);
-  if (!identity || identities.length < 2) return false;
-  const { error } = await supabase.auth.unlinkIdentity(identity);
-  return !error;
-}
-
-export type AuthError = "identity-taken" | "failed";
-
-/** An error Apple, Google, or Supabase Auth sent back in the URL; removes it from the URL. */
-export function takeAuthError(location: Location = window.location): AuthError | null {
-  const params = new URLSearchParams(location.search);
-  const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
-  const code = params.get("error_code") ?? hash.get("error_code");
-  const error = params.get("error") ?? hash.get("error");
-  if (!code && !error) return null;
-  for (const key of ["error", "error_code", "error_description"]) params.delete(key);
-  const query = params.toString();
-  window.history.replaceState(null, "", location.pathname + (query ? `?${query}` : ""));
-  return code === "identity_already_exists" ? "identity-taken" : "failed";
 }

@@ -3,8 +3,7 @@ import { hadAccount, setHadAccount, setSignedOutNotice } from "./accountFlags";
 import { env } from "./env";
 
 // Supabase is used for auth only. All data goes through api/ (REST) and game/ (WebSocket).
-// PKCE: Apple and Google sign-in return a one-time code in the URL, not tokens.
-export const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey, { auth: { flowType: "pkce" } });
+export const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey);
 
 // A device that had an account and lost its session (expired, revoked, deleted elsewhere)
 // says so on Home instead of quietly becoming a new guest. Our own sign-out clears the flag

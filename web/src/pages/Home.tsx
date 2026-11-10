@@ -208,7 +208,16 @@ export function Home() {
         }}
       />
 
-      <SignInSheet opened={signIn !== null} variant={signIn ?? "sign-in"} onClose={closeSignIn} />
+      <SignInSheet
+        opened={signIn !== null}
+        variant={signIn ?? "sign-in"}
+        onClose={closeSignIn}
+        onSignedIn={() => {
+          setSignIn(null);
+          setSignedOut(false);
+          void currentAccount().then(setAccount);
+        }}
+      />
 
       <Modal opened={naming} onClose={() => setNaming(false)} title="What's your name?" centered>
         <form onSubmit={create}>

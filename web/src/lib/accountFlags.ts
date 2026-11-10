@@ -7,7 +7,6 @@ const SIGNED_OUT = "schmegettes.signedOut";
 const ACCOUNT_NAME = "schmegettes.accountName";
 const SAVE_PROMPT = "schmegettes.savePrompt";
 const TICKET = "schmegettes.mergeTicket";
-const SIGN_IN_PENDING = "schmegettes.signInPending";
 
 /** "Not now" on the save prompt hides it this long. */
 export const SAVE_PROMPT_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -40,10 +39,6 @@ export const setSignedOutNotice = (on: boolean) => write(SIGNED_OUT, on ? "1" : 
 /** The account's name, cached for name prompts. */
 export const cachedAccountName = () => read(ACCOUNT_NAME);
 export const setCachedAccountName = (name: string | null) => write(ACCOUNT_NAME, name);
-
-/** A sign-in redirect is under way: the next load shows its result. */
-export const signInPending = () => read(SIGN_IN_PENDING) === "1";
-export const setSignInPending = (on: boolean) => write(SIGN_IN_PENDING, on ? "1" : null);
 
 export type StoredTicket = { ticket: string; expiresAt: string };
 

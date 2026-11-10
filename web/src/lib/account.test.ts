@@ -1,12 +1,13 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import {
-  completeSignIn,
+  changePassword,
+  createAccount,
   deleteAccount,
-  isEmbeddedBrowser,
+  looksLikeEmail,
+  retryMerge,
+  signIn,
   signInMessage,
   signOut,
-  startSignIn,
-  takeAuthError,
 } from "./account";
 import {
   cachedAccountName,
@@ -15,9 +16,7 @@ import {
   SAVE_PROMPT_SNOOZE_MS,
   setCachedAccountName,
   setHadAccount,
-  setSignInPending,
   shouldShowSavePrompt,
-  signInPending,
   snoozeSavePrompt,
   storedTicket,
   storeTicket,
@@ -27,83 +26,116 @@ import { supabase } from "./supabase";
 
 vi.mock("./api", () => ({ api: { GET: vi.fn(), POST: vi.fn(), PATCH: vi.fn(), DELETE: vi.fn() } }));
 vi.mock("./supabase", () => ({
-  supabase: { auth: { getSession: vi.fn(), signInWithOAuth: vi.fn(), signOut: vi.fn() } },
+  supabase: {
+    auth: {
+      getSession: vi.fn(),
+      signInWithPassword: vi.fn(),
+      signUp: vi.fn(),
+      updateUser: vi.fn(),
+      signOut: vi.fn(),
+    },
+  },
 }));
 
 const FUTURE = "2999-01-01T00:00:00Z";
 type Session = Awaited<ReturnType<typeof supabase.auth.getSession>>;
-function session(anonymous: boolean | null): Session {
-  const s = anonymous === null ? null : { access_token: "t", user: { id: "u", is_anonymous: anonymous } };
+let anonymous: boolean | null = true;
+function session(): Session {
+  const s =
+    anonymous === null
+      ? null
+      : { access_token: "t", user: { id: "u", is_anonymous: anonymous, email: anonymous ? undefined : "sam@x.io" } };
   return { data: { session: s }, error: null } as unknown as Session;
 }
 function reply(status: number, data?: unknown) {
-  return {
-    data,
-    error: data ? undefined : {},
-    response: new Response(null, { status: status === 204 ? 204 : status }),
-  };
+  return { data, error: data ? undefined : {}, response: new Response(null, { status }) };
 }
+const authError = (code: string, status = 400) => ({ data: {}, error: { code, status, message: code } }) as never;
+const authOk = () => {
+  anonymous = false; // the session switches to the account
+  return { data: {}, error: null } as never;
+};
 
 beforeEach(() => {
+  anonymous = true;
   vi.mocked(api.GET)
     .mockReset()
     .mockResolvedValue(reply(200, { accountName: "Wyatt" }) as never);
   vi.mocked(api.POST).mockReset();
   vi.mocked(api.DELETE).mockReset();
-  vi.mocked(supabase.auth.getSession).mockReset().mockResolvedValue(session(true));
-  vi.mocked(supabase.auth.signInWithOAuth)
+  vi.mocked(supabase.auth.getSession)
+    .mockReset()
+    .mockImplementation(async () => session());
+  vi.mocked(supabase.auth.signInWithPassword)
+    .mockReset()
+    .mockImplementation(async () => authOk());
+  vi.mocked(supabase.auth.signUp)
+    .mockReset()
+    .mockImplementation(async () => authOk());
+  vi.mocked(supabase.auth.updateUser)
     .mockReset()
     .mockResolvedValue({ data: {}, error: null } as never);
   vi.mocked(supabase.auth.signOut).mockReset().mockResolvedValue({ error: null });
   window.localStorage.clear();
 });
 
+function mergeReplies(merge: ReturnType<typeof reply> | Error) {
+  vi.mocked(api.POST).mockImplementation((async (path: string) => {
+    if (path === "/v1/me/merge-tickets") return reply(201, { ticket: "tkt", expiresAt: FUTURE });
+    if (merge instanceof Error) throw merge;
+    return merge;
+  }) as never);
+}
+
 test.each([
-  ["Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Instagram 300.0", true],
-  ["Mozilla/5.0 (iPhone) [FBAN/FBIOS;FBAV/450.0]", true],
-  ["Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 Chrome/120 Mobile", true],
-  ["Mozilla/5.0 (Linux; Android 14) musical_ly_32.0", true],
-  ["Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1", false],
-  ["Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36", false],
-])("isEmbeddedBrowser(%s) = %s", (ua, want) => {
-  expect(isEmbeddedBrowser(ua)).toBe(want);
+  ["sam@example.com", true],
+  [" sam@example.com ", true],
+  ["sam@example", false],
+  ["sam example.com", false],
+  ["", false],
+])("looksLikeEmail(%j) = %s", (email, want) => {
+  expect(looksLikeEmail(email)).toBe(want);
 });
 
-test("a guest gets a ticket before leaving for Apple or Google", async () => {
-  vi.mocked(api.POST).mockResolvedValue(reply(201, { ticket: "tkt", expiresAt: FUTURE }) as never);
-  expect(await startSignIn("apple")).toBe(true);
-  expect(storedTicket()?.ticket).toBe("tkt");
-  expect(signInPending()).toBe(true);
-  expect(supabase.auth.signInWithOAuth).toHaveBeenCalledWith(expect.objectContaining({ provider: "apple" }));
-});
-
-test("no ticket, no redirect", async () => {
-  vi.mocked(api.POST).mockResolvedValue(reply(500) as never);
-  expect(await startSignIn("google")).toBe(false);
-  expect(supabase.auth.signInWithOAuth).not.toHaveBeenCalled();
-  expect(signInPending()).toBe(false);
-});
-
-test("returning from a sign-in: the ticket is redeemed and cleared", async () => {
-  storeTicket({ ticket: "tkt", expiresAt: FUTURE });
-  setSignInPending(true);
-  vi.mocked(supabase.auth.getSession).mockResolvedValue(session(false));
-  vi.mocked(api.POST).mockResolvedValue(
-    reply(200, { gamesAdded: 3, hostAccessAdded: false, accountWasNew: false }) as never,
-  );
-  const r = await completeSignIn();
-  expect(api.POST).toHaveBeenCalledWith("/v1/me/merge", { body: { ticket: "tkt" } });
-  expect(r).toEqual({ kind: "signed-in", gamesAdded: 3, needsName: false, mergeFailed: false });
+test("signing in: a ticket first, then the merge, then the result", async () => {
+  mergeReplies(reply(200, { gamesAdded: 3, hostAccessAdded: false, accountWasNew: false }));
+  const r = await signIn(" sam@x.io ", "password123");
+  expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({ email: "sam@x.io", password: "password123" });
+  expect(api.POST).toHaveBeenNthCalledWith(1, "/v1/me/merge-tickets");
+  expect(api.POST).toHaveBeenNthCalledWith(2, "/v1/me/merge", { body: { ticket: "tkt" } });
+  expect(r).toEqual({ kind: "ok", result: { gamesAdded: 3, needsName: false, mergeFailed: false } });
   expect(storedTicket()).toBeNull();
   expect(hadAccount()).toBe(true);
   expect(cachedAccountName()).toBe("Wyatt");
 });
 
-test("a new account is asked for its name", async () => {
-  setSignInPending(true);
-  vi.mocked(supabase.auth.getSession).mockResolvedValue(session(false));
+test("creating an account: a new account is asked for its name", async () => {
+  mergeReplies(reply(200, { gamesAdded: 0, hostAccessAdded: false, accountWasNew: true }));
   vi.mocked(api.GET).mockResolvedValue(reply(200, { accountName: null }) as never);
-  expect(await completeSignIn()).toMatchObject({ kind: "signed-in", needsName: true });
+  const r = await createAccount("sam@x.io", "password123");
+  expect(supabase.auth.signUp).toHaveBeenCalledWith({ email: "sam@x.io", password: "password123" });
+  expect(r).toMatchObject({ kind: "ok", result: { needsName: true } });
+});
+
+test("no ticket, no sign-in", async () => {
+  vi.mocked(api.POST).mockResolvedValue(reply(500) as never);
+  expect(await signIn("sam@x.io", "password123")).toEqual({ kind: "error" });
+  expect(supabase.auth.signInWithPassword).not.toHaveBeenCalled();
+});
+
+test.each([
+  ["invalid_credentials", 400, "wrong-credentials"],
+  ["user_already_exists", 422, "email-taken"],
+  ["email_exists", 422, "email-taken"],
+  ["weak_password", 422, "weak-password"],
+  ["over_request_rate_limit", 429, "rate-limited"],
+  [undefined, 429, "rate-limited"],
+  ["unexpected_failure", 500, "error"],
+])("auth error %s → %s", async (code, status, want) => {
+  mergeReplies(reply(200, { gamesAdded: 0, hostAccessAdded: false, accountWasNew: false }));
+  vi.mocked(supabase.auth.signUp).mockResolvedValue(authError(code as string, status));
+  expect(await createAccount("sam@x.io", "password123")).toEqual({ kind: want });
+  expect(storedTicket()?.ticket).toBe("tkt"); // kept for the next try; replaced then
 });
 
 test.each([
@@ -111,29 +143,29 @@ test.each([
   ["the guest is in a game: keep it", 409, true],
   ["the server failed: keep it", 500, true],
 ])("%s", async (_, status, kept) => {
-  storeTicket({ ticket: "tkt", expiresAt: FUTURE });
-  setSignInPending(true);
-  vi.mocked(supabase.auth.getSession).mockResolvedValue(session(false));
-  vi.mocked(api.POST).mockResolvedValue(reply(status) as never);
-  const r = await completeSignIn();
+  mergeReplies(reply(status));
+  const r = await signIn("sam@x.io", "password123");
   expect(storedTicket() !== null).toBe(kept);
-  expect(r).toMatchObject({ kind: "signed-in", mergeFailed: kept });
+  expect(r).toMatchObject({ kind: "ok", result: { mergeFailed: kept } });
 });
 
-test("a network error keeps the ticket for the next load", async () => {
-  storeTicket({ ticket: "tkt", expiresAt: FUTURE });
-  vi.mocked(supabase.auth.getSession).mockResolvedValue(session(false));
-  vi.mocked(api.POST).mockRejectedValue(new TypeError("offline"));
-  expect(await completeSignIn()).toEqual({ kind: "none" }); // an ordinary load stays quiet
+test("a network error keeps the ticket; the next load retries quietly unless games were added", async () => {
+  mergeReplies(new TypeError("offline"));
+  expect(await signIn("sam@x.io", "password123")).toMatchObject({ result: { mergeFailed: true } });
   expect(storedTicket()?.ticket).toBe("tkt");
+
+  vi.mocked(api.POST).mockResolvedValue(
+    reply(200, { gamesAdded: 2, hostAccessAdded: false, accountWasNew: false }) as never,
+  );
+  expect(await retryMerge()).toBe(2);
+  expect(storedTicket()).toBeNull();
+  expect(await retryMerge()).toBe(0);
 });
 
-test("a cancelled sign-in leaves a guest and says nothing", async () => {
+test("a guest never retries a merge", async () => {
   storeTicket({ ticket: "tkt", expiresAt: FUTURE });
-  setSignInPending(true);
-  expect(await completeSignIn()).toEqual({ kind: "none" });
+  expect(await retryMerge()).toBe(0);
   expect(api.POST).not.toHaveBeenCalled();
-  expect(signInPending()).toBe(false);
 });
 
 test("an expired ticket is forgotten", () => {
@@ -142,14 +174,28 @@ test("an expired ticket is forgotten", () => {
 });
 
 test("sign-in messages", () => {
-  const r = { kind: "signed-in" as const, gamesAdded: 0, needsName: false, mergeFailed: false };
-  expect(signInMessage(r, true)).toBe("Signed in. Your games are saved.");
+  const r = { gamesAdded: 0, needsName: false, mergeFailed: false };
+  expect(signInMessage(r, true)).toBe("Account created. Your games are saved.");
   expect(signInMessage(r, false)).toBe("Signed in.");
   expect(signInMessage({ ...r, gamesAdded: 1 }, false)).toBe("Signed in. Added 1 game from this phone.");
   expect(signInMessage({ ...r, gamesAdded: 3 }, false)).toBe("Signed in. Added 3 games from this phone.");
   expect(signInMessage({ ...r, mergeFailed: true }, true)).toBe(
     "Signed in. Some games from this phone couldn't be added yet.",
   );
+});
+
+test("change password checks the current one first", async () => {
+  anonymous = false;
+  vi.mocked(supabase.auth.signInWithPassword).mockResolvedValueOnce(authError("invalid_credentials"));
+  expect(await changePassword("wrong", "newpassword9")).toBe("wrong-password");
+  expect(supabase.auth.updateUser).not.toHaveBeenCalled();
+
+  expect(await changePassword("password123", "newpassword9")).toBe("ok");
+  expect(supabase.auth.signInWithPassword).toHaveBeenLastCalledWith({ email: "sam@x.io", password: "password123" });
+  expect(supabase.auth.updateUser).toHaveBeenCalledWith({ password: "newpassword9" });
+
+  vi.mocked(supabase.auth.updateUser).mockResolvedValueOnce(authError("weak_password", 422));
+  expect(await changePassword("password123", "short")).toBe("weak-password");
 });
 
 test("signing out is local and forgets the account first", async () => {
@@ -167,7 +213,11 @@ test("deleting while in a game is refused and keeps the session", async () => {
   expect(await deleteAccount()).toBe("in-game");
   expect(supabase.auth.signOut).not.toHaveBeenCalled();
   expect(hadAccount()).toBe(true);
-  vi.mocked(api.DELETE).mockResolvedValue(reply(204) as never);
+  vi.mocked(api.DELETE).mockResolvedValue({
+    data: undefined,
+    error: undefined,
+    response: new Response(null, { status: 204 }),
+  } as never);
   expect(await deleteAccount()).toBe("ok");
   expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
 });
@@ -182,13 +232,4 @@ test("the save prompt: shown after a game, Not now hides it for 7 days", () => {
   markGamePlayed();
   expect(shouldShowSavePrompt(now + SAVE_PROMPT_SNOOZE_MS - 1)).toBe(false);
   expect(shouldShowSavePrompt(now + SAVE_PROMPT_SNOOZE_MS + 1)).toBe(true);
-});
-
-test("an auth error in the URL is read once and removed", () => {
-  window.history.replaceState(null, "", "/account?error=server_error&error_code=identity_already_exists&x=1");
-  expect(takeAuthError()).toBe("identity-taken");
-  expect(window.location.search).toBe("?x=1");
-  expect(takeAuthError()).toBeNull();
-  window.history.replaceState(null, "", "/account#error=access_denied");
-  expect(takeAuthError()).toBe("failed");
 });

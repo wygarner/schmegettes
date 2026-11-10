@@ -45,7 +45,7 @@ beforeEach(() => {
 test("a guest sees Sign in; a signed-in player sees their initial, linking to Account", async () => {
   renderHome();
   fireEvent.click(await screen.findByRole("button", { name: "Sign in" }));
-  expect(await screen.findByRole("button", { name: "Continue with Apple" })).toBeInTheDocument();
+  expect(await screen.findByLabelText("Email")).toBeInTheDocument();
   cleanup();
 
   vi.mocked(currentAccount).mockResolvedValue({ kind: "signed-in", name: "wyatt" });

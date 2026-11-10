@@ -119,7 +119,14 @@ export function MyGames() {
           </Stack>
         )}
       </Container>
-      <SignInSheet opened={signingIn} onClose={() => setSigningIn(false)} />
+      <SignInSheet
+        opened={signingIn}
+        onClose={() => setSigningIn(false)}
+        onSignedIn={() => {
+          setSigningIn(false);
+          void first();
+        }}
+      />
     </div>
   );
 }

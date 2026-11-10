@@ -75,6 +75,7 @@ Built today: both sides are lowercased, and punctuation, parenthetical hints ("(
 - **Several hearings.** When the phone's speech recognition offers more than one possible transcript, the answer is correct if any of them matches. The TV shows the one that matched, or the most likely one when none did.
 - **Final Schmegettes** uses the same rules for typed answers, so a phonetic spelling of the right answer counts.
 - Judging stays instant and on the server. The host can still override any verdict ([overrides](../scoreboard-and-overrides/feature-brief.md)).
+- **Why it was judged that way is recorded. Not yet implemented.** Every judged answer keeps which rule decided it (**exact**, **spelling slip**, **sounds alike**, **no match**, or **nothing heard**) and every transcript the phone heard. No screen shows this. Together with host overrides ([overrides](../scoreboard-and-overrides/feature-brief.md#host-overrides)), it shows where the judge is too strict or too generous so the rules can be tuned.
 
 ### Rounds and the end
 

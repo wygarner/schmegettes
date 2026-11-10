@@ -135,6 +135,26 @@ type HostAccess struct {
 	CanHost bool `json:"canHost"`
 }
 
+// MergeResult defines model for MergeResult.
+type MergeResult struct {
+	// AccountWasNew The account had no name yet (first sign-in)
+	AccountWasNew bool `json:"accountWasNew"`
+
+	// GamesAdded Finished and abandoned games moved into the account
+	GamesAdded int `json:"gamesAdded"`
+
+	// HostAccessAdded The account can host now and couldn't before
+	HostAccessAdded bool `json:"hostAccessAdded"`
+}
+
+// MergeTicket defines model for MergeTicket.
+type MergeTicket struct {
+	ExpiresAt time.Time `json:"expiresAt"`
+
+	// Ticket Secret; keep it only until it's redeemed
+	Ticket string `json:"ticket"`
+}
+
 // Problem defines model for Problem.
 type Problem struct {
 	Detail *string `json:"detail,omitempty"`
@@ -145,6 +165,8 @@ type Problem struct {
 
 // Profile defines model for Profile.
 type Profile struct {
+	// AccountName The signed-in player's name (leaderboard, name prefill); null for guests and new accounts
+	AccountName *string            `json:"accountName"`
 	DisplayName string             `json:"displayName"`
 	IsAnonymous bool               `json:"isAnonymous"`
 	UserId      openapi_types.UUID `json:"userId"`
@@ -200,7 +222,13 @@ type PostV1HostAccessRedeemJSONBody struct {
 
 // PatchV1MeJSONBody defines parameters for PatchV1Me.
 type PatchV1MeJSONBody struct {
-	DisplayName string `json:"displayName"`
+	// AccountName Trimmed by the server; must not be blank
+	AccountName DisplayName `json:"accountName"`
+}
+
+// PostV1MeMergeJSONBody defines parameters for PostV1MeMerge.
+type PostV1MeMergeJSONBody struct {
+	Ticket string `json:"ticket"`
 }
 
 // PostV1RoomsJSONBody defines parameters for PostV1Rooms.
@@ -236,6 +264,9 @@ type PostV1HostAccessRedeemJSONRequestBody PostV1HostAccessRedeemJSONBody
 // PatchV1MeJSONRequestBody defines body for PatchV1Me for application/json ContentType.
 type PatchV1MeJSONRequestBody PatchV1MeJSONBody
 
+// PostV1MeMergeJSONRequestBody defines body for PostV1MeMerge for application/json ContentType.
+type PostV1MeMergeJSONRequestBody PostV1MeMergeJSONBody
+
 // PostV1RoomsJSONRequestBody defines body for PostV1Rooms for application/json ContentType.
 type PostV1RoomsJSONRequestBody PostV1RoomsJSONBody
 
@@ -262,12 +293,21 @@ type ServerInterface interface {
 	// Spend a one-use host code to give the caller host access
 	// (POST /v1/host-access/redeem)
 	PostV1HostAccessRedeem(w http.ResponseWriter, r *http.Request)
-	// The caller's profile (created on first call)
+	// Delete the caller's account
+	// (DELETE /v1/me)
+	DeleteV1Me(w http.ResponseWriter, r *http.Request)
+	// The caller's profile
 	// (GET /v1/me)
 	GetV1Me(w http.ResponseWriter, r *http.Request)
-	// Update display name
+	// Set the account's name
 	// (PATCH /v1/me)
 	PatchV1Me(w http.ResponseWriter, r *http.Request)
+	// Move a guest's games, seen clues, and host access into the caller's account
+	// (POST /v1/me/merge)
+	PostV1MeMerge(w http.ResponseWriter, r *http.Request)
+	// A one-use ticket that lets this guest be moved into an account
+	// (POST /v1/me/merge-tickets)
+	PostV1MeMergeTickets(w http.ResponseWriter, r *http.Request)
 	// Create a room; the caller becomes host
 	// (POST /v1/rooms)
 	PostV1Rooms(w http.ResponseWriter, r *http.Request)
@@ -415,6 +455,26 @@ func (siw *ServerInterfaceWrapper) PostV1HostAccessRedeem(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteV1Me operation middleware
+func (siw *ServerInterfaceWrapper) DeleteV1Me(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteV1Me(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetV1Me operation middleware
 func (siw *ServerInterfaceWrapper) GetV1Me(w http.ResponseWriter, r *http.Request) {
 
@@ -446,6 +506,46 @@ func (siw *ServerInterfaceWrapper) PatchV1Me(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchV1Me(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1MeMerge operation middleware
+func (siw *ServerInterfaceWrapper) PostV1MeMerge(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1MeMerge(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1MeMergeTickets operation middleware
+func (siw *ServerInterfaceWrapper) PostV1MeMergeTickets(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1MeMergeTickets(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -727,8 +827,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/v1/games/{gameId}", wrapper.GetV1GamesGameId)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/host-access", wrapper.GetV1HostAccess)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/host-access/redeem", wrapper.PostV1HostAccessRedeem)
+	m.HandleFunc("DELETE "+options.BaseURL+"/v1/me", wrapper.DeleteV1Me)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/me", wrapper.GetV1Me)
 	m.HandleFunc("PATCH "+options.BaseURL+"/v1/me", wrapper.PatchV1Me)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/me/merge", wrapper.PostV1MeMerge)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/me/merge-tickets", wrapper.PostV1MeMergeTickets)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/rooms", wrapper.PostV1Rooms)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/rooms/by-code/{code}", wrapper.GetV1RoomsByCodeCode)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/rooms/join", wrapper.PostV1RoomsJoin)

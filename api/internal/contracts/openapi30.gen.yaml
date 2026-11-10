@@ -41,7 +41,12 @@ paths:
                 $ref: "#/components/schemas/Version"
   /v1/me:
     get:
-      summary: The caller's profile (created on first call)
+      summary: The caller's profile
+      description: >
+        A caller with no profile yet (a guest who hasn't joined a room) gets an
+        empty
+
+        displayName and a null accountName.
       responses:
         "200":
           description: Profile
@@ -50,7 +55,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Profile"
     patch:
-      summary: Update display name
+      summary: Set the account's name
+      description: Signed-in players only (problem type `not-signed-in` for guests).
       requestBody:
         required: true
         content:
@@ -58,12 +64,10 @@ paths:
             schema:
               type: object
               properties:
-                displayName:
-                  type: string
-                  minLength: 1
-                  maxLength: 40
+                accountName:
+                  $ref: "#/components/schemas/DisplayName"
               required:
-                - displayName
+                - accountName
               additionalProperties: false
       responses:
         "200":
@@ -72,6 +76,114 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Profile"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "403":
+          description: The caller is a guest (problem type `not-signed-in`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    delete:
+      summary: Delete the caller's account
+      description: >
+        Their results stay on other players' scoreboards as "Former player";
+        their seen clues
+
+        and host access are deleted. Refused while they are in a game in
+        progress.
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          description: The caller is a guest (problem type `not-signed-in`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: The caller is in a game in progress (problem type `in-game`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/me/merge-tickets:
+    post:
+      summary: A one-use ticket that lets this guest be moved into an account
+      description: >
+        Called by a guest just before signing in with Apple or Google. A new
+        ticket replaces
+
+        the guest's earlier ones. Valid for 24 hours.
+      responses:
+        "201":
+          description: Ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MergeTicket"
+        "409":
+          description: The caller isn't a guest (problem type `not-a-guest`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/me/merge:
+    post:
+      summary: Move a guest's games, seen clues, and host access into the caller's
+        account
+      description: >
+        Spends the ticket and deletes the guest. When the guest and the account
+        were in the
+
+        same game, the account's result is kept and the guest's shows as "Former
+        player".
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ticket:
+                  type: string
+                  maxLength: 64
+              required:
+                - ticket
+              additionalProperties: false
+      responses:
+        "200":
+          description: Moved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MergeResult"
+        "400":
+          description: The ticket is wrong, used, expired, or the caller's own (problem
+            type `invalid-ticket`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "403":
+          description: The caller is a guest (problem type `not-signed-in`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: The guest is in a game in progress (problem type `guest-in-game`);
+            the ticket stays valid
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
   /v1/rooms:
     post:
       summary: Create a room; the caller becomes host
@@ -388,10 +500,16 @@ components:
           type: string
         isAnonymous:
           type: boolean
+        accountName:
+          type: string
+          description: The signed-in player's name (leaderboard, name prefill); null for
+            guests and new accounts
+          nullable: true
       required:
         - userId
         - displayName
         - isAnonymous
+        - accountName
     Room:
       type: object
       properties:
@@ -575,6 +693,37 @@ components:
           type: boolean
       required:
         - canHost
+      additionalProperties: false
+    MergeTicket:
+      type: object
+      properties:
+        ticket:
+          type: string
+          description: Secret; keep it only until it's redeemed
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - ticket
+        - expiresAt
+      additionalProperties: false
+    MergeResult:
+      type: object
+      properties:
+        gamesAdded:
+          type: integer
+          minimum: 0
+          description: Finished and abandoned games moved into the account
+        hostAccessAdded:
+          type: boolean
+          description: The account can host now and couldn't before
+        accountWasNew:
+          type: boolean
+          description: The account had no name yet (first sign-in)
+      required:
+        - gamesAdded
+        - hostAccessAdded
+        - accountWasNew
       additionalProperties: false
     Problem:
       type: object

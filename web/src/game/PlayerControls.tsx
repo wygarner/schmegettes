@@ -363,10 +363,10 @@ function CompactStatus({ state, userId, voice }: { state: RoomState; userId: str
           <Text
             size="xs"
             fw={700}
-            c="green.4"
+            c="teal.4"
             style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
           >
-            <Meter height={12} color="var(--mantine-color-green-5)" /> Listening…
+            <Meter height={12} color="var(--mantine-color-teal-5)" /> Listening…
           </Text>
         )}
         {voice.heard && (

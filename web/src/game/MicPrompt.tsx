@@ -7,7 +7,7 @@ import { Meter } from "../ui/Meter";
 function Card({ tone, children }: { tone: "info" | "ok" | "bad"; children: ReactNode }) {
   const colors = {
     info: ["rgba(255,255,255,.05)", "rgba(255,255,255,.1)"],
-    ok: ["rgba(64,192,87,.10)", "rgba(64,192,87,.35)"],
+    ok: ["rgba(56,217,169,.10)", "rgba(56,217,169,.35)"],
     bad: ["rgba(240,62,62,.12)", "rgba(240,62,62,.45)"],
   }[tone];
   return (
@@ -58,7 +58,7 @@ export function MicPrompt({ compact = false }: { compact?: boolean }) {
         <Text fw={700} size="sm" c="red.3">
           This browser can't hear answers
         </Text>
-        <Text size="xs" c="boardBlue.1">
+        <Text size="xs" c="slate.1">
           Try Chrome or Safari.
         </Text>
       </Card>
@@ -69,7 +69,7 @@ export function MicPrompt({ compact = false }: { compact?: boolean }) {
       <Card tone="ok">
         <Stack gap={2}>
           <Text fw={700} size="sm">
-            <Meter color="var(--mantine-color-green-5)" height={14} /> Microphone ready
+            <Meter color="var(--mantine-color-teal-5)" height={14} /> Microphone ready
           </Text>
         </Stack>
       </Card>
@@ -81,7 +81,7 @@ export function MicPrompt({ compact = false }: { compact?: boolean }) {
         <Text fw={700} size="sm" c="red.3">
           Turn on the microphone to answer
         </Text>
-        <Text size="xs" c="boardBlue.1">
+        <Text size="xs" c="slate.1">
           Allow it for this site in your browser settings, then reload. Without it, a buzz counts as no answer.
         </Text>
       </Card>
@@ -93,7 +93,7 @@ export function MicPrompt({ compact = false }: { compact?: boolean }) {
         <Text fw={700} size="sm">
           🎤 Allow the microphone so you can answer
         </Text>
-        <Text size="xs" c="boardBlue.1">
+        <Text size="xs" c="slate.1">
           You'll say your answers out loud. Asking now means no pop-up mid-game.
         </Text>
         <Button variant="light" onClick={async () => setMic(await requestMicrophone())}>

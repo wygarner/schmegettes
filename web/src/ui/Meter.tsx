@@ -1,7 +1,7 @@
-import { GOLD } from "./tokens";
+import { ACCENT } from "./tokens";
 
 /** A microphone level look-alike: five bars bouncing. Decorative. */
-export function Meter({ color = GOLD, height = 20 }: { color?: string; height?: number }) {
+export function Meter({ color = ACCENT, height = 20 }: { color?: string; height?: number }) {
   return (
     <span aria-hidden style={{ display: "inline-flex", alignItems: "center", gap: 3, height, flexShrink: 0 }}>
       {[0, 1, 2, 3, 4].map((i) => (

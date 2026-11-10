@@ -8,16 +8,20 @@ One component library for product UI and prototypes: **Mantine 9**. Prototypes i
 
 ```ts
 {
-  primaryColor: "boardBlue",
+  primaryColor: "green",
+  primaryShade: 4,
+  autoContrast: true,
   colors: {
-    boardBlue: ["#e8eaff", "#c9cdf7", "#a5abee", "#7f87e6", "#5f68df", "#4a53da", "#3f48d9", "#3139c1", "#2932ad", "#060ce9"],
+    slate: ["#e9f2f5", "#cbdee5", "#abc8d3", "#8bb1c0", "#6e9aac", "#578497", "#446f82", "#345a6b", "#264756", "#1b3644"],
+    green: ["#effff1", "#d9ffdf", "#b5ffc2", "#a6ffaf", "#94ff94", "#7af07a", "#5fdb5f", "#46c246", "#33a633", "#238a23"],
+    dark:  ["#c1d2d9", "#a6bdc7", "#8aa4b0", "#5e7b88", "#3c5a68", "#2a4553", "#1f3946", "#183039", "#12262e", "#0c1a21"],
   },
   fontFamily: "Inter, system-ui, sans-serif",
   headings: { fontFamily: "Oswald, Impact, sans-serif" },
 }
 ```
 
-Default color scheme: dark. `/product` and `/designer` refine this file; `web/src/main.tsx` is the source of truth for the values.
+Default color scheme: dark. The palette is three colors: **slate `#1B3644`** (`slate.9`), **cobalt green `#94FF94`** (`green.4`), and **turquoise green `#B5FFC2`** (`green.2`). Mantine's `dark` scale is slate too, so inputs and dialogs match. `/product` and `/designer` refine this file; `web/src/main.tsx` is the source of truth for the values.
 
 ## Fonts
 
@@ -34,19 +38,19 @@ Board values are Oswald 700. Oswald has no 800 weight.
 
 ## Color
 
-| Token | Value | Use |
+| Token (`web/src/ui/tokens.ts`) | Value | Use |
 |---|---|---|
-| Night | `#03041c` | Host screen behind the stage and board; base of the phone background |
-| Stage | radial gradient `#0d14c8` → `#070c86` → `#040746`, lighter at the top | The panel behind clues, the lobby, Daily Double, Final, and the scoreboard |
-| Phone background | `#0a0f5c` at the top, fading to Night | Every phone screen |
-| `boardBlue.9` | `#060ce9` | Board cells and category headers, with a bevel (light top edge, dark bottom edge) |
-| Tile | `boardBlue.9` gradient, slightly lighter at the top | Player tiles, lobby rows |
-| `yellow.4` (gold) | `#ffd43b` | Values, scores, the control ring, the stage's lit border, **the main action** (Start, Pick, Wager, Lock in, Submit, Rematch) |
-| Ink | `#1f1600` | Text on gold |
-| Buzzer red | dome gradient `#ffb8b8` → `#ff3030` → `#d40c0c` → `#7a0404` | The buzzer, lit. Darker red when unlit |
-| `green` / `red` | Mantine | Correct / incorrect; `red.4` for negative scores |
-
-The main action is gold, not `boardBlue`: a blue button disappears on the blue stage.
+| `NIGHT` | `#0c1a21` (darkest slate) | Host screen behind the stage and board; base of the phone background |
+| `STAGE_BG` | radial gradient `#2c5468` → `#1b3644` → `#10232c`, lighter at the top | The panel behind clues, the lobby, Daily Double, Final, and the scoreboard |
+| `PHONE_BG` | `#23465a` at the top, fading to `NIGHT` | Every phone screen |
+| `CELL` (`slate.9`) | `#1b3644` | Board cells and category headers, with a bevel (light top edge, dark bottom edge) |
+| `TILE_BG` | slate gradient, slightly lighter at the top | Player tiles, lobby rows |
+| `ACCENT` (`green.4`) | `#94ff94`, cobalt green | Values, scores, the control ring, the stage's lit border, **the main action** (Start, Pick, Wager, Lock in, Submit, Rematch), "BUZZ IN!" |
+| `INK` | `#0c1a21` | Text on the accent |
+| `SOFT` (`green.2`) | `#b5ffc2`, turquoise green | Secondary text and labels on slate |
+| `MUTED` / `DIM` | `#8fc7a0` / `#6a9a80` | Quieter text (dates, hints) / placeholders and "listening…" |
+| `GREEN` (`teal.4`) / `RED` (`red.4`) | Mantine | Correct / incorrect, and negative scores. Correct uses teal, not the accent green, so right and wrong still read at a glance |
+| Buzzer red | dome gradient `#ffb8b8` → `#ff3030` → `#d40c0c` → `#7a0404` | The buzzer, lit. It stays red: it's the one thing that should look like a button to hit |
 
 ## Components
 
@@ -77,7 +81,7 @@ Name and score, in join order, sharing the player column's height.
 |---|---|
 | Up to 4 players | Two lines (name, then score), at most 64 px |
 | 5 or 6 players | One line (name, chip, score), at most 48 px |
-| Player in control | 3 px `yellow.4` border, a soft gold glow, and a gold "PICKING" chip ("WAGERING" during their Daily Double wager) |
+| Player in control | 3 px accent (`green.4`) border, a soft green glow, and a green "PICKING" chip ("WAGERING" during their Daily Double wager) |
 | Host who plays | Outlined "HOST" chip |
 | Negative score | `red.4` |
 | Disconnected | 45 % opacity, "(reconnecting)" after the name |
@@ -86,15 +90,15 @@ Name and score, in join order, sharing the player column's height.
 
 ### Board
 
-6 categories × 4 values. `boardBlue.9` cells with a bevel, values in `yellow.4` Oswald 700 with a dark drop shadow, no "$" on the board. Headers wrap to at most 3 lines and shrink to fit. A played cell is an empty cell. Pressed cells shrink slightly, and only when the board is tappable. Phones show the same board, compact (48 px rows).
+6 categories × 4 values. `slate.9` cells with a bevel, values in the accent (`green.4`) Oswald 700 with a dark drop shadow, no "$" on the board. Headers wrap to at most 3 lines and shrink to fit. A played cell is an empty cell. Pressed cells shrink slightly, and only when the board is tappable. Phones show the same board, compact (48 px rows).
 
 ### Stage
 
-The left 72 % of every host screen: a rounded panel in the Stage gradient. Small uppercase line at the top ("VOLCANOES · $400", with a speaker icon while the narrator talks), the content as large as fits, and countdown bars along the bottom. While buzzing is open it gets a 3 px `yellow.4` border with a glow.
+The left 72 % of every host screen: a rounded panel in the Stage gradient. Small uppercase line at the top ("VOLCANOES · $400", with a speaker icon while the narrator talks), the content as large as fits, and countdown bars along the bottom. While buzzing is open it gets a 3 px accent (`green.4`) border with a glow.
 
 ### Wager pad
 
-Digits, backspace, **Min**, **Max**, and a gold confirm button that stays disabled until the amount is in range. The hint under the amount says the range, or why it's out of range ("At most $1,200").
+Digits, backspace, **Min**, **Max**, and a green (accent) confirm button that stays disabled until the amount is in range. The hint under the amount says the range, or why it's out of range ("At most $1,200").
 
 - Phone: a single column, 54 px keys.
 - Host device: on the **stage**, amount and confirm on the left, keys on the right. The player column has no room for it.
@@ -110,7 +114,7 @@ Confirmations and reviews open as a sheet inside the screen: centered on the hos
 
 ### Phone screen
 
-A slim top bar ("ROOM K7RXM" on the left, my score in Oswald on the right), the content, and the buzzer pinned to the bottom. Big headlines are Oswald 600, 34 px ("Alice is picking…", "Listen…", "Look at the TV."). Moments are bigger and gold ("DAILY DOUBLE!", "BUZZ IN!").
+A slim top bar ("ROOM K7RXM" on the left, my score in Oswald on the right), the content, and the buzzer pinned to the bottom. Big headlines are Oswald 600, 34 px ("Alice is picking…", "Listen…", "Look at the TV."). Moments are bigger and in the accent green ("DAILY DOUBLE!", "BUZZ IN!").
 
 ## Host screen
 

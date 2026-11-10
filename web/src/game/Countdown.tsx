@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { GOLD } from "../ui/tokens";
+import { ACCENT } from "../ui/tokens";
 
 /** A bar that empties until deadlineAt (server ms). Hidden when there is no deadline. */
 export function Countdown({
   deadlineAt,
   total,
-  color = GOLD,
+  color = ACCENT,
   height = 6,
 }: {
   deadlineAt?: number;

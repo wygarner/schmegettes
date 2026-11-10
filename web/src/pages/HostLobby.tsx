@@ -191,7 +191,7 @@ export function HostLobbyView({
             </Text>
             <ActionIcon
               variant="subtle"
-              color="boardBlue.1"
+              color="slate.1"
               aria-label="Edit your name"
               onClick={() => {
                 setName(state.hostDisplayName);
@@ -231,7 +231,7 @@ export function HostLobbyView({
         <Stack gap={4}>
           <Button
             variant="outline"
-            color="boardBlue.1"
+            color="slate.1"
             disabled={!state.hostPlays && full}
             onClick={() => send({ type: "set_host_plays", plays: !state.hostPlays })}
           >
@@ -331,7 +331,7 @@ function LobbyPlayers({ state, count }: { state: RoomState; count: number }) {
                     height: 8,
                     borderRadius: 8,
                     flexShrink: 0,
-                    background: p.connected ? "var(--mantine-color-green-5)" : "transparent",
+                    background: p.connected ? "var(--mantine-color-teal-5)" : "transparent",
                     border: p.connected ? "none" : `1.5px solid ${SOFT}`,
                   }}
                 />
@@ -356,7 +356,7 @@ function LobbyPlayers({ state, count }: { state: RoomState; count: number }) {
                       fontWeight: 800,
                       letterSpacing: ".08em",
                       color: SOFT,
-                      border: "1px solid rgba(201,205,247,.45)",
+                      border: "1px solid rgba(181,255,194,.45)",
                       padding: "1px 4px",
                       borderRadius: 3,
                     }}
@@ -385,7 +385,7 @@ function CodeTiles({ code }: { code: string }) {
             width: "min(13cqw, 30cqh)",
             height: "min(17cqw, 38cqh)",
             borderRadius: 8,
-            background: "var(--mantine-color-boardBlue-9)",
+            background: "var(--mantine-color-slate-9)",
             boxShadow: `${BEVEL}, 0 6px 18px rgba(0,0,0,.35)`,
             display: "flex",
             alignItems: "center",
@@ -393,7 +393,7 @@ function CodeTiles({ code }: { code: string }) {
             fontFamily: DISPLAY,
             fontWeight: 700,
             fontSize: "min(12cqw, 28cqh)",
-            color: "var(--mantine-color-yellow-4)",
+            color: "var(--mantine-color-green-4)",
             textShadow: "0 3px 0 rgba(0,0,0,.5)",
           }}
         >

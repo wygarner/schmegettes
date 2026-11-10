@@ -1,4 +1,4 @@
-import { DISPLAY, GOLD } from "./tokens";
+import { ACCENT, DISPLAY } from "./tokens";
 
 export function Wordmark({ size }: { size: number | string }) {
   return (
@@ -8,7 +8,7 @@ export function Wordmark({ size }: { size: number | string }) {
         fontWeight: 700,
         fontSize: size,
         lineHeight: 1,
-        color: GOLD,
+        color: ACCENT,
         letterSpacing: ".04em",
         textShadow: "0 3px 0 rgba(0,0,0,.45)",
       }}

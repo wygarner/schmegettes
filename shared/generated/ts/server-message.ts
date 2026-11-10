@@ -422,7 +422,8 @@ export interface Error {
     | "already_attempted"
     | "invalid_wager"
     | "not_a_finalist"
-    | "unknown_answer";
+    | "unknown_answer"
+    | "not_a_host";
   message?: string;
 }
 export interface Pong {

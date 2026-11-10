@@ -360,6 +360,7 @@ class Code(Enum):
     invalid_wager = 'invalid_wager'
     not_a_finalist = 'not_a_finalist'
     unknown_answer = 'unknown_answer'
+    not_a_host = 'not_a_host'
 
 
 class Error(BaseModel):

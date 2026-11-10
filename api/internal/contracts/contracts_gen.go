@@ -130,6 +130,11 @@ type Health struct {
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// HostAccess defines model for HostAccess.
+type HostAccess struct {
+	CanHost bool `json:"canHost"`
+}
+
 // Problem defines model for Problem.
 type Problem struct {
 	Detail *string `json:"detail,omitempty"`
@@ -179,9 +184,18 @@ type Version struct {
 	Service string `json:"service"`
 }
 
+// RateLimited defines model for RateLimited.
+type RateLimited = Problem
+
 // GetV1GamesParams defines parameters for GetV1Games.
 type GetV1GamesParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// PostV1HostAccessRedeemJSONBody defines parameters for PostV1HostAccessRedeem.
+type PostV1HostAccessRedeemJSONBody struct {
+	// Code 8 characters; case, spaces, and dashes are ignored
+	Code string `json:"code"`
 }
 
 // PatchV1MeJSONBody defines parameters for PatchV1Me.
@@ -216,6 +230,9 @@ type PatchV1RoomsRoomIdJSONBody struct {
 	Seasons *[]int `json:"seasons"`
 }
 
+// PostV1HostAccessRedeemJSONRequestBody defines body for PostV1HostAccessRedeem for application/json ContentType.
+type PostV1HostAccessRedeemJSONRequestBody PostV1HostAccessRedeemJSONBody
+
 // PatchV1MeJSONRequestBody defines body for PatchV1Me for application/json ContentType.
 type PatchV1MeJSONRequestBody PatchV1MeJSONBody
 
@@ -239,6 +256,12 @@ type ServerInterface interface {
 	// A game's scoreboard (anyone who played or watched it)
 	// (GET /v1/games/{gameId})
 	GetV1GamesGameId(w http.ResponseWriter, r *http.Request, gameId openapi_types.UUID)
+	// Whether the caller's device can host
+	// (GET /v1/host-access)
+	GetV1HostAccess(w http.ResponseWriter, r *http.Request)
+	// Spend a one-use host code to give the caller host access
+	// (POST /v1/host-access/redeem)
+	PostV1HostAccessRedeem(w http.ResponseWriter, r *http.Request)
 	// The caller's profile (created on first call)
 	// (GET /v1/me)
 	GetV1Me(w http.ResponseWriter, r *http.Request)
@@ -343,6 +366,46 @@ func (siw *ServerInterfaceWrapper) GetV1GamesGameId(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetV1GamesGameId(w, r, gameId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetV1HostAccess operation middleware
+func (siw *ServerInterfaceWrapper) GetV1HostAccess(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1HostAccess(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1HostAccessRedeem operation middleware
+func (siw *ServerInterfaceWrapper) PostV1HostAccessRedeem(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1HostAccessRedeem(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -662,6 +725,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/healthz", wrapper.GetHealthz)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/games", wrapper.GetV1Games)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/games/{gameId}", wrapper.GetV1GamesGameId)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/host-access", wrapper.GetV1HostAccess)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/host-access/redeem", wrapper.PostV1HostAccessRedeem)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/me", wrapper.GetV1Me)
 	m.HandleFunc("PATCH "+options.BaseURL+"/v1/me", wrapper.PatchV1Me)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/rooms", wrapper.PostV1Rooms)

@@ -354,11 +354,32 @@ function PlayerStatus({
 /** The host device's column: only what's the host's own and not already on the stage. */
 function CompactStatus({ state, userId, voice }: { state: RoomState; userId: string; voice: VoicePick }) {
   if (state.paused || state.results) return null;
-  if (canPick(state, userId) && voice.problem) {
+  // A spoken pick: what it's hearing, then what it heard and why nothing was picked. The
+  // pick is public (it goes on the board), so showing the words on the TV is fine.
+  if (canPick(state, userId) && (voice.listening || voice.problem)) {
     return (
-      <Text size="xs" c="red.3" ta="center">
-        {voice.problem}
-      </Text>
+      <div aria-live="polite" style={{ textAlign: "center", minWidth: 0 }}>
+        {voice.listening && (
+          <Text
+            size="xs"
+            fw={700}
+            c="green.4"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+          >
+            <Meter height={12} color="var(--mantine-color-green-5)" /> Listening…
+          </Text>
+        )}
+        {voice.heard && (
+          <Text size="xs" fs="italic" c="white" truncate="end" aria-label="What we heard">
+            “{voice.heard}”
+          </Text>
+        )}
+        {!voice.listening && voice.problem && (
+          <Text size="xs" c="red.3">
+            {voice.problem}
+          </Text>
+        )}
+      </div>
     );
   }
   if (state.lastVerdict?.userId === userId && state.phase !== "answering" && !state.clueEnd && !state.roundIntro) {

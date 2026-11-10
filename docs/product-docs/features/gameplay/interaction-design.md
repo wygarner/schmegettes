@@ -142,7 +142,7 @@ The phone never shows clue text or the correct response.
 
 ### Host device when the host plays
 
-The same states as the phone, in the player column, minus what the stage already shows: the column keeps only the host's voice-pick errors, live transcript and verdict above the buzzer. When the host has control, the host's buzzer is in `pick`: pressing it (or the space bar) listens for the host's spoken pick. It shows: the host's tile, the buzzer at the bottom of the column, and the board on the stage tappable when the host has control. A tapped pick on the host device gets the same confirmation modal; a spoken pick doesn't. See the [lobby interaction design](../lobby/interaction-design.md).
+The same states as the phone, in the player column, minus what the stage already shows: the column keeps only the host's spoken pick ("Listening…", the words as they're heard, and why a pick failed), live transcript and verdict above the buzzer. When the host has control, the host's buzzer is in `pick`: pressing it (or the space bar) listens for the host's spoken pick. It shows: the host's tile, the buzzer at the bottom of the column, and the board on the stage tappable when the host has control. A tapped pick on the host device gets the same confirmation modal; a spoken pick doesn't. See the [lobby interaction design](../lobby/interaction-design.md).
 
 ## Flows
 

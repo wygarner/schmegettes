@@ -7,7 +7,7 @@ flowchart LR
   subgraph Browser
     web[web/ React]
   end
-  web -- "auth (anonymous / Google)" --> sbauth[Supabase Auth]
+  web -- "auth (anonymous / email + password)" --> sbauth[Supabase Auth]
   web -- "REST + JWT" --> api[api/ Go]
   web -- "WebSocket + JWT" --> game[game/ Go]
   api -- "as user (RLS)" --> db[(Supabase Postgres)]

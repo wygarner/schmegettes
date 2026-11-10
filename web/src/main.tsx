@@ -13,12 +13,14 @@ import { createTheme, MantineProvider } from "@mantine/core";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
+import { Account } from "./pages/Account";
 import { GameScoreboard } from "./pages/GameScoreboard";
 import { Home } from "./pages/Home";
 import { HostLobby } from "./pages/HostLobby";
 import { JoinCode } from "./pages/JoinCode";
 import { JoinRoom } from "./pages/JoinRoom";
 import { MyGames } from "./pages/MyGames";
+import { MergeRetry } from "./ui/MergeRetry";
 
 // Shared with devtools/ prototypes via the same values; see docs/product-docs/architecture/design-system.md.
 export const theme = createTheme({
@@ -100,7 +102,9 @@ createRoot(root).render(
           <Route path="/join/:code" element={<JoinRoom />} />
           <Route path="/games" element={<MyGames />} />
           <Route path="/games/:gameId" element={<GameScoreboard />} />
+          <Route path="/account" element={<Account />} />
         </Routes>
+        <MergeRetry />
       </BrowserRouter>
     </MantineProvider>
   </StrictMode>,

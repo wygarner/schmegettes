@@ -47,6 +47,7 @@ commit;
 | `wagers` | **nothing**: Daily Double and Final wagers, and submitted Final answers, are secret until the reveal. Their outcomes reach players only as `answers` rows |
 | `seen_clues` | **nothing**: only used to build boards |
 | `host_codes`, `hosts` | **nothing** (no role but the owner): host codes and who can host. Players reach them only through `private.*` functions |
+| `private.merge_tickets` | **nothing** (no role but the owner): one-use tickets for moving a guest into an account, stored hashed. Reached only through the account functions |
 
 Supabase's default grants to `anon`/`authenticated` are revoked, including default privileges for future tables. **Every new table needs an explicit grant, `enable row level security`, policies, and a test in `supabase/tests/`.**
 
@@ -77,11 +78,32 @@ Schema `private` holds functions the Data API doesn't expose, so calling them me
 | `private.user_is_host(user)` | `game_engine`; `create_room` and `start_game` | Whether a user can host. `create_room` and `start_game` raise `42501` without it |
 | `private.new_host_code(note)` | owner only (admin, SQL editor) | Creates an unused code |
 
+## Account functions
+
+Accounts ([accounts](../../product-docs/features/accounts/feature-brief.md)): players sign in with email and password, and every sign-in moves the device's guest into the account. All four are `security definer` in schema `private`, granted to `authenticated`, and called by api (`api/internal/account`; the three that change state are rate-limited). A caller is a guest if either the token's `is_anonymous` or `auth.users.is_anonymous` says so.
+
+| Function | Does |
+|---|---|
+| `private.set_account_name(name)` | Signed-in callers only (`42501`). Sets `profiles.account_name` (1–20 characters, `22023`), creating the profile if needed. Players can't write `account_name` directly |
+| `private.create_merge_ticket()` | Guests only (`42501`). Replaces the guest's earlier tickets with a new one, valid 24 h |
+| `private.merge_guest(ticket)` | Signed-in callers only (`42501`). Spends the ticket (`22023` if wrong, used, expired, or not a guest's); refuses while the guest is in an `in_game` room (`55006`, the ticket stays valid). Then moves the guest into the caller, below, and deletes the guest from `auth.users` |
+| `private.delete_account()` | Signed-in callers only (`42501`); refused while in an `in_game` room (`55006`). Deletes the caller from `auth.users`; the cascades below do the rest |
+
+Merging a guest into an account:
+
+- `game_players`: the guest's rows move to the account, except in a game both were in; there the guest's row becomes "Former player" (`user_id` and `display_name` null).
+- `games.host_user_id` and `host_codes.used_by` follow the guest to the account.
+- `seen_clues`: merged; a clue both saw keeps the later `seen_at`.
+- `hosts`: either one's host access is enough.
+- Everything else the guest had (profile, memberships, lobbies it hosted) goes with the deleted guest.
+
+`profiles.display_name` is the last name used in a room; `profiles.account_name` is the signed-in player's own name (leaderboard, name prefill), null for guests.
+
 ## History outlives rooms and accounts
 
 - Deleting a room keeps its games (`games.room_id` becomes null).
 - Each game records who hosted it (`games.host_user_id`, set by `start_game()`), so "Hosted by" in My games survives a deleted room. Deleting the host's account nulls it.
-- Deleting an account deletes its `seen_clues`, nulls its name snapshots, and nulls `game_players.user_id`. Its results stay on other players' scoreboards as "Former player".
+- Deleting an account (`private.delete_account()`) deletes its `seen_clues` and host access, nulls its name snapshots, and nulls `game_players.user_id`. Its results stay on other players' scoreboards as "Former player".
 - Scores are never stored: `game_results` sums each player's `answers.score_delta`, so an override can't leave a stale total.
 
 ## Migration rules

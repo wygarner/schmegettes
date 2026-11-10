@@ -118,6 +118,32 @@ func TestVerify(t *testing.T) {
 	}
 }
 
+func TestVerifyIsAnonymous(t *testing.T) {
+	ks, v := setup(t)
+	k1 := ks.keys["k1"]
+	for name, tc := range map[string]struct {
+		claim any
+		want  bool
+	}{
+		"guest":         {true, true},
+		"signed in":     {false, false},
+		"missing":       {nil, false},
+		"not a boolean": {"true", false},
+	} {
+		claims := valid("user-1")
+		if tc.claim != nil {
+			claims["is_anonymous"] = tc.claim
+		}
+		c, err := v.Verify(sign(t, k1, "k1", claims))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if c.IsAnonymous != tc.want {
+			t.Errorf("%s: IsAnonymous = %v, want %v", name, c.IsAnonymous, tc.want)
+		}
+	}
+}
+
 func TestVerifyRefetchesForUnknownKey(t *testing.T) {
 	ks, v := setup(t)
 	k2 := ks.add(t, "k2") // rotated in after the verifier loaded the key set

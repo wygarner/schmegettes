@@ -11,10 +11,10 @@ vi.mock("../lib/hostAccess", async (original) => ({
 
 const onUnlocked = vi.fn();
 
-function renderSheet() {
+function renderSheet(onSignIn?: () => void) {
   render(
     <MantineProvider>
-      <HostCodeSheet opened onClose={() => {}} onUnlocked={onUnlocked} />
+      <HostCodeSheet opened onClose={() => {}} onUnlocked={onUnlocked} onSignIn={onSignIn} />
     </MantineProvider>,
   );
   return screen.getByLabelText("Host code");
@@ -23,6 +23,18 @@ function renderSheet() {
 beforeEach(() => {
   vi.mocked(redeemHostCode).mockReset();
   onUnlocked.mockReset();
+});
+
+test("a guest is offered to sign in first; others aren't", () => {
+  const onSignIn = vi.fn();
+  renderSheet(onSignIn);
+  fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+  expect(onSignIn).toHaveBeenCalledOnce();
+});
+
+test("no sign-in line without onSignIn", () => {
+  renderSheet();
+  expect(screen.queryByText("Sign in first so you can host from any device.")).toBeNull();
 });
 
 test("Continue is enabled at 8 characters, and a valid code unlocks hosting", async () => {

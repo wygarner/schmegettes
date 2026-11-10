@@ -39,6 +39,10 @@ Hosting needs host access. Locally, enter **`DEVS-TEST`** when **Host a game** a
 
 Copy each `.env.example` next to it (`web/.env.local`, `api/.env`, `game/.env`, `worker/.env`) and fill in the anon key from `db:start`. Local env files point at local Supabase only. Staging and production credentials are never put in a local file.
 
+### Accounts
+
+Email and password accounts work locally with no setup: confirmation is off and nothing is emailed. Mailpit (`http://127.0.0.1:54324`) should stay empty; anything there is a bug. After changing `[auth.*]` in `config.toml`, restart Supabase (`supabase stop && mise run db:start`).
+
 ### Real clues (optional)
 
 The seed has only "SAMPLE" categories. To play with real clues, load a few seasons into local Supabase (about 1 s per season; safe to run again):

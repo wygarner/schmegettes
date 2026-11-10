@@ -119,3 +119,9 @@ test("a closed room says so", () => {
   renderView(lobby({ connection: "closed" }));
   expect(screen.getByText("This room has closed.")).toBeInTheDocument();
 });
+
+test("the host device (on the TV) never shows sign-in", () => {
+  renderView(lobby());
+  expect(screen.queryByText(/sign in/i)).toBeNull();
+  expect(screen.queryByRole("link", { name: "Account" })).toBeNull();
+});

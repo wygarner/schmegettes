@@ -7,6 +7,7 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
+	"schmegettes/api/internal/account"
 	"schmegettes/api/internal/contracts"
 	"schmegettes/api/internal/games"
 	"schmegettes/api/internal/hostaccess"
@@ -21,20 +22,24 @@ type routes struct {
 	rooms  rooms.Handler
 	games  games.Handler
 	host   hostaccess.Handler
+	me     account.Handler
 	limits limits
 	ping   func(context.Context) error
 }
 
-// limits are the per-user rate limits on endpoints that take a code someone could guess.
+// limits are the per-user rate limits on endpoints that take a code someone could guess, or
+// that change an account.
 type limits struct {
 	join     *ratelimit.Limiter // room codes
 	hostCode *ratelimit.Limiter // host codes
+	account  *ratelimit.Limiter // merge tickets, merging, deleting an account
 }
 
 func newLimits() limits {
 	return limits{
 		join:     ratelimit.New("join", 10, 10),
 		hostCode: ratelimit.New("host-code", 5, 5),
+		account:  ratelimit.New("account", 10, 3),
 	}
 }
 
@@ -83,8 +88,23 @@ func (rt routes) GetV1Games(w http.ResponseWriter, r *http.Request, params contr
 func (rt routes) GetV1GamesGameId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
 	rt.games.Detail(w, r, id)
 }
-func (routes) GetV1Me(w http.ResponseWriter, _ *http.Request)   { notImplemented(w) }
-func (routes) PatchV1Me(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }
+func (rt routes) GetV1Me(w http.ResponseWriter, r *http.Request)   { rt.me.Me(w, r) }
+func (rt routes) PatchV1Me(w http.ResponseWriter, r *http.Request) { rt.me.SetName(w, r) }
+func (rt routes) DeleteV1Me(w http.ResponseWriter, r *http.Request) {
+	if rt.limits.account.Allow(w, r) {
+		rt.me.Delete(w, r)
+	}
+}
+func (rt routes) PostV1MeMergeTickets(w http.ResponseWriter, r *http.Request) {
+	if rt.limits.account.Allow(w, r) {
+		rt.me.CreateTicket(w, r)
+	}
+}
+func (rt routes) PostV1MeMerge(w http.ResponseWriter, r *http.Request) {
+	if rt.limits.account.Allow(w, r) {
+		rt.me.Merge(w, r)
+	}
+}
 func (routes) GetV1RoomsRoomId(w http.ResponseWriter, _ *http.Request, _ openapi_types.UUID) {
 	notImplemented(w)
 }

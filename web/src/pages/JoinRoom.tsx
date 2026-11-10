@@ -4,7 +4,8 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { MicPrompt } from "../game/MicPrompt";
 import { PlayerGame } from "../game/PlayerGame";
-import { getLastName, isValidName, MAX_NAME, setLastName } from "../lib/displayName";
+import { markGamePlayed } from "../lib/accountFlags";
+import { getPrefillName, isValidName, MAX_NAME, setLastName } from "../lib/displayName";
 import { type RoomState, useRoom } from "../lib/room";
 import { joinRoom, type RoomJoin, type RoomProblem, roomByCode } from "../lib/rooms";
 import { getUserId } from "../lib/supabase";
@@ -27,7 +28,7 @@ type Stage = { kind: "checking" } | { kind: "name" } | { kind: "joined"; room: R
 export function JoinRoom() {
   const { code = "" } = useParams();
   const [stage, setStage] = useState<Stage>({ kind: "checking" });
-  const [name, setName] = useState(getLastName);
+  const [name, setName] = useState(getPrefillName);
   const [joining, setJoining] = useState(false);
   const [problem, setProblem] = useState<RoomProblem | null>(null);
 
@@ -156,6 +157,12 @@ export function PlayerView({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const me = state.players.find((p) => p.userId === userId);
+  const finishedAsContestant = state.phase === "finished" && me?.role === "contestant";
+
+  // A contestant who finished a game is offered "Save your games" back on Home (guests only).
+  useEffect(() => {
+    if (finishedAsContestant) markGamePlayed();
+  }, [finishedAsContestant]);
 
   if (state.connection === "closed") {
     return (

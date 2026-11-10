@@ -2,10 +2,16 @@ import { MantineProvider } from "@mantine/core";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, expect, test, vi } from "vitest";
+import { getHostAccess, redeemHostCode } from "../lib/hostAccess";
 import { createRoom } from "../lib/rooms";
 import { Home, normalizeRoomCode } from "./Home";
 
 vi.mock("../lib/rooms", () => ({ createRoom: vi.fn() }));
+vi.mock("../lib/hostAccess", async (original) => ({
+  ...(await original<typeof import("../lib/hostAccess")>()),
+  getHostAccess: vi.fn(),
+  redeemHostCode: vi.fn(),
+}));
 
 function renderHome() {
   render(
@@ -23,6 +29,8 @@ function renderHome() {
 
 beforeEach(() => {
   vi.mocked(createRoom).mockReset();
+  vi.mocked(getHostAccess).mockReset().mockResolvedValue(true);
+  vi.mocked(redeemHostCode).mockReset();
   window.localStorage.clear();
 });
 
@@ -87,6 +95,35 @@ test("a failed create returns to Home with a message", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Create room" }));
   expect(await screen.findByText("Couldn't create a room. Try again.")).toBeInTheDocument();
   await waitFor(() => expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument());
+});
+
+test("a device without host access enters its host code before the name", async () => {
+  vi.mocked(getHostAccess).mockResolvedValue(false);
+  vi.mocked(redeemHostCode).mockResolvedValue({ kind: "ok" });
+  renderHome();
+  fireEvent.click(screen.getByRole("button", { name: "Host a game" }));
+  fireEvent.change(await screen.findByLabelText("Host code"), { target: { value: "k7rxm2pq" } });
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(await screen.findByLabelText("Your name")).toBeInTheDocument();
+  expect(redeemHostCode).toHaveBeenCalledWith("K7RX-M2PQ");
+});
+
+test("a host whose access was removed is asked for a code after Create room", async () => {
+  vi.mocked(createRoom).mockResolvedValue({ ok: false, problem: "not-a-host" });
+  renderHome();
+  fireEvent.click(screen.getByRole("button", { name: "Host a game" }));
+  fireEvent.change(await screen.findByLabelText("Your name"), { target: { value: "Ann" } });
+  fireEvent.click(screen.getByRole("button", { name: "Create room" }));
+  expect(await screen.findByLabelText("Host code")).toBeInTheDocument();
+  expect(screen.queryByText("Couldn't create a room. Try again.")).not.toBeInTheDocument();
+});
+
+test("when host access can't be checked, Home says so", async () => {
+  vi.mocked(getHostAccess).mockResolvedValue(null);
+  renderHome();
+  fireEvent.click(screen.getByRole("button", { name: "Host a game" }));
+  expect(await screen.findByText("Couldn't create a room. Try again.")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Host code")).not.toBeInTheDocument();
 });
 
 test("links to My games", () => {

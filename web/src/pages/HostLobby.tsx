@@ -93,6 +93,7 @@ const ERRORS: Record<string, string> = {
   room_full: "The room is full.",
   not_enough_players: "Need at least 2 players.",
   invalid_name: "Names are 1 to 20 characters.",
+  not_a_host: "Your host access was removed, so you can't start games.",
 };
 
 export function HostLobbyView({

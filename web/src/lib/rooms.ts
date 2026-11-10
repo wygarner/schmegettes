@@ -4,11 +4,11 @@ import { api } from "./api";
 export type RoomJoin = ApiComponents["schemas"]["RoomJoin"];
 
 /** Why a room request failed, from the problem type (shared/openapi.yaml). */
-export type RoomProblem = "room-not-found" | "room-full" | "game-started" | "invalid-name" | "error";
+export type RoomProblem = "room-not-found" | "room-full" | "game-started" | "invalid-name" | "not-a-host" | "rate-limited" | "error";
 
 export type RoomResult = { ok: true; data: RoomJoin } | { ok: false; problem: RoomProblem };
 
-const KNOWN: RoomProblem[] = ["room-not-found", "room-full", "game-started", "invalid-name"];
+const KNOWN: RoomProblem[] = ["room-not-found", "room-full", "game-started", "invalid-name", "not-a-host", "rate-limited"];
 
 function problemOf(error: unknown): RoomProblem {
   const type = (error as { type?: string } | undefined)?.type ?? "";

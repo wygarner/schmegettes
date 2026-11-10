@@ -20,36 +20,31 @@ port = 54323
 
 [auth]
 site_url = "http://localhost:5173"
-additional_redirect_urls = ["http://localhost:5173", "http://localhost:5173/**"]
+additional_redirect_urls = ["http://localhost:5173"]
 jwt_expiry = 3600
 enable_signup = true
 # Players start anonymous (docs/system-docs/engineering/stack.md, Identity provider).
 enable_anonymous_sign_ins = true
-# Accounts: the Account page connects a second provider (Apple or Google) to an account.
-enable_manual_linking = true
+# Accounts: email and password, at least 8 characters, no other rules
+# (docs/product-docs/features/accounts/).
+minimum_password_length = 8
+password_requirements = ""
 # Services verify JWTs against JWKS, which needs asymmetric keys. Generate once with
 # `supabase gen signing-key --algorithm ES256 > supabase/signing_keys.json` (git-ignored).
 signing_keys_path = "./signing_keys.json"
 
-# Private access: nobody signs in with email; hosts unlock hosting with a one-use code.
+# Accounts: players sign in with email and password. The email is only a username:
+# confirmation is off and Schmegettes sends no email, so there is no SMTP and no reset email.
 # Hosted projects need the same in their Auth settings (deployment.md, "Supabase Auth").
 [auth.email]
-enable_signup = false
-
-# Accounts: players sign in with Apple or Google (docs/product-docs/features/accounts/).
-# Local sign-in needs developer credentials in the environment (developer-setup.md); without
-# them everything else works. Hosted projects set these in their Auth settings.
-[auth.external.apple]
-enabled = true
-client_id = "env(SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID)"
-secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
-
-[auth.external.google]
-enabled = true
-client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
-secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+enable_signup = true
+enable_confirmations = false
+secure_password_change = false
+double_confirm_changes = false
 
 [auth.rate_limit]
 # Per hour per IP. Each anonymous identity also gets its own api rate limits, so this bounds
 # how fast one address can guess room or host codes.
 anonymous_users = 30
+# Per 5 minutes per IP: sign-ins and sign-ups, the only brake on password guessing.
+sign_in_sign_ups = 30

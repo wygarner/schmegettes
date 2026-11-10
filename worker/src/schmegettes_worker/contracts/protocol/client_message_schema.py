@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, conint, constr
 
@@ -44,6 +44,10 @@ class LeaveRoom(BaseModel):
 class Source(Enum):
     voice = 'voice'
     typed = 'typed'
+
+
+class Alternative(RootModel[constr(max_length=200)]):
+    root: constr(max_length=200)
 
 
 class SubmitWager(BaseModel):
@@ -122,6 +126,11 @@ class SubmitAnswer(BaseModel):
     source: Source = Field(
         ...,
         description='voice for every clue and Daily Double; typed only in final_answer (Final Schmegettes answers are typed).',
+    )
+    alternatives: Optional[List[Alternative]] = Field(
+        None,
+        description='Other transcripts the speech recognizer offered, most likely first, after answer (which stays its best guess). Voice only; omitted for typed answers and by recognizers that return one transcript. The server judges answer first, then each of these.',
+        max_length=4,
     )
 
 

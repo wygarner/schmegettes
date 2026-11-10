@@ -105,6 +105,7 @@ Merging a guest into an account:
 - Each game records who hosted it (`games.host_user_id`, set by `start_game()`), so "Hosted by" in My games survives a deleted room. Deleting the host's account nulls it.
 - Deleting an account (`private.delete_account()`) deletes its `seen_clues` and host access, nulls its name snapshots, and nulls `game_players.user_id`. Its results stay on other players' scoreboards as "Former player".
 - Scores are never stored: `game_results` sums each player's `answers.score_delta`, so an override can't leave a stale total.
+- Each answer also keeps why it was judged: `match_rule` (`exact`, `spelling_slip`, `sounds_alike`, `no_match`, `nothing_heard`), `heard` (every transcript, most likely first; at most 5), and `judge_verdict` (`correct` or `incorrect`), none of which an override changes; `overridden_at` is the last host override. All four are null for answers recorded before 2026-11-10. Game members read them like the rest of the row. Tuning: [judge-tuning.md](../operations/judge-tuning.md).
 
 ## Migration rules
 

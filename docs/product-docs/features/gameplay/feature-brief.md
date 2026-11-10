@@ -63,9 +63,11 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
 ### How an answer is matched
 
-Built today: both sides are lowercased, and punctuation, parenthetical hints ("(Abraham) Lincoln"), question phrasing ("what is", "who are") and articles are dropped. Then the answer may be off by one letter per five letters of the response ("Parris" for Paris). Words that sound right but are spelled differently are marked wrong.
+Both sides are lowercased, and punctuation, parenthetical hints ("(Abraham) Lincoln"), question phrasing ("what is", "who are") and articles are dropped. Accents are ignored, St/Mt/Dr mean Saint/Mount/Doctor, and numbers said as words count as digits.
 
-**Sound-alike matching. Not yet implemented.** Speech-to-text often writes a right answer the way it sounds, so an answer that **sounds like** the whole correct response is correct, however it's spelled or split into words.
+- **Exact:** the two are then the same.
+- **Spelling slip:** the answer is off by at most one letter per five letters of the response ("Parris" for Paris), and starts with the same letter ("russia" isn't Prussia).
+- **Sounds alike:** speech-to-text often writes a right answer the way it sounds, so an answer that **sounds like** the whole correct response is correct, however it's spelled or split into words.
 
 | Heard as | Correct response | Verdict |
 |---|---|---|
@@ -87,7 +89,7 @@ Built today: both sides are lowercased, and punctuation, parenthetical hints ("(
 - **Several hearings.** When the phone's speech recognition offers more than one possible transcript, the answer is correct if any of them matches. The TV shows the one that matched, or the most likely one when none did.
 - **Final Schmegettes** uses the same rules for typed answers, so a phonetic spelling of the right answer counts.
 - Judging stays instant and on the server. The host can still override any verdict ([overrides](../scoreboard-and-overrides/feature-brief.md)).
-- **Why it was judged that way is recorded. Not yet implemented.** Every judged answer keeps which rule decided it (**exact**, **spelling slip**, **sounds alike**, **no match**, or **nothing heard**) and every transcript the phone heard. No screen shows this. Together with host overrides ([overrides](../scoreboard-and-overrides/feature-brief.md#host-overrides)), it shows where the judge is too strict or too generous so the rules can be tuned.
+- **Why it was judged that way is recorded.** Every judged answer keeps which rule decided it (**exact**, **spelling slip**, **sounds alike**, **no match**, or **nothing heard**) and every transcript the phone heard. No screen shows this. Together with host overrides ([overrides](../scoreboard-and-overrides/feature-brief.md#host-overrides)), it shows where the judge is too strict or too generous so the rules can be tuned.
 
 ### Rounds and the end
 

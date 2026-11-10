@@ -27,6 +27,13 @@ export type GamePhase =
  */
 export type AnswerSource = "voice" | "typed";
 /**
+ * Which judging rule decided an answer. Mirrors public.match_rule.
+ *
+ * This interface was referenced by `Domain`'s JSON-Schema
+ * via the `definition` "MatchRule".
+ */
+export type MatchRule = "exact" | "spelling_slip" | "sounds_alike" | "no_match" | "nothing_heard";
+/**
  * This interface was referenced by `Domain`'s JSON-Schema
  * via the `definition` "Round".
  */

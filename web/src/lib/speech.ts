@@ -118,11 +118,38 @@ export interface Recognizer {
   stop(): void;
   abort(): void;
   onInterim?: (text: string) => void;
-  /** Called once, with the best transcript ("" when nothing was heard). */
-  onFinal?: (text: string) => void;
+  /**
+   * Called once, with the best transcript ("" when nothing was heard) and the recognizer's
+   * other guesses, most likely first (at most MAX_ALTERNATIVES, none equal to text).
+   */
+  onFinal?: (text: string, alternatives?: string[]) => void;
 }
 
-type RecognitionResultList = ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
+/** How many other guesses an answer carries (SubmitAnswer.alternatives). */
+export const MAX_ALTERNATIVES = 4;
+
+/**
+ * The best transcript and the other guesses. Guess k joins each result's k-th alternative,
+ * or its best one when that result has fewer.
+ */
+export function transcripts(results: RecognitionResultList): { text: string; alternatives: string[] } {
+  const list = Array.from(results);
+  const guess = (k: number) =>
+    list
+      .map((r) => r[k]?.transcript ?? r[0]?.transcript ?? "")
+      .join("")
+      .trim();
+  const text = guess(0);
+  const most = Math.max(0, ...list.map((r) => r.length));
+  const alternatives: string[] = [];
+  for (let k = 1; k < most && alternatives.length < MAX_ALTERNATIVES; k++) {
+    const g = guess(k);
+    if (g && g !== text && !alternatives.includes(g)) alternatives.push(g);
+  }
+  return { text, alternatives };
+}
+
+export type RecognitionResultList = ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
 
 interface BrowserRecognition {
   lang: string;
@@ -155,9 +182,10 @@ function createBrowserRecognizer(): Recognizer | null {
   rec.lang = "en-US";
   rec.continuous = false; // ends on its own when the player goes quiet
   rec.interimResults = true;
-  rec.maxAlternatives = 1;
+  rec.maxAlternatives = MAX_ALTERNATIVES + 1;
 
   let transcript = "";
+  let alternatives: string[] = [];
   let done = false;
   const recognizer: Recognizer = {
     start: () => rec.start(),
@@ -168,16 +196,13 @@ function createBrowserRecognizer(): Recognizer | null {
     },
   };
   rec.onresult = (e) => {
-    transcript = Array.from(e.results)
-      .map((r) => r[0]?.transcript ?? "")
-      .join("")
-      .trim();
+    ({ text: transcript, alternatives } = transcripts(e.results));
     recognizer.onInterim?.(transcript);
   };
   const finish = () => {
     if (done) return;
     done = true;
-    recognizer.onFinal?.(transcript);
+    recognizer.onFinal?.(transcript, alternatives);
   };
   rec.onend = finish;
   rec.onerror = finish;

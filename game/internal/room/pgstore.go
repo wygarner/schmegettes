@@ -3,6 +3,7 @@ package room
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -269,8 +270,20 @@ func (s PGStore) RecordAnswer(ctx context.Context, r play.Record) error {
 	if source == "" {
 		source = contracts.AnswerSourceVoice
 	}
-	return s.exec(ctx, "select public.record_answer($1, $2, $3, $4, $5::public.answer_source, $6::public.verdict, $7)",
-		r.AnswerID, r.ClueID, r.UserID, r.Answer, string(source), string(r.Verdict), r.Delta)
+	var rule *string
+	if r.Rule != "" {
+		v := string(r.Rule)
+		rule = &v
+	}
+	var heard []string // nil (nothing heard) is stored as null
+	for _, h := range r.Heard {
+		if strings.TrimSpace(h) != "" {
+			heard = append(heard, clip(h))
+		}
+	}
+	return s.exec(ctx, `select public.record_answer($1, $2, $3, $4, $5::public.answer_source, $6::public.verdict, $7,
+		$8::public.match_rule, $9::text[])`,
+		r.AnswerID, r.ClueID, r.UserID, r.Answer, string(source), string(r.Verdict), r.Delta, rule, heard)
 }
 
 // RecordWager stores a Daily Double or Final wager. The first one wins, so a retry is a no-op.

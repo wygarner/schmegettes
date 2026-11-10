@@ -160,6 +160,22 @@ test("winning a buzz: listening starts on the tap, words stream, the final text 
   }
 });
 
+test("the recognizer's other guesses go with the answer", () => {
+  const open: RoomState = { ...base, phase: "buzzing_open", activeClue: clue };
+  const { send, update } = setup(open);
+  fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
+  // The final result arrives before the server confirms the buzz: it's held, then sent.
+  act(() => rec.onFinal?.("night rogan", ["nitrogen", "x".repeat(250)]));
+  update({ ...open, phase: "answering", answeringUserId: me });
+  expect(send).toHaveBeenCalledWith({
+    type: "submit_answer",
+    clueId: "c1",
+    answer: "night rogan",
+    source: "voice",
+    alternatives: ["nitrogen", "x".repeat(200)],
+  });
+});
+
 test("listening stops after ANSWER_MS (9 s)", () => {
   vi.useFakeTimers();
   try {

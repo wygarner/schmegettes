@@ -2,6 +2,7 @@ package room
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -219,6 +220,12 @@ func answerOnce(t *testing.T, answer string) (*fixture, *conn) {
 
 func answerOnceWith(t *testing.T, answer string, before func(*fixture)) (*fixture, *conn) {
 	t.Helper()
+	return submitOnce(t, map[string]any{"type": "submit_answer", "clueId": "clue-s", "answer": answer, "source": "voice"}, before)
+}
+
+// submitOnce plays clue-s: the player who didn't pick buzzes and sends msg as their answer.
+func submitOnce(t *testing.T, msg map[string]any, before func(*fixture)) (*fixture, *conn) {
+	t.Helper()
 	f, host, a, b := startedGame(t)
 	if before != nil {
 		before(f)
@@ -233,10 +240,11 @@ func answerOnceWith(t *testing.T, answer string, before func(*fixture)) (*fixtur
 	other.until("phase_changed")
 	other.until("phase_changed")
 	other.send(map[string]any{"type": "buzz", "clueId": "clue-s"})
-	other.send(map[string]any{"type": "submit_answer", "clueId": "clue-s", "answer": answer, "source": "voice"})
-	host.raw("answer_judged")
-	// A wrong answer reopens buzzing for the other player; let that window close.
-	f.timers.fireAfter(host)
+	other.send(msg)
+	if judged, _ := host.raw("answer_judged"); judged.Verdict == "incorrect" {
+		// A wrong answer reopens buzzing for the other player; let that window close.
+		f.timers.fireAfter(host)
+	}
 	host.raw("clue_ended")
 	return f, host
 }
@@ -248,6 +256,22 @@ func TestLongAnswersAreClipped(t *testing.T) {
 	defer f.store.mu.Unlock()
 	if f.store.answerLen != 200 {
 		t.Errorf("wrote %d characters, want 200", f.store.answerLen)
+	}
+}
+
+func TestAlternativesAreJudgedAndRecorded(t *testing.T) {
+	long := strings.Repeat("é", 300)
+	f, host := submitOnce(t, map[string]any{"type": "submit_answer", "clueId": "clue-s", "answer": "night rogan",
+		"source": "voice", "alternatives": []string{"", long, "knight", "nitrogen", "fourth", "dropped"}}, nil)
+	host.settle()
+	f.store.mu.Lock()
+	defer f.store.mu.Unlock()
+	r := f.store.lastAnswer
+	// Empty guesses are dropped and at most 4 are judged, each clipped to 200 characters.
+	want := []string{"night rogan", strings.Repeat("é", 200), "knight", "nitrogen", "fourth"}
+	if !slices.Equal(r.Heard, want) || r.Answer != "nitrogen" || r.Verdict != contracts.VerdictCorrect ||
+		r.Rule != contracts.MatchRuleExact {
+		t.Errorf("recorded %+v", r)
 	}
 }
 

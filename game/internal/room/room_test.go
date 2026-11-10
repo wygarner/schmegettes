@@ -36,6 +36,7 @@ type fakeStore struct {
 
 	failAnswers bool // RecordAnswer always fails
 	answerLen   int  // characters in the last answer written
+	lastAnswer  play.Record
 }
 
 func newFakeStore() *fakeStore {
@@ -155,6 +156,7 @@ func (s *fakeStore) RecordAnswer(_ context.Context, r play.Record) error {
 	s.mu.Lock()
 	fail := s.failAnswers
 	s.answerLen = utf8.RuneCountInString(r.Answer)
+	s.lastAnswer = r
 	s.mu.Unlock()
 	if fail {
 		return errors.New("check constraint")

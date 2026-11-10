@@ -59,7 +59,7 @@ If the board can't be built (server error), everyone returns to the lobby with "
 - Games I only watched (as a non-playing host or a spectator) are listed with a **WATCHED** badge and no score.
 - Newest first, 20 at a time, then **Show more**. Tapping a row opens the scoreboard.
 - Empty: "No games yet. Games you play or watch show up here, with everyone's scores." and **Join a game**.
-- Under the list, for an anonymous player: "Played without an account. Link Google or email to keep these if you switch phones." (Linking itself is out of scope here.)
+- Under the list, for a guest: "Played without an account. Sign in to keep these on any phone." and **Sign in** ([accounts](../accounts/interaction-design.md)).
 
 **Game scoreboard**:
 

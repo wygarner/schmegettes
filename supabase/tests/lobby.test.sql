@@ -41,6 +41,12 @@ insert into auth.users (id, email) values
   ('44444444-4444-4444-8444-444444444444', 'dave@example.test'),
   ('55555555-5555-4555-8555-555555555555', 'eve@example.test');
 
+-- Hosting is invite-only; these fixture users can host. The gate itself is tested in
+-- private_access.test.sql.
+insert into public.host_codes (code) values ('TESTHSTS');
+insert into public.hosts (user_id, code)
+select id, 'TESTHSTS' from auth.users where email like '%@example.test';
+
 -- A small catalog in its own season, so start_game can build a board.
 insert into public.clues (season, air_date, round, category, value, clue_text, correct_response, source_key)
 select 77, date '2001-01-01', r.round, 'LOBBY ' || r.round::text || ' ' || c,

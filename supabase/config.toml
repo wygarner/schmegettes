@@ -28,3 +28,13 @@ enable_anonymous_sign_ins = true
 # Services verify JWTs against JWKS, which needs asymmetric keys. Generate once with
 # `supabase gen signing-key --algorithm ES256 > supabase/signing_keys.json` (git-ignored).
 signing_keys_path = "./signing_keys.json"
+
+# Private access: nobody signs in with email; hosts unlock hosting with a one-use code.
+# Hosted projects need the same in their Auth settings (deployment.md, "Supabase Auth").
+[auth.email]
+enable_signup = false
+
+[auth.rate_limit]
+# Per hour per IP. Each anonymous identity also gets its own api rate limits, so this bounds
+# how fast one address can guess room or host codes.
+anonymous_users = 30

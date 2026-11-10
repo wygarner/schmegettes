@@ -22,3 +22,9 @@ export async function getUserId(): Promise<string> {
   if (!id) throw new Error("No session after sign-in");
   return id;
 }
+
+/** Whether the player has no account yet (signed in anonymously). */
+export async function isAnonymous(): Promise<boolean> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user.is_anonymous ?? true;
+}

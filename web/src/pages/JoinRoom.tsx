@@ -8,6 +8,8 @@ import { getLastName, isValidName, MAX_NAME, setLastName } from "../lib/displayN
 import { type RoomState, useRoom } from "../lib/room";
 import { joinRoom, type RoomJoin, type RoomProblem, roomByCode } from "../lib/rooms";
 import { getUserId } from "../lib/supabase";
+import { GoldButton } from "../ui/GoldButton";
+import { DISPLAY, PHONE_BG, SOFT } from "../ui/tokens";
 
 export const JOIN_ERRORS: Record<RoomProblem, string> = {
   "room-not-found": "No room with that code.",
@@ -63,29 +65,40 @@ export function JoinRoom() {
   if (stage.kind === "joined") return <ConnectedPlayer room={stage.room} userId={stage.userId} />;
 
   return (
-    <Container size="xs" py="xl">
-      <form onSubmit={join}>
-        <Stack>
-          <Title order={2}>Join {code}</Title>
-          {problem && <Alert color="red">{JOIN_ERRORS[problem]}</Alert>}
-          {problem === "room-not-found" && (
-            <Anchor component={Link} to="/join">
-              Try another code
-            </Anchor>
-          )}
-          <TextInput
-            label="What's your name?"
-            data-autofocus
-            maxLength={MAX_NAME}
-            value={name}
-            onChange={(e) => setName(e.currentTarget.value)}
-          />
-          <Button type="submit" size="lg" loading={joining} disabled={!isValidName(name)}>
-            Join
-          </Button>
-        </Stack>
-      </form>
-    </Container>
+    <div style={{ minHeight: "100dvh", background: PHONE_BG, color: "#fff" }}>
+      <Container size="xs" py={48}>
+        <form onSubmit={join}>
+          <Stack>
+            <Text size="xs" fw={700} c="#a5abee" style={{ letterSpacing: ".14em" }}>
+              ROOM {code}
+            </Text>
+            <Title order={2} ff={DISPLAY} fw={600} fz={34}>
+              Join {code}
+            </Title>
+            <Text size="sm" c={SOFT}>
+              Your name is how you'll show up on the TV.
+            </Text>
+            {problem && <Alert color="red">{JOIN_ERRORS[problem]}</Alert>}
+            {problem === "room-not-found" && (
+              <Anchor component={Link} to="/join">
+                Try another code
+              </Anchor>
+            )}
+            <TextInput
+              label="What's your name?"
+              size="lg"
+              data-autofocus
+              maxLength={MAX_NAME}
+              value={name}
+              onChange={(e) => setName(e.currentTarget.value)}
+            />
+            <GoldButton type="submit" size="lg" loading={joining} disabled={!isValidName(name)}>
+              Join
+            </GoldButton>
+          </Stack>
+        </form>
+      </Container>
+    </div>
   );
 }
 
@@ -119,7 +132,7 @@ function ConnectedPlayer({ room, userId }: { room: RoomJoin; userId: string }) {
 
 function Centered({ children }: { children: ReactNode }) {
   return (
-    <Center mih="100vh" p="md">
+    <Center mih="100dvh" p="md" style={{ background: PHONE_BG, color: "#fff" }}>
       <Stack align="center" ta="center">
         {children}
       </Stack>
@@ -145,7 +158,9 @@ export function PlayerView({
   if (state.connection === "closed") {
     return (
       <Centered>
-        <Title order={2}>This room has closed.</Title>
+        <Title order={2} ff={DISPLAY} fw={600}>
+          This room has closed.
+        </Title>
         <Anchor component={Link} to="/">
           Back to home
         </Anchor>
@@ -161,14 +176,16 @@ export function PlayerView({
   if (state.phase === "building_board") {
     const shuffling = (
       <Stack align="center" ta="center">
-        <Loader />
-        <Title order={2}>Shuffling a fresh board…</Title>
+        <Shuffle />
+        <Title order={2} ff={DISPLAY} fw={600}>
+          Shuffling a fresh board…
+        </Title>
       </Stack>
     );
     return <PlayerGame state={state} userId={userId} send={send} lobby={shuffling} />;
   }
   if (state.phase !== "lobby") {
-    return <PlayerGame state={state} userId={userId} send={send} />;
+    return <PlayerGame state={state} userId={userId} send={send} onLeave={onLeave} />;
   }
 
   function saveName() {
@@ -180,10 +197,24 @@ export function PlayerView({
 
   // The buzzer is on screen from here on; in the lobby a tap only animates it.
   const lobby = (
-    <Stack align="center" ta="center">
+    <Stack gap="md">
       {state.connection === "reconnecting" && <Alert color="yellow">Reconnecting…</Alert>}
       {state.error?.code === "invalid_name" && <Alert color="red">Names are 1 to 20 characters.</Alert>}
-      <Title order={2}>You're in, {me?.displayName ?? "…"}.</Title>
+      <div>
+        {state.rematch && (
+          <Text c="yellow.4" fw={800} size="xs" style={{ letterSpacing: ".14em" }}>
+            REMATCH
+          </Text>
+        )}
+        <Title order={2} ff={DISPLAY} fw={500} fz={32} lh={1.1}>
+          You're in, {me?.displayName ?? "…"}.
+        </Title>
+        <Text size="sm" c={SOFT} mt={6}>
+          {state.rematch
+            ? `Same room, fresh board. Waiting for ${state.hostDisplayName} to start.`
+            : `Hosted by ${state.hostDisplayName}. Look for your name on the TV.`}
+        </Text>
+      </div>
       <MicPrompt />
       {editing ? (
         <Group>
@@ -199,9 +230,9 @@ export function PlayerView({
           </Button>
         </Group>
       ) : (
-        <Group>
+        <Group grow>
           <Button
-            variant="default"
+            variant="light"
             onClick={() => {
               setName(me?.displayName ?? "");
               setEditing(true);
@@ -217,4 +248,26 @@ export function PlayerView({
     </Stack>
   );
   return <PlayerGame state={state} userId={userId} send={send} lobby={lobby} />;
+}
+
+/** Six board cells flipping while the board is built. */
+export function Shuffle() {
+  return (
+    <div aria-hidden style={{ display: "flex", gap: 5, perspective: 300 }}>
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <div
+          key={i}
+          className="sg-flip"
+          style={{
+            width: 36,
+            height: 48,
+            borderRadius: 4,
+            background: "var(--mantine-color-boardBlue-9)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,.22), inset 0 -3px 0 rgba(0,0,0,.35)",
+            animationDelay: `${i * 110}ms`,
+          }}
+        />
+      ))}
+    </div>
+  );
 }

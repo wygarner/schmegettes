@@ -12,6 +12,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@fontsource/inter": "5.3.0",
+    "@fontsource/oswald": "5.3.0",
     "@mantine/core": "9.7.4",
     "@mantine/hooks": "9.7.4",
     "@schmegettes/shared": "workspace:*",

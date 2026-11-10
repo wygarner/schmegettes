@@ -23,6 +23,11 @@ import { isValidName, MAX_NAME, setLastName } from "../lib/displayName";
 import { contestantCount, type RoomState, useRoom } from "../lib/room";
 import { type RoomJoin, roomByCode } from "../lib/rooms";
 import { getUserId } from "../lib/supabase";
+import { GoldButton } from "../ui/GoldButton";
+import { Stage, StageBody } from "../ui/Stage";
+import { BEVEL, DISPLAY, SOFT, TILE_BG } from "../ui/tokens";
+import { Wordmark } from "../ui/Wordmark";
+import { Shuffle } from "./JoinRoom";
 
 type Load = { kind: "loading" } | { kind: "ready"; room: RoomJoin } | { kind: "not-host" } | { kind: "error" };
 
@@ -128,10 +133,22 @@ export function HostLobbyView({
     );
   if (state.phase === "building_board") {
     return (
-      <Centered>
-        <Loader />
-        <Title order={2}>Shuffling a fresh board…</Title>
-      </Centered>
+      <HostLayout
+        stage={
+          <Stage>
+            <StageBody gap="3cqh">
+              <Shuffle />
+              <Title order={2} ff={DISPLAY} fw={600} c="white" style={{ fontSize: "min(10cqh, 6cqw)" }}>
+                Shuffling a fresh board…
+              </Title>
+              <Text c={SOFT} style={{ fontSize: "clamp(11px, 4.5cqh, 18px)" }}>
+                Only categories nobody here has seen
+              </Text>
+            </StageBody>
+          </Stage>
+        }
+        column={<LobbyPlayers state={state} count={contestantCount(state)} />}
+      />
     );
   }
   if (state.phase !== "lobby") {
@@ -150,9 +167,9 @@ export function HostLobbyView({
   }
 
   const stage = (
-    <Stack h="100%" justify="space-between" gap="xs">
-      <Group justify="space-between" wrap="nowrap">
-        <Title order={4}>SCHMEGETTES</Title>
+    <Stage>
+      <Group justify="space-between" wrap="nowrap" gap="xs">
+        <Wordmark size="clamp(14px, 8cqh, 32px)" />
         {editing ? (
           <Group gap="xs" wrap="nowrap">
             <TextInput
@@ -168,10 +185,13 @@ export function HostLobbyView({
             </Button>
           </Group>
         ) : (
-          <Group gap="xs" wrap="nowrap">
-            <Text truncate="end">Hosted by {state.hostDisplayName}</Text>
+          <Group gap={2} wrap="nowrap" style={{ minWidth: 0 }}>
+            <Text truncate="end" c={SOFT} style={{ fontSize: "clamp(11px, 5cqh, 20px)" }}>
+              {state.rematch ? "Rematch · " : ""}Hosted by {state.hostDisplayName}
+            </Text>
             <ActionIcon
               variant="subtle"
+              color="boardBlue.1"
               aria-label="Edit your name"
               onClick={() => {
                 setName(state.hostDisplayName);
@@ -184,25 +204,25 @@ export function HostLobbyView({
         )}
       </Group>
 
-      <Stack align="center" gap={0}>
-        <Text>Join at {joinUrl}</Text>
-        <Text
-          aria-label="Room code"
-          ff="Oswald, Impact, sans-serif"
-          fw={700}
-          style={{ fontSize: "clamp(3rem, min(12vw, 26vh), 10rem)", letterSpacing: "0.25em", lineHeight: 1.1 }}
-        >
-          {code}
+      <StageBody gap="4cqh">
+        <Text fw={600} c={SOFT} style={{ fontSize: "clamp(11px, 6cqh, 24px)" }}>
+          Join at {joinUrl}
         </Text>
-      </Stack>
+        <CodeTiles code={code} />
+        {state.rematch && (
+          <Text c={SOFT} style={{ fontSize: "clamp(10px, 4.5cqh, 18px)" }}>
+            Fresh board: none of tonight's clues come back.
+          </Text>
+        )}
+      </StageBody>
 
       {state.connection === "reconnecting" && (
-        <Alert color="yellow" p={8}>
+        <Alert color="yellow" p={8} mb={6}>
           Reconnecting…
         </Alert>
       )}
       {state.error && (
-        <Alert color="red" p={8}>
+        <Alert color="red" p={8} mb={6}>
           {state.error.message ?? ERRORS[state.error.code] ?? "Something went wrong."}
         </Alert>
       )}
@@ -210,17 +230,27 @@ export function HostLobbyView({
       <Group justify="space-between" align="end" wrap="nowrap">
         <Stack gap={4}>
           <Button
-            variant="default"
+            variant="outline"
+            color="boardBlue.1"
             disabled={!state.hostPlays && full}
             onClick={() => send({ type: "set_host_plays", plays: !state.hostPlays })}
           >
             {state.hostPlays ? "Leave the game" : "Join the game"}
           </Button>
-          {!state.hostPlays && full && <Text size="sm">Room is full</Text>}
-          {state.hostPlays && <MicPrompt />}
+          {!state.hostPlays && full && (
+            <Text size="sm" c={SOFT}>
+              Room is full
+            </Text>
+          )}
+          {state.hostPlays && <MicPrompt compact />}
         </Stack>
-        <Stack gap={4} align="end">
-          <Button
+        <Group gap="xs" wrap="nowrap" align="center">
+          {!canStart && (
+            <Text size="sm" c={SOFT}>
+              Need at least 2 players
+            </Text>
+          )}
+          <GoldButton
             disabled={!canStart}
             loading={starting}
             onClick={() => {
@@ -229,36 +259,147 @@ export function HostLobbyView({
             }}
           >
             Start
-          </Button>
-          {!canStart && <Text size="sm">Need at least 2 players</Text>}
-        </Stack>
+          </GoldButton>
+        </Group>
       </Group>
-    </Stack>
+    </Stage>
   );
 
   const column = (
     <>
-      <Text fw={700}>
-        Players {count} / {state.maxPlayers}
-      </Text>
-      <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-        {state.players.length === 0 ? (
-          <Text c="dimmed">Waiting for players…</Text>
-        ) : (
-          <Stack gap={2}>
-            {state.players.map((p) => (
-              <Text key={p.userId} size="sm" truncate="end" c={p.connected ? undefined : "dimmed"}>
-                {p.connected ? "●" : "◌"} {p.displayName}
-                {p.role === "host" && " HOST"}
-                {!p.connected && " (reconnecting)"}
-              </Text>
-            ))}
-          </Stack>
-        )}
-      </Box>
-      {state.hostPlays && <PlayerControls state={state} userId={state.hostUserId} send={send} compact spaceToBuzz />}
+      <LobbyPlayers state={state} count={count} />
+      {state.hostPlays && (
+        <PlayerControls state={state} userId={state.hostUserId} send={send} compact spaceToBuzz buzzerHeight={64} />
+      )}
     </>
   );
 
   return <HostLayout stage={stage} column={column} />;
+}
+
+/** The lobby's player list: join order, connected dot, HOST chip, "(reconnecting)". */
+function LobbyPlayers({ state, count }: { state: RoomState; count: number }) {
+  return (
+    <>
+      <Group justify="space-between" px={2} wrap="nowrap">
+        <Text fw={700}>
+          Players {count} / {state.maxPlayers}
+        </Text>
+      </Group>
+      <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+        {state.players.length === 0 ? (
+          <Text c={SOFT} ta="center" mt="md" className="sg-blink">
+            Waiting for players…
+          </Text>
+        ) : (
+          <ol
+            aria-label="Players"
+            style={{
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+            }}
+          >
+            {state.players.map((p) => (
+              <li
+                key={p.userId}
+                className="sg-in"
+                aria-label={`${p.displayName}${p.role === "host" ? ", host" : ""}${p.connected ? "" : ", reconnecting"}`}
+                style={{
+                  flex: "1 1 0",
+                  minHeight: 24,
+                  maxHeight: 40,
+                  borderRadius: 8,
+                  background: TILE_BG,
+                  boxShadow: BEVEL,
+                  padding: "0 10px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  opacity: p.connected ? 1 : 0.45,
+                  color: "#fff",
+                }}
+              >
+                <span
+                  aria-hidden
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 8,
+                    flexShrink: 0,
+                    background: p.connected ? "var(--mantine-color-green-5)" : "transparent",
+                    border: p.connected ? "none" : `1.5px solid ${SOFT}`,
+                  }}
+                />
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    fontWeight: 700,
+                    fontSize: 14,
+                  }}
+                >
+                  {p.displayName}
+                  {!p.connected && <span style={{ fontWeight: 500, fontSize: 11, color: SOFT }}> (reconnecting)</span>}
+                </span>
+                {p.role === "host" && (
+                  <span
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 800,
+                      letterSpacing: ".08em",
+                      color: SOFT,
+                      border: "1px solid rgba(201,205,247,.45)",
+                      padding: "1px 4px",
+                      borderRadius: 3,
+                    }}
+                  >
+                    HOST
+                  </span>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+      </Box>
+    </>
+  );
+}
+
+/** The room code, one gold letter per board-blue tile, readable from the couch. */
+function CodeTiles({ code }: { code: string }) {
+  const letters = code.split("").map((ch, i) => ({ ch, id: `${i}-${ch}` }));
+  return (
+    <section aria-label="Room code" style={{ display: "flex", gap: "2cqw" }}>
+      {letters.map(({ ch, id }) => (
+        <div
+          key={id}
+          style={{
+            width: "min(13cqw, 30cqh)",
+            height: "min(17cqw, 38cqh)",
+            borderRadius: 8,
+            background: "var(--mantine-color-boardBlue-9)",
+            boxShadow: `${BEVEL}, 0 6px 18px rgba(0,0,0,.35)`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: DISPLAY,
+            fontWeight: 700,
+            fontSize: "min(12cqw, 28cqh)",
+            color: "var(--mantine-color-yellow-4)",
+            textShadow: "0 3px 0 rgba(0,0,0,.5)",
+          }}
+        >
+          {ch}
+        </div>
+      ))}
+    </section>
+  );
 }

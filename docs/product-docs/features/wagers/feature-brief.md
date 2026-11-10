@@ -24,7 +24,7 @@ This is feature 2 of 3 ([gameplay](../gameplay/feature-brief.md) is feature 1). 
 - **Who plays it.** Only the player who picked it. Nobody buzzes.
 - **Reveal.** The TV shows "DAILY DOUBLE" over the stage for **2 s**, and the narrator says "It's a Daily Double." The TV shows the category and nothing else from the clue.
 - **Wager limits.** Whole dollars from **$5** up to the larger of the player's score and the round's top value (**$800** in Single, **$1,600** in Double). A player at $0 or below can still bet up to $800 / $1,600.
-- **Entering the wager.** The player enters it on their phone (or in the host device's player column, when the host plays) with a number pad and two shortcuts: **Min** ($5) and **Max** (the limit). **Wager** confirms it. The TV shows "Alice is wagering…" with the range ("$5 – $1,200").
+- **Entering the wager.** The player enters it on their phone (or on the host device's stage, when the host plays: the player column has no room for a number pad) with a number pad and two shortcuts: **Min** ($5) and **Max** (the limit). **Wager** confirms it. The TV shows "Alice is wagering…" with the range ("$5 – $1,200").
 - **Wager timeout: 30 s.** If no wager is confirmed in time, the wager is the minimum, $5. The game never waits forever.
 - **The wager is public.** Once confirmed, the TV shows "Alice wagers $1,000" for 2 s.
 - **Reading and answering.** The narrator says "For 1,000, here's the clue." and reads it. When the reading ends, the player's phone **starts listening on its own**, as after a won buzz: until they go quiet, at most **14 s**.
@@ -47,7 +47,7 @@ This is feature 2 of 3 ([gameplay](../gameplay/feature-brief.md) is feature 1). 
    - The finalist types their answer (at most 200 characters; "What is" is optional) and taps **Submit**. They can edit until they submit. After that it's locked.
    - When time runs out, whatever is in the field is submitted. An empty field is no answer.
    - The phone sends the draft to the server as the player types, so a draft survives a disconnect.
-   - The host's field on the host device is masked (`•••••`), because the host device is on the TV.
+   - The host types on a blind keypad on the stage, under the clue, into a masked field (`•••••`), because the host device is on the TV ([design system](../../architecture/design-system.md#blind-keypad)).
    - No answer is shown on the TV, the host device, or another phone until the reveal.
 4. **Reveal (`final_reveal`).** One finalist at a time, **lowest score first** (by score before Final; ties in join order), so the leader goes last. For each finalist the TV shows, about 2 s apart: their **response** (or "No answer"), the **verdict**, the **wager**, and the **new score**. About 8 s per finalist.
 5. **Finished.** The TV shows the final scores, highest first, and the game is recorded as **finished**. Players tied for the top score are all winners; there's no tiebreak. Feature 3 replaces this screen with the full scoreboard and Rematch.
@@ -68,7 +68,7 @@ This is feature 2 of 3 ([gameplay](../gameplay/feature-brief.md) is feature 1). 
 | Finalist disconnects during the wager | Timer keeps running. Back in time: they can still lock in. Otherwise $0. |
 | Finalist disconnects while answering | The last draft the server received counts when time runs out. No draft: no answer, **−wager**. Back in time: they keep typing. |
 | A finalist peeks at someone else's phone | Not something the game can stop. Answers are typed so they can't be overheard, and the TV never shows them before the reveal. |
-| Host types a Final answer on the mirrored host device | The field is masked. The on-screen keyboard is still mirrored, and iOS shows each key as it's pressed, so the room might read the answer. See the open question in the product brief. |
+| Host types a Final answer on the mirrored host device | The host types on a **blind keypad** on the stage, not the iOS keyboard (which is mirrored and pops up each key as it's pressed). Its keys never highlight and the field shows dots, so the TV shows only the answer's length. |
 | Wagers out of range | The server rejects them. The phone only offers amounts inside the limits. |
 | Host device disconnects | The game pauses (as in [gameplay](../gameplay/feature-brief.md)): all wager and answer timers stop and resume with the time they had left. A clue being read is read again from the start. |
 | The correct response | Never reaches a phone. The TV gets it only once Final is revealed or a Daily Double is judged. |

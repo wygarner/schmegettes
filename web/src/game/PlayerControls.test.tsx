@@ -196,7 +196,58 @@ test("paused and game over", () => {
   const { update } = setup({ ...base, phase: "buzzing_open", activeClue: clue, paused: true });
   expect(screen.getByText("Waiting for the TV…")).toBeInTheDocument();
   update({ ...base, phase: "finished", results: [{ userId: me, displayName: "Alice", score: 1200, placement: 1 }] });
-  expect(screen.getByText("Final: $1,200 · place 1")).toBeInTheDocument();
+  expect(screen.getByText("You finished").nextElementSibling).toHaveTextContent("1st");
+});
+
+test("the final scoreboard on a phone: my place, the standings, and Leave", () => {
+  const onLeave = vi.fn();
+  render(
+    <MantineProvider>
+      <PlayerControls
+        state={{
+          ...base,
+          hostDisplayName: "Wyatt",
+          phase: "finished",
+          results: [
+            { userId: "bob", displayName: "Bob", score: 2900, placement: 1 },
+            { userId: me, displayName: "Alice", score: 800, placement: 2 },
+          ],
+        }}
+        userId={me}
+        send={vi.fn()}
+        onLeave={onLeave}
+      />
+    </MantineProvider>,
+  );
+  expect(screen.getByText("You finished")).toBeInTheDocument();
+  expect(screen.getByText("You finished").nextElementSibling).toHaveTextContent("2nd");
+  const standings = screen.getByLabelText("Standings");
+  expect(standings).toHaveTextContent("Bob");
+  expect(standings.querySelector("[aria-current]")).toHaveTextContent("Alice");
+  expect(screen.getByText("Waiting for Wyatt: stay for a rematch, or leave.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Leave" }));
+  expect(onLeave).toHaveBeenCalled();
+});
+
+test("while the host reviews my answer, and after an override", () => {
+  const ended: RoomState = {
+    ...base,
+    hostDisplayName: "Wyatt",
+    phase: "buzzing_open",
+    activeClue: clue,
+    clueEnd: { state: "unanswered" },
+    lastVerdict: { answerId: "a1", userId: me, answer: "crack a toe a", verdict: "incorrect", delta: -400 },
+  };
+  const { update } = setup({ ...ended, review: { open: true, userIds: [me] } });
+  expect(screen.getByText("Wyatt is reviewing your answer…")).toBeInTheDocument();
+  update({
+    ...ended,
+    review: { open: false, userIds: [me] },
+    lastOverride: { answerId: "a1", userId: me, answer: "crack a toe a", verdict: "overridden_correct", delta: 400 },
+  });
+  expect(screen.getByText("HOST OVERRIDE")).toBeInTheDocument();
+  expect(screen.getByText("+$400")).toBeInTheDocument();
+  expect(screen.getByText("Wyatt changed your answer to correct.")).toBeInTheDocument();
 });
 
 test("no lit buzzer once the clue has ended or between rounds", () => {
@@ -213,24 +264,137 @@ test("no lit buzzer once the clue has ended or between rounds", () => {
   expect(screen.getByText("Double Schmegettes!")).toBeInTheDocument();
 });
 
-test("the controller can say a clue instead of tapping it", () => {
+test("the controller presses the buzzer and says a clue instead of tapping it", () => {
   const { send } = setup({ ...base, phase: "board", controllingUserId: me });
   expect(screen.getByRole("button", { name: "SCIENCE for 400" })).toBeInTheDocument(); // the board is still there
-  fireEvent.click(screen.getByRole("button", { name: "Say a clue" }));
+  expect(screen.queryByRole("button", { name: /say/i })).not.toBeInTheDocument(); // no separate microphone button
+  const buzzer = screen.getByRole("button", { name: "Buzz" });
+  expect(buzzer).toHaveAttribute("data-state", "pick");
+  expect(screen.getByText("Tap a clue, or press and say it")).toBeInTheDocument();
+  fireEvent.click(buzzer);
   expect(rec.started).toBe(1);
+  expect(buzzer).toHaveAttribute("data-state", "listening");
   act(() => rec.onFinal?.("science for four hundred"));
+  // A spoken pick goes straight through: no confirmation.
   expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c1" });
+  expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "buzz" }));
+});
+
+test("pressing the buzzer again while listening cancels the pick", () => {
+  const { send } = setup({ ...base, phase: "board", controllingUserId: me });
+  const buzzer = screen.getByRole("button", { name: "Buzz" });
+  fireEvent.click(buzzer);
+  fireEvent.click(buzzer);
+  expect(rec.aborted).toBe(1);
+  expect(buzzer).toHaveAttribute("data-state", "pick");
+  act(() => rec.onFinal?.("science for four hundred")); // late result from the cancelled recognizer
+  expect(send).not.toHaveBeenCalled();
 });
 
 test("a voice pick that doesn't match says so and picks nothing", () => {
   const { send } = setup({ ...base, phase: "board", controllingUserId: me });
-  fireEvent.click(screen.getByRole("button", { name: "Say a clue" }));
+  fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
   act(() => rec.onFinal?.("opera for 200"));
   expect(screen.getByText(/Didn't catch the category/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Buzz" })).toHaveAttribute("data-state", "pick");
   expect(send).not.toHaveBeenCalled();
 });
 
-test("players without control don't get the voice button", () => {
-  setup({ ...base, phase: "board" });
-  expect(screen.queryByRole("button", { name: "Say a clue" })).not.toBeInTheDocument();
+test("listening stops when control moves on", () => {
+  const { update } = setup({ ...base, phase: "board", controllingUserId: me });
+  fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
+  update({ ...base, phase: "board", controllingUserId: "bob" });
+  expect(rec.aborted).toBe(1);
+  expect(screen.getByRole("button", { name: "Buzz" })).toHaveAttribute("data-state", "idle");
+});
+
+test("players without control press the buzzer on the board and nothing happens", () => {
+  const { send } = setup({ ...base, phase: "board" });
+  fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
+  expect(rec.started).toBe(0);
+  expect(send).not.toHaveBeenCalled();
+});
+
+const dd = { clueId: "c1", category: "SCIENCE", value: 400, state: "active" as const, dailyDouble: true };
+
+test("the Daily Double picker wagers on the phone; others wait", () => {
+  const ddState: RoomState = {
+    ...base,
+    phase: "daily_double_wager",
+    activeClue: dd,
+    controllingUserId: me,
+    wagerMin: 5,
+    wagerMax: 800,
+  };
+  const { send, update } = setup(ddState);
+  expect(screen.getByText(/Daily Double! SCIENCE/)).toBeInTheDocument();
+  for (const k of ["5", "0", "0"]) fireEvent.click(screen.getByRole("button", { name: k }));
+  fireEvent.click(screen.getByRole("button", { name: "Wager" }));
+  expect(send).toHaveBeenCalledWith({ type: "submit_wager", amount: 500 });
+
+  update({ ...ddState, controllingUserId: "bob" });
+  expect(screen.getByText("Bob is wagering…")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Wager" })).toBeNull();
+});
+
+test("nobody can buzz on a Daily Double", () => {
+  const { send } = setup({ ...base, phase: "clue_reading", activeClue: dd, controllingUserId: "bob" });
+  expect(screen.getByText("Bob is answering a Daily Double.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /buzz/i }));
+  expect(send).not.toHaveBeenCalled();
+});
+
+const finalClue = { clueId: "f", category: "ISLANDS", value: 0, state: "active" as const };
+
+test("a finalist wagers secretly, then types the answer", () => {
+  const wagerState: RoomState = {
+    ...base,
+    phase: "final_wager",
+    round: "final",
+    activeClue: { ...finalClue, state: "unplayed" },
+    finalistUserIds: [me, "bob"],
+    scores: { [me]: 600 },
+  };
+  const { send, update } = setup(wagerState);
+  expect(screen.getByText("Final: ISLANDS")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Max" }));
+  fireEvent.click(screen.getByRole("button", { name: "Lock in" }));
+  expect(send).toHaveBeenCalledWith({ type: "submit_wager", amount: 600 });
+
+  update({ ...wagerState, lockedUserIds: [me], mine: { wager: 600 } });
+  expect(screen.getByText(/Wager locked: \$600/)).toBeInTheDocument();
+
+  update({ ...wagerState, phase: "final_answer", activeClue: finalClue, lockedUserIds: [], mine: { wager: 600 } });
+  fireEvent.change(screen.getByLabelText("Your answer"), { target: { value: "krakatoa" } });
+  fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+  expect(send).toHaveBeenCalledWith({ type: "submit_answer", clueId: "f", answer: "krakatoa", source: "typed" });
+});
+
+test("a player not in Final is told to watch", () => {
+  setup({ ...base, phase: "final_wager", activeClue: finalClue, finalistUserIds: ["bob"] });
+  expect(screen.getByText("You're not in Final. Watch the TV.")).toBeInTheDocument();
+});
+
+test("the host's column never shows a wager pad or a Final answer field (they're on the stage)", () => {
+  const send = vi.fn();
+  const s: RoomState = {
+    ...base,
+    phase: "final_wager",
+    activeClue: finalClue,
+    finalistUserIds: [me],
+    scores: { [me]: 900 },
+  };
+  const r = render(
+    <MantineProvider>
+      <PlayerControls state={s} userId={me} send={send} compact />
+    </MantineProvider>,
+  );
+  expect(screen.queryByLabelText("Wager amount")).toBeNull();
+  r.rerender(
+    <MantineProvider>
+      <PlayerControls state={{ ...s, phase: "final_answer", lockedUserIds: [] }} userId={me} send={send} compact />
+    </MantineProvider>,
+  );
+  expect(screen.queryByLabelText("Your answer")).toBeNull();
+  expect(document.querySelector("input")).toBeNull();
 });

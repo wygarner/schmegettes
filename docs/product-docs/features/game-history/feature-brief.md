@@ -45,7 +45,7 @@ A clue is **seen** by everyone in the game at the moment its text is **revealed*
 | Data | Who sees it |
 |---|---|
 | A game's date, players, scores, placements | Everyone who played or watched that game, permanently, even after leaving or the room closing |
-| A player's list of past games | That player |
+| A player's list of past games (played or watched) | That player |
 | Which clues a player has seen | Nobody in the UI. Used only to build boards. |
 | Everything | Admin, in the database |
 

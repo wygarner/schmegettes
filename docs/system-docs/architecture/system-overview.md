@@ -1,5 +1,7 @@
 # System Overview
 
+**Source of truth:** `mise.toml`, each package's entry point (`web/src/main.tsx`, `api/cmd/api/`, `game/cmd/game/`, `worker/src/schmegettes_worker/__main__.py`)
+
 ```mermaid
 flowchart LR
   subgraph Browser

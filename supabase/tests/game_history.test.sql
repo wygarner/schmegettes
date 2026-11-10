@@ -3,7 +3,7 @@
 -- users run as authenticated with request.jwt.claims, as in rls.test.sql.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(51);
+select plan(57);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (all rolled back)
@@ -55,7 +55,9 @@ create function tests.game(p_name text) returns uuid language sql stable as $$
   select current_setting('tests.' || p_name)::uuid;
 $$;
 
--- Ignore the seed catalog; each test season below has a known shape.
+-- Ignore the seed catalog and any games already in a local database (dev play, api tests);
+-- each test season below has a known shape. Rolled back with the rest.
+delete from public.games;
 delete from public.clues;
 
 -- Season 1: plenty of fresh categories.
@@ -298,6 +300,17 @@ select is(
    where game_id = tests.game('g3') and role = 'contestant'),
   array['Dave:600:1', 'Fay:200:2'], 'an override changes the score and placement'
 );
+select lives_ok($$
+  select public.update_verdict('b0b0b0b0-0000-4000-8000-000000000001', 'overridden_incorrect', -200)
+$$, 'override a correct answer to incorrect');
+select is(
+  (select array_agg(display_name || ':' || score || ':' || placement order by placement) from public.game_results
+   where game_id = tests.game('g3') and role = 'contestant'),
+  array['Dave:600:1', 'Fay:-200:2'], 'an override to incorrect takes the value off'
+);
+select lives_ok($$
+  select public.update_verdict('b0b0b0b0-0000-4000-8000-000000000001', 'correct', 200)
+$$, 'restore it for the checks below');
 select ok(
   (select bool_and(r.score = (select coalesce(sum(a.score_delta), 0) from public.answers a
                               where a.game_player_id = r.game_player_id))
@@ -433,6 +446,23 @@ reset role;
 select is(
   (select count(*)::integer from public.game_players where user_id is null and display_name is not null),
   0, 'a deleted player''s name is not kept'
+);
+
+-- Who hosted: recorded at Start, so "Hosted by" survives the room (My games).
+select is(
+  (select host_user_id::text from public.games where id = tests.game('g1')),
+  '11111111-1111-4111-8111-111111111111', 'start_game records who hosted'
+);
+select is(
+  (select host_user_id::text from public.games where id = tests.game('g3')),
+  '33333333-3333-4333-8333-333333333333', 'a host who doesn''t play is recorded too'
+);
+select is(
+  (select confdeltype::text from pg_constraint
+   where conrelid = 'public.games'::regclass and contype = 'f'
+     and conkey = array[(select attnum from pg_attribute
+                         where attrelid = 'public.games'::regclass and attname = 'host_user_id')]),
+  'n', 'deleting the host''s account clears host_user_id (on delete set null)'
 );
 
 select * from finish();

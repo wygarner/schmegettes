@@ -1,5 +1,7 @@
 # Data and Isolation
 
+**Source of truth:** `supabase/migrations/`, `golib/db/`
+
 Isolation is enforced by Postgres row-level security, not by `WHERE` clauses in application code. The first migration (`supabase/migrations/20261026000000_init.sql`) builds it, and the tests in `supabase/tests/` (`rls.test.sql`, `game_history.test.sql`) prove it.
 
 ## Scope
@@ -40,7 +42,9 @@ commit;
 | `clues` | **nothing**: correct responses never reach a user role |
 | `rooms` | read if host or member; create only via `create_room(name)`; no direct writes (status, `host_plays`, and settings change only through functions) |
 | `room_members` | read fellow members; leave (non-host); join only via `join_room(code, name)`; never rename directly |
-| `board_clues`, `games`, `game_players`, `answers`, `game_results` (view) | read if they played or watched that game (`is_game_member`); no writes |
+| `board_clues` | read if they played or watched that game (`is_game_member`), but during a game only clues already revealed: an unrevealed row would show where the Daily Doubles are and the Final category. Everything once the game ends. No writes |
+| `games`, `game_players`, `answers`, `game_results` (view) | read if they played or watched that game (`is_game_member`); no writes |
+| `wagers` | **nothing**: Daily Double and Final wagers, and submitted Final answers, are secret until the reveal. Their outcomes reach players only as `answers` rows |
 | `seen_clues` | **nothing**: only used to build boards |
 
 Supabase's default grants to `anon`/`authenticated` are revoked, including default privileges for future tables. **Every new table needs an explicit grant, `enable row level security`, policies, and a test in `supabase/tests/`.**
@@ -64,6 +68,7 @@ Lobby changes go through `security definer` functions so names, capacity, and th
 ## History outlives rooms and accounts
 
 - Deleting a room keeps its games (`games.room_id` becomes null).
+- Each game records who hosted it (`games.host_user_id`, set by `start_game()`), so "Hosted by" in My games survives a deleted room. Deleting the host's account nulls it.
 - Deleting an account deletes its `seen_clues`, nulls its name snapshots, and nulls `game_players.user_id`. Its results stay on other players' scoreboards as "Former player".
 - Scores are never stored: `game_results` sums each player's `answers.score_delta`, so an override can't leave a stale total.
 

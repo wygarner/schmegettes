@@ -1,5 +1,7 @@
 # Development Workflow
 
+**Source of truth:** `.github/workflows/`, `.github/scripts/`, `.github/jira.json`
+
 How work goes from a request to merged code. Branch names and merge rules are in [branch-strategy.md](./branch-strategy.md); releases are in [release-strategy.md](../operations/release-strategy.md). The stack is in [stack.md](./stack.md).
 
 The Jira project key is `SCH` (set in [`.github/jira.json`](../../../.github/jira.json)). Docs write it as `SCH-{N}`.
@@ -76,8 +78,8 @@ Rules: preserve the contracts in `shared/` unless the spec says to change them; 
 
 ```bash
 mise run test:web -- src/pages/Home.test.tsx
-mise run test:game -- ./internal/judge/...
-mise run test:api -- test/controllers/rooms_controller_test.rb
+mise run test:game -- ./internal/room/...
+mise run test:api -- ./internal/rooms/...
 mise run test:worker -- tests/test_clue_import.py
 mise run db:test                       # only when supabase/ changed
 mise run gen                           # only when shared/ changed; commit the output
@@ -106,6 +108,16 @@ See [release-strategy.md](../operations/release-strategy.md).
 
 ---
 
+## Keeping docs accurate
+
+`docs/` describes the system as it is built.
+
+- **When docs and code disagree, the code wins.** Fix the doc in the same PR. The exception is when the code is the bug; then open a `bug-fix` task.
+- **Every implementation PR updates the docs it makes untrue.** The task spec lists them under "Docs to update", and the review (`/engineering` Phase C) checks them.
+- **Each system doc names its source of truth** in a `**Source of truth:**` line under its title: the files that implement it.
+- **Unbuilt work is marked "Not yet implemented."** Never describe a plan in the present tense.
+- **Audit the docs against the code before each minor release.**
+
 ## Automation map
 
 | Workflow | Trigger | Result |
@@ -117,6 +129,8 @@ See [release-strategy.md](../operations/release-strategy.md).
 | `deploy-prod.yml` | Push to `production`; manual | Migrations, deploy, and deployed-commit verification. |
 
 ## Jira setup (once per Jira project)
+
+**Not yet done for this repo.** The issue-type IDs in `.github/jira.json` are `REPLACE_ME` and the `JIRA_*` repo secrets are not set, so `create-jira-ticket.yml` fails and no ticket is created. Until then, task folders keep their names, branches carry no `SCH-{N}`, and PR titles use the task name in its place.
 
 These values are instance-specific. Look them up; never copy them from another repo. All of them live in `.github/jira.json`.
 

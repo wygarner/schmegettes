@@ -13,7 +13,7 @@ lobby ──Start──▶ building_board ──ready──▶ board … final_r
 | `lobby` | TV: room code and player list, **Start** on the host device. Phones: "You're in" and their name. |
 | `building_board` | "Shuffling a fresh board…" on the TV and phones. Target under 3 s. Joining is closed from here. |
 | `board` onward | Normal play (product-overview.md, "Game phases") |
-| `finished` | Final scoreboard on the TV, **Rematch** on the host device, **Leave** on phones |
+| `finished` | Final scoreboard on the TV, **Rematch** on the host device, **Leave** on phones ([scoreboard and overrides](../scoreboard-and-overrides/interaction-design.md#end-of-game-scoreboard)) |
 | `abandoned` | Nobody is in the room to see it; it appears in history with an "Unfinished" tag |
 
 ## Flows
@@ -34,14 +34,32 @@ If the board can't be built (server error), everyone returns to the lobby with "
 
 ### Look back at past games (any player)
 
-**My games** (from the home screen on a phone):
+**My games** (a **My games** link on the Home screen; `/games`, a game at `/games/{id}`). Built in `web/src/pages/MyGames.tsx` and `GameScoreboard.tsx`, served by `GET /v1/games` and `GET /v1/games/{gameId}` (`api/internal/games`). Reference design: [results/scoreboard-and-history](../../../../devtools/src/designs/results/scoreboard-and-history.tsx).
 
-| Date | Placement | Score | Players |
-|---|---|---|---|
-| Oct 26, 8:14 PM | 1st | $12,400 | Alice, Bob, Carol |
-| Oct 24, 9:02 PM | 2nd | $3,200 · Unfinished | Alice, Dave |
+```text
+┌────────────────────────────────────────┐
+│ My games                         Home  │
+│ ┌────┐ Today, 8:14 PM          −$400 › │
+│ │4th │ Alice, Bob, You, Wyatt          │
+│ └────┘                                 │
+│ ┌────┐ Oct 26, 8:14 PM       $12,400 › │
+│ │1st │ You, Bob, Carol, Former player  │
+│ └────┘                                 │
+│ ┌────┐ Oct 24, 9:02 PM [Unfinished]    │
+│ │2nd │ Alice, You               $3,200 │
+│ └────┘                                 │
+│ ┌────┐ Oct 19, 7:30 PM               › │
+│ │WATCHED Eun-ji, Farah, Gus            │
+│ └────┘                                 │
+│            [ Show more ]               │
+└────────────────────────────────────────┘
+```
 
-Newest first, 20 per page. Tapping a row opens the scoreboard.
+- One row per game: a placement badge (a board-blue square, the placement in gold for 1st, silver for 2nd, bronze for 3rd), the date and time ("Today" for today), an **Unfinished** tag when the game was abandoned, the players with "You" in place of my name, and my score.
+- Games I only watched (as a non-playing host or a spectator) are listed with a **WATCHED** badge and no score.
+- Newest first, 20 at a time, then **Show more**. Tapping a row opens the scoreboard.
+- Empty: "No games yet. Games you play or watch show up here, with everyone's scores." and **Join a game**.
+- Under the list, for an anonymous player: "Played without an account. Link Google or email to keep these if you switch phones." (Linking itself is out of scope here.)
 
 **Game scoreboard**:
 
@@ -52,6 +70,8 @@ Oct 26, 2026 · 8:14 PM · 41 min
 2nd  Carol       $8,000
 4th  Former player  −$400
 ```
+
+Above the list: "‹ My games", then the date, start time and length, then "Hosted by {name}". My row is highlighted in gold with "(you)", 🏆 marks 1st (not on an unfinished game), "Former player" is in italics. An unfinished game shows "Unfinished: these are the scores when the room closed." A game I watched says "You watched this game."
 
 Names are as they were in that game. A non-playing host and spectators can open it but aren't listed in the scoreboard.
 

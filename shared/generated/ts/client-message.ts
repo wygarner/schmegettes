@@ -15,6 +15,8 @@ export type ClientMessage =
   | SubmitAnswer
   | SubmitWager
   | OverrideVerdict
+  | OverrideReview
+  | Rematch
   | Ping;
 
 /**
@@ -69,7 +71,7 @@ export interface Buzz {
   clientSentAt?: number;
 }
 /**
- * The answering player's interim transcript, so the TV can show it live. The server drops more than 4 per second.
+ * The answering player's interim transcript, so the TV can show it live. The server drops more than 4 per second. In final_answer it is instead the sender's private draft of their typed answer: kept by the server, never relayed, and submitted for them if time runs out. Clients debounce drafts and always send the last one.
  */
 export interface AnswerProgress {
   type: "answer_progress";
@@ -81,24 +83,37 @@ export interface SubmitAnswer {
   clueId: string;
   answer: string;
   /**
-   * Answers are spoken; there is no typed input.
+   * voice for every clue and Daily Double; typed only in final_answer (Final Schmegettes answers are typed).
    */
-  source: "voice";
+  source: "voice" | "typed";
 }
 /**
- * Daily Double or Final round wager.
+ * Daily Double or Final round wager, in whole dollars. The server checks the range: Daily Double $5 to max(score, round's top value); Final $0 to score. The first valid wager locks.
  */
 export interface SubmitWager {
   type: "submit_wager";
   amount: number;
 }
 /**
- * Host only. Replaces the judge's verdict for one answer.
+ * Host only. Replaces the verdict on one answer of the clue just played, or of the Final answer being revealed.
  */
 export interface OverrideVerdict {
   type: "override_verdict";
   answerId: string;
   correct: boolean;
+}
+/**
+ * Host only. Opens or closes the review of a verdict on the clue just played (or the Final answer being revealed). While open, the clock is paused.
+ */
+export interface OverrideReview {
+  type: "override_review";
+  open: boolean;
+}
+/**
+ * Host only, once the game is finished: everyone still in the room goes back to the lobby for a new game.
+ */
+export interface Rematch {
+  type: "rematch";
 }
 export interface Ping {
   type: "ping";

@@ -43,6 +43,7 @@ class LeaveRoom(BaseModel):
 
 class Source(Enum):
     voice = 'voice'
+    typed = 'typed'
 
 
 class SubmitWager(BaseModel):
@@ -51,6 +52,21 @@ class SubmitWager(BaseModel):
     )
     type: Literal['submit_wager']
     amount: conint(ge=0)
+
+
+class OverrideReview(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['override_review']
+    open: bool
+
+
+class Rematch(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['rematch']
 
 
 class Ping(BaseModel):
@@ -104,7 +120,8 @@ class SubmitAnswer(BaseModel):
     clueId: domain_schema.Uuid
     answer: constr(max_length=200)
     source: Source = Field(
-        ..., description='Answers are spoken; there is no typed input.'
+        ...,
+        description='voice for every clue and Daily Double; typed only in final_answer (Final Schmegettes answers are typed).',
     )
 
 
@@ -131,6 +148,8 @@ class ClientMessage(
             SubmitAnswer,
             SubmitWager,
             OverrideVerdict,
+            OverrideReview,
+            Rematch,
             Ping,
         ]
     ]
@@ -147,6 +166,8 @@ class ClientMessage(
         SubmitAnswer,
         SubmitWager,
         OverrideVerdict,
+        OverrideReview,
+        Rematch,
         Ping,
     ] = Field(
         ...,

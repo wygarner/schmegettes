@@ -37,12 +37,12 @@ Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667
 │              Join at {site}/join                  │  ● Alice          │
 │                                                   │  ◌ Bob (reconn…)  │
 │                  K 7 R X M                        │ ┌───────────────┐ │
-│                                                   │ │     BUZZ      │ │ ◀ once the host
+│                                                   │ │ (red buzzer)  │ │ ◀ once the host
 │  [ Leave the game ]                 [   Start   ] │ └───────────────┘ │   joined
 └───────────────────────────────────────────────────┴───────────────────┘
 ```
 
-- The code is the biggest thing on screen (Oswald, readable at 3 m), letters spaced.
+- The code is the biggest thing on screen (Oswald, readable at 3 m): each letter in gold on its own board-blue tile.
 - **✎** next to the host name edits it until Start.
 - A new player animates into the list. There is no sound in v1.
 - **Start**: primary button. While there are fewer than 2 contestants it is disabled, with the hint "Need at least 2 players". A playing host counts.
@@ -71,21 +71,21 @@ When the host joined, their controls live in the **player column** on the right 
 │                                                   │ ┗━━━━━━━━━━━━━━━┛ │
 │                                                   │  Wyatt HOST −$200 │
 │                                                   │ ┌───────────────┐ │
-│                                                   │ │ BUZZ (space)  │ │
+│                                                   │ │ (red buzzer)  │ │ ◀ space bar too
 └───────────────────────────────────────────────────┴───────────────────┘
 ```
 
 | Phase | Player column |
 |---|---|
 | Lobby, after **Join the game** | Buzzer `idle` (a tap only animates it) |
-| `board`, host has control | Host's tile highlighted. Tap the board and confirm, or say it |
+| `board`, host has control | Host's tile highlighted, buzzer in `pick`. Tap the board and confirm, or press the buzzer and say it |
 | `board`, someone else has control | Board taps do nothing |
 | `clue_reading` | **Buzz** dimmed. Pressing it early gives the same lockout as on a phone. |
 | `buzzing_open` | **Buzz** lit |
-| `answering`, host buzzed | Buzzer green "Answer now"; mic level meter under the clue |
-| `daily_double_wager` (host's) | Amount field |
-| `final_wager` | Masked field `$ •••••`. The TV shows "Wyatt is wagering…" |
-| `final_answer` | Masked text field `•••••` and **Submit**. The answer is never shown. |
+| `answering`, host buzzed | Buzzer turns green; mic level meter under the clue |
+| `daily_double_wager` (host's) | Number pad on the **stage** (the column has no room for it) |
+| `final_wager` | Masked number pad on the stage, `$ •••••`. The tile shows "wagering…" |
+| `final_answer` | Blind keypad on the stage, masked field `•••••` and **Submit**. The answer is never shown. |
 
 ## Edge cases
 

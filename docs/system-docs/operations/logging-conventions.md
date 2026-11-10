@@ -1,6 +1,8 @@
 # Logging Conventions
 
-Structured JSON logs from every service, shipped to Grafana Cloud over OpenTelemetry. This is the "how" for anyone writing or reviewing a log statement.
+**Source of truth:** `golib/logging/`, `worker/src/schmegettes_worker/__main__.py`, `api/internal/server/server.go`
+
+Structured JSON logs from every service, written to stdout. Shipping them to Grafana Cloud over OpenTelemetry is **not yet implemented** ([stack.md](../engineering/stack.md)). This is the "how" for anyone writing or reviewing a log statement.
 
 ## 1. Which logger
 
@@ -44,12 +46,13 @@ A wrong answer, a rejected buzz, or a full room is normal gameplay, not an error
 
 | Field | Where |
 |---|---|
-| `service`, `env`, `commit` | every line (set once at startup) |
+| `service`, `env` | every line (set once at startup) |
+| `commit` | the startup line. **Not yet implemented** on every line |
 | `request_id` | api requests (returned as `x-request-id`); passed to jobs as `requestId` |
 | `user_id` | after auth |
 | `room_id`, `game_id` | everything in game/, and api/worker code about a room |
 | `job_id`, `job_kind` | every worker log line |
-| `trace_id`, `span_id` | added by OpenTelemetry when a span is active |
+| `trace_id`, `span_id` | added by OpenTelemetry when a span is active (**not yet implemented**) |
 | `duration_ms` | completions |
 
 ## 5. Never log

@@ -1,0 +1,35 @@
+# api on Fly.io. One file for staging and production: .github/workflows/deploy.yml passes
+# --app (schmegettes-api-staging / schmegettes-api-prod) and --env APP_ENV=... Secrets
+# (DATABASE_URL, SUPABASE_URL, SUPABASE_JWKS_URL, ALLOWED_ORIGINS, GAME_SOCKET_BASE_URL) are set
+# by hand with `fly secrets set`. See docs/system-docs/operations/deployment.md.
+
+# Keep next to the Supabase project's region (us-east-1).
+primary_region = "iad"
+kill_signal = "SIGTERM"
+# The api drains in-flight requests for up to 10 s on SIGTERM.
+kill_timeout = "15s"
+
+[env]
+  PORT = "3001"
+  LOG_LEVEL = "info"
+
+[deploy]
+  strategy = "rolling"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    timeout = "5s"
+    method = "GET"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

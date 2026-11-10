@@ -10,6 +10,8 @@ go = "1.25"          # game/, api/
 python = "3.13"      # worker/, evals/, .github/scripts
 uv = "0.13.5"        # Python package manager
 "aqua:supabase/cli" = "2.122.0" # database migrations, local Supabase
+flyctl = "0.4.123"   # api/ and game/ deploys and rollback (Fly.io)
+"npm:vercel" = "65.3.1" # web/ deploys and rollback (Vercel)
 
 # ---------------------------------------------------------------------------
 # Tasks: `mise run <task>`. Test tasks take paths so you only run what you touched.

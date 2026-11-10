@@ -1,0 +1,19 @@
+# api/Dockerfile and game/Dockerfile build from the repo root and need only api/, game/, golib/.
+**/node_modules
+**/.env
+**/.env.*
+.git
+.github
+.claude
+web
+devtools
+shared
+worker
+evals
+supabase
+scripts
+docs
+tasks
+releases
+api/bin
+game/bin

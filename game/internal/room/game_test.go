@@ -116,7 +116,7 @@ func TestAFullGameEndToEnd(t *testing.T) {
 	map[string]*conn{alice: a, bob: b}[controller(f)].send(map[string]any{"type": "select_clue", "clueId": "clue-d"})
 	host.send(map[string]any{"type": "reading_done", "clueId": "clue-d"})
 	host.raw("phase_changed")
-	f.timers.fireAfter(host) // 5 s with no buzz
+	f.timers.fireAfter(host) // 9 s with no buzz
 	if m, _ := host.raw("clue_ended"); m.State != "unanswered" {
 		t.Fatalf("state %q", m.State)
 	}

@@ -36,16 +36,16 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 - Buzzing opens when the reading (announcement and clue) ends. The host device reports the end of speech. If speech fails or stalls, the server opens buzzing anyway after an estimate from the length of the announcement and clue together (about 2.5 words per second plus 1 s, at most 14 s).
 - **Early buzz:** a buzz before buzzing opens locks that player out for **250 ms**, as on the show. The buzz is not queued.
 - **First valid buzz wins.** The order is the order the server receives buzzes. Phone clocks are never trusted.
-- **Buzz window: 5 s.** If nobody buzzes, the clue goes unanswered and the TV shows the correct response for 6 s. Control doesn't change.
+- **Buzz window: 9 s.** If nobody buzzes, the clue goes unanswered and the TV shows the correct response for 6 s. Control doesn't change.
 - **The buzzer is always on screen** for every contestant, from the moment they join the lobby to the end of the game. Every view (phone, and the host device when the host plays) uses the same buzzer component. Its state changes at the same moment everywhere: **dim** when buzzing is closed or the clue is being read, **lit** when buzzing opens, **locked** after an early buzz or once that player has answered this clue. A tap on a dim buzzer outside `clue_reading` does nothing and costs nothing, except for the player in control on the board, whose buzzer starts listening for their pick.
 
 ### Answering and judging
 
-- The winning player's phone (or the host device, when the host buzzed) **starts listening on its own**. The player speaks their answer, with no button to hold. It stops when the player goes quiet or after **14 s**.
+- The winning player's phone (or the host device, when the host buzzed) **starts listening on its own**. The player speaks their answer, with no button to hold. It stops when the player goes quiet or after **9 s**.
 - "What is…" is optional. Judging is generous: small mishearings and transcription slips don't cost points ([product overview](../../architecture/product-overview.md), Principles).
 - **Correct:** the player gains the clue's value and takes control. The TV shows the correct response, and the clue is done.
-- **Incorrect:** the player loses the clue's value. Buzzing **reopens** for players who haven't tried this clue, with a fresh 5 s window. Each player gets one attempt per clue.
-- **No answer heard** within 14 s counts as incorrect, as on the show, with one exception for disconnects (Fairness below).
+- **Incorrect:** the player loses the clue's value. Buzzing **reopens** for players who haven't tried this clue, with a fresh 9 s window. Each player gets one attempt per clue.
+- **No answer heard** within 9 s counts as incorrect, as on the show, with one exception for disconnects (Fairness below).
 - A clue ends when someone answers correctly, everyone has tried, or a buzz window closes with no buzz. Then the TV shows the correct response for **6 s** and returns to the board. The correct-response screen does not show the clue text.
 - **Daily Doubles:** the player who picks one wagers and answers alone, with no buzzing ([wagers](../wagers/feature-brief.md)).
 
@@ -69,7 +69,7 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 |---|---|
 | Two buzzes within milliseconds | The first one the server receives wins. There are no ties. |
 | A player buzzes and their phone disconnects before answering | No penalty. Buzzing reopens for the others, and the disconnected player may not try this clue again. |
-| A connected player says nothing for 14 s | Incorrect: they lose the value, as on the show |
+| A connected player says nothing for 9 s | Incorrect: they lose the value, as on the show |
 | The player in control disconnects | While the board is up, control passes after 10 s to the next connected contestant in join order. If they reconnect within 10 s, they keep it. Control lost this way isn't given back. |
 | A connected player in control never picks | The game waits. Nobody else can pick, the host device included. |
 | A player disconnects mid-game | Their score is kept. They can reconnect and keep playing. The server never closes a game because of a phone. |

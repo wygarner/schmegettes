@@ -1147,8 +1147,8 @@ const START: G = {
 // Timing from the gameplay and wagers interaction designs (ms).
 const T = {
   readMax: 14000,
-  open: 5000,
-  answer: 14000,
+  open: 9000,
+  answer: 9000,
   judged: 1800,
   response: 6000,
   ddReveal: 2000,
@@ -2068,7 +2068,7 @@ export default function ClueLoop() {
         says “{clue?.wrong}”
       </Button>,
       <Button key="s3" size="xs" color="gray" variant="light" onClick={() => setSay("silent")}>
-        says nothing (skip the 14 s)
+        says nothing (skip the 9 s)
       </Button>,
     );
 

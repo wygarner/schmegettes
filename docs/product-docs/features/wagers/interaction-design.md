@@ -32,7 +32,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`.
 | "DAILY DOUBLE" reveal | 2 s |
 | Daily Double wager | 30 s, then $5 |
 | "Alice wagers $1,000" | 2 s |
-| Daily Double answer | From end of reading until quiet, at most 14 s |
+| Daily Double answer | From end of reading until quiet, at most 9 s |
 | "FINAL SCHMEGETTES" title | 3 s |
 | Final category on screen | Until the narrator finishes, at least 3 s |
 | Final wager | 30 s, or until every finalist locks in. Unlocked: $0 |
@@ -131,7 +131,7 @@ Lines appear about 2 s apart. The score in that player's tile updates on the las
 |---|---|
 | Daily Double picked by a player with a negative score | Range is $5 – $800 (Single) or $5 – $1,600 (Double) |
 | Player confirms a wager the instant the 30 s ends | The first event the server receives wins. A late wager is ignored, and the $5 / $0 default stands |
-| Daily Double player says nothing for 14 s | Incorrect: −wager |
+| Daily Double player says nothing for 9 s | Incorrect: −wager |
 | Daily Double player's microphone is blocked | No answer, so −wager. The phone warns before the wager, as it does before every clue |
 | The last clue of the Double board is a Daily Double | It plays normally, then Final starts |
 | Exactly one finalist | Final runs for that player alone. The reveal has one step |

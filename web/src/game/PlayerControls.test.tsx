@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { initialRoom, type RoomState } from "../lib/room";
 import { type Recognizer, setRecognizerFactory } from "../lib/speech";
 import { PlayerControls } from "./PlayerControls";
+import { ANSWER_MS } from "./timing";
 
 const me = "me";
 const clue = { clueId: "c1", category: "SCIENCE", value: 400, state: "active" as const };
@@ -159,14 +160,14 @@ test("winning a buzz: listening starts on the tap, words stream, the final text 
   }
 });
 
-test("listening stops after 14 s", () => {
+test("listening stops after ANSWER_MS (9 s)", () => {
   vi.useFakeTimers();
   try {
     const open: RoomState = { ...base, phase: "buzzing_open", activeClue: clue };
     const { update } = setup(open);
     fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
     update({ ...open, phase: "answering", answeringUserId: me });
-    vi.advanceTimersByTime(13900);
+    vi.advanceTimersByTime(ANSWER_MS - 100);
     expect(rec.stopped).toBe(0);
     vi.advanceTimersByTime(100);
     expect(rec.stopped).toBe(1);

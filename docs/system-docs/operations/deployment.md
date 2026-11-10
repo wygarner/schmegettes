@@ -48,6 +48,23 @@ alter role app_service with login password '<generated, stored only in the secre
 
 Services connect through the Supabase pooler (transaction mode) as `app_service`. Only `deploy-prod.yml` and the worker's import job hold an owner credential (`*_OWNER_URL`).
 
+## Supabase Auth settings
+
+Set once per Supabase project (Authentication settings), matching `supabase/config.toml`:
+
+- **Anonymous sign-ins**: on. Rate limit for anonymous users: 30 per hour per IP.
+- **Email provider**: off. Nobody signs in with email, and Schmegettes sends no email ([private access](../../product-docs/features/private-access/feature-brief.md)).
+
+## Host access after a release
+
+The `private_access` migration creates the first host code, and nobody can host until someone uses it. Read it in the project's SQL editor and give it to the first host:
+
+```sql
+select code from public.host_codes where used_at is null;
+```
+
+The web host must also send `X-Robots-Tag: noindex, nofollow` on every response (the pages already carry the meta tag, and `robots.txt` disallows everything).
+
 ## Environment variables
 
 Each package's `.env.example` lists its variables with placeholder values. Client-side variables (`VITE_*`) are public: anything bundled into the client can be read by anyone.

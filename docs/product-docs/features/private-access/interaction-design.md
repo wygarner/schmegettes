@@ -1,7 +1,5 @@
 # Private Access: Interaction Design
 
-> **Not yet implemented.** See the [feature brief](./feature-brief.md).
-
 ## Screens
 
 | Path | Who | What changes |

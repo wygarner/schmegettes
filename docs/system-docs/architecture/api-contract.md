@@ -16,5 +16,5 @@ All contracts live in `shared/`. That package builds first and depends on nothin
 - **A contract change is an explicit, reviewed change.** The task spec says so, and the PR touches `shared/` and every consumer together.
 - **Generated code is committed.** Run `mise run gen` after editing `shared/`. CI regenerates and fails on any diff.
 - **Additive by default.** New optional fields and new message types are compatible. Removing or renaming a field, or adding a required one, is breaking: it needs a version bump of the socket subprotocol (`schmegettes.v2`) or REST path (`/v2`) and a period where both are served.
-- REST errors use RFC 9457 problem details (`application/problem+json`).
+- REST errors use RFC 9457 problem details (`application/problem+json`). The `type` ends in `/problems/{kind}`, and clients switch on the kind: for example `not-a-host` (403 on `POST /v1/rooms` without host access), `invalid-code` (400 on `POST /v1/host-access/redeem`; wrong, spent, and malformed codes look the same), and `rate-limited` (429 with `Retry-After` in seconds, on joining by code and redeeming host codes).
 - Every endpoint except `/healthz` and `/version` requires a Supabase JWT.

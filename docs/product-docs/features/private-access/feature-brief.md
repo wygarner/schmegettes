@@ -1,6 +1,6 @@
 # Private Access
 
-> **Not yet implemented.** Today anyone who opens the site can host: the device signs in anonymously and creates a room.
+Built in `supabase/migrations/*_private_access.sql` (codes, hosts, and the checks in `create_room` and `start_game`), `api/internal/hostaccess` and `api/internal/ratelimit`, `game/internal/room` (Start and Rematch), and `web/src/pages/HostCodeSheet.tsx`.
 
 ## Why
 
@@ -32,6 +32,14 @@ Our clues come from a dataset we can use only privately ([clue catalog](../clue-
 - The admin reads the waiting code from the database and gives it to one person (in person or by message). They can note who it's for. To invite several people at once, the admin creates extra codes.
 - A wrong or spent code: "That code didn't work." After 5 tries in a minute: "Too many tries. Wait a minute and try again."
 - A device that can already host is never asked for a code.
+
+**Admin, in the Supabase SQL editor:**
+
+```sql
+select code, note from public.host_codes where used_at is null;      -- the waiting code(s)
+select private.new_host_code('for Sam');                              -- an extra code
+delete from public.hosts where code = 'K7RXM2PQ';                     -- remove that person's host access
+```
 
 ### Host access belongs to the device
 

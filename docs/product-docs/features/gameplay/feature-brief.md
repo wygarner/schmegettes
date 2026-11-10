@@ -34,6 +34,18 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
 - The TV shows the clue full screen and **reads it aloud** with the host device's text-to-speech. The narrator first announces the pick, "Here's Volcanoes for 400.", then reads the clue. The value is spoken as a number ("for 400", not "for four hundred dollars").
 - Buzzing opens when the reading (announcement and clue) ends. The host device reports the end of speech. If speech fails or stalls, the server opens buzzing anyway after an estimate from the length of the announcement and clue together (about 2.5 words per second plus 1 s, at most 14 s).
+
+### The narrator's voice
+
+**Not yet implemented.** Today the narrator uses the browser's default voice.
+
+- The narrator uses the **best English voice installed on the host device**, not the browser's default. Best means, in order: a **Premium** voice, then an **Enhanced** one, then any other US English voice, then any other English voice. Within a group, the device's default voice comes first. Phones never speak.
+- **Novelty voices are never used**: voices that sing, whisper, or add robot effects (on Apple devices, for example, Bells, Whisper, and Zarvox). They can't read a clue in the time the server allows, and they're hard to follow.
+- The host can **change the voice in the lobby** and hear a sample first ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). Once the game starts the voice stays fixed. The same voice speaks every line: announcements, clues, Daily Double and Final lines, and the correct response.
+- The choice is **kept on that host device** for every room it hosts until the host changes it. It isn't tied to the host's account and never reaches the server.
+- If the saved voice is no longer on the device, the best voice is used instead, without a message.
+- **Every voice speaks at its normal pace.** There's no speed setting. The server's fallback estimate assumes a normal pace, so a slower voice would let buzzing open before the clue is finished.
+- Siri's voices can't be used: iOS doesn't offer them to web pages. To get a more natural narrator, the host downloads a Premium or Enhanced voice in the device's settings. The lobby explains how.
 - **Early buzz:** a buzz before buzzing opens locks that player out for **250 ms**, as on the show. The buzz is not queued.
 - **First valid buzz wins.** The order is the order the server receives buzzes. Phone clocks are never trusted.
 - **Buzz window: 9 s.** If nobody buzzes, the clue goes unanswered and the TV shows the correct response for 6 s. Control doesn't change.
@@ -75,6 +87,7 @@ Built today: both sides are lowercased, and punctuation, parenthetical hints ("(
 - **Several hearings.** When the phone's speech recognition offers more than one possible transcript, the answer is correct if any of them matches. The TV shows the one that matched, or the most likely one when none did.
 - **Final Schmegettes** uses the same rules for typed answers, so a phonetic spelling of the right answer counts.
 - Judging stays instant and on the server. The host can still override any verdict ([overrides](../scoreboard-and-overrides/feature-brief.md)).
+- **Why it was judged that way is recorded. Not yet implemented.** Every judged answer keeps which rule decided it (**exact**, **spelling slip**, **sounds alike**, **no match**, or **nothing heard**) and every transcript the phone heard. No screen shows this. Together with host overrides ([overrides](../scoreboard-and-overrides/feature-brief.md#host-overrides)), it shows where the judge is too strict or too generous so the rules can be tuned.
 
 ### Rounds and the end
 

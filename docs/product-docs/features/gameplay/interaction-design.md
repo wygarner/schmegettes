@@ -177,6 +177,8 @@ The same states as the phone, in the player column, minus what the stage already
 | Controller is the only connected contestant and disconnects | Control stays with them; the game waits |
 | Confirmation modal open when control passes or the phase changes | The modal closes; nothing is picked |
 | Speech synthesis unavailable on the host device | Clue shown silently; buzzing opens on the fallback timer |
+| The device's voice list hasn't loaded when the first clue is read | **Not yet implemented.** The reading starts at once with the default voice and never waits for the list. Later lines use the chosen voice ([feature brief](./feature-brief.md#the-narrators-voice)) |
+| The saved narrator voice was removed from the device | **Not yet implemented.** The best installed voice reads instead, without a message |
 | A player taps the buzzer outside a clue (lobby, board, between clues) | Press animation only. No lockout, nothing sent. Exception: the player in control on the board starts a spoken pick |
 | A player buzzes during `answering` | Ignored (not a lockout) |
 | Everyone has tried and all were wrong | Clue ends, correct response shown for 6 s without the clue, control unchanged |

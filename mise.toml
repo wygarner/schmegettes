@@ -65,6 +65,12 @@ run = "test -f .env || { echo 'api/.env missing: cp api/.env.example api/.env' >
 dir = "worker"
 run = "uv run python -m schmegettes_worker"
 
+[tasks."clues:import"]
+description = "Load clue dataset seasons into the local catalog. Usage: mise run clues:import -- --seasons 1-5"
+dir = "worker"
+# Reads DATABASE_OWNER_URL and CLUE_DATASET_BASE_URL from worker/.env (copied from .env.example).
+run = "test -f .env || { echo 'worker/.env missing: cp worker/.env.example worker/.env' >&2; exit 1; }; set -a; . ./.env; set +a; uv run python -m schmegettes_worker import-clues"
+
 [tasks."test:web"]
 description = "Usage: mise run test:web -- src/path/to/file.test.tsx"
 run = "bun run --cwd web test"

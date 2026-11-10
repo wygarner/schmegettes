@@ -9,6 +9,8 @@ import (
 
 	"schmegettes/api/internal/contracts"
 	"schmegettes/api/internal/games"
+	"schmegettes/api/internal/hostaccess"
+	"schmegettes/api/internal/ratelimit"
 	"schmegettes/api/internal/rooms"
 	"schmegettes/api/internal/server"
 )
@@ -16,9 +18,24 @@ import (
 // routes implements the generated contracts.ServerInterface. Operations no task has built yet
 // answer 501.
 type routes struct {
-	rooms rooms.Handler
-	games games.Handler
-	ping  func(context.Context) error
+	rooms  rooms.Handler
+	games  games.Handler
+	host   hostaccess.Handler
+	limits limits
+	ping   func(context.Context) error
+}
+
+// limits are the per-user rate limits on endpoints that take a code someone could guess.
+type limits struct {
+	join     *ratelimit.Limiter // room codes
+	hostCode *ratelimit.Limiter // host codes
+}
+
+func newLimits() limits {
+	return limits{
+		join:     ratelimit.New("join", 10, 10),
+		hostCode: ratelimit.New("host-code", 5, 5),
+	}
 }
 
 var _ contracts.ServerInterface = routes{}
@@ -39,10 +56,21 @@ func (routes) GetVersion(w http.ResponseWriter, _ *http.Request) {
 
 func (rt routes) PostV1Rooms(w http.ResponseWriter, r *http.Request) { rt.rooms.Create(w, r) }
 func (rt routes) PostV1RoomsJoin(w http.ResponseWriter, r *http.Request) {
-	rt.rooms.Join(w, r)
+	if rt.limits.join.Allow(w, r) {
+		rt.rooms.Join(w, r)
+	}
 }
 func (rt routes) GetV1RoomsByCodeCode(w http.ResponseWriter, r *http.Request, code string) {
-	rt.rooms.ByCode(w, r, code)
+	if rt.limits.join.Allow(w, r) {
+		rt.rooms.ByCode(w, r, code)
+	}
+}
+
+func (rt routes) GetV1HostAccess(w http.ResponseWriter, r *http.Request) { rt.host.Status(w, r) }
+func (rt routes) PostV1HostAccessRedeem(w http.ResponseWriter, r *http.Request) {
+	if rt.limits.hostCode.Allow(w, r) {
+		rt.host.Redeem(w, r)
+	}
 }
 
 func notImplemented(w http.ResponseWriter) {

@@ -54,6 +54,8 @@ func (h Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		server.Problem(w, http.StatusConflict, "game-started", "This game has already started")
 	case errors.Is(err, ErrInvalidName):
 		server.Problem(w, http.StatusBadRequest, "invalid-name", "Names are 1 to 20 characters")
+	case errors.Is(err, ErrNotAHost):
+		server.Problem(w, http.StatusForbidden, "not-a-host", "Hosting is invite-only")
 	default:
 		slog.ErrorContext(r.Context(), "room request failed", "err", err,
 			"request_id", server.RequestID(r.Context()), "user_id", server.Claims(r.Context()).UserID)

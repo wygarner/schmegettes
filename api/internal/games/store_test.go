@@ -44,7 +44,10 @@ func setupDB(t *testing.T) env {
 		t.Skipf("local database not reachable: %v", err)
 	}
 	t.Cleanup(d.Close)
-	base := "http://127.0.0.1:54321"
+	base := os.Getenv("SUPABASE_URL")
+	if base == "" {
+		base = "http://127.0.0.1:54321"
+	}
 	v, err := auth.NewVerifier(ctx, base+"/auth/v1/.well-known/jwks.json")
 	if err != nil {
 		t.Fatal(err)
@@ -111,11 +114,32 @@ func (e env) play(t *testing.T, roomID string, alice, bob auth.Claims, status st
 	return gameID
 }
 
+// grantHost gives a test player host access on the owner connection (private access).
+func grantHost(t *testing.T, userID string) {
+	t.Helper()
+	url := os.Getenv("DATABASE_OWNER_URL")
+	if url == "" {
+		url = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+	}
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(ctx)
+	if _, err := conn.Exec(ctx, `
+		with code as (select private.new_host_code('games store test') as c)
+		insert into public.hosts (user_id, code) select $1, c from code`, userID); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestHistory(t *testing.T) {
 	e := setupDB(t)
 	ctx := context.Background()
 	host, alice, bob, sam, stranger := e.player(t), e.player(t), e.player(t), e.player(t), e.player(t)
 	rs := rooms.PGStore{DB: e.db}
+	grantHost(t, host.UserID)
 	room, err := rs.Create(ctx, host, "Wyatt")
 	if err != nil {
 		t.Fatal(err)

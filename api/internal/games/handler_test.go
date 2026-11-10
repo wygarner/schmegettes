@@ -57,6 +57,8 @@ type routes struct{ Handler }
 
 func (routes) GetHealthz(http.ResponseWriter, *http.Request)                             {}
 func (routes) GetVersion(http.ResponseWriter, *http.Request)                             {}
+func (routes) GetV1HostAccess(http.ResponseWriter, *http.Request)                        {}
+func (routes) PostV1HostAccessRedeem(http.ResponseWriter, *http.Request)                 {}
 func (routes) GetV1Me(http.ResponseWriter, *http.Request)                                {}
 func (routes) PatchV1Me(http.ResponseWriter, *http.Request)                              {}
 func (routes) GetV1RoomsRoomId(http.ResponseWriter, *http.Request, openapi_types.UUID)   {}

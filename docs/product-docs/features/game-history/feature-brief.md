@@ -60,6 +60,6 @@ A clue is **seen** by everyone in the game at the moment its text is **revealed*
 
 - Matching boards to real aired episodes ("play the March 4, 1998 episode")
 - Public or shareable results pages
-- Stats and leaderboards across games (win rate, all-time high score)
+- Stats and leaderboards across games: see [stats and leaderboard](../stats-and-leaderboard/feature-brief.md)
 - Letting a player reset their seen clues
 - Showing players how many clues they have seen

@@ -61,7 +61,7 @@ delete from public.hosts where code = 'K7RXM2PQ';                     -- remove 
 
 **Host codes, not email or Google** (owner's choice): nothing is ever emailed, there's no email provider or sign-in service to set up, and there's nothing to phish. The cost: host access is per device, and a lost browser means a new code.
 
-> **Changed 2026-11-10** (owner's choice): players can now sign in with Apple or Google ([accounts](../accounts/feature-brief.md#decisions-2026-11-10)), so host access follows a signed-in host to any device. Host codes are still the only way to get host access, and nothing is ever emailed.
+> **Changed 2026-11-10** (owner's choice): players can now create an account with an email and password ([accounts](../accounts/feature-brief.md#decisions-2026-11-10)), so host access follows a signed-in host to any device. Host codes are still the only way to get host access, and nothing is ever emailed: email confirmation is off and there is no password-reset email.
 
 ### Staying unlisted
 
@@ -77,7 +77,7 @@ delete from public.hosts where code = 'K7RXM2PQ';                     -- remove 
 ## Out of scope
 
 - An admin screen for codes and hosts
-- Email or password sign-in (Apple and Google sign-in are in [accounts](../accounts/feature-brief.md))
+- Any email from Schmegettes (accounts use email and password with confirmation off: [accounts](../accounts/feature-brief.md))
 - Moving a guest's host access to another device without signing in or a new code
 - Hosts inviting other hosts
 - Limits per host (rooms per day, players per room)

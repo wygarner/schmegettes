@@ -460,3 +460,40 @@ test("the final scoreboard has Rematch", () => {
   fireEvent.click(screen.getByRole("button", { name: "Rematch" }));
   expect(send).toHaveBeenCalledWith({ type: "rematch" });
 });
+
+test("the correct response is read aloud once: right, missed, and Final", () => {
+  const { update } = showHost({ ...state, phase: "answering" });
+  update({ ...state, phase: "answering", clueEnd: { state: "answered", correctResponse: "Nitrogen" } });
+  expect(spoken.at(-1)?.text).toBe("Correct, Nitrogen is the right answer.");
+  const count = spoken.length;
+  update({
+    ...state,
+    phase: "answering",
+    clueEnd: { state: "answered", correctResponse: "Nitrogen" },
+    scores: { a: 1 },
+  });
+  expect(spoken).toHaveLength(count); // a re-render doesn't read it again
+
+  update({ ...state, phase: "board", activeClue: undefined, clueEnd: undefined });
+  const c2 = { ...clue, clueId: "c2" };
+  update({
+    ...state,
+    phase: "buzzing_open",
+    activeClue: c2,
+    clueEnd: { state: "unanswered", correctResponse: "Paris" },
+  });
+  expect(spoken.at(-1)?.text).toBe("Sorry, we were looking for Paris.");
+
+  update({
+    ...finalState,
+    phase: "final_reveal",
+    activeClue: { clueId: "f", category: "ISLANDS", value: 0, state: "answered" },
+    clueEnd: { state: "answered", correctResponse: "Krakatoa" },
+  });
+  expect(spoken.at(-1)?.text).toBe("The correct response is Krakatoa.");
+});
+
+test("phones never get the correct response, so a host without it reads nothing", () => {
+  showHost({ ...state, phase: "answering", clueEnd: { state: "unanswered" } });
+  expect(spoken.map((u) => u.text)).not.toContainEqual(expect.stringContaining("looking for"));
+});

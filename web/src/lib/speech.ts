@@ -79,6 +79,17 @@ export function announcement(category: string, value: number): string {
   return `Here's ${category} for ${value}.`;
 }
 
+/**
+ * Said on the correct-response screen. After a clue someone got right: "Correct, …"; after
+ * one nobody got: "Sorry, we were looking for …". Final is neutral, because finalists can
+ * be split.
+ */
+export function correctResponseAnnouncement(response: string, outcome: "right" | "missed" | "final"): string {
+  if (outcome === "right") return `Correct, ${response} is the right answer.`;
+  if (outcome === "missed") return `Sorry, we were looking for ${response}.`;
+  return `The correct response is ${response}.`;
+}
+
 /** Said when a Daily Double is revealed. */
 export const DAILY_DOUBLE_INTRO = "It's a Daily Double.";
 

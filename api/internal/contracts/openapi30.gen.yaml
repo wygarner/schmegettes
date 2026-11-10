@@ -97,6 +97,13 @@ paths:
                 $ref: "#/components/schemas/RoomJoin"
         "400":
           $ref: "#/components/responses/Problem"
+        "403":
+          description: The caller has no host access (problem type `not-a-host`). Hosting
+            is invite-only.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
   /v1/rooms/join:
     post:
       summary: Join a room by code
@@ -145,6 +152,8 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
   /v1/rooms/by-code/{code}:
     get:
       summary: A room the caller is already a member of, by code (used after a reload)
@@ -165,6 +174,55 @@ paths:
                 $ref: "#/components/schemas/RoomJoin"
         "404":
           $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/host-access:
+    get:
+      summary: Whether the caller's device can host
+      responses:
+        "200":
+          description: Host access
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostAccess"
+  /v1/host-access/redeem:
+    post:
+      summary: Spend a one-use host code to give the caller host access
+      description: >
+        A spent code is replaced by a new unused one. A caller who can already
+        host keeps
+
+        the code unspent. Wrong, spent, and malformed codes get the same answer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                  maxLength: 16
+                  description: 8 characters; case, spaces, and dashes are ignored
+              required:
+                - code
+              additionalProperties: false
+      responses:
+        "200":
+          description: The caller can host
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HostAccess"
+        "400":
+          description: The code didn't work (problem type `invalid-code`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
   /v1/rooms/{roomId}:
     get:
       summary: Room details (members only)
@@ -282,6 +340,18 @@ components:
   responses:
     Problem:
       description: Error (RFC 9457 problem details)
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    RateLimited:
+      description: Too many tries (problem type `rate-limited`). Try again after
+        `Retry-After` seconds.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
       content:
         application/problem+json:
           schema:
@@ -498,6 +568,14 @@ components:
         - displayName
         - score
         - placement
+    HostAccess:
+      type: object
+      properties:
+        canHost:
+          type: boolean
+      required:
+        - canHost
+      additionalProperties: false
     Problem:
       type: object
       properties:

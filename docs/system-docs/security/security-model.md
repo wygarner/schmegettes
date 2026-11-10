@@ -27,8 +27,11 @@ Who can reach each part of Schmegettes, how each part checks its caller, what ea
 
 | Role | What it can do | Enforced by |
 |---|---|---|
-| Anonymous player | Play, host, join by code. History is kept while the session lasts | Supabase Auth issues a JWT; services treat it as any other user |
-| Linked player | Same as anonymous, plus history across devices (Google or email linked) | Supabase Auth |
+| Anonymous player | Play and join by code. History is kept while the session lasts | Supabase Auth issues a JWT; services treat it as any other user |
+| Host | An anonymous player whose device spent a one-use host code: also create rooms, Start, Rematch | `public.hosts`, checked in `create_room()` and `start_game()` (and before a Rematch). Removing the row removes access |
+| Linked player | Same as anonymous, plus history across devices. **Not yet implemented**; email sign-in is off (private access), so linking would use another provider | Supabase Auth |
+
+Supabase Auth's Email provider is off and anonymous sign-ups are limited per IP: nobody signs in with email, and Schmegettes sends no email ([private access](../../product-docs/features/private-access/feature-brief.md)).
 
 **In a room** (`public.player_role`)
 
@@ -53,7 +56,7 @@ Keep this list current. A PR that closes a gap removes its line.
 | Gap | Planned approach |
 |---|---|
 | **Supabase Data API is exposed** | Any signed-in player can query `public` directly with their JWT, so RLS and function grants are the only boundary there. Decide whether to stop exposing `public` (the services don't need the Data API) or keep it and test it as a public surface. |
-| **Rate limits** | Sign-in, anonymous sign-up, room join by code, and the `api`. Key by IP and by user. Read the client IP only from the host's trusted header. Count rejections by route group; the rejection log line has no IP or user ID. |
+| **Rate limits** | Built: per-user limits in `api` on room codes (`join` group: `POST /v1/rooms/join`, `GET /v1/rooms/by-code/{code}`, 10/min) and host codes (`host-code`: 5/min), answering 429 with `Retry-After`; the rejection log line has only the group. Supabase Auth limits anonymous sign-ups per IP, which bounds how many identities one address can use. Still to do: limits on the rest of the `api`; the limiter is per instance (move it to Redis with a second instance). |
 | **Audit table** | Append-only table for role and membership changes, credential changes, and staff access. Application code never updates or deletes rows. A failed write still lets the action complete but raises a critical alert. |
 | **Staff access** to a room or player | An explicit, time-limited grant with a recorded reason, audited, with an alert when used. |
 | **Web security headers** | CSP and HSTS on the web host, with a test so a config change can't drop them. CORS is already tested in `api/internal/server/server_test.go`, and the game's Origin check in `game/internal/socket/socket_test.go`. |

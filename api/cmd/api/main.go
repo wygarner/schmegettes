@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"schmegettes/api/internal/games"
+	"schmegettes/api/internal/hostaccess"
 	"schmegettes/api/internal/rooms"
 	"schmegettes/golib/auth"
 	"schmegettes/golib/db"
@@ -43,9 +44,11 @@ func main() {
 	}
 
 	rt := routes{
-		rooms: rooms.Handler{Store: rooms.PGStore{DB: database}, SocketBase: getenv("GAME_SOCKET_BASE_URL", "ws://localhost:3002")},
-		games: games.Handler{Store: games.PGStore{DB: database}},
-		ping:  database.Ping,
+		rooms:  rooms.Handler{Store: rooms.PGStore{DB: database}, SocketBase: getenv("GAME_SOCKET_BASE_URL", "ws://localhost:3002")},
+		games:  games.Handler{Store: games.PGStore{DB: database}},
+		host:   hostaccess.Handler{Store: hostaccess.PGStore{DB: database}},
+		limits: newLimits(),
+		ping:   database.Ping,
 	}
 	srv := &http.Server{
 		Addr:              ":" + getenv("PORT", "3001"),

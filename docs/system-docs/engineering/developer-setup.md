@@ -33,6 +33,8 @@ mise run db:reset      # re-apply migrations + seed any time
 mise run db:test       # RLS tests
 ```
 
+Hosting needs host access. Locally, enter **`DEVS-TEST`** when **Host a game** asks for a code. It works once; after that, read the new code with `select code from public.host_codes where used_at is null;` (Studio's SQL editor), or `mise run db:reset`. Auth settings (`[auth.*]` in `config.toml`) take effect on `supabase stop && mise run db:start`, not on `db:reset`.
+
 ## 4. Environment files
 
 Copy each `.env.example` next to it (`web/.env.local`, `api/.env`, `game/.env`, `worker/.env`) and fill in the anon key from `db:start`. Local env files point at local Supabase only. Staging and production credentials are never put in a local file.

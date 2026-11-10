@@ -37,7 +37,7 @@ Proxies may log `Sec-WebSocket-Protocol`. If the chosen host does, switch to a s
 | `set_display_name` | any member | `set_member_name()`, then `lobby_updated` |
 | `set_host_plays` | host | `set_host_plays()`, then `lobby_updated` (the host appears in `players` with role `host`) |
 | `leave_room` | non-host, in the lobby or on the final scoreboard (`finished`) | `leave_room()`, the leaver's sockets close, then `lobby_updated` (in the lobby) |
-| `rematch` | host, phase `finished` (else `wrong_phase`; a second press back in the lobby is ignored) | The finished game is dropped, the room reloads its members (players who left are gone), and every socket gets a fresh `room_snapshot` in `lobby` at $0. `end_game()` already reopened the room, so Start builds a fresh board as usual |
+| `rematch` | host, phase `finished` (else `wrong_phase`; a second press back in the lobby is ignored) | First checks the host still has host access (`private.user_is_host`): if not, the host's sockets only get `error: not_a_host` and nothing is reset. Then the finished game is dropped, the room reloads its members (players who left are gone), and every socket gets a fresh `room_snapshot` in `lobby` at $0. `end_game()` already reopened the room, so Start builds a fresh board as usual |
 | `start_game` | host, 2+ contestants (a playing host counts) | see Recording. Fewer than 2 → `error: not_enough_players`; a second press while starting is ignored |
 
 - Joining is REST (`POST /v1/rooms/join`), because membership must exist before the socket connects. Every new socket makes the room reload its members, which is how a join reaches the TV.
@@ -82,7 +82,7 @@ Game history and fresh boards are written through Postgres functions, called as 
 
 | When | Call |
 |---|---|
-| Host presses Start | Send phase `building_board`, close joining, call `start_game(room)`. It records the game and its players and builds the board. On error, send the room back to `lobby` with "Couldn't build a board. Try again." |
+| Host presses Start | Send phase `building_board`, close joining, call `start_game(room)`. It records the game and its players and builds the board. On error, send the room back to `lobby` with "Couldn't build a board. Try again." If the host has lost host access (`42501`), the room goes back to `lobby` and only the host's sockets get `error: not_a_host` ("Your host access was removed, so you can't start games."), logged at `info` |
 | A spectator joins mid-game | `add_spectator(game, user)` |
 | A clue's text is shown | `reveal_clue(board_clue)`: everyone in the game has now seen it |
 | An answer is judged | `record_answer(id, board_clue, user, answer, source, verdict, score_delta)`, with an `id` generated before the first attempt. `source` is `voice`, or `typed` for Final; Final answers are recorded one by one at the reveal |

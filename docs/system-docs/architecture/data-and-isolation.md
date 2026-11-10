@@ -46,6 +46,7 @@ commit;
 | `games`, `game_players`, `answers`, `game_results` (view) | read if they played or watched that game (`is_game_member`); no writes |
 | `wagers` | **nothing**: Daily Double and Final wagers, and submitted Final answers, are secret until the reveal. Their outcomes reach players only as `answers` rows |
 | `seen_clues` | **nothing**: only used to build boards |
+| `host_codes`, `hosts` | **nothing** (no role but the owner): host codes and who can host. Players reach them only through `private.*` functions |
 
 Supabase's default grants to `anon`/`authenticated` are revoked, including default privileges for future tables. **Every new table needs an explicit grant, `enable row level security`, policies, and a test in `supabase/tests/`.**
 
@@ -64,6 +65,17 @@ Lobby changes go through `security definer` functions so names, capacity, and th
 - `room_members.display_name` is the name in that room; `profiles.display_name` is the last name used. `start_game()` snapshots the room name into `game_players`.
 - A host with `rooms.host_plays` is recorded in `game_players` as a `contestant`, so they count for fresh boards and placement.
 - Room codes are unique only among rooms that aren't closed (`rooms_live_code_idx`).
+
+## Private access functions
+
+Schema `private` holds functions the Data API doesn't expose, so calling them means going through a service ([private access](../../product-docs/features/private-access/feature-brief.md)).
+
+| Function | Caller | Does |
+|---|---|---|
+| `private.redeem_host_code(code)` | `authenticated` (api, rate-limited) | Normalizes the code (case, spaces, dashes); spends it for the caller with one `update … where used_at is null`, so two racing callers can't both win; adds the caller to `hosts`; creates a new unused code. A caller who can already host keeps the code unspent |
+| `private.caller_is_host()` | `authenticated` (api) | Whether the caller can host |
+| `private.user_is_host(user)` | `game_engine`; `create_room` and `start_game` | Whether a user can host. `create_room` and `start_game` raise `42501` without it |
+| `private.new_host_code(note)` | owner only (admin, SQL editor) | Creates an unused code |
 
 ## History outlives rooms and accounts
 

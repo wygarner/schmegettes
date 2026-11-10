@@ -2,10 +2,12 @@ import { Alert, Anchor, Button, Container, Group, Modal, Stack, Text, TextInput,
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { getLastName, isValidName, MAX_NAME, setLastName } from "../lib/displayName";
+import { getHostAccess } from "../lib/hostAccess";
 import { createRoom } from "../lib/rooms";
 import { GoldButton } from "../ui/GoldButton";
 import { DISPLAY, PHONE_BG, SOFT } from "../ui/tokens";
 import { Wordmark } from "../ui/Wordmark";
+import { HostCodeSheet } from "./HostCodeSheet";
 
 export function normalizeRoomCode(input: string): string {
   return input
@@ -21,6 +23,20 @@ export function Home() {
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [askingCode, setAskingCode] = useState(false);
+
+  // Hosting is invite-only: a device without host access enters its host code first.
+  async function hostAGame() {
+    if (checking) return;
+    setFailed(false);
+    setChecking(true);
+    const canHost = await getHostAccess();
+    setChecking(false);
+    if (canHost === null) setFailed(true);
+    else if (canHost) openNaming();
+    else setAskingCode(true);
+  }
 
   function openNaming() {
     setName(getLastName());
@@ -36,7 +52,9 @@ export function Home() {
     setCreating(false);
     if (!result.ok) {
       setNaming(false);
-      setFailed(true);
+      // Host access was removed since the check: ask for a new code.
+      if (result.problem === "not-a-host") setAskingCode(true);
+      else setFailed(true);
       return;
     }
     setLastName(name);
@@ -81,7 +99,7 @@ export function Home() {
 
           <Stack gap="xs">
             {failed && <Alert color="red">Couldn't create a room. Try again.</Alert>}
-            <Button size="lg" variant="light" onClick={openNaming}>
+            <Button size="lg" variant="light" loading={checking} onClick={hostAGame}>
               Host a game
             </Button>
             <Text size="xs" c={SOFT} ta="center">
@@ -94,6 +112,15 @@ export function Home() {
           </Anchor>
         </Stack>
       </Container>
+
+      <HostCodeSheet
+        opened={askingCode}
+        onClose={() => setAskingCode(false)}
+        onUnlocked={() => {
+          setAskingCode(false);
+          openNaming();
+        }}
+      />
 
       <Modal opened={naming} onClose={() => setNaming(false)} title="What's your name?" centered>
         <form onSubmit={create}>

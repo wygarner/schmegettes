@@ -1,5 +1,5 @@
 import { Text } from "@mantine/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { money } from "../lib/money";
 import { ordinal, PLACE_COLOR } from "../lib/placement";
 import type { Result, RoomState } from "../lib/room";
@@ -25,6 +25,15 @@ export function gameWhen(startedAt?: number, finishedAt?: number): string {
  */
 export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: () => void }) {
   const [asked, setAsked] = useState(false);
+  // A refused rematch (host access removed) answers with an error: show it, and let the
+  // host try again. Only an error that answers the press counts.
+  const [refusal, setRefusal] = useState<string | null>(null);
+  useEffect(() => {
+    if (asked && state.error) {
+      setRefusal(state.error.message ?? "Couldn't start a rematch. Try again.");
+      setAsked(false);
+    }
+  }, [asked, state.error]);
   const results: Result[] = state.results ?? [];
   const top = results[0]?.score ?? 0;
   const winners = results.filter((r) => r.score === top);
@@ -152,6 +161,7 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
           disabled={asked}
           onClick={() => {
             if (asked) return;
+            setRefusal(null);
             setAsked(true);
             onRematch();
           }}
@@ -159,6 +169,11 @@ export function Scoreboard({ state, onRematch }: { state: RoomState; onRematch: 
           Rematch
         </GoldButton>
       </div>
+      {refusal && (
+        <Text role="alert" c={RED} ta="right" style={{ fontSize: "clamp(10px, 4cqh, 16px)" }}>
+          {refusal}
+        </Text>
+      )}
     </Stage>
   );
 }

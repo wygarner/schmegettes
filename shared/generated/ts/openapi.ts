@@ -172,6 +172,15 @@ export interface paths {
                     };
                 };
                 400: components["responses"]["Problem"];
+                /** @description The caller has no host access (problem type `not-a-host`). Hosting is invite-only. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -239,6 +248,7 @@ export interface paths {
                         "application/problem+json": components["schemas"]["Problem"];
                     };
                 };
+                429: components["responses"]["RateLimited"];
             };
         };
         delete?: never;
@@ -276,10 +286,104 @@ export interface paths {
                     };
                 };
                 404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
             };
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/host-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether the caller's device can host */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Host access */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HostAccess"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/host-access/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Spend a one-use host code to give the caller host access
+         * @description A spent code is replaced by a new unused one. A caller who can already host keeps
+         *     the code unspent. Wrong, spent, and malformed codes get the same answer.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description 8 characters; case, spaces, and dashes are ignored */
+                        code: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description The caller can host */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HostAccess"];
+                    };
+                };
+                /** @description The code didn't work (problem type `invalid-code`) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["RateLimited"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -532,6 +636,9 @@ export interface components {
             /** @description This row is the caller */
             isCaller?: boolean;
         };
+        HostAccess: {
+            canHost: boolean;
+        };
         Problem: {
             type?: string;
             title: string;
@@ -552,6 +659,16 @@ export interface components {
         /** @description Error (RFC 9457 problem details) */
         Problem: {
             headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description Too many tries (problem type `rate-limited`). Try again after `Retry-After` seconds. */
+        RateLimited: {
+            headers: {
+                "Retry-After"?: number;
                 [name: string]: unknown;
             };
             content: {

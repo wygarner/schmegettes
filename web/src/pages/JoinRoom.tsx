@@ -16,6 +16,8 @@ export const JOIN_ERRORS: Record<RoomProblem, string> = {
   "room-full": "This room is full.",
   "game-started": "This game has already started.",
   "invalid-name": "Names are 1 to 20 characters.",
+  "not-a-host": "Hosting is invite-only.",
+  "rate-limited": "Too many tries. Wait a minute and try again.",
   error: "Couldn't join. Try again.",
 };
 

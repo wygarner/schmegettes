@@ -9,6 +9,7 @@ import {
   dailyDoubleAnnouncement,
   finalAnnouncement,
   speak,
+  spokenText,
   stopSpeaking,
 } from "../lib/speech";
 import { GoldButton } from "../ui/GoldButton";
@@ -101,7 +102,7 @@ export function HostGame({
   // the Final can't start) before the room has heard it.
   const say = useCallback(
     (speech: Speech) => {
-      void speak(speech.text).then((result) => {
+      void speak(spokenText(speech.text)).then((result) => {
         if (result === "failed") setSoundBlocked(true);
         if (result === "ended") {
           setSoundBlocked(false);

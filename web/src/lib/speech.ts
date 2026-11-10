@@ -14,17 +14,12 @@ export function speak(text: string): Promise<SpeakResult> {
       return;
     }
     synth.cancel();
-    const utterance = new SpeechSynthesisUtterance(spokenText(text));
+    const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1;
     utterance.onend = () => resolve("ended");
     utterance.onerror = () => resolve("failed");
     synth.speak(utterance);
   });
-}
-
-/** Clue text as it should sound: "&" is read as "and" (the dataset writes "Lewis & Clark"). */
-export function spokenText(text: string): string {
-  return text.replace(/\s*&(?:amp;)?\s*/g, " and ");
 }
 
 /** What the host device says before a clue: "Here's VOLCANOES for 400." The value is a
@@ -156,4 +151,9 @@ export async function requestMicrophone(): Promise<MicState> {
   } catch {
     return "denied";
   }
+}
+
+/** Clue text as it should sound: "&" is read as "and" (the dataset writes "Lewis & Clark"). */
+export function spokenText(text: string): string {
+  return text.replace(/\s*&(?:amp;)?\s*/g, " and ");
 }

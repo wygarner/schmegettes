@@ -73,12 +73,6 @@ export function Home() {
           </Stack>
 
           <Stack gap="sm">
-            <Text fw={700} size="xl">
-              Join a game
-            </Text>
-            <Text size="sm" c={SOFT}>
-              Type the code on the TV.
-            </Text>
             <Group align="end" gap="xs" wrap="nowrap">
               <TextInput
                 style={{ flex: 1 }}

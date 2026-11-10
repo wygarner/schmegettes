@@ -18,7 +18,7 @@
     "format": "biome format --write ."
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.4"
+    "@biomejs/biome": "2.6.6"
   },
   "overrides": {
     "ajv": "8.20.0"

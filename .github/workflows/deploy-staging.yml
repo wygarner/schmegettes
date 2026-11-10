@@ -1,0 +1,27 @@
+name: Deploy Staging
+
+# A merge to develop (the daily PR) deploys staging: migrate, deploy api/game (Fly.io) and web
+# (Vercel), verify. This is where migrations are rehearsed before a release.
+# The jobs live in deploy.yml; docs/system-docs/operations/deployment.md has the contract.
+on:
+  push:
+    branches:
+      - develop
+  # Manual re-run, e.g. after setting a missing secret. Start it on the develop branch.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Staging
+    if: github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: staging
+    secrets: inherit

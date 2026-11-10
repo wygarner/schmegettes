@@ -47,11 +47,11 @@ Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667
 - A new player animates into the list, without a sound.
 - **Start**: primary button. While there are fewer than 2 contestants it is disabled, with the hint "Need at least 2 players". A playing host counts.
 - **Join the game** (secondary) adds the host to the list at once, under their host name, tagged HOST, and the button becomes **Leave the game**. Editing the host name with ✎ updates both places.
-- **🔊 {voice name}** (subtle button, **Not yet implemented**) opens the narrator voice picker (below). It's hidden when the device can't speak at all.
+- **🔊 {voice name}** (subtle button) opens the narrator voice picker (below). It's hidden when the device can't speak at all.
 
 ### Narrator voice picker (host device)
 
-**Not yet implemented.** Rules: [gameplay](../gameplay/feature-brief.md#the-narrators-voice).
+Rules: [gameplay](../gameplay/feature-brief.md#the-narrators-voice).
 
 ```text
 ┌──────────────────── Narrator voice ────────────────────┐
@@ -135,11 +135,11 @@ When the host joined, their controls live in the **player column** on the right 
 | Player reloads | Rejoins as the same player, with no name prompt |
 | Player disconnects | Stays listed, dimmed "(reconnecting)". Start still counts them. |
 | Two Start presses (double tap) | Only the first counts. The second does nothing. |
-| Voice list not loaded yet when the lobby opens (browsers load it late) | **Not yet implemented.** The button reads "🔊 Default voice" and switches to the chosen voice's name when the list arrives |
-| Host taps a second voice while a sample is playing | **Not yet implemented.** The first sample stops; the new one plays |
-| Host presses Start while a sample is playing, or the picker is open | **Not yet implemented.** The sample stops and the picker closes. The selected voice is kept |
-| Device has no English voice | **Not yet implemented.** The device's default voice reads. The picker says "No English voices on this device." with the tip |
-| The sample is blocked because sound isn't unlocked yet (iOS) | **Not yet implemented.** Tapping a row counts as the unlocking tap, so the sample plays |
+| Voice list not loaded yet when the lobby opens (browsers load it late) | The button reads "🔊 Default voice" and switches to the chosen voice's name when the list arrives. The picker says "Loading voices…" until then |
+| Host taps a second voice while a sample is playing | The first sample stops; the new one plays |
+| Host presses Start while a sample is playing, or the picker is open | The sample stops and the picker closes. The selected voice is kept |
+| Device has no English voice | The device's default voice reads. The picker says "No English voices on this device." with the tip |
+| The sample is blocked because sound isn't unlocked yet (iOS) | Tapping a row counts as the unlocking tap, so the sample plays |
 | Host presses Start while a player is mid-join | Whoever has finished joining when the server handles Start is in. The rest see "This game has already started." |
 | A player leaves so the count drops below 2 | Start disables again |
 | Host presses Host a game again on Home while their lobby is open | The old lobby closes ("This room has closed" on its phones) and a new code appears |

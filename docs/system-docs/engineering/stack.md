@@ -43,7 +43,7 @@ Two goals shape the stack:
 | Package | Language | Owns | Talks to |
 |---|---|---|---|
 | `shared/` | JSON Schema, OpenAPI, TS codegen | Domain vocabulary (game phases, rounds, roles, event names), REST and WebSocket contracts, job envelopes. Depends on nothing. Builds first. | — |
-| `web/` | TypeScript / React | Player and host UI: lobby, board, clue, buzzer, scores. Voice input (Web Speech API). | Supabase Auth, `api` (REST), `game` (WebSocket) |
+| `web/` | TypeScript / React | Player and host UI: lobby, board, clue, buzzer, scores. Voice input and narration (Web Speech API). | Supabase Auth, `api` (REST), `game` (WebSocket) |
 | `devtools/` | TypeScript / React | Internal-only prototype host for `/designer`. Never deployed publicly. | — |
 | `api/` | Go (`net/http`) | Profiles, rooms (create/join by code, settings), game history, enqueueing jobs. Stateless. | Postgres, pgmq |
 | `game/` | Go | Live game state machine: phases, buzzer lockout and ordering, timers, scoring, judging verdicts. Server-authoritative. | Postgres (load board, persist results), Redis (fan-out, ownership) |

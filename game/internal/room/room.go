@@ -23,6 +23,7 @@ var (
 	ErrRoomFull    = errors.New("room full")
 	ErrNotOpen     = errors.New("room not open")
 	ErrInvalidName = errors.New("invalid name")
+	ErrNotAHost    = errors.New("not a host") // the room's host has no host access (private access)
 )
 
 // Member is one row of room_members, with the name to show.
@@ -48,6 +49,8 @@ type Store interface {
 	SetHostPlays(ctx context.Context, roomID string, plays bool) error
 	Leave(ctx context.Context, roomID, userID string) error
 	StartGame(ctx context.Context, roomID string) (gameID string, err error)
+	// HostCanHost reports whether the room's host still has host access.
+	HostCanHost(ctx context.Context, roomID string) (bool, error)
 	Close(ctx context.Context, roomID string) error
 
 	// Gameplay, as game_engine (supabase functions; see realtime-game-server.md, "Recording").
@@ -457,6 +460,15 @@ func (r *Room) deliver(c *Client, data []byte) {
 	}
 }
 
+// refuseHost tells the host's devices (only) that their host access was removed.
+func (r *Room) refuseHost() {
+	for c := range r.clients {
+		if c.UserID == r.lobby.HostID {
+			r.fail(c, contracts.ErrorCodeNotAHost, "Your host access was removed, so you can't start games.")
+		}
+	}
+}
+
 func (r *Room) fail(c *Client, code contracts.ErrorCode, message string) {
 	e := contracts.Error{Type: "error", Code: code}
 	if message != "" {
@@ -619,6 +631,12 @@ func (r *Room) start(ctx context.Context, host *Client) {
 	r.log.Info("game start requested", "user_id", host.UserID)
 	r.setPhase(contracts.GamePhaseBuildingBoard)
 	gameID, err := r.store.StartGame(ctx, r.id)
+	if errors.Is(err, ErrNotAHost) {
+		r.log.Info("start refused: not a host", "room_id", r.id)
+		r.setPhase(contracts.GamePhaseLobby)
+		r.refuseHost()
+		return
+	}
 	if err != nil {
 		r.log.Error("start_game failed", "err", err, "user_id", host.UserID)
 		r.setPhase(contracts.GamePhaseLobby)
@@ -646,6 +664,22 @@ func (r *Room) start(ctx context.Context, host *Client) {
 // rematch takes everyone still in the room back to the lobby after a finished game. The
 // database already reopened the room (end_game), so Start builds a fresh board as usual.
 func (r *Room) rematch(ctx context.Context) {
+	// Checked before anything is reset, so a refused host keeps the final scoreboard.
+	canHost, err := r.store.HostCanHost(ctx, r.id)
+	if err != nil {
+		r.log.Error("host access check failed", "err", err, "room_id", r.id)
+		for c := range r.clients {
+			if c.UserID == r.lobby.HostID {
+				r.fail(c, contracts.ErrorCodeInternal, "")
+			}
+		}
+		return
+	}
+	if !canHost {
+		r.log.Info("rematch refused: not a host", "room_id", r.id)
+		r.refuseHost()
+		return
+	}
 	r.flush(ctx)
 	if r.stopTimer != nil {
 		r.stopTimer()

@@ -80,6 +80,16 @@ func (s PGStore) StartGame(ctx context.Context, roomID string) (string, error) {
 	return gameID, err
 }
 
+// HostCanHost reports whether the room's host still has host access (private access).
+func (s PGStore) HostCanHost(ctx context.Context, roomID string) (bool, error) {
+	var ok bool
+	err := s.DB.AsEngine(ctx, func(tx pgx.Tx) error {
+		return mapError(tx.QueryRow(ctx,
+			"select private.user_is_host(host_id) from public.rooms where id = $1", roomID).Scan(&ok))
+	})
+	return ok, err
+}
+
 // Close closes a room that is still in the lobby.
 func (s PGStore) Close(ctx context.Context, roomID string) error {
 	return s.exec(ctx, "update public.rooms set status = 'closed' where id = $1 and status = 'open'", roomID)
@@ -106,6 +116,8 @@ func mapError(err error) error {
 		return ErrNotOpen
 	case "22023", "23514":
 		return ErrInvalidName
+	case "42501":
+		return ErrNotAHost
 	}
 	return err
 }

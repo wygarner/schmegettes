@@ -20,11 +20,13 @@ port = 54323
 
 [auth]
 site_url = "http://localhost:5173"
-additional_redirect_urls = ["http://localhost:5173"]
+additional_redirect_urls = ["http://localhost:5173", "http://localhost:5173/**"]
 jwt_expiry = 3600
 enable_signup = true
 # Players start anonymous (docs/system-docs/engineering/stack.md, Identity provider).
 enable_anonymous_sign_ins = true
+# Accounts: the Account page connects a second provider (Apple or Google) to an account.
+enable_manual_linking = true
 # Services verify JWTs against JWKS, which needs asymmetric keys. Generate once with
 # `supabase gen signing-key --algorithm ES256 > supabase/signing_keys.json` (git-ignored).
 signing_keys_path = "./signing_keys.json"
@@ -33,6 +35,19 @@ signing_keys_path = "./signing_keys.json"
 # Hosted projects need the same in their Auth settings (deployment.md, "Supabase Auth").
 [auth.email]
 enable_signup = false
+
+# Accounts: players sign in with Apple or Google (docs/product-docs/features/accounts/).
+# Local sign-in needs developer credentials in the environment (developer-setup.md); without
+# them everything else works. Hosted projects set these in their Auth settings.
+[auth.external.apple]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
+
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
 
 [auth.rate_limit]
 # Per hour per IP. Each anonymous identity also gets its own api rate limits, so this bounds

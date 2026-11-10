@@ -403,6 +403,19 @@ describe("the host picks by voice", () => {
     expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c2" });
   });
 
+  test("the column shows what it hears, and why a pick failed", () => {
+    const send = host({ ...onBoard, hostPlays: true, controllingUserId: "host" });
+    fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
+    expect(screen.getByText("Listening…")).toBeInTheDocument();
+    act(() => rec.onInterim?.("opra for"));
+    expect(screen.getByLabelText("What we heard")).toHaveTextContent("“opra for”");
+    act(() => rec.onFinal?.("science for 400"));
+    expect(screen.queryByText("Listening…")).toBeNull();
+    expect(screen.getByLabelText("What we heard")).toHaveTextContent("“science for 400”");
+    expect(screen.getByText("Didn't catch the category.")).toBeInTheDocument();
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "select_clue" }));
+  });
+
   test("with the space bar", () => {
     host({ ...onBoard, hostPlays: true, controllingUserId: "host" });
     fireEvent.keyDown(window, { code: "Space" });

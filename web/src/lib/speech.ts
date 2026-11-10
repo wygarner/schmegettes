@@ -10,8 +10,10 @@ export const SPEECH_START_TIMEOUT_MS = 2500;
 /**
  * Reads text aloud. "failed" usually means the browser blocked sound because the page
  * hasn't been tapped since it loaded; a tap (speak again from the click) fixes it. iOS
- * Safari blocks it silently (no error, no end), so speech that hasn't started within
- * SPEECH_START_TIMEOUT_MS counts as "failed" too.
+ * Safari blocks it silently (no error, no end), so speech that still hasn't started after
+ * SPEECH_START_TIMEOUT_MS counts as "failed" too. Safari doesn't always fire `start`, so
+ * speech also counts as started once a word boundary fires or the browser says it's
+ * speaking; speech that is playing is never cut off.
  */
 export function speak(text: string): Promise<SpeakResult> {
   return new Promise((resolve) => {
@@ -20,7 +22,9 @@ export function speak(text: string): Promise<SpeakResult> {
       resolve("unavailable");
       return;
     }
-    synth.cancel();
+    // Cancelling right before speaking makes Safari drop the new utterance's events, so only
+    // cancel when something is actually playing or queued.
+    if (synth.speaking || synth.pending) synth.cancel();
     let started = false;
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -35,11 +39,14 @@ export function speak(text: string): Promise<SpeakResult> {
     utterance.onstart = () => {
       started = true;
     };
+    utterance.onboundary = () => {
+      started = true;
+    };
     utterance.onend = () => done("ended");
     utterance.onerror = () => done("failed");
     synth.speak(utterance);
     timer = setTimeout(() => {
-      if (started) return;
+      if (started || synth.speaking) return;
       synth.cancel();
       done("failed");
     }, SPEECH_START_TIMEOUT_MS);

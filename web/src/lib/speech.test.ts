@@ -8,6 +8,7 @@ test("the pick announcement speaks the value as a plain number", () => {
 
 class FakeUtterance {
   onstart?: () => void;
+  onboundary?: () => void;
   onend?: () => void;
   onerror?: () => void;
   volume = 1;
@@ -17,15 +18,19 @@ class FakeUtterance {
 
 let spoken: FakeUtterance[];
 let cancel: ReturnType<typeof vi.fn>;
+let synth: {
+  cancel: ReturnType<typeof vi.fn>;
+  speak: (u: FakeUtterance) => void;
+  speaking: boolean;
+  pending: boolean;
+};
 beforeEach(() => {
   vi.useFakeTimers();
   spoken = [];
   cancel = vi.fn();
   vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
-  Object.defineProperty(window, "speechSynthesis", {
-    configurable: true,
-    value: { cancel, speak: (u: FakeUtterance) => spoken.push(u) },
-  });
+  synth = { cancel, speak: (u: FakeUtterance) => spoken.push(u), speaking: false, pending: false };
+  Object.defineProperty(window, "speechSynthesis", { configurable: true, value: synth });
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -58,4 +63,29 @@ test("the first tap unlocks speech with a silent utterance, once", () => {
   unlockSpeech();
   expect(spoken).toHaveLength(1);
   expect(spoken[0]?.volume).toBe(0);
+});
+
+test("iOS speech that plays without a start event is never cut off or reported blocked", async () => {
+  const done = speak("Here's OPERA for 200. This composer wrote it.");
+  synth.speaking = true; // Safari is reading, but fired no start event
+  vi.advanceTimersByTime(SPEECH_START_TIMEOUT_MS);
+  expect(cancel).not.toHaveBeenCalled(); // not cut off
+  spoken[0]?.onend?.();
+  await expect(done).resolves.toBe("ended");
+});
+
+test("a word boundary counts as started", async () => {
+  const done = speak("x");
+  spoken[0]?.onboundary?.();
+  vi.advanceTimersByTime(SPEECH_START_TIMEOUT_MS);
+  spoken[0]?.onend?.();
+  await expect(done).resolves.toBe("ended");
+});
+
+test("only cancels when something is playing or queued", () => {
+  void speak("first");
+  expect(cancel).not.toHaveBeenCalled();
+  synth.speaking = true;
+  void speak("second");
+  expect(cancel).toHaveBeenCalledTimes(1);
 });

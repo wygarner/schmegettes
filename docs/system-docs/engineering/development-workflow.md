@@ -126,7 +126,8 @@ See [release-strategy.md](../operations/release-strategy.md).
 | `jira-transitions.yml` | PR opened / merged | Spec merged → In Progress; implementation opened → In Review; merged → Done. Skips `daily/*` heads. |
 | `ci.yml` | PR into `develop` or `production`; weekly; manual | Path-filtered checks per package. Docs/task-only PRs skip. |
 | `daily-merge-guard.yml` | Push to `develop` | Fails when a daily PR was squashed. |
-| `deploy-prod.yml` | Push to `production`; manual | Migrations, deploy, and deployed-commit verification. |
+| `deploy-staging.yml` | Push to `develop`; manual | Calls `deploy.yml` for staging: migrations (the release rehearsal), deploy, deployed-commit verification. |
+| `deploy-prod.yml` | Push to `production`; manual | Calls `deploy.yml` for production: migrations, deploy, deployed-commit verification. |
 
 ## Jira setup (once per Jira project)
 

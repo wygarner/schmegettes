@@ -29,6 +29,12 @@ export function originOf(name, value, protocols) {
   return url.origin;
 }
 
+/**
+ * Where the host device downloads the Schmegettes voices: Hugging Face, which redirects to its
+ * CDN (the host varies by region, e.g. us.aws.cdn.hf.co). See web/src/lib/piper/voices.ts.
+ */
+export const VOICE_ORIGINS = ["https://huggingface.co", "https://*.hf.co"];
+
 /** The Content-Security-Policy for one environment. */
 export function contentSecurityPolicy(env) {
   const connect = [
@@ -38,8 +44,10 @@ export function contentSecurityPolicy(env) {
   ];
   return [
     "default-src 'self'",
-    `connect-src 'self' ${[...new Set(connect)].join(" ")}`,
-    "script-src 'self'",
+    `connect-src 'self' ${[...new Set([...connect, ...VOICE_ORIGINS])].join(" ")}`,
+    // 'wasm-unsafe-eval' lets the host device compile the narrator's WebAssembly (onnxruntime,
+    // espeak-ng); it does not allow JavaScript eval.
+    "script-src 'self' 'wasm-unsafe-eval'",
     // Mantine renders <style> elements at runtime (MantineProvider CSS variables, InlineStyles).
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",

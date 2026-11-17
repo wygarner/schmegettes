@@ -1,9 +1,16 @@
 import { MantineProvider } from "@mantine/core";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { narrationState } from "../lib/narrator";
+import { saveVoice } from "../lib/narratorVoice";
+import { prepareVoice } from "../lib/piper/engine";
 import { initialRoom, type RoomState } from "../lib/room";
 import { type Recognizer, setRecognizerFactory } from "../lib/speech";
 import { HostGame } from "./HostGame";
+
+// The Schmegettes voices download from the network; here they're never ready, so every line
+// is read with the built-in voice (the fakes below).
+vi.mock("../lib/piper/engine", () => ({ prepareVoice: vi.fn(async () => false), readyEngine: vi.fn(() => null) }));
 
 class FakeUtterance {
   onstart?: () => void;
@@ -496,4 +503,29 @@ test("the correct response is read aloud once: right, missed, and Final", () => 
 test("phones never get the correct response, so a host without it reads nothing", () => {
   showHost({ ...state, phase: "answering", clueEnd: { state: "unanswered" } });
   expect(spoken.map((u) => u.text)).not.toContainEqual(expect.stringContaining("looking for"));
+});
+
+test("a game starts with the Schmegettes voice getting ready in the background", () => {
+  vi.mocked(prepareVoice).mockClear();
+  render(
+    <MantineProvider>
+      <HostGame state={state} send={vi.fn()} hostUserId="host" />
+    </MantineProvider>,
+  );
+  expect(prepareVoice).toHaveBeenCalledWith("kristin");
+  expect(narrationState()).toEqual({ misses: 0, degraded: false });
+  // The line didn't wait for it: the built-in voice is already reading.
+  expect(spoken.map((u) => u.text)).toEqual(["Here's SCIENCE for 400. THIS GAS"]);
+});
+
+test("a host who picked a built-in voice doesn't download a Schmegettes voice", () => {
+  vi.mocked(prepareVoice).mockClear();
+  saveVoice("com.apple.voice.premium.en-US.Ava");
+  render(
+    <MantineProvider>
+      <HostGame state={state} send={vi.fn()} hostUserId="host" />
+    </MantineProvider>,
+  );
+  expect(prepareVoice).not.toHaveBeenCalled();
+  window.localStorage.clear();
 });

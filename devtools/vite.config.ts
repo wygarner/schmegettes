@@ -1,4 +1,5 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-export default defineConfig({ plugins: [react()] });
+// ngrok gives the iPhone an https URL for on-device spikes (storage APIs need a secure context).
+export default defineConfig({ plugins: [react()], server: { allowedHosts: [".ngrok-free.app", ".ngrok.app"] } });

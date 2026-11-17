@@ -23,9 +23,9 @@ const routes = (): Route[] => vercelConfig(env).routes as Route[];
 const directive = (csp: string, name: string) => csp.split("; ").find((d) => d.startsWith(`${name} `));
 
 describe("contentSecurityPolicy", () => {
-  it("allows exactly the configured origins to connect", () => {
+  it("allows exactly the configured origins, and the voice downloads, to connect", () => {
     expect(directive(contentSecurityPolicy(env), "connect-src")).toBe(
-      "connect-src 'self' https://abc.supabase.co https://schmegettes-api-staging.fly.dev wss://schmegettes-game-staging.fly.dev",
+      "connect-src 'self' https://abc.supabase.co https://schmegettes-api-staging.fly.dev wss://schmegettes-game-staging.fly.dev https://huggingface.co https://*.hf.co",
     );
   });
 
@@ -37,10 +37,11 @@ describe("contentSecurityPolicy", () => {
   it("locks down scripts, framing, and plugins", () => {
     const csp = contentSecurityPolicy(env);
     expect(directive(csp, "default-src")).toBe("default-src 'self'");
-    expect(directive(csp, "script-src")).toBe("script-src 'self'");
+    expect(directive(csp, "script-src")).toBe("script-src 'self' 'wasm-unsafe-eval'");
     expect(directive(csp, "frame-ancestors")).toBe("frame-ancestors 'none'");
     expect(directive(csp, "object-src")).toBe("object-src 'none'");
-    expect(csp).not.toContain("unsafe-eval");
+    // WebAssembly compilation only (the narrator); never JavaScript eval.
+    expect(csp).not.toContain("'unsafe-eval'");
   });
 
   it.each([

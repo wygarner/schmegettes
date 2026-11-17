@@ -178,10 +178,10 @@ The same states as the phone, in the player column, minus what the stage already
 | Confirmation modal open when control passes or the phase changes | The modal closes; nothing is picked |
 | Speech synthesis unavailable on the host device | Clue shown silently; buzzing opens on the fallback timer |
 | The device's voice list hasn't loaded when the first clue is read | The reading starts at once with the default voice and never waits for the list. Later lines use the chosen voice ([feature brief](./feature-brief.md#the-narrators-voice)) |
-| The saved narrator voice was removed from the device | **Not yet implemented** (today: the best built-in voice). The Schmegettes voice reads instead (until it's ready, the best built-in voice), without a message |
-| A line in the Schmegettes voice hasn't started 1.5 s after it should have, or fails | **Not yet implemented.** That line is read with the best built-in voice. After 2 such lines in a row, the built-in voice reads for the rest of the game ([feature brief](./feature-brief.md#the-narrators-voice)) |
-| The Schmegettes voice becomes ready mid-game | **Not yet implemented.** The narrator switches to it at the next line, never mid-line |
-| The host device reloads mid-game | **Not yet implemented.** The Schmegettes voice loads from the browser's storage. Lines before it's ready use the best built-in voice |
+| The saved narrator voice was removed from the device | The Schmegettes voice reads instead (until it's ready, the best built-in voice), without a message |
+| A line in the Schmegettes voice hasn't started 1.5 s after it should have, or fails | That line is read with the best built-in voice. After 2 such lines in a row, the built-in voice reads for the rest of the game ([feature brief](./feature-brief.md#the-narrators-voice)) |
+| The Schmegettes voice becomes ready mid-game | The narrator switches to it at the next line, never mid-line |
+| The host device reloads mid-game | The Schmegettes voice loads from the browser's storage. Lines before it's ready use the best built-in voice |
 | A player taps the buzzer outside a clue (lobby, board, between clues) | Press animation only. No lockout, nothing sent. Exception: the player in control on the board starts a spoken pick |
 | A player buzzes during `answering` | Ignored (not a lockout) |
 | Everyone has tried and all were wrong | Clue ends, correct response shown for 6 s without the clue, control unchanged |

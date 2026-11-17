@@ -3,9 +3,14 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { VOICE_SAMPLE, VOICE_TIPS } from "../game/NarratorVoicePicker";
-import { getSavedVoice, type Voice } from "../lib/narratorVoice";
+import { getSavedVoice, piperChoiceValue, saveVoice, type Voice } from "../lib/narratorVoice";
+import { prepareVoice } from "../lib/piper/engine";
+import { markDeviceUnavailable, resetVoicesForTest, setVoiceStatus } from "../lib/piper/voices";
 import { initialRoom, type Player, type RoomState } from "../lib/room";
 import { HostLobbyView } from "./HostLobby";
+
+// The Schmegettes voices download from the network; tests drive their status by hand.
+vi.mock("../lib/piper/engine", () => ({ prepareVoice: vi.fn(async () => false), readyEngine: vi.fn(() => null) }));
 
 const player = (userId: string, displayName: string, extra: Partial<Player> = {}): Player => ({
   userId,
@@ -178,6 +183,8 @@ describe("narrator voice", () => {
 
   let synth: FakeSynth;
   beforeEach(() => {
+    resetVoicesForTest();
+    vi.mocked(prepareVoice).mockReset().mockResolvedValue(false);
     synth = new FakeSynth();
     vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
     Object.defineProperty(window, "speechSynthesis", { configurable: true, value: synth });
@@ -201,28 +208,44 @@ describe("narrator voice", () => {
       .getAllByRole("button")
       .filter((b) => b.hasAttribute("aria-pressed"));
 
+  /** Makes the Schmegettes voice unusable, so the built-in voices (and the tip) apply. */
+  const piperBlocked = () => setVoiceStatus("kristin", { state: "failed" });
+  const label = (b: HTMLElement) => b.textContent?.replace("✓", "");
+
   test("hidden when the device can't speak", () => {
     Reflect.deleteProperty(window, "speechSynthesis");
     renderView(lobby());
     expect(screen.queryByRole("button", { name: /^Narrator voice:/ })).toBeNull();
   });
 
-  test("shows the best voice, or Default voice until the list loads", () => {
+  test("the default is Kristin, downloading in the background as soon as the lobby opens", () => {
+    renderView(lobby());
+    expect(voiceButton()).toHaveAccessibleName("Narrator voice: Kristin");
+    expect(prepareVoice).toHaveBeenCalledWith("kristin");
+    act(() => setVoiceStatus("kristin", { state: "downloading", fraction: 0.4 }));
+    expect(voiceButton()).toHaveAccessibleName("Narrator voice: Kristin · 40%");
+  });
+
+  test("a built-in voice saved earlier shows its name, or Default voice until the list loads", () => {
+    saveVoice(samantha.voiceURI);
     renderView(lobby());
     expect(voiceButton()).toHaveAccessibleName("Narrator voice: Default voice");
+    expect(prepareVoice).not.toHaveBeenCalled();
     synth.voices = [samantha, ava];
     act(() => {
       synth.dispatchEvent(new Event("voiceschanged"));
     });
-    expect(voiceButton()).toHaveAccessibleName("Narrator voice: Ava (Premium)");
+    expect(voiceButton()).toHaveAccessibleName("Narrator voice: Samantha");
   });
 
-  test("the picker lists English voices best first; a tap saves the voice and says the sample", () => {
+  test("the picker lists the Schmegettes voices, then English device voices best first", () => {
     synth.voices = [thomas, daniel, bells, samantha, ava];
     renderView(lobby());
     const dialog = openPicker();
+    expect(dialog).toHaveTextContent("Schmegettes voices");
+    expect(dialog).toHaveTextContent("Voices on this device");
     const list = rows(dialog);
-    expect(list.map((b) => b.textContent?.replace("✓", ""))).toEqual(["Ava (Premium)", "Samantha", "Daniel (UK)"]);
+    expect(list.map(label)).toEqual(["Kristin", "Norman", "John", "Ava (Premium)", "Samantha", "Daniel (UK)"]);
     expect(list[0]).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Daniel (UK)" }));
@@ -236,15 +259,77 @@ describe("narrator voice", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  test("the download tip shows on Apple devices with only standard voices", () => {
+  test("picking Norman saves it, downloads it, and plays the sample once it's ready", async () => {
+    let ready: (ok: boolean) => void = () => {};
+    vi.mocked(prepareVoice).mockReturnValue(new Promise((r) => (ready = r)));
+    renderView(lobby());
+    const dialog = openPicker();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Norman" }));
+    expect(getSavedVoice()).toBe(piperChoiceValue("norman"));
+    expect(prepareVoice).toHaveBeenLastCalledWith("norman");
+    expect(synth.spoken).toHaveLength(0);
+    await act(async () => ready(true));
+    expect(synth.spoken.at(-1)?.text).toBe(VOICE_SAMPLE);
+  });
+
+  test("no sample for a voice the host already moved on from", async () => {
+    const pending: Array<{ id: string; ready: (ok: boolean) => void }> = [];
+    vi.mocked(prepareVoice).mockImplementation((id) => new Promise((ready) => pending.push({ id, ready })));
+    renderView(lobby());
+    const dialog = openPicker();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Norman" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "John" }));
+    // Norman finishes after John was picked.
+    await act(async () => {
+      for (const p of pending) if (p.id === "norman") p.ready(true);
+    });
+    expect(synth.spoken).toHaveLength(0);
+  });
+
+  test("each Schmegettes voice shows its state; a failed one can be tried again", () => {
+    renderView(lobby());
+    act(() => {
+      setVoiceStatus("kristin", { state: "downloading", fraction: 0.4 });
+      setVoiceStatus("norman", { state: "failed" });
+      setVoiceStatus("john", { state: "preparing" });
+    });
+    const dialog = openPicker();
+    expect(dialog).toHaveTextContent("Downloading… 40%");
+    expect(dialog).toHaveTextContent("Couldn't download");
+    expect(dialog).toHaveTextContent("Getting ready…");
+    vi.mocked(prepareVoice).mockClear();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Try again" }));
+    expect(prepareVoice).toHaveBeenCalledWith("norman");
+  });
+
+  test("a device too slow for the Schmegettes voices can't pick them, and falls back to the best built-in voice", () => {
+    synth.voices = [samantha, ava];
+    renderView(lobby());
+    act(() => markDeviceUnavailable());
+    const dialog = openPicker();
+    expect(within(dialog).getAllByText("Not available on this device")).toHaveLength(3);
+    expect(within(dialog).getByRole("button", { name: "Norman" })).toBeDisabled();
+    expect(voiceButton()).toHaveAccessibleName("Narrator voice: Ava (Premium)");
+  });
+
+  test("the download tip shows on Apple devices when the Schmegettes voice can't be used and only standard voices are installed", () => {
     asIPhone();
+    piperBlocked();
     synth.voices = [samantha, daniel];
     renderView(lobby());
     expect(openPicker()).toHaveTextContent(VOICE_TIPS.ios);
   });
 
+  test("no tip while the Schmegettes voice works", () => {
+    asIPhone();
+    synth.voices = [samantha, daniel];
+    renderView(lobby());
+    expect(openPicker()).not.toHaveTextContent("Want a more natural voice?");
+  });
+
   test("no tip when a Premium voice is installed", () => {
     asIPhone();
+    piperBlocked();
     synth.voices = [samantha, ava];
     renderView(lobby());
     expect(openPicker()).not.toHaveTextContent("Want a more natural voice?");
@@ -252,6 +337,7 @@ describe("narrator voice", () => {
 
   test("no tip on other devices", () => {
     vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    piperBlocked();
     synth.voices = [samantha];
     renderView(lobby());
     expect(openPicker()).not.toHaveTextContent("Want a more natural voice?");
@@ -259,6 +345,7 @@ describe("narrator voice", () => {
 
   test("a device with no English voice says so", () => {
     asIPhone();
+    piperBlocked();
     synth.voices = [thomas];
     renderView(lobby());
     const dialog = openPicker();

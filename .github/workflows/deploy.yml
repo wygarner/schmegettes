@@ -34,6 +34,12 @@ jobs:
       - uses: jdx/mise-action@v5
         with:
           install_args: aqua:supabase/cli
+      # supabase/config.toml points at a git-ignored local signing key, and the CLI won't load the
+      # config without the file. This throwaway key is never sent anywhere (as in ci.yml).
+      - name: Generate a throwaway local signing key
+        run: |
+          echo '[]' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes > /dev/null
       # Migrations must work with the code already running: old and new code overlap during a
       # rollout. Destructive changes (drop, rename) ship in a later release than the code change.
       - name: Apply pending migrations

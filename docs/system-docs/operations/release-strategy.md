@@ -55,11 +55,11 @@ The gap between "code is live" and "marked released" is deliberate: a human conf
 
 ## Rollback
 
-Each deploy labels its Fly images with the commit, and Vercel keeps every deployment, so a rollback names the last good commit or deployment. Run from the repo root with the pinned CLIs (`mise install`); use the `-staging` names to practise on staging.
+Each deploy labels its Fly images with the commit, and Vercel keeps every deployment, so a rollback names the last good commit or deployment. Run Fly commands from the repo root with the pinned `flyctl` (`mise install`); use the `-staging` names to practise on staging.
 
 | Component | Command |
 |---|---|
-| web | `vercel ls schmegettes-web-prod --prod` to find the last good deployment, then `vercel rollback {deployment-url} --scope {team}` |
+| web | Vercel dashboard → `schmegettes-web-prod` → Deployments → the last good production deployment → **Instant Rollback** |
 | api | `fly releases -a schmegettes-api-prod --image` to find the last good image, then `fly deploy . -c api/fly.toml -a schmegettes-api-prod --image registry.fly.io/schmegettes-api-prod:{commit}` |
 | game | `fly releases -a schmegettes-game-prod --image`, then `fly deploy . -c game/fly.toml -a schmegettes-game-prod --ha=false --image registry.fly.io/schmegettes-game-prod:{commit}` |
 | worker | None: no worker process is deployed |

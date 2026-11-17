@@ -42,17 +42,25 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
 ### The narrator's voice
 
-**Not yet implemented:** the Schmegettes voice and everything about generating it (the first six rules). Today the narrator uses the best built-in voice; the rules for built-in voices are built.
+**Not yet implemented:** the Schmegettes voices and everything about generating them (the first seven rules). Today the narrator uses the best built-in voice; the rules for built-in voices are built.
 
-- **The Schmegettes voice.** By default the narrator is the game's own voice, **Kristin**: a free, open-source voice (Piper, public domain) that the host device generates itself. It sounds the same on every host device, costs nothing, and needs no server. Phones never speak and never download it.
-- **One download, kept.** The voice is about **63 MB**, downloaded once to the host device. The download starts in the background as soon as the host lobby opens, and the browser keeps the voice for next time. Until it's ready, and on a device that can't run it, the narrator uses the best voice built into the device (below).
+- **The Schmegettes voices.** By default the narrator is one of the game's own voices: free, open-source voices (Piper) that the host device generates itself. They sound the same on every host device, cost nothing, and need no server. Phones never speak and never download them.
+
+  | Voice | Sounds | License |
+  |---|---|---|
+  | **Kristin** (default) | US English, female | Public domain |
+  | **Norman** | US English, male | Public domain |
+  | **John** | US English, male | Public domain |
+
+- **Downloaded when needed, one kept.** Each voice is about **63 MB**. Kristin starts downloading in the background as soon as the host lobby opens; Norman or John downloads when the host picks it. The browser keeps the Schmegettes voice in use for next time, and only that one: when the host switches, the old voice is removed once the new one is ready. Until a Schmegettes voice is ready, and on a device that can't run one, the narrator uses the best voice built into the device (below).
+- **Switching keeps the narration going.** After the host picks another Schmegettes voice, the voice already on the device keeps reading until the new one is ready.
 - **The game never waits for it.** Start is never held up by the download. If the voice becomes ready during a game, the narrator switches to it at the next line, never in the middle of one.
 - **Reading starts quickly.** Generating speech takes a moment, so the narrator says the short announcement ("Here's Volcanoes for 400.") while the clue is still being prepared. The first word is heard within **1 s** of the clue appearing on the TV.
 - **A line that isn't ready in time** (not started **1.5 s** after it should have, or an error) is read with the best built-in voice instead. After **2** such lines in a row, the rest of the game uses the built-in voice, so the room doesn't hear the voice switch back and forth.
 - **It never slows the host's buzzer.** Generating speech must not make the host device's screen or buzzer lag: a host who plays buzzes as quickly as anyone.
 - **Built-in voices** are the fallback, and the host can pick one instead. The best is a **Premium** voice, then an **Enhanced** one, then any other US English voice, then any other English voice; within a group, the device's default voice comes first.
 - **Novelty voices are never used**: voices that sing, whisper, or add robot effects (on Apple devices, for example, Bells, Whisper, and Zarvox). They can't read a clue in the time the server allows, and they're hard to follow.
-- The host can **change the voice in the lobby** and hear a sample first ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). The Schmegettes voice is listed first, then the device's voices. The same voice speaks every line: announcements, clues, Daily Double and Final lines, and the correct response.
+- The host can **change the voice in the lobby** and hear a sample first ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). The Schmegettes voices are listed first, then the device's voices. The same voice speaks every line: announcements, clues, Daily Double and Final lines, and the correct response.
 - The choice is **kept on that host device** for every room it hosts until the host changes it. It isn't tied to the host's account and never reaches the server. A host who picked a built-in voice keeps it.
 - If the saved voice is no longer on the device, the Schmegettes voice is used (or, until it's ready, the best built-in voice), without a message.
 - **Every voice speaks at its normal pace, and buzzing never opens before the reading ends.** There's no speed setting. The server's fallback estimate starts when the clue is picked, so the time spent generating speech counts against it.

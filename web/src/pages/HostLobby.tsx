@@ -93,7 +93,7 @@ function Centered({ children }: { children: ReactNode }) {
 
 const ERRORS: Record<string, string> = {
   room_full: "The room is full.",
-  not_enough_players: "Need at least 2 players.",
+  not_enough_players: "Need at least 1 player.",
   invalid_name: "Names are 1 to 20 characters.",
   not_a_host: "Your host access was removed, so you can't start games.",
 };
@@ -160,7 +160,7 @@ export function HostLobbyView({
 
   const count = contestantCount(state);
   const full = count >= state.maxPlayers;
-  const canStart = count >= 2;
+  const canStart = count >= 1;
 
   function saveName() {
     if (!isValidName(name)) return;
@@ -251,7 +251,7 @@ export function HostLobbyView({
         <Group gap="xs" wrap="nowrap" align="center">
           {!canStart && (
             <Text size="sm" c={SOFT}>
-              Need at least 2 players
+              Need at least 1 player
             </Text>
           )}
           <GoldButton

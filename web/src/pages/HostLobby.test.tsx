@@ -46,10 +46,17 @@ test("shows the code, join URL, host name, and an empty list", () => {
   expect(screen.getByText("Players 0 / 6")).toBeInTheDocument();
 });
 
-test("Start needs 2 players", () => {
-  renderView(lobby({ players: [player("a", "Alice")] }));
+test("Start needs 1 player", () => {
+  renderView(lobby());
   expect(screen.getByRole("button", { name: "Start" })).toBeDisabled();
-  expect(screen.getByText("Need at least 2 players")).toBeInTheDocument();
+  expect(screen.getByText("Need at least 1 player")).toBeInTheDocument();
+});
+
+test("Start with 1 player", () => {
+  const send = renderView(lobby({ players: [player("a", "Alice")] }));
+  expect(screen.queryByText("Need at least 1 player")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Start" }));
+  expect(send).toHaveBeenCalledWith({ type: "start_game" });
 });
 
 test("Start with 2 players, counting a playing host", () => {

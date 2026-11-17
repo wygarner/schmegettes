@@ -207,3 +207,21 @@ None. The web client has no telemetry yet (Grafana Faro is not implemented), and
 
 ## Branch
 `enhancement/piper-narrator-impl`, from and into `daily/2026-11-17`. No Jira ticket: Jira setup is not done for this repo (development-workflow.md, "Jira setup"), so the folder stays `tasks/piper-narrator/` and PR titles use `piper-narrator` in place of `SCH-{N}`.
+
+## Decision log
+
+**2026-11-17, Wyatt Garner: GPL-3.0 accepted for `web/`.** The repo is planned to become a public open-source repo. This replaces "No GPL code or data may be served by `web/`" above. What changes:
+
+- **Phonemes come from espeak-ng**, the same phonemizer the voices were trained with, through `piper_phonemize` WASM (`@diffusionstudio/piper-wasm@1.0.0`: `piper_phonemize.wasm` 0.6 MB + `piper_phonemize.data` 17.2 MB of espeak-ng data). Its npm listing says MIT, but it bundles espeak-ng, so treat it as **GPL-3.0**.
+  - The spike found that piper-plus's own rules spell unknown names letter by letter ("Saoirse" → S-A-O-I-R-S-E). piper-plus 0.8.2 had no CMUdict at all.
+  - `piper-plus` stays in `devtools/` for comparison only and is not added to `web/`.
+- **Inference is ours:** `onnxruntime-web` 1.31.1 (the plain WASM build, `ort-wasm-simd-threaded.wasm` 14.8 MB; not the 29.5 MB WebGPU one) in our worker. It feeds Piper's inputs (`input`, `input_lengths`, `scales` from the voice config's `inference`) with the phoneme ids from `piper_phonemize`.
+  - We don't use the `@mintplex-labs/piper-tts-web` wrapper in `web/`. It loads ORT 1.18 from a CDN by default, downloads voices from Hugging Face `main` with no pinning or hash, and has had one release in the last year.
+  - Subtasks 1 (pinned download, SHA-256, Cache Storage) and 3–4 are unchanged.
+- **Phonemizer files are served from our own build**, copied as static assets at the pinned version. Each is under 25 MB.
+- **Normalization (subtask 2):** espeak-ng expands numbers itself, so `normalize.ts` starts from `spokenText` ("&" → "and"). Add only what the spike shows espeak reading badly.
+- **Spike gate, revised:** pronunciation is settled by using espeak-ng. Speed (RTF ≤ 0.5), stamina (60 clues, no reload) and tap delay (< 50 ms) are measured on the espeak path, which is the default engine on the spike page.
+- **License obligations before this reaches players (production):**
+  - Ship a third-party notices file with the web build: espeak-ng GPL-3.0 with a link to its source, piper-phonemize MIT, onnxruntime-web MIT. The voices are public domain.
+  - The web app's own source must be available to players under GPL-3.0-compatible terms: the public repo, or a written offer until then. Choosing the repo's license is the owner's call. Flag it in the PR.
+- **Docs:** `stack.md` gets a decision row for narration and the GPL-3.0 acceptance (date, reason, obligations).

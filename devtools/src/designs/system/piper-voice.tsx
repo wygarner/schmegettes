@@ -1,7 +1,8 @@
 // Spike for tasks/piper-narrator (subtask 0): can the host iPhone narrate with Piper?
-// Internal only (devtools is never deployed). Compares piper-plus (MIT, its own English
-// rules + CMUdict) with @mintplex-labs/piper-tts-web (espeak-ng based, GPL: never ship it in
-// web/), and measures speed, stamina, main-thread stalls, and where the downloads come from.
+// Internal only (devtools is never deployed). Compares espeak-ng phonemes (via
+// @mintplex-labs/piper-tts-web; GPL-3.0 accepted 2026-11-17, matches how the voices were
+// trained) with piper-plus (MIT, its own English rules + CMUdict), and measures speed,
+// stamina, main-thread stalls, and where the downloads come from.
 // On the iPhone: `mise run dev:devtools`, then `ngrok http 5174` and open the https URL
 // (Cache Storage, IndexedDB, and OPFS need a secure context).
 
@@ -122,6 +123,8 @@ async function withFrameGap<T>(fn: () => Promise<T>): Promise<{ value: T; maxGap
 export default function PiperVoiceSpike() {
   const [voice, setVoice] = useState<VoiceKey>("kristin");
   const [proxy, setProxy] = useState(true);
+  // espeak is what ships (GPL accepted 2026-11-17); piper-plus stays for comparison.
+  const [engine, setEngine] = useState<Engine>("espeak");
   const [withPlayback, setWithPlayback] = useState(true);
   const [status, setStatus] = useState("Not loaded. Tap 'Turn on sound' first on iOS.");
   const [rows, setRows] = useState<Row[]>([]);
@@ -240,6 +243,14 @@ export default function PiperVoiceSpike() {
           Turn on sound
         </Button>
         <SegmentedControl
+          value={engine}
+          onChange={(v) => setEngine(v as Engine)}
+          data={[
+            { value: "espeak", label: "espeak (ships)" },
+            { value: "piper-plus", label: "piper-plus" },
+          ]}
+        />
+        <SegmentedControl
           value={voice}
           onChange={(v) => setVoice(v as VoiceKey)}
           data={[
@@ -264,8 +275,8 @@ export default function PiperVoiceSpike() {
           disabled={busy}
           onClick={() =>
             guarded("first audio", async () => {
-              await loadPlus(); // loading is measured separately; this is the per-clue cost
-              const row = await run("piper-plus", ANNOUNCEMENT);
+              await (engine === "espeak" ? loadEspeak() : loadPlus()); // loading is measured separately
+              const row = await run(engine, ANNOUNCEMENT);
               note(`first audio of the announcement after ${row.synthMs} ms (RTF ${row.rtf})`);
             })
           }
@@ -276,11 +287,11 @@ export default function PiperVoiceSpike() {
           disabled={busy}
           onClick={() =>
             guarded("20 clues", async () => {
-              for (const c of clues) await run("piper-plus", c);
+              for (const c of clues) await run(engine, c);
             })
           }
         >
-          Run all clues (piper-plus)
+          Run all clues
         </Button>
         <Button
           disabled={busy}
@@ -289,7 +300,7 @@ export default function PiperVoiceSpike() {
             guarded("60-clue stamina", async () => {
               for (let i = 0; i < 60; i++) {
                 setStatus(`stamina ${i + 1} / 60`);
-                await run("piper-plus", clues[i % clues.length] ?? ANNOUNCEMENT);
+                await run(engine, clues[i % clues.length] ?? ANNOUNCEMENT);
               }
             })
           }
@@ -404,17 +415,25 @@ export default function PiperVoiceSpike() {
 }
 
 function Summary({ rows }: { rows: Row[] }) {
-  const plus = rows.filter((r) => r.engine === "piper-plus");
-  if (plus.length === 0) return null;
-  const rtfs = plus.map((r) => r.rtf).sort((a, b) => a - b);
-  const median = rtfs[Math.floor(rtfs.length / 2)] ?? 0;
-  const worst = rtfs.at(-1) ?? 0;
-  const gap = Math.max(...plus.map((r) => r.maxFrameGapMs));
+  const engines: Engine[] = ["espeak", "piper-plus"];
   return (
-    <Group gap="xs">
-      <Badge color={median <= 0.5 ? "teal" : "red"}>median RTF {median}</Badge>
-      <Badge color={worst <= 0.5 ? "teal" : "orange"}>worst RTF {worst}</Badge>
-      <Badge color={gap <= 50 ? "teal" : "red"}>worst frame gap {gap} ms</Badge>
-    </Group>
+    <>
+      {engines.map((engine) => {
+        const mine = rows.filter((r) => r.engine === engine);
+        if (mine.length === 0) return null;
+        const rtfs = mine.map((r) => r.rtf).sort((a, b) => a - b);
+        const median = rtfs[Math.floor(rtfs.length / 2)] ?? 0;
+        const worst = rtfs.at(-1) ?? 0;
+        const gap = Math.max(...mine.map((r) => r.maxFrameGapMs));
+        return (
+          <Group gap="xs" key={engine}>
+            <Text size="xs">{engine}</Text>
+            <Badge color={median <= 0.5 ? "teal" : "red"}>median RTF {median}</Badge>
+            <Badge color={worst <= 0.5 ? "teal" : "orange"}>worst RTF {worst}</Badge>
+            <Badge color={gap <= 50 ? "teal" : "red"}>worst frame gap {gap} ms</Badge>
+          </Group>
+        );
+      })}
+    </>
   );
 }

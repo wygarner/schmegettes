@@ -1,12 +1,12 @@
 module schmegettes/api
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/getkin/kin-openapi v0.152.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.13.0
-	github.com/oapi-codegen/runtime v1.1.1
+	github.com/oapi-codegen/runtime v1.9.0
 	golang.org/x/time v0.15.0
 	schmegettes/golib v0.0.0
 )

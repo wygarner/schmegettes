@@ -112,3 +112,21 @@ test("picking another voice while one is getting ready drops the first", async (
   expect(await john).toBe(true);
   expect(readyEngine("john")).not.toBeNull();
 });
+
+test("going back to the voice already loaded drops the one getting ready", async () => {
+  const first = fakeEngine();
+  setEngineFactory(() => first);
+  vi.mocked(fetchVoice).mockResolvedValue(files());
+  await prepareVoice("kristin");
+
+  let deliver: (f: ReturnType<typeof files>) => void = () => {};
+  vi.mocked(fetchVoice).mockReturnValue(new Promise((r) => (deliver = r)));
+  setEngineFactory(() => fakeEngine());
+  const norman = prepareVoice("norman");
+  expect(await prepareVoice("kristin")).toBe(true);
+  deliver(files());
+  expect(await norman).toBe(false);
+  expect(readyEngine("kristin")).toBe(first);
+  expect(readyEngine("norman")).toBeNull();
+  expect(voiceStatus("norman")).toEqual({ state: "absent" });
+});

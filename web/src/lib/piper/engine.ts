@@ -2,7 +2,15 @@
 // load from the device), load it into the worker, and check this device is fast enough.
 
 import type { FromWorker, PiperConfig, ToWorker } from "./protocol";
-import { fetchVoice, keepOnly, markDeviceUnavailable, type PiperVoiceId, setVoiceStatus } from "./voices";
+import {
+  cancelFetch,
+  fetchVoice,
+  keepOnly,
+  markDeviceUnavailable,
+  type PiperVoiceId,
+  setVoiceStatus,
+  voiceStatus,
+} from "./voices";
 
 export interface Audio {
   samples: Float32Array;
@@ -71,11 +79,25 @@ export function readyEngine(id: PiperVoiceId): PiperEngine | null {
  * reading until this one is ready; then only this one is kept on the device.
  */
 export function prepareVoice(id: PiperVoiceId): Promise<boolean> {
-  if (loadedId === id) return Promise.resolve(true);
+  if (loadedId === id) {
+    // Back to the voice already loaded: drop whatever was getting ready instead.
+    if (preparing) {
+      cancelFetch();
+      preparing = null;
+    }
+    return Promise.resolve(true);
+  }
   if (preparing?.id === id) return preparing.done;
   const done = (async () => {
+    const dropped = () => {
+      // The host picked another voice meanwhile: this one isn't on its way any more.
+      const state = voiceStatus(id).state;
+      if (state === "downloading" || state === "preparing") setVoiceStatus(id, { state: "absent" });
+      return false;
+    };
     const files = await fetchVoice(id);
-    if (!files || preparing?.id !== id) return false; // failed, or the host picked another voice
+    if (!files) return false; // failed (the status says so) or replaced
+    if (preparing?.id !== id) return dropped();
     setVoiceStatus(id, { state: "preparing" });
     try {
       const fresh = makeEngine();
@@ -87,7 +109,7 @@ export function prepareVoice(id: PiperVoiceId): Promise<boolean> {
       const rtf = (performance.now() - t0) / ((warm.samples.length / warm.sampleRate) * 1000);
       if (preparing?.id !== id) {
         fresh.dispose();
-        return false;
+        return dropped();
       }
       if (!(rtf <= MAX_REALTIME_FACTOR)) {
         fresh.dispose();

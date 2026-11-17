@@ -207,6 +207,15 @@ export function fetchVoice(id: PiperVoiceId): Promise<VoiceFiles | null> {
   return done;
 }
 
+/** Stops the download in progress, if any (the host went back to a voice already loaded). */
+export function cancelFetch(): void {
+  if (!active) return;
+  active.controller.abort();
+  const state = voiceStatus(active.id).state;
+  if (state === "downloading" || state === "preparing") setVoiceStatus(active.id, ABSENT);
+  active = null;
+}
+
 /** Called once a voice is ready to speak: the device keeps only that one. */
 export function keepOnly(id: PiperVoiceId): Promise<void> {
   return forgetOthers(id).catch(() => undefined);

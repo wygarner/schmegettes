@@ -45,7 +45,7 @@ Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667
 - The code is the biggest thing on screen (Oswald, readable at 3 m): each letter in gold on its own board-blue tile.
 - **✎** next to the host name edits it until Start.
 - A new player animates into the list, without a sound.
-- **Start**: primary button. While there are fewer than 2 contestants it is disabled, with the hint "Need at least 2 players". A playing host counts.
+- **Start**: primary button. While there are no contestants it is disabled, with the hint "Need at least 1 player". A playing host counts.
 - **Join the game** (secondary) adds the host to the list at once, under their host name, tagged HOST, and the button becomes **Leave the game**. Editing the host name with ✎ updates both places.
 - **🔊 {voice name}** (subtle button) opens the narrator voice picker (below). While the chosen Schmegettes voice downloads it reads "🔊 Norman · 40%". It's hidden when the device can't speak at all.
 

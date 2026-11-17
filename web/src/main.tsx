@@ -13,6 +13,7 @@ import { createTheme, MantineProvider } from "@mantine/core";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
+import { enforceFullscreen } from "./lib/fullscreen";
 import { Account } from "./pages/Account";
 import { GameScoreboard } from "./pages/GameScoreboard";
 import { Home } from "./pages/Home";
@@ -87,6 +88,8 @@ export const theme = createTheme({
   fontFamily: "Inter, system-ui, sans-serif",
   headings: { fontFamily: "Oswald, Impact, sans-serif" },
 });
+
+enforceFullscreen();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("#root missing from index.html");

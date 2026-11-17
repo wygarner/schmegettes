@@ -409,9 +409,8 @@ func TestHostOnlyIntents(t *testing.T) {
 	}
 }
 
-func TestStartNeedsTwoAndCountsAPlayingHost(t *testing.T) {
+func TestStartNeedsOneAndCountsAPlayingHost(t *testing.T) {
 	f := setup(t)
-	f.store.add(alice, "Alice")
 	host := f.connect(hostID)
 	host.next()
 

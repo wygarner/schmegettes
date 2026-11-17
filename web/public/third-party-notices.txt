@@ -1,0 +1,26 @@
+Third-party software in the Schmegettes web app
+================================================
+
+The host device downloads these to read clues aloud with the Schmegettes voices. Phones
+never download them.
+
+espeak-ng (phonemizer data and code, inside piper_phonemize.wasm and piper_phonemize.data)
+  License: GNU General Public License v3.0 or later. Full text: /licenses/GPL-3.0.txt
+  Source:  https://github.com/rhasspy/espeak-ng (the fork used to build it)
+           https://github.com/espeak-ng/espeak-ng (upstream)
+
+piper-phonemize (inside piper_phonemize.wasm)
+  License: MIT
+  Source:  https://github.com/rhasspy/piper-phonemize
+           https://github.com/wide-video/piper-phonemize (the WebAssembly build's fork)
+
+@diffusionstudio/piper-wasm 1.0.0 (the WebAssembly build of the two above)
+  Source and build steps: https://github.com/diffusion-studio/piper-wasm
+
+onnxruntime-web 1.31.1
+  License: MIT. Copyright (c) Microsoft Corporation.
+  Source:  https://github.com/microsoft/onnxruntime
+
+Piper voices Kristin, Norman, and John (en_US-kristin-medium, en_US-norman-medium,
+en_US-john-medium), downloaded from https://huggingface.co/rhasspy/piper-voices
+  Public domain, per each voice's MODEL_CARD.

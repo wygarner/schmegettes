@@ -1,14 +1,7 @@
 name: Deploy Production
 
-# The deploy contract (docs/system-docs/operations/deployment.md):
-#   1. build from the merge commit on production
-#   2. run migrations before new code takes traffic
-#   3. health-check the new version before it takes traffic (host-specific; see deploy job)
-#   4. verify every component reports the merge commit at /version
-#   5. rollback is one command away (release-strategy.md, "Rollback")
-#
-# Hosting is not chosen yet (stack.md). Until it is, the deploy job fails on purpose, so no
-# release can look shipped when nothing was deployed.
+# A merge to production deploys it: migrate, deploy api/game (Fly.io) and web (Vercel), verify.
+# The jobs live in deploy.yml; docs/system-docs/operations/deployment.md has the contract.
 on:
   push:
     branches:
@@ -25,79 +18,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  migrate:
-    name: Migrate (Production)
-    if: github.ref == 'refs/heads/production'
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@v5
-        with:
-          install_args: aqua:supabase/cli
-      # Migrations must work with the code already running: old and new code overlap during a
-      # rollout. Destructive changes (drop, rename) ship in a later release than the code change.
-      - name: Apply pending migrations
-        env:
-          SUPABASE_DB_URL: ${{ secrets.PROD_SUPABASE_DB_OWNER_URL }}
-        run: supabase db push --db-url "$SUPABASE_DB_URL" --include-all
-
   deploy:
-    name: Deploy components
-    needs: migrate
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      # Replace with one step per CI-driven component once hosts are chosen. Each builds from
-      # this checkout with GIT_SHA=${{ github.sha }} and waits for the host's health check.
-      # Platform-driven components need no step here: the verify job polls them.
-      - name: Deploy (hosting not chosen)
-        run: |
-          echo "::error::No hosting is configured. Choose hosts (stack.md), then replace this step."
-          exit 1
-
-  verify:
-    name: Verify deployed commit
-    needs: deploy
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      # PROD_VERSION_URLS (environment variable) lists each component's version endpoint, e.g.
-      # "https://schmegettes.app/version.json https://api.schmegettes.app/version ..."
-      - name: Every component runs the merge commit
-        env:
-          URLS: ${{ vars.PROD_VERSION_URLS }}
-          EXPECTED: ${{ github.sha }}
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          if [ -z "$URLS" ]; then
-            echo "::error::PROD_VERSION_URLS is not set on the production environment."
-            exit 1
-          fi
-          # Up to 15 minutes: platform-driven deploys start after this push and take a while.
-          for attempt in $(seq 1 45); do
-            waiting=""
-            for url in $URLS; do
-              commit="$(curl -fsS --max-time 10 "$url" | jq -r '.commit // empty' || true)"
-              [ "$commit" = "$EXPECTED" ] || waiting="$waiting $url($commit)"
-            done
-            if [ -z "$waiting" ]; then
-              echo "Every component reports $EXPECTED."
-              exit 0
-            fi
-            sleep 20
-          done
-
-          tip="$(gh api "repos/${GITHUB_REPOSITORY}/branches/production" --jq '.commit.sha')"
-          if [ "$tip" != "$EXPECTED" ]; then
-            echo "::notice::production has moved on to $tip; that run verifies the deploy."
-            exit 0
-          fi
-          echo "::error::Not running $EXPECTED after 15 minutes:$waiting"
-          exit 1
+    name: Production
+    if: github.ref == 'refs/heads/production'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production
+    secrets: inherit

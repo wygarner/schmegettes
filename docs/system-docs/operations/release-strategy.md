@@ -55,24 +55,28 @@ The gap between "code is live" and "marked released" is deliberate: a human conf
 
 ## Rollback
 
+Each deploy labels its Fly images with the commit, and Vercel keeps every deployment, so a rollback names the last good commit or deployment. Run Fly commands from the repo root with the pinned `flyctl` (`mise install`); use the `-staging` names to practise on staging.
+
 | Component | Command |
 |---|---|
-| web | TBD when hosting is chosen |
-| api | TBD |
-| game | TBD (Fly.io: `fly releases rollback -a schmegettes-game-prod`) |
-| worker | TBD |
+| web | Vercel dashboard → `schmegettes-web-prod` → Deployments → the last good production deployment → **Instant Rollback** |
+| api | `fly releases -a schmegettes-api-prod --image` to find the last good image, then `fly deploy . -c api/fly.toml -a schmegettes-api-prod --image registry.fly.io/schmegettes-api-prod:{commit}` |
+| game | `fly releases -a schmegettes-game-prod --image`, then `fly deploy . -c game/fly.toml -a schmegettes-game-prod --ha=false --image registry.fly.io/schmegettes-game-prod:{commit}` |
+| worker | None: no worker process is deployed |
+
+A rollback is not a commit on `production`, so the next push to `production` deploys over it. Fix forward with a hotfix.
 
 Code rollbacks do not undo migrations. Because migrations are additive (see [data-and-isolation.md](../architecture/data-and-isolation.md)), rolling code back over a new migration is normally safe; evaluate each case. After a rollback, reopen the affected tickets and record the reason in the internal release notes.
 
 ## Communication
 
-Players are anonymous by default, so there is no email list: players hear about releases and incidents through in-app notices, plus a status page once hosting exists (decided 2026-11-09). There is no separate support or internal team, so the guide's "Support" and "Internal team" rows don't apply.
+Players are anonymous by default, so there is no email list: players hear about releases and incidents through in-app notices, plus a status page (decided 2026-11-09; **not yet implemented**). There is no separate support or internal team, so the guide's "Support" and "Internal team" rows don't apply.
 
 | Event | Audience | Channel | Timing | Owner |
 |---|---|---|---|---|
 | Release | Players | `user-release-notes.md`, shown as an in-app notice (**not yet implemented**) | After sign-off (Process step 7) | Wyatt Garner |
-| Planned maintenance or downtime | Players | In-app notice; status page once hosting exists | At least 24 hours ahead | Wyatt Garner |
-| Incident players notice | Affected players | In-app notice; status page once hosting exists | A first notice once the incident is confirmed, then an update every 6 hours until resolved, then a resolution notice | Wyatt Garner |
+| Planned maintenance or downtime | Players | In-app notice; status page (**not yet implemented**) | At least 24 hours ahead | Wyatt Garner |
+| Incident players notice | Affected players | In-app notice; status page (**not yet implemented**) | A first notice once the incident is confirmed, then an update every 6 hours until resolved, then a resolution notice | Wyatt Garner |
 | Security or privacy incident | Affected players, and regulators where required | As the law requires | Within the legal deadline | Wyatt Garner |
 
 Every message:

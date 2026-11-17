@@ -1,8 +1,8 @@
 # Configuration and Secrets
 
-**Source of truth:** `api/.env.example`, `game/.env.example`, `web/.env.example`, `worker/.env.example`, `.github/workflows/deploy-prod.yml`, `.github/workflows/ci.yml`
+**Source of truth:** `api/.env.example`, `game/.env.example`, `web/.env.example`, `worker/.env.example`, `api/fly.toml`, `game/fly.toml`, `.github/workflows/deploy.yml`, `.github/workflows/ci.yml`
 
-Every variable each package reads, where it lives, who owns each secret and how to rotate it, and the config switches. Hosting is not chosen yet ([stack.md](../engineering/stack.md)), so "host secret store" means whichever host runs that component.
+Every variable each package reads, where it lives, who owns each secret and how to rotate it, and the config switches. `api` and `game` run on Fly.io: "Fly secret" means `fly secrets set` on that app (staging and production apps each have their own), and "`fly.toml`" means the value is in the repo or passed by the deploy. `web` runs on Vercel, but its values are built in by CI from the GitHub Environment, not set in Vercel.
 
 ## 1. Variables per package
 
@@ -10,21 +10,21 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 
 | Variable | Package(s) | Secret | Production location |
 |---|---|---|---|
-| `PORT` | api, game | no | host config |
-| `APP_ENV` | api, game, worker | no | host config |
-| `LOG_LEVEL` | api, game, worker | no | host config |
-| `DATABASE_URL` | api, game, worker | **yes** (the `app_service` password) | host secret store |
+| `PORT` | api, game | no | `fly.toml` `[env]` |
+| `APP_ENV` | api, game, worker | no | api, game: set by `deploy.yml` (`staging` / `production`); worker: `load-clues.yml` |
+| `LOG_LEVEL` | api, game, worker | no | `fly.toml` `[env]` (`info`) |
+| `DATABASE_URL` | api, game, worker | **yes** (the `app_service` password) | Fly secret. The Supabase transaction pooler URI (port 6543) as `app_service`, ending `?default_query_exec_mode=simple_protocol` ([deployment.md](../operations/deployment.md#database-roles-per-environment)) |
 | `DATABASE_OWNER_URL` | worker | **yes** (owner role, bypasses RLS) | Only for `import-clues`. Local: `worker/.env`. Staging and production: never on a laptop; `load-clues.yml` reads the GitHub Environment secrets below |
-| `SUPABASE_URL` | api, game | no | host config |
-| `SUPABASE_JWKS_URL` | api, game | no (public keys) | host config |
-| `ALLOWED_ORIGINS` | api, game | no | host config |
-| `GAME_SOCKET_BASE_URL` | api | no | host config |
+| `SUPABASE_URL` | api, game | no | Fly secret (not secret, kept with the rest) |
+| `SUPABASE_JWKS_URL` | api, game | no (public keys) | Fly secret: `{SUPABASE_URL}/auth/v1/.well-known/jwks.json` |
+| `ALLOWED_ORIGINS` | api, game | no | Fly secret: the web origin, e.g. `https://schmegettes-web-prod.vercel.app` |
+| `GAME_SOCKET_BASE_URL` | api | no | Fly secret: `wss://schmegettes-game-{staging,prod}.fly.dev` |
 | `REDIS_URL` | game | **yes** | host secret store. Listed in `game/.env.example` but not read yet: no service uses Redis |
 | `CLUE_DATASET_BASE_URL` | worker | no | `worker/.env`; in `load-clues.yml`, the optional repo variable `CLUE_DATASET_BASE_URL` (defaults to the dataset URL) |
 | `ANTHROPIC_API_KEY` | worker | **yes** | host secret store. Not read yet: the LLM judge is not built |
-| `VITE_SUPABASE_URL` | web | no | web host build config |
-| `VITE_SUPABASE_ANON_KEY` | web | no (public by design) | web host build config |
-| `VITE_API_URL` | web | no | web host build config |
+| `VITE_SUPABASE_URL` | web | no | GitHub Environment variable, read by `deploy.yml` at build time |
+| `VITE_SUPABASE_ANON_KEY` | web | no (public by design) | GitHub Environment variable |
+| `VITE_API_URL` | web | no | GitHub Environment variable |
 
 `VITE_*` values are bundled into the client, so anyone can read them. Never put a secret in a `VITE_*` variable.
 
@@ -32,9 +32,15 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 
 | Name | Kind | Location | Used by |
 |---|---|---|---|
-| `PROD_SUPABASE_DB_OWNER_URL` | secret | GitHub Environment `production` | `deploy-prod.yml` migrations; `load-clues.yml` |
-| `STAGING_SUPABASE_DB_OWNER_URL` | secret | GitHub Environment `staging` (**not set yet**: no staging project) | `load-clues.yml` |
-| `PROD_VERSION_URLS` | variable (not secret) | GitHub Environment `production` | `deploy-prod.yml` deployed-commit check |
+| `PROD_SUPABASE_DB_OWNER_URL` | secret | GitHub Environment `production` (**not set yet**) | `deploy.yml` migrations; `load-clues.yml` |
+| `STAGING_SUPABASE_DB_OWNER_URL` | secret | GitHub Environment `staging` (**not set yet**) | `deploy.yml` migrations; `load-clues.yml` |
+| `FLY_API_TOKEN_API`, `FLY_API_TOKEN_GAME` | secrets | GitHub Environments `staging` and `production`, each with that environment's per-app deploy token (`fly tokens create deploy -a {app}`) | `deploy.yml` |
+| `VERCEL_TOKEN` | secret | GitHub Environments `staging` and `production` | `deploy.yml` |
+| `FLY_APP_API`, `FLY_APP_GAME` | variables | GitHub Environments: `schmegettes-{api,game}-staging` / `-prod` | `deploy.yml` |
+| `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | variables | GitHub Environments (from the Vercel project's settings) | `deploy.yml` |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL` | variables (public) | GitHub Environments | `deploy.yml` web build |
+| `GAME_SOCKET_ORIGIN` | variable (public) | GitHub Environments: `wss://schmegettes-game-{staging,prod}.fly.dev` | `deploy.yml`, the web CSP's `connect-src` |
+| `STAGING_VERSION_URLS`, `PROD_VERSION_URLS` | variables (not secret) | GitHub Environment `staging` / `production`: the web `/version.json` and the api and game `/version` URLs, space-separated | `deploy.yml` deployed-commit check |
 | `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` | secrets | repo secrets (**not set yet**: Jira is not configured) | `create-jira-ticket.yml`, `jira-transitions.yml` |
 | `ANTHROPIC_API_KEY` | secret | repo secret (**not set yet**) | `ci.yml` evals job |
 
@@ -44,8 +50,10 @@ Owner of every secret: **Wyatt Garner**.
 
 | Secret | How to rotate |
 |---|---|
-| `app_service` password (`DATABASE_URL`) | In each Supabase project, `alter role app_service with login password '<new>';`. Then update `DATABASE_URL` in every host's secret store and restart api, game, and worker. |
+| `app_service` password (`DATABASE_URL`) | In each Supabase project, `alter role app_service with login password '<new>';`. Then `fly secrets set DATABASE_URL=… -a {app}` on that environment's api and game apps (setting a secret restarts the app). |
 | Owner database URL (`DATABASE_OWNER_URL`, `PROD_SUPABASE_DB_OWNER_URL`, `STAGING_SUPABASE_DB_OWNER_URL`) | Reset the database password in the Supabase dashboard. Update the worker's secret and the GitHub Environment secret. |
+| Fly deploy tokens (`FLY_API_TOKEN_API`, `FLY_API_TOKEN_GAME`) | `fly tokens create deploy -a {app}`, update the GitHub Environment secret, then revoke the old one (`fly tokens list -a {app}`, `fly tokens revoke {id}`). |
+| `VERCEL_TOKEN` | Create a new token in Vercel account settings (scoped to the team), update both GitHub Environment secrets, then delete the old token. |
 | Supabase JWT signing keys | Rotate in Supabase (asymmetric signing keys). No redeploy: `golib/auth` caches the JWKS and refetches it when a token names a key it hasn't seen. Revoke the old key once tokens signed with it have expired. |
 | `REDIS_URL` credentials | Rotate in the Redis provider, then update the game's secret and restart it. |
 | `ANTHROPIC_API_KEY` | Create a new key in the Anthropic console, update the worker's secret and the repo secret, then revoke the old key. |

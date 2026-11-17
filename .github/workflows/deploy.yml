@@ -120,7 +120,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@v5
         with:
-          install_args: node bun npm:vercel
+          install_args: node bun
       - run: bun install --frozen-lockfile
       # VITE_* values are public (bundled into the client), so they are variables, not secrets.
       - name: Build
@@ -130,21 +130,20 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           GIT_SHA: ${{ github.sha }}
         run: bun run --cwd web build
-      # Writes web/.vercel/output: SPA fallback, CSP built from these origins, HSTS.
-      - name: Package for Vercel
+      # Uploads web/dist with a vercel.json (SPA fallback, CSP built from these origins, HSTS)
+      # through Vercel's REST API, and waits until the production deployment is ready. Only this
+      # step sees the token, and it runs Node's standard library alone: no Vercel CLI, no packages.
+      # The Vercel project's Git integration is off: this is its only deployer.
+      - name: Deploy
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           GAME_SOCKET_ORIGIN: ${{ vars.GAME_SOCKET_ORIGIN }}
-        run: node web/scripts/vercel-output.mjs
-      # The Vercel project's Git integration is off: this is its only deployer.
-      - name: Deploy
-        working-directory: web
-        env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-        run: vercel deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN"
+          GIT_SHA: ${{ github.sha }}
+        run: node web/scripts/vercel-deploy.mjs
 
   verify:
     name: Verify deployed commit (${{ inputs.environment }})

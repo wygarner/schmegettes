@@ -1,6 +1,6 @@
 # Deployment and Environments
 
-**Source of truth:** `.github/workflows/deploy.yml` (called by `deploy-staging.yml` and `deploy-prod.yml`), `api/fly.toml`, `game/fly.toml`, `web/scripts/vercel-output.mjs`
+**Source of truth:** `.github/workflows/deploy.yml` (called by `deploy-staging.yml` and `deploy-prod.yml`), `api/fly.toml`, `game/fly.toml`, `web/scripts/vercel-deploy.mjs`
 
 Hosting was decided on 2026-11-10: **Fly.io** for `api` and `game`, **Vercel** for `web`, **Supabase** for the database. A push to `develop` deploys staging (`deploy-staging.yml`) and a push to `production` deploys production (`deploy-prod.yml`). Both run the same jobs (`deploy.yml`). Custom domains are not set up yet: every URL below is the provider's default hostname and comes from configuration, so adding a domain changes configuration only.
 
@@ -18,7 +18,7 @@ Staging and production are separate projects with every provider: two Supabase p
 
 | Component | Requirement | Host | Deploy mode |
 |---|---|---|---|
-| web | Static/edge host, SPA fallback to `index.html`, CSP + HSTS headers, serves `/version.json` | Vercel (`schmegettes-web-staging`, `schmegettes-web-prod`) | CI builds the bundle, `web/scripts/vercel-output.mjs` packages it with the headers and fallback, `vercel deploy --prebuilt --prod`. The projects' Git integration is off |
+| web | Static/edge host, SPA fallback to `index.html`, CSP + HSTS headers, serves `/version.json` | Vercel (`schmegettes-web-staging`, `schmegettes-web-prod`) | CI builds the bundle; `web/scripts/vercel-deploy.mjs` uploads it with a `vercel.json` (headers, fallback) through Vercel's REST API and waits for the production deployment. No Vercel CLI: the job holding the token runs no npm packages. The projects' Git integration is off |
 | api | Runs a build of an exact commit; pre-release step not needed (migrations run in CI); health check on `/healthz`; horizontal scaling | Fly.io (`schmegettes-api-staging`, `schmegettes-api-prod`) | `flyctl deploy` from CI, image built on Fly's remote builder and labelled with the commit; rolling, waits for `/healthz` |
 | game | Long-lived WebSockets (no request timeout under 1 h), graceful SIGTERM with ≥20 s drain, sticky sessions not required. **One instance** until room ownership exists | Fly.io (`schmegettes-game-staging`, `schmegettes-game-prod`) | `flyctl deploy --ha=false` from CI; one machine, replaced in place, waits for `/healthz`; `kill_timeout` 30 s |
 | worker | Same commit as the others, separate process, no inbound traffic | None yet: the worker is only the `import-clues` command, run by `load-clues.yml`. **Not yet implemented:** a long-running worker process | — |
@@ -102,7 +102,7 @@ The `private_access` migration creates the first host code, and nobody can host 
 select code from public.host_codes where used_at is null;
 ```
 
-The web host also sends `X-Robots-Tag: noindex, nofollow` on every response (`web/scripts/vercel-output.mjs`); the pages carry the meta tag too, and `robots.txt` disallows everything.
+The web host also sends `X-Robots-Tag: noindex, nofollow` on every response (`web/scripts/vercel-deploy.mjs`); the pages carry the meta tag too, and `robots.txt` disallows everything.
 
 ## Environment variables
 

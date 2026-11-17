@@ -47,15 +47,18 @@ Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667
 - A new player animates into the list, without a sound.
 - **Start**: primary button. While there are fewer than 2 contestants it is disabled, with the hint "Need at least 2 players". A playing host counts.
 - **Join the game** (secondary) adds the host to the list at once, under their host name, tagged HOST, and the button becomes **Leave the game**. Editing the host name with ✎ updates both places.
-- **🔊 {voice name}** (subtle button) opens the narrator voice picker (below). While the Schmegettes voice downloads it reads "🔊 Kristin · 40%". It's hidden when the device can't speak at all.
+- **🔊 {voice name}** (subtle button) opens the narrator voice picker (below). While the chosen Schmegettes voice downloads it reads "🔊 Norman · 40%". It's hidden when the device can't speak at all.
 
 ### Narrator voice picker (host device)
 
-Rules: [gameplay](../gameplay/feature-brief.md#the-narrators-voice). **Not yet implemented:** the Schmegettes voice row, its download progress, and the new tip rule. Today the list has only the device's voices, and the tip shows whenever no Premium or Enhanced voice is installed.
+Rules: [gameplay](../gameplay/feature-brief.md#the-narrators-voice). **Not yet implemented:** the Schmegettes voice rows, their download progress, and the new tip rule. Today the list has only the device's voices, and the tip shows whenever no Premium or Enhanced voice is installed.
 
 ```text
 ┌──────────────────── Narrator voice ────────────────────┐
-│  ✓ Kristin (Schmegettes voice)      Downloading… 40%   │ ◀ always first
+│  ──────────── Schmegettes voices ────────────────────  │ ◀ always first
+│  ✓ Kristin                                             │
+│    Norman                           Downloading… 40%   │
+│    John                                                │
 │  ──────────── Voices on this device ─────────────────  │
 │    Ava (Premium)                                       │
 │    Samantha                                            │
@@ -69,13 +72,13 @@ Rules: [gameplay](../gameplay/feature-brief.md#the-narrators-voice). **Not yet i
 └────────────────────────────────────────────────────────┘
 ```
 
-1. The host taps **🔊 Kristin**. A modal lists the Schmegettes voice first, then the device's English voices, best first, with the current one checked. Each device voice shows its name, its quality ("Premium", "Enhanced"), and the region when it isn't US ("UK", "Australia").
+1. The host taps **🔊 Kristin**. A modal lists the Schmegettes voices first (Kristin, Norman, John), then the device's English voices, best first, with the current one checked. Each device voice shows its name, its quality ("Premium", "Enhanced"), and the region when it isn't US ("UK", "Australia").
 2. Tapping a row selects it at once and says "Here's Volcanoes for 400." in that voice on the TV.
 3. **Done** (or tapping outside the modal) closes it. The button shows the new name. The choice is saved on this device.
 
 - The settings path in the tip matches the device: iPhone/iPad, or Mac (System Settings). Other devices don't show a tip.
 - Novelty voices (singing, whispering, robot effects) aren't listed.
-- The Schmegettes voice row shows its state on the right: "Downloading… 40%", nothing once it's ready, or "Couldn't download" with **Try again**. It can be selected while it downloads; its sample plays once it's ready, and until then the narrator uses the best built-in voice.
+- Each Schmegettes voice row shows its state on the right: "Downloading… 40%", nothing once it's ready or before it's picked, or "Couldn't download" with **Try again**. Tapping a voice that isn't on the device selects it and starts its download (about 63 MB); its sample plays once it's ready. Until then the narrator keeps the voice it had: the previous Schmegettes voice if one is on the device, else the best built-in voice.
 
 ### Join (phone)
 
@@ -146,7 +149,10 @@ When the host joined, their controls live in the **player column** on the right 
 | The Schmegettes voice is still downloading at Start | **Not yet implemented.** Start works as usual. The narrator uses the best built-in voice and switches to the Schmegettes voice at the next line once it's ready |
 | The download fails (offline, blocked, out of space) | **Not yet implemented.** The row says "Couldn't download" with **Try again**. The best built-in voice reads. The next lobby tries again on its own |
 | The browser deleted the saved voice (iOS clears site data that hasn't been used for a few weeks) | **Not yet implemented.** It downloads again in the background when the lobby opens |
-| The device can't generate speech fast enough | **Not yet implemented.** The Schmegettes voice row says "Not available on this device". The built-in voices and the tip are shown |
+| The device can't generate speech fast enough | **Not yet implemented.** The Schmegettes voice rows say "Not available on this device". The built-in voices and the tip are shown |
+| Host picks Norman, then John, before either finishes downloading | **Not yet implemented.** Norman's download stops; John's starts. Only the voice that ends up picked is kept |
+| Host picks another Schmegettes voice and its download fails | **Not yet implemented.** The row says "Couldn't download" with **Try again**. The narrator keeps the voice already on the device |
+| Host switches from Norman back to Kristin after Norman replaced it | **Not yet implemented.** Kristin downloads again (about 63 MB); Norman keeps reading until it's ready |
 | Host presses Start while a player is mid-join | Whoever has finished joining when the server handles Start is in. The rest see "This game has already started." |
 | A player leaves so the count drops below 2 | Start disables again |
 | Host presses Host a game again on Home while their lobby is open | The old lobby closes ("This room has closed" on its phones) and a new code appears |

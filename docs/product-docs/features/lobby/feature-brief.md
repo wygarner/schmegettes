@@ -59,7 +59,7 @@ The host device is an iPhone in landscape, mirrored to the TV ([gameplay](../gam
 - Shows the **room code**, the join URL in plain text, and "Hosted by {name}".
 - Shows **joined contestants** live, by display name, in the order they joined, with a count against the limit ("3 / 6").
 - **Join the game** / **Leave the game**: adds or removes the host as a contestant.
-- **Voice** shows the narrator's voice by name and opens a list: the Schmegettes voice first (**Not yet implemented**), then the device's English voices, best first. While the Schmegettes voice downloads, the button shows its progress. Tapping a voice selects it and plays a sample line on the TV ("Here's Volcanoes for 400."), so the host hears it before Start. It's available only in the lobby. The rules for choosing a voice are in [gameplay](../gameplay/feature-brief.md#the-narrators-voice).
+- **Voice** shows the narrator's voice by name and opens a list: the Schmegettes voices Kristin, Norman, and John first (**Not yet implemented**), then the device's English voices, best first. While the chosen Schmegettes voice downloads, the button shows its progress. Tapping a voice selects it and plays a sample line on the TV ("Here's Volcanoes for 400."), so the host hears it before Start. It's available only in the lobby. The rules for choosing a voice are in [gameplay](../gameplay/feature-brief.md#the-narrators-voice).
 - **Start** is enabled once at least **2 contestants** have joined, counting the host if they joined. It closes joining, and the room moves to `building_board`. What happens after that belongs to game-history and gameplay.
 
 ### Joining (contestant phone)

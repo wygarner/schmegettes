@@ -3,6 +3,8 @@ import {
   chooseVoice,
   getSavedVoice,
   hasNaturalVoice,
+  narratorChoice,
+  piperChoiceValue,
   rankVoices,
   saveVoice,
   tipPlatform,
@@ -139,5 +141,24 @@ describe("tipPlatform", () => {
   test("Windows gets no tip", () => {
     as("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
     expect(tipPlatform()).toBeNull();
+  });
+});
+
+describe("narratorChoice", () => {
+  afterEach(() => window.localStorage.clear());
+  test("nothing saved: the default Schmegettes voice", () => {
+    expect(narratorChoice()).toEqual({ kind: "piper", id: "kristin" });
+  });
+  test("a saved Schmegettes voice", () => {
+    saveVoice(piperChoiceValue("norman"));
+    expect(narratorChoice()).toEqual({ kind: "piper", id: "norman" });
+  });
+  test("a built-in voice saved earlier is kept", () => {
+    saveVoice(ava.voiceURI);
+    expect(narratorChoice()).toEqual({ kind: "device", uri: ava.voiceURI });
+  });
+  test("an unknown Schmegettes voice falls back to the default", () => {
+    saveVoice("piper:zarvox");
+    expect(narratorChoice()).toEqual({ kind: "piper", id: "kristin" });
   });
 });

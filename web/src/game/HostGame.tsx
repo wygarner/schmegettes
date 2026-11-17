@@ -2,6 +2,9 @@ import { Box, Loader, Text, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { money } from "../lib/money";
+import { narrate, resetNarrationForGame, stopNarration } from "../lib/narrator";
+import { narratorChoice } from "../lib/narratorVoice";
+import { prepareVoice } from "../lib/piper/engine";
 import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
 import {
   announcement,
@@ -9,9 +12,6 @@ import {
   DAILY_DOUBLE_INTRO,
   dailyDoubleAnnouncement,
   finalAnnouncement,
-  speak,
-  spokenText,
-  stopSpeaking,
 } from "../lib/speech";
 import { GoldButton } from "../ui/GoldButton";
 import { Meter } from "../ui/Meter";
@@ -111,12 +111,20 @@ export function HostGame({
   const [soundBlocked, setSoundBlocked] = useState(false);
   const confirm = usePickConfirm(state, hostUserId, send);
 
+  // A game starts with the Schmegettes voice again. After a reload mid-game, the chosen voice
+  // loads from the device in the background; the built-in voice reads until it's ready.
+  useEffect(() => {
+    resetNarrationForGame();
+    const choice = narratorChoice();
+    if (choice.kind === "piper") void prepareVoice(choice.id);
+  }, []);
+
   // Say each announcement and clue once per showing. Only a reading that really ended
   // reports reading_done; otherwise the server's timer moves on, so nobody can buzz (or
   // the Final can't start) before the room has heard it.
   const say = useCallback(
     (speech: Speech) => {
-      void speak(spokenText(speech.text)).then((result) => {
+      void narrate(speech.text).then((result) => {
         if (result === "failed") setSoundBlocked(true);
         if (result === "ended") {
           setSoundBlocked(false);
@@ -148,11 +156,11 @@ export function HostGame({
   const unblockSound = () => {
     setSoundBlocked(false);
     if (speech) say(speech);
-    else void speak("Sound on");
+    else void narrate("Sound on");
   };
 
   useEffect(() => {
-    if (!speechKey) stopSpeaking();
+    if (!speechKey) stopNarration();
   }, [speechKey]);
 
   const skipSince = useSince(state.finalSkipped ? "skipped" : "", FINAL_SKIPPED_MS);

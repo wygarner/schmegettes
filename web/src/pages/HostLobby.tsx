@@ -21,9 +21,9 @@ import { MicPrompt } from "../game/MicPrompt";
 import { NarratorVoicePicker } from "../game/NarratorVoicePicker";
 import { PlayerControls } from "../game/PlayerControls";
 import { isValidName, MAX_NAME, setLastName } from "../lib/displayName";
+import { stopNarration } from "../lib/narrator";
 import { contestantCount, type RoomState, useRoom } from "../lib/room";
 import { type RoomJoin, roomByCode } from "../lib/rooms";
-import { stopSpeaking } from "../lib/speech";
 import { getUserId } from "../lib/supabase";
 import { GoldButton } from "../ui/GoldButton";
 import { Stage, StageBody } from "../ui/Stage";
@@ -258,7 +258,7 @@ export function HostLobbyView({
             disabled={!canStart}
             loading={starting}
             onClick={() => {
-              stopSpeaking(); // a voice sample still playing
+              stopNarration(); // a voice sample still playing
               setStarting(true);
               send({ type: "start_game" });
             }}

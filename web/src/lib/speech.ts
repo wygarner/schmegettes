@@ -2,6 +2,7 @@
 // (SpeechRecognition). Recognition runs on the device; only text is sent to the server.
 
 import { chooseVoice, currentVoices, getSavedVoice } from "./narratorVoice";
+import { unlockAudio } from "./piper/audio";
 
 /** How a reading went. Only "ended" means the room heard the clue. */
 export type SpeakResult = "ended" | "failed" | "unavailable";
@@ -71,6 +72,7 @@ let unlocked = false;
  * gesture; a silent utterance from the first tap unlocks narration for the rest of the visit.
  */
 export function unlockSpeech() {
+  unlockAudio(); // the Schmegettes voices play through Web Audio, which iOS also unlocks on a tap
   if (unlocked || typeof window === "undefined" || !window.speechSynthesis) return;
   if (typeof SpeechSynthesisUtterance === "undefined") return;
   try {

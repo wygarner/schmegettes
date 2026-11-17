@@ -35,19 +35,28 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 - The TV shows the clue full screen and **reads it aloud** with the host device's text-to-speech. The narrator first announces the pick, "Here's Volcanoes for 400.", then reads the clue. The value is spoken as a number ("for 400", not "for four hundred dollars").
 - Buzzing opens when the reading (announcement and clue) ends. The host device reports the end of speech. If speech fails or stalls, the server opens buzzing anyway after an estimate from the length of the announcement and clue together (about 2.5 words per second plus 1 s, at most 14 s).
 
-### The narrator's voice
-
-- The narrator uses the **best English voice installed on the host device**, not the browser's default. Best means, in order: a **Premium** voice, then an **Enhanced** one, then any other US English voice, then any other English voice. Within a group, the device's default voice comes first. Phones never speak.
-- **Novelty voices are never used**: voices that sing, whisper, or add robot effects (on Apple devices, for example, Bells, Whisper, and Zarvox). They can't read a clue in the time the server allows, and they're hard to follow.
-- The host can **change the voice in the lobby** and hear a sample first ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). Once the game starts the voice stays fixed. The same voice speaks every line: announcements, clues, Daily Double and Final lines, and the correct response.
-- The choice is **kept on that host device** for every room it hosts until the host changes it. It isn't tied to the host's account and never reaches the server.
-- If the saved voice is no longer on the device, the best voice is used instead, without a message.
-- **Every voice speaks at its normal pace.** There's no speed setting. The server's fallback estimate assumes a normal pace, so a slower voice would let buzzing open before the clue is finished.
-- Siri's voices can't be used: iOS doesn't offer them to web pages. To get a more natural narrator, the host downloads a Premium or Enhanced voice in the device's settings. The lobby explains how.
 - **Early buzz:** a buzz before buzzing opens locks that player out for **250 ms**, as on the show. The buzz is not queued.
 - **First valid buzz wins.** The order is the order the server receives buzzes. Phone clocks are never trusted.
 - **Buzz window: 9 s.** If nobody buzzes, the clue goes unanswered and the TV shows the correct response for 6 s. Control doesn't change.
 - **The buzzer is always on screen** for every contestant, from the moment they join the lobby to the end of the game. Every view (phone, and the host device when the host plays) uses the same buzzer component. Its state changes at the same moment everywhere: **dim** when buzzing is closed or the clue is being read, **lit** when buzzing opens, **locked** after an early buzz or once that player has answered this clue. A tap on a dim buzzer outside `clue_reading` does nothing and costs nothing, except for the player in control on the board, whose buzzer starts listening for their pick.
+
+### The narrator's voice
+
+**Not yet implemented:** the Schmegettes voice and everything about generating it (the first six rules). Today the narrator uses the best built-in voice; the rules for built-in voices are built.
+
+- **The Schmegettes voice.** By default the narrator is the game's own voice, **Kristin**: a free, open-source voice (Piper, public domain) that the host device generates itself. It sounds the same on every host device, costs nothing, and needs no server. Phones never speak and never download it.
+- **One download, kept.** The voice is about **63 MB**, downloaded once to the host device. The download starts in the background as soon as the host lobby opens, and the browser keeps the voice for next time. Until it's ready, and on a device that can't run it, the narrator uses the best voice built into the device (below).
+- **The game never waits for it.** Start is never held up by the download. If the voice becomes ready during a game, the narrator switches to it at the next line, never in the middle of one.
+- **Reading starts quickly.** Generating speech takes a moment, so the narrator says the short announcement ("Here's Volcanoes for 400.") while the clue is still being prepared. The first word is heard within **1 s** of the clue appearing on the TV.
+- **A line that isn't ready in time** (not started **1.5 s** after it should have, or an error) is read with the best built-in voice instead. After **2** such lines in a row, the rest of the game uses the built-in voice, so the room doesn't hear the voice switch back and forth.
+- **It never slows the host's buzzer.** Generating speech must not make the host device's screen or buzzer lag: a host who plays buzzes as quickly as anyone.
+- **Built-in voices** are the fallback, and the host can pick one instead. The best is a **Premium** voice, then an **Enhanced** one, then any other US English voice, then any other English voice; within a group, the device's default voice comes first.
+- **Novelty voices are never used**: voices that sing, whisper, or add robot effects (on Apple devices, for example, Bells, Whisper, and Zarvox). They can't read a clue in the time the server allows, and they're hard to follow.
+- The host can **change the voice in the lobby** and hear a sample first ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). The Schmegettes voice is listed first, then the device's voices. The same voice speaks every line: announcements, clues, Daily Double and Final lines, and the correct response.
+- The choice is **kept on that host device** for every room it hosts until the host changes it. It isn't tied to the host's account and never reaches the server. A host who picked a built-in voice keeps it.
+- If the saved voice is no longer on the device, the Schmegettes voice is used (or, until it's ready, the best built-in voice), without a message.
+- **Every voice speaks at its normal pace, and buzzing never opens before the reading ends.** There's no speed setting. The server's fallback estimate starts when the clue is picked, so the time spent generating speech counts against it.
+- Siri's voices can't be used: iOS doesn't offer them to web pages. When the Schmegettes voice can't be used on a device and no Premium or Enhanced voice is installed, the lobby explains how to download one in the device's settings.
 
 ### Answering and judging
 

@@ -8,7 +8,7 @@ What each kind of test covers, where it runs, and the rules for new code. Tests 
 
 | Layer | Scope | Tools | When it runs |
 |---|---|---|---|
-| Unit | Functions, components, hooks, handlers, with dependencies faked | Vitest + Testing Library (`web/`), `go test -race` (`api/`, `game/`, `golib/`), pytest (`worker/`) | Locally on touched files; every package in CI on the daily PR |
+| Unit | Functions, components, hooks, handlers, with dependencies faked | Vitest + Testing Library (`web/`, `devtools/`: `mise run test:devtools -- src/admin`), `go test -race` (`api/`, `game/`, `golib/`), pytest (`worker/`) | Locally on touched files; every package in CI on the daily PR |
 | Database | RLS policies, grants, and database functions against a real throwaway database | pgTAP via `supabase test db` (`supabase/tests/*.test.sql`) | Locally when `supabase/` changes; CI on the daily PR |
 | Contract | The shared schemas and that generated code matches them | `shared/test/schemas.test.ts`; the CI check that `mise run gen` leaves no diff; `api/internal/rooms/handler_test.go` validates responses against the OpenAPI copy | CI on the daily PR |
 | End-to-end | Critical paths in a browser against a deployed environment: sign in, create room, join by code, buzz, judge, finish a game | Playwright. **Not yet implemented** | Release verification only ([release-strategy.md](../operations/release-strategy.md)) |

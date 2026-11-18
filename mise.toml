@@ -76,6 +76,10 @@ run = "test -f .env || { echo 'worker/.env missing: cp worker/.env.example worke
 description = "Usage: mise run test:web -- src/path/to/file.test.tsx"
 run = "bun run --cwd web test"
 
+[tasks."test:devtools"]
+description = "Usage: mise run test:devtools -- src/path/to/file.test.tsx"
+run = "bun run --cwd devtools test"
+
 [tasks."test:game"]
 description = "Usage: mise run test:game -- ./internal/room/..."
 dir = "game"

@@ -7,7 +7,7 @@
 | `/` (Home) | anyone | **Host a game** on a device without host access opens the host-code sheet first. With host access, it goes straight to the name prompt. Code field + **Join** unchanged. |
 | Host-code sheet (over Home) | host device | "Schmegettes is invite-only", code field, **Continue** |
 | `/join/{code}` | phones | Unchanged |
-| devtools → **Admin** (local only, never deployed) | admin | Current host code, rotate now, hosts list. **Not yet implemented** |
+| devtools → **Admin** (local only, never deployed) | admin | Current host code, rotate now, hosts list |
 
 ## States of the host device
 
@@ -65,7 +65,7 @@ Unchanged: room code, then name, then the buzzer. No host-code prompt ever appea
 
 ## Admin page (devtools)
 
-**Not yet implemented.** In devtools, next to the design prototypes.
+In devtools (`devtools/src/admin/`), above the design prototypes. Locally the seeded code `DEVS-TEST` never rotates on its own; the page says so.
 
 ### Sign in
 

@@ -173,7 +173,9 @@ jobs:
         with:
           install_args: node bun
       - run: bun install --frozen-lockfile
+      - run: bunx biome ci devtools
       - run: bun run --cwd devtools build
+      - run: bun run --cwd devtools test:coverage
 
   game:
     name: Game Server

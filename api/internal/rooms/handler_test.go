@@ -50,7 +50,10 @@ func (allowAll) Verify(string) (auth.Claims, error) {
 	return auth.Claims{UserID: sample.HostUserID, Raw: []byte(`{}`)}, nil
 }
 
-type routes struct{ Handler }
+type routes struct {
+	contracts.ServerInterface
+	Handler
+}
 
 func (routes) GetHealthz(http.ResponseWriter, *http.Request)                             {}
 func (routes) GetVersion(http.ResponseWriter, *http.Request)                             {}
@@ -90,7 +93,7 @@ func call(t *testing.T, store *fakeStore, method, path, body string) *httptest.R
 	t.Helper()
 	h := Handler{Store: store, SocketBase: "ws://game.test/"}
 	mux := http.NewServeMux()
-	app := server.Authenticate(allowAll{})(contracts.HandlerWithOptions(routes{h}, contracts.StdHTTPServerOptions{BaseRouter: mux}))
+	app := server.Authenticate(allowAll{})(contracts.HandlerWithOptions(routes{Handler: h}, contracts.StdHTTPServerOptions{BaseRouter: mux}))
 
 	req := httptest.NewRequest(method, path, bytes.NewBufferString(body))
 	req.Header.Set("Authorization", "Bearer x")

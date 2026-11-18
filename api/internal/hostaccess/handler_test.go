@@ -49,7 +49,10 @@ func (v verifier) Verify(string) (auth.Claims, error) {
 	return auth.Claims{UserID: "11111111-1111-4111-8111-111111111111", Raw: []byte(`{}`)}, nil
 }
 
-type routes struct{ Handler }
+type routes struct {
+	contracts.ServerInterface
+	Handler
+}
 
 func (routes) GetHealthz(http.ResponseWriter, *http.Request)                             {}
 func (routes) GetVersion(http.ResponseWriter, *http.Request)                             {}
@@ -73,7 +76,7 @@ func call(t *testing.T, store *fakeStore, tokenOK bool, method, path, body strin
 	t.Helper()
 	mux := http.NewServeMux()
 	app := server.Authenticate(verifier{tokenOK})(
-		contracts.HandlerWithOptions(routes{Handler{Store: store}}, contracts.StdHTTPServerOptions{BaseRouter: mux}))
+		contracts.HandlerWithOptions(routes{Handler: Handler{Store: store}}, contracts.StdHTTPServerOptions{BaseRouter: mux}))
 	req := httptest.NewRequest(method, path, bytes.NewBufferString(body))
 	req.Header.Set("Authorization", "Bearer x")
 	req.Header.Set("Content-Type", "application/json")
@@ -110,7 +113,7 @@ func TestNoTokenIs401(t *testing.T) {
 		method := map[string]string{"/v1/host-access": "GET", "/v1/host-access/redeem": "POST"}[path]
 		mux := http.NewServeMux()
 		app := server.Authenticate(verifier{false})(
-			contracts.HandlerWithOptions(routes{Handler{Store: &fakeStore{}}}, contracts.StdHTTPServerOptions{BaseRouter: mux}))
+			contracts.HandlerWithOptions(routes{Handler: Handler{Store: &fakeStore{}}}, contracts.StdHTTPServerOptions{BaseRouter: mux}))
 		rec := httptest.NewRecorder()
 		app.ServeHTTP(rec, httptest.NewRequest(method, path, bytes.NewBufferString(`{"code":"K7RXM2PQ"}`)))
 		if rec.Code != http.StatusUnauthorized {

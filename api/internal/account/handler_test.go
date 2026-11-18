@@ -61,7 +61,10 @@ func (v verifier) Verify(string) (auth.Claims, error) {
 	return auth.Claims{UserID: userID, IsAnonymous: v.anonymous, Raw: []byte(`{}`)}, nil
 }
 
-type routes struct{ Handler }
+type routes struct {
+	contracts.ServerInterface
+	Handler
+}
 
 func (routes) GetHealthz(http.ResponseWriter, *http.Request)                             {}
 func (routes) GetVersion(http.ResponseWriter, *http.Request)                             {}
@@ -87,7 +90,7 @@ func call(t *testing.T, store *fakeStore, anonymous bool, method, path, body str
 	t.Helper()
 	mux := http.NewServeMux()
 	app := server.Authenticate(verifier{anonymous})(
-		contracts.HandlerWithOptions(routes{Handler{Store: store}}, contracts.StdHTTPServerOptions{BaseRouter: mux}))
+		contracts.HandlerWithOptions(routes{Handler: Handler{Store: store}}, contracts.StdHTTPServerOptions{BaseRouter: mux}))
 	req := httptest.NewRequest(method, path, bytes.NewBufferString(body))
 	req.Header.Set("Authorization", "Bearer x")
 	req.Header.Set("Content-Type", "application/json")

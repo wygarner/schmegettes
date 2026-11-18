@@ -29,8 +29,11 @@ select 1, date '2000-01-03', 'final', 'SAMPLE FINAL ' || cat, null,
 from generate_series(1, 4) as cat
 on conflict (source_key) do nothing;
 
--- Host access (docs/product-docs/features/private-access/): enter DEVS-TEST on the host device.
--- After it's used, read the new code with
---   select code from public.host_codes where used_at is null;
--- or start over with `mise run db:reset`.
+-- Host access (docs/product-docs/features/private-access/): enter DEVS-TEST on the host device,
+-- as many times and on as many devices as you like. Locally it is the current rotating code and
+-- never rotates on its own; Rotate now on the devtools Admin page replaces it until the next
+-- `mise run db:reset`. Staging and production rotate every 45 minutes.
 insert into public.host_codes (code, note) values ('DEVSTEST', 'local') on conflict do nothing;
+update private.host_code_rotation
+set current_code = 'DEVSTEST', rotates_at = '9999-01-01 00:00:00+00', previous_code = null, previous_valid_until = null
+where singleton;

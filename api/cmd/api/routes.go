@@ -8,6 +8,7 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"schmegettes/api/internal/account"
+	"schmegettes/api/internal/admin"
 	"schmegettes/api/internal/contracts"
 	"schmegettes/api/internal/games"
 	"schmegettes/api/internal/hostaccess"
@@ -19,6 +20,7 @@ import (
 // routes implements the generated contracts.ServerInterface. Operations no task has built yet
 // answer 501.
 type routes struct {
+	admin  admin.Handler
 	rooms  rooms.Handler
 	games  games.Handler
 	host   hostaccess.Handler
@@ -33,6 +35,7 @@ type limits struct {
 	join     *ratelimit.Limiter // room codes
 	hostCode *ratelimit.Limiter // host codes
 	account  *ratelimit.Limiter // merge tickets, merging, deleting an account
+	admin    *ratelimit.Limiter // concealed admin api, including unauthenticated attempts
 }
 
 func newLimits() limits {
@@ -40,6 +43,7 @@ func newLimits() limits {
 		join:     ratelimit.New("join", 10, 10),
 		hostCode: ratelimit.New("host-code", 5, 5),
 		account:  ratelimit.New("account", 10, 3),
+		admin:    ratelimit.New("admin", 5, 5),
 	}
 }
 
@@ -76,6 +80,22 @@ func (rt routes) PostV1HostAccessRedeem(w http.ResponseWriter, r *http.Request) 
 	if rt.limits.hostCode.Allow(w, r) {
 		rt.host.Redeem(w, r)
 	}
+}
+
+func (rt routes) GetV1AdminHostCode(w http.ResponseWriter, r *http.Request) {
+	rt.admin.CurrentCode(w, r)
+}
+func (rt routes) PostV1AdminHostCodeRotate(w http.ResponseWriter, r *http.Request) {
+	rt.admin.Rotate(w, r)
+}
+func (rt routes) GetV1AdminHosts(w http.ResponseWriter, r *http.Request) {
+	rt.admin.Hosts(w, r)
+}
+func (rt routes) PatchV1AdminHostsUserId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	rt.admin.SetNote(w, r, id)
+}
+func (rt routes) DeleteV1AdminHostsUserId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	rt.admin.Remove(w, r, id)
 }
 
 func notImplemented(w http.ResponseWriter) {
@@ -115,11 +135,12 @@ func (routes) PatchV1RoomsRoomId(w http.ResponseWriter, _ *http.Request, _ opena
 // handler wires the routes behind logging, CORS, and authentication.
 func handler(rt routes, verifier server.Verifier, origins []string) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", server.NotFound)
 	h := contracts.HandlerWithOptions(rt, contracts.StdHTTPServerOptions{
 		BaseRouter: mux,
 		ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, _ error) {
 			server.Problem(w, http.StatusBadRequest, "invalid-request", "Invalid request")
 		},
 	})
-	return server.Log(server.CORS(origins)(server.Authenticate(verifier)(h)))
+	return server.Log(server.CORS(origins)(server.AuthenticateWithAdminLimit(verifier, rt.limits.admin.AllowKey)(h)))
 }

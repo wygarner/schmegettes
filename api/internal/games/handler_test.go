@@ -53,7 +53,10 @@ func (allowAll) Verify(string) (auth.Claims, error) {
 	return auth.Claims{UserID: me, Raw: []byte(`{}`)}, nil
 }
 
-type routes struct{ Handler }
+type routes struct {
+	contracts.ServerInterface
+	Handler
+}
 
 func (routes) GetHealthz(http.ResponseWriter, *http.Request)                             {}
 func (routes) GetVersion(http.ResponseWriter, *http.Request)                             {}
@@ -80,7 +83,7 @@ func (r routes) GetV1GamesGameId(w http.ResponseWriter, req *http.Request, id op
 func call(t *testing.T, store *fakeStore, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	mux := http.NewServeMux()
-	app := server.Authenticate(allowAll{})(contracts.HandlerWithOptions(routes{Handler{Store: store}}, contracts.StdHTTPServerOptions{
+	app := server.Authenticate(allowAll{})(contracts.HandlerWithOptions(routes{Handler: Handler{Store: store}}, contracts.StdHTTPServerOptions{
 		BaseRouter: mux,
 		ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, _ error) {
 			server.Problem(w, http.StatusBadRequest, "invalid-request", "Invalid request")

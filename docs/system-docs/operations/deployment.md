@@ -96,11 +96,17 @@ To free an email someone else registered, delete that user (Authentication → U
 
 ## Host access after a release
 
-The `private_access` migration creates the first host code, and nobody can host until someone uses it. Read it in the project's SQL editor and give it to the first host:
+Nobody can host until someone enters the current host code, which changes every 45 minutes. Read it on the devtools **Admin** page ([private access](../../product-docs/features/private-access/feature-brief.md#admin-page-devtools)).
 
-```sql
-select code from public.host_codes where used_at is null;
-```
+Once per environment, before the release that brings the Admin page:
+
+1. Sign up an account with email and password in that environment's web app.
+2. In the project's SQL editor, put it on the admin list:
+   ```sql
+   insert into private.admins (user_id) select id from auth.users where email = 'you@example.com' and not is_anonymous;
+   ```
+3. Add `http://localhost:5174` to the api app's `ALLOWED_ORIGINS` (`fly secrets set ALLOWED_ORIGINS=… -a schmegettes-api-{staging,prod}`).
+4. Fill in that environment's public values in `devtools/.env.local`, sign in on the Admin page, and check it shows a code.
 
 The web host also sends `X-Robots-Tag: noindex, nofollow` on every response (`web/scripts/vercel-deploy.mjs`); the pages carry the meta tag too, and `robots.txt` disallows everything.
 

@@ -3,7 +3,7 @@
 /**
  * Envelope for every message on a pgmq queue. Producers (api, game) and the consumer (worker) validate against this schema. Jobs must be idempotent: pgmq redelivers a message whose visibility timeout expires.
  */
-export type Job = ImportClueSeason | BuildBoard | AppealAnswer;
+export type Job = ImportClueSeason | AppealAnswer;
 
 export interface ImportClueSeason {
   kind: "import_clue_season";
@@ -14,20 +14,6 @@ export interface ImportClueSeason {
    */
   requestId?: string;
   season: number;
-}
-export interface BuildBoard {
-  kind: "build_board";
-  jobId: string;
-  enqueuedAt: string;
-  /**
-   * Correlation id of the request that enqueued the job.
-   */
-  requestId?: string;
-  roomId: string;
-  options?: {
-    seasons?: number[];
-    includeFinal?: boolean;
-  };
 }
 export interface AppealAnswer {
   kind: "appeal_answer";

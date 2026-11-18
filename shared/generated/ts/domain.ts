@@ -8,6 +8,7 @@
  */
 export type GamePhase =
   | "lobby"
+  | "building_board"
   | "board"
   | "clue_reading"
   | "buzzing_open"
@@ -18,6 +19,20 @@ export type GamePhase =
   | "final_answer"
   | "final_reveal"
   | "finished";
+/**
+ * How an answer was given: spoken (every clue and Daily Double) or typed (Final Schmegettes only). Mirrors public.answer_source.
+ *
+ * This interface was referenced by `Domain`'s JSON-Schema
+ * via the `definition` "AnswerSource".
+ */
+export type AnswerSource = "voice" | "typed";
+/**
+ * Which judging rule decided an answer. Mirrors public.match_rule.
+ *
+ * This interface was referenced by `Domain`'s JSON-Schema
+ * via the `definition` "MatchRule".
+ */
+export type MatchRule = "exact" | "spelling_slip" | "sounds_alike" | "no_match" | "nothing_heard";
 /**
  * This interface was referenced by `Domain`'s JSON-Schema
  * via the `definition` "Round".
@@ -35,6 +50,13 @@ export type PlayerRole = "host" | "contestant" | "spectator";
  * via the `definition` "RoomStatus".
  */
 export type RoomStatus = "open" | "in_game" | "closed";
+/**
+ * A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).
+ *
+ * This interface was referenced by `Domain`'s JSON-Schema
+ * via the `definition` "GameStatus".
+ */
+export type GameStatus = "in_progress" | "finished" | "abandoned";
 /**
  * This interface was referenced by `Domain`'s JSON-Schema
  * via the `definition` "ClueState".

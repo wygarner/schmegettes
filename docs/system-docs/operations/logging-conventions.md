@@ -1,13 +1,15 @@
 # Logging Conventions
 
-Structured JSON logs from every service, shipped to Grafana Cloud over OpenTelemetry. This is the "how" for anyone writing or reviewing a log statement.
+**Source of truth:** `golib/logging/`, `worker/src/schmegettes_worker/__main__.py`, `api/internal/server/server.go`
+
+Structured JSON logs from every service, written to stdout. Shipping them to Grafana Cloud over OpenTelemetry is **not yet implemented** ([stack.md](../engineering/stack.md)). This is the "how" for anyone writing or reviewing a log statement.
 
 ## 1. Which logger
 
 | Package | Logger | Notes |
 |---|---|---|
 | `game` | `log/slog` with `slog.NewJSONHandler` | Base fields `service`, `env` set in `main.go` |
-| `api` | Rails logger + `lograge` (JSON) | One line per request |
+| `api` | Go `log/slog`, JSON handler | One line per request |
 | `worker` | `structlog` with `JSONRenderer` | |
 | `web` | `console.error` only where a failure is caught, then show it in the UI | Never print tokens or answers in the browser console |
 
@@ -19,9 +21,6 @@ Static message, variable data as fields:
 
 ```go
 slog.Error("buzz rejected", "err", err, "room_id", roomID, "user_id", userID)
-```
-```ruby
-Rails.logger.info({ msg: "room created", room_id: room.id })
 ```
 ```python
 log.info("season imported", season=season, clues=len(clues), duration_ms=elapsed)
@@ -47,18 +46,19 @@ A wrong answer, a rejected buzz, or a full room is normal gameplay, not an error
 
 | Field | Where |
 |---|---|
-| `service`, `env`, `commit` | every line (set once at startup) |
+| `service`, `env` | every line (set once at startup) |
+| `commit` | the startup line. **Not yet implemented** on every line |
 | `request_id` | api requests (returned as `x-request-id`); passed to jobs as `requestId` |
 | `user_id` | after auth |
 | `room_id`, `game_id` | everything in game/, and api/worker code about a room |
 | `job_id`, `job_kind` | every worker log line |
-| `trace_id`, `span_id` | added by OpenTelemetry when a span is active |
+| `trace_id`, `span_id` | added by OpenTelemetry when a span is active (**not yet implemented**) |
 | `duration_ms` | completions |
 
 ## 5. Never log
 
 - Supabase JWTs, refresh tokens, the `Authorization` header, `Sec-WebSocket-Protocol` (it carries the token), database URLs or passwords, API keys
-- Email addresses, OAuth profile data
+- Email addresses, passwords (including failed attempts), OAuth profile data
 - Whole request/response bodies or whole WebSocket messages
 - LLM prompts or completions in full (log the model, token counts, latency, verdict)
 

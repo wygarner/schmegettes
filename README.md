@@ -1,13 +1,13 @@
 # Schmegettes
 
-A multiplayer Jeopardy!-style party game: share a room code, buzz from your phone, answer by typing or speaking. (Schmegettes is not affiliated with Jeopardy! or Sony.)
+A multiplayer quiz-show party game: share a room code, buzz from your phone, answer by typing or speaking.
 
 | Package | Language | What it is |
 |---|---|---|
 | [`shared/`](shared/) | JSON Schema / OpenAPI | Contracts and domain vocabulary. Builds first. |
 | [`web/`](web/) | TypeScript, React, Mantine | Player and host UI |
 | [`devtools/`](devtools/) | TypeScript | Internal prototype host |
-| [`api/`](api/SETUP.md) | Ruby on Rails | REST: profiles, rooms, boards, history |
+| [`api/`](api/SETUP.md) | Go | REST: profiles, rooms, game history |
 | [`game/`](game/) | Go | Realtime game server (WebSockets) |
 | [`worker/`](worker/) | Python | Jobs: clue imports, boards, appeal judging |
 | [`supabase/`](supabase/) | SQL | Migrations, row-level security, tests |
@@ -17,7 +17,7 @@ Start with [docs/system-docs/engineering/stack.md](docs/system-docs/engineering/
 ```bash
 mise install && mise run setup
 mise run db:start
-mise run dev:web
+bun run dev             # web, game, and worker together
 ```
 
 Agents: `/product`, `/engineering`, `/implement`, `/designer`, `/marketing`, `/revenue` (in `.claude/commands/`). The lifecycle is in [development-workflow.md](docs/system-docs/engineering/development-workflow.md).

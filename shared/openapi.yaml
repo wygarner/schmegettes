@@ -3,7 +3,7 @@ info:
   title: Schmegettes API
   version: 0.1.0
   description: |
-    REST contract for api/ (Rails). Live gameplay is not here; it is the WebSocket
+    REST contract for api/ (Go). Live gameplay is not here; it is the WebSocket
     protocol in shared/schemas/protocol/. Every endpoint except /healthz and /version
     requires a Supabase access token (Bearer). Changing this file is a reviewed
     contract change; run `mise run gen` and commit the generated code.
@@ -34,7 +34,10 @@ paths:
               schema: { $ref: "#/components/schemas/Version" }
   /v1/me:
     get:
-      summary: The caller's profile (created on first call)
+      summary: The caller's profile
+      description: |
+        A caller with no profile yet (a guest who hasn't joined a room) gets an empty
+        displayName and a null accountName.
       responses:
         "200":
           description: Profile
@@ -42,7 +45,8 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Profile" }
     patch:
-      summary: Update display name
+      summary: Set the account's name
+      description: Signed-in players only (problem type `not-signed-in` for guests).
       requestBody:
         required: true
         content:
@@ -50,8 +54,8 @@ paths:
             schema:
               type: object
               properties:
-                displayName: { type: string, minLength: 1, maxLength: 40 }
-              required: [displayName]
+                accountName: { $ref: "#/components/schemas/DisplayName" }
+              required: [accountName]
               additionalProperties: false
       responses:
         "200":
@@ -59,25 +63,113 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Profile" }
-  /v1/rooms:
+        "400": { $ref: "#/components/responses/Problem" }
+        "403":
+          description: The caller is a guest (problem type `not-signed-in`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+    delete:
+      summary: Delete the caller's account
+      description: |
+        Their results stay on other players' scoreboards as "Former player"; their seen clues
+        and host access are deleted. Refused while they are in a game in progress.
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          description: The caller is a guest (problem type `not-signed-in`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "409":
+          description: The caller is in a game in progress (problem type `in-game`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/me/merge-tickets:
     post:
-      summary: Create a room; the caller becomes host
+      summary: A one-use ticket that lets this guest be moved into an account
+      description: |
+        Called by a guest just before signing in with Apple or Google. A new ticket replaces
+        the guest's earlier ones. Valid for 24 hours.
+      responses:
+        "201":
+          description: Ticket
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MergeTicket" }
+        "409":
+          description: The caller isn't a guest (problem type `not-a-guest`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/me/merge:
+    post:
+      summary: Move a guest's games, seen clues, and host access into the caller's account
+      description: |
+        Spends the ticket and deletes the guest. When the guest and the account were in the
+        same game, the account's result is kept and the guest's shows as "Former player".
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
               properties:
-                seasons: { type: array, items: { type: integer } }
-                maxPlayers: { type: integer, minimum: 2, maximum: 8, default: 6 }
+                ticket: { type: string, maxLength: 64 }
+              required: [ticket]
+              additionalProperties: false
+      responses:
+        "200":
+          description: Moved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MergeResult" }
+        "400":
+          description: The ticket is wrong, used, expired, or the caller's own (problem type `invalid-ticket`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "403":
+          description: The caller is a guest (problem type `not-signed-in`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "409":
+          description: The guest is in a game in progress (problem type `guest-in-game`); the ticket stays valid
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/rooms:
+    post:
+      summary: Create a room; the caller becomes host
+      description: Closes the caller's other rooms that are still in the lobby.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName: { $ref: "#/components/schemas/DisplayName" }
+              required: [displayName]
               additionalProperties: false
       responses:
         "201":
-          description: Room created; board is built asynchronously
+          description: Room created. The board is built when the host starts the game.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Room" }
+              schema: { $ref: "#/components/schemas/RoomJoin" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403":
+          description: The caller has no host access (problem type `not-a-host`). Hosting is invite-only.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
   /v1/rooms/join:
     post:
       summary: Join a room by code
@@ -89,8 +181,9 @@ paths:
               type: object
               properties:
                 code: { $ref: "./schemas/domain.schema.json#/$defs/RoomCode" }
+                displayName: { $ref: "#/components/schemas/DisplayName" }
                 role: { type: string, enum: [contestant, spectator], default: contestant }
-              required: [code]
+              required: [code, displayName]
               additionalProperties: false
       responses:
         "200":
@@ -98,8 +191,149 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RoomJoin" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404":
+          description: No open room with that code (problem type `room-not-found`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "409":
+          description: The room is full (`room-full`) or its game has started (`game-started`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/rooms/by-code/{code}:
+    get:
+      summary: A room the caller is already a member of, by code (used after a reload)
+      parameters:
+        - { name: code, in: path, required: true, schema: { $ref: "./schemas/domain.schema.json#/$defs/RoomCode" } }
+      responses:
+        "200":
+          description: Room and its socket URL
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoomJoin" }
         "404": { $ref: "#/components/responses/Problem" }
-        "409": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/host-access:
+    get:
+      summary: Whether the caller's device can host
+      responses:
+        "200":
+          description: Host access
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HostAccess" }
+  /v1/host-access/redeem:
+    post:
+      summary: Redeem the current rotating host code to give the caller host access
+      description: |
+        The current code can be used by any number of callers. The previous code works for
+        five minutes after a scheduled rotation. Wrong, expired, manually retired, and
+        malformed codes get the same answer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string, maxLength: 16, description: "8 characters; case, spaces, and dashes are ignored" }
+              required: [code]
+              additionalProperties: false
+      responses:
+        "200":
+          description: The caller can host
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HostAccess" }
+        "400":
+          description: The code didn't work (problem type `invalid-code`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/admin/host-code:
+    get:
+      summary: Read the current rotating host code (admins only)
+      responses:
+        "200":
+          description: Current rotation state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminHostCode" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/admin/host-code/rotate:
+    post:
+      summary: Retire the displayed host code immediately (admins only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expectedCode: { type: string, maxLength: 16 }
+              required: [expectedCode]
+              additionalProperties: false
+      responses:
+        "200":
+          description: Current rotation state; a stale request returns the code already created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminHostCode" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/admin/hosts:
+    get:
+      summary: List every host newest first (admins only)
+      responses:
+        "200":
+          description: Hosts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hosts: { type: array, items: { $ref: "#/components/schemas/AdminHost" } }
+                required: [hosts]
+                additionalProperties: false
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/admin/hosts/{userId}:
+    parameters:
+      - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      summary: Set or clear an admin-only host note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: [string, "null"], maxLength: 200 }
+              required: [note]
+              additionalProperties: false
+      responses:
+        "200":
+          description: Updated host
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminHost" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    delete:
+      summary: Remove host access
+      responses:
+        "204": { description: Removed, or already absent }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
   /v1/rooms/{roomId}:
     get:
       summary: Room details (members only)
@@ -112,12 +346,45 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Room" }
         "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      summary: Change room settings before the game starts (host only)
+      parameters:
+        - { name: roomId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                seasons:
+                  type: [array, "null"]
+                  items: { type: integer, minimum: 1 }
+                  description: Seasons to build boards from; null means every season
+                maxPlayers: { type: integer, minimum: 2, maximum: 6 }
+              additionalProperties: false
+      responses:
+        "200":
+          description: Updated room
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Room" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
   /v1/games:
     get:
-      summary: The caller's finished games, newest first
+      summary: The caller's ended games (finished or abandoned), played or watched, newest first
+      description: >-
+        20 per page. Pass nextCursor back as cursor (with the same kind) for the next page; it
+        is opaque. The first page (no cursor) also carries stats.
       parameters:
         - { name: cursor, in: query, schema: { type: string } }
+        - name: kind
+          in: query
+          description: Only games the caller played (as a contestant), or only games they watched
+          schema: { type: string, enum: [played, watched] }
       responses:
+        "400": { $ref: "#/components/responses/Problem" }
         "200":
           description: Page of games
           content:
@@ -127,7 +394,39 @@ paths:
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/GameSummary" } }
                   nextCursor: { type: [string, "null"] }
+                  stats:
+                    type: [object, "null"]
+                    description: Across all the caller's ended games, whatever the kind; on the first page only, null on later pages
+                    properties:
+                      games:
+                        type: integer
+                        minimum: 0
+                        description: Ended games, played or watched
+                      played:
+                        type: integer
+                        minimum: 0
+                        description: Ended games the caller played as a contestant
+                      wins:
+                        type: integer
+                        minimum: 0
+                        description: Finished (not abandoned) games the caller placed 1st in, ties included
+                      best:
+                        type: [integer, "null"]
+                        description: The caller's highest score in a played game; null if they never played
+                    required: [games, played, wins, best]
                 required: [items, nextCursor]
+  /v1/games/{gameId}:
+    get:
+      summary: A game's scoreboard (anyone who played or watched it)
+      parameters:
+        - { name: gameId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Game
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GameDetail" }
+        "404": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     supabaseJwt:
@@ -137,6 +436,14 @@ components:
   responses:
     Problem:
       description: Error (RFC 9457 problem details)
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    RateLimited:
+      description: Too many tries (problem type `rate-limited`). Try again after `Retry-After` seconds.
+      headers:
+        Retry-After:
+          schema: { type: integer, minimum: 1 }
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
@@ -158,7 +465,10 @@ components:
         userId: { type: string, format: uuid }
         displayName: { type: string }
         isAnonymous: { type: boolean }
-      required: [userId, displayName, isAnonymous]
+        accountName:
+          type: [string, "null"]
+          description: The signed-in player's name (leaderboard, name prefill); null for guests and new accounts
+      required: [userId, displayName, isAnonymous, accountName]
     Room:
       type: object
       properties:
@@ -166,9 +476,19 @@ components:
         code: { $ref: "./schemas/domain.schema.json#/$defs/RoomCode" }
         status: { $ref: "./schemas/domain.schema.json#/$defs/RoomStatus" }
         hostUserId: { type: string, format: uuid }
-        boardReady: { type: boolean }
+        hostDisplayName: { type: string }
+        hostPlays: { type: boolean, description: The host joined the game as a contestant on the host device }
         maxPlayers: { type: integer }
-      required: [roomId, code, status, hostUserId, boardReady, maxPlayers]
+        seasons:
+          type: [array, "null"]
+          items: { type: integer }
+          description: Seasons boards are built from; null means every season
+      required: [roomId, code, status, hostUserId, hostDisplayName, hostPlays, maxPlayers, seasons]
+    DisplayName:
+      type: string
+      minLength: 1
+      maxLength: 20
+      description: Trimmed by the server; must not be blank
     RoomJoin:
       type: object
       properties:
@@ -177,13 +497,92 @@ components:
       required: [room, gameSocketUrl]
     GameSummary:
       type: object
+      description: One of the caller's past games, from their point of view.
       properties:
         gameId: { type: string, format: uuid }
-        finishedAt: { type: string, format: date-time }
-        finalScore: { type: integer }
-        placement: { type: integer }
+        status: { $ref: "./schemas/domain.schema.json#/$defs/GameStatus" }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time, description: When the game ended, finished or abandoned }
+        score: { type: integer, description: The caller's score }
+        placement:
+          type: [integer, "null"]
+          description: The caller's placement; ties share a place; null if they hosted (the TV) or watched
+        players:
+          type: array
+          items: { type: string }
+          description: Display names as they were in that game ("Former player" for deleted accounts)
         playerCount: { type: integer }
-      required: [gameId, finishedAt, finalScore, placement, playerCount]
+        callerDisplayName:
+          type: [string, "null"]
+          description: The caller's name in that game, so a list can say "You"; null if they only watched
+        watched: { type: boolean, description: The caller hosted without playing, or was a spectator }
+      required: [gameId, status, startedAt, finishedAt, score, placement, players, playerCount]
+    GameDetail:
+      type: object
+      properties:
+        gameId: { type: string, format: uuid }
+        status: { $ref: "./schemas/domain.schema.json#/$defs/GameStatus" }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: [string, "null"], format: date-time }
+        results:
+          type: array
+          description: Contestants ordered by placement; the host (the TV) and spectators are not listed
+          items: { $ref: "#/components/schemas/GameResult" }
+        hostDisplayName:
+          type: [string, "null"]
+          description: The host's name in that game; null when the host's account was deleted
+        watched: { type: boolean, description: The caller hosted without playing, or was a spectator }
+      required: [gameId, status, startedAt, finishedAt, results]
+    GameResult:
+      type: object
+      properties:
+        displayName: { type: string, description: Name as it was in that game, or "Former player" }
+        score: { type: integer }
+        placement: { type: integer, description: Ties share a place }
+        isCaller: { type: boolean, description: This row is the caller }
+      required: [displayName, score, placement]
+    HostAccess:
+      type: object
+      properties:
+        canHost: { type: boolean }
+      required: [canHost]
+      additionalProperties: false
+    AdminHostCode:
+      type: object
+      properties:
+        code: { type: string, pattern: "^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$" }
+        currentStartedAt: { type: string, format: date-time }
+        rotatesAt: { type: string, format: date-time }
+        previousValidUntil: { type: [string, "null"], format: date-time }
+        serverTime: { type: string, format: date-time }
+      required: [code, currentStartedAt, rotatesAt, previousValidUntil, serverTime]
+      additionalProperties: false
+    AdminHost:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        kind: { type: string, enum: [account, guest] }
+        email: { type: [string, "null"], format: email }
+        lastPlayedAs: { type: [string, "null"] }
+        hostSince: { type: string, format: date-time }
+        note: { type: [string, "null"], maxLength: 200 }
+      required: [userId, kind, email, lastPlayedAs, hostSince, note]
+      additionalProperties: false
+    MergeTicket:
+      type: object
+      properties:
+        ticket: { type: string, description: Secret; keep it only until it's redeemed }
+        expiresAt: { type: string, format: date-time }
+      required: [ticket, expiresAt]
+      additionalProperties: false
+    MergeResult:
+      type: object
+      properties:
+        gamesAdded: { type: integer, minimum: 0, description: Finished and abandoned games moved into the account }
+        hostAccessAdded: { type: boolean, description: The account can host now and couldn't before }
+        accountWasNew: { type: boolean, description: The account had no name yet (first sign-in) }
+      required: [gamesAdded, hostAccessAdded, accountWasNew]
+      additionalProperties: false
     Problem:
       type: object
       properties:

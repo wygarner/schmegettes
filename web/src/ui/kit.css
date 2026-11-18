@@ -1,0 +1,321 @@
+/* Motion and small shared rules for the design system. Reference: devtools/src/designs/system/components.tsx. */
+body {
+  background: #140b2b;
+}
+
+@keyframes sg-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes sg-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sg-float {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  15%,
+  80% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+@keyframes sg-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+@keyframes sg-meter {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+@keyframes sg-blink {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes sg-flip {
+  0%,
+  100% {
+    transform: rotateX(0);
+  }
+  50% {
+    transform: rotateX(90deg);
+  }
+}
+@keyframes sg-glow-red {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px rgba(255, 48, 48, 0.55));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(255, 48, 48, 0.95));
+  }
+}
+@keyframes sg-glow-green {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px rgba(56, 217, 169, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px rgba(56, 217, 169, 0.9));
+  }
+}
+
+.sg-key,
+.sg-key-still {
+  background: rgba(255, 255, 255, 0.08);
+}
+.sg-key:active {
+  background: rgba(255, 255, 255, 0.22);
+  transform: scale(0.96);
+}
+
+.sg-pop {
+  animation: sg-pop 380ms ease-out;
+}
+.sg-in {
+  animation: sg-in 260ms ease-out both;
+}
+.sg-float {
+  animation: sg-float 1.8s ease-out forwards;
+}
+.sg-shake {
+  animation: sg-shake 250ms;
+}
+.sg-meter-bar {
+  animation: sg-meter 700ms ease-in-out infinite;
+}
+.sg-blink {
+  animation: sg-blink 1.2s infinite;
+}
+.sg-flip {
+  animation: sg-flip 900ms ease-in-out infinite;
+}
+.sg-glow-red {
+  animation: sg-glow-red 1s ease-in-out infinite;
+}
+.sg-glow-red-slow {
+  animation: sg-glow-red 2.6s ease-in-out infinite;
+}
+.sg-glow-green {
+  animation: sg-glow-green 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sg-pop,
+  .sg-in,
+  .sg-shake,
+  .sg-meter-bar,
+  .sg-blink,
+  .sg-flip,
+  .sg-glow-red,
+  .sg-glow-red-slow,
+  .sg-glow-green {
+    animation: none;
+  }
+  .sg-float {
+    animation-duration: 0.01ms;
+  }
+}
+
+/* Menu screens (design-system.md, "Menu screens"). Reference: devtools/src/designs/system/menus-and-type.tsx. */
+@keyframes mn-sheet {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes mn-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes mn-shimmer {
+  from {
+    background-position: -200px 0;
+  }
+  to {
+    background-position: 200px 0;
+  }
+}
+@keyframes mn-caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes mn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes mn-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
+}
+/* Film grain over the menu background: stops gradient banding on phone screens. */
+.mn-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.18;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+}
+.mn-sheet {
+  animation: mn-sheet 380ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+.mn-fade {
+  animation: mn-fade 240ms ease-out both;
+}
+.mn-shake {
+  animation: mn-shake 320ms;
+}
+.mn-caret {
+  animation: mn-caret 1s steps(1) infinite;
+}
+.mn-spin {
+  animation: mn-spin 700ms linear infinite;
+}
+.mn-skel {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0, rgba(255, 255, 255, 0.11) 40px, rgba(255, 255, 255, 0.05) 80px)
+    0 0 / 200px 100% repeat-x,
+    rgba(255, 255, 255, 0.05);
+  animation: mn-shimmer 1.2s linear infinite;
+}
+.mn-press {
+  transition:
+    transform 120ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+.mn-press:not(:disabled):active {
+  transform: scale(0.97);
+}
+.mn-press:focus-visible {
+  outline: 2px solid var(--mantine-color-green-4);
+  outline-offset: 3px;
+}
+.mn-row {
+  transition: background-color 160ms ease;
+}
+.mn-row:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+.mn-row:active {
+  background-color: rgba(255, 255, 255, 0.07);
+}
+.mn-row:focus-visible {
+  outline: 2px solid var(--mantine-color-green-4);
+  outline-offset: -2px;
+}
+.mn-group > * + * {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.mn-field {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+.mn-field:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.mn-field:focus-within {
+  /* biome-ignore lint/complexity/noImportantStyles: beats the field's inline border */
+  border-color: var(--mantine-color-green-4) !important;
+  box-shadow: 0 0 0 4px rgba(107, 255, 179, 0.16);
+  background-color: rgba(255, 255, 255, 0.07);
+}
+.mn-field.mn-err:focus-within {
+  /* biome-ignore lint/complexity/noImportantStyles: beats the field's inline border */
+  border-color: var(--mantine-color-red-4) !important;
+  box-shadow: 0 0 0 4px rgba(255, 135, 135, 0.16);
+}
+.mn-field input {
+  all: unset;
+  flex: 1;
+  min-width: 0;
+  color: #fff;
+  font: inherit;
+  font-size: 17px;
+}
+.mn-field input::placeholder {
+  color: #8a7aad;
+}
+.mn-balance {
+  text-wrap: balance;
+}
+.mn-pretty {
+  text-wrap: pretty;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mn-sheet,
+  .mn-fade,
+  .mn-shake,
+  .mn-skel,
+  .mn-caret {
+    animation: none;
+  }
+  .mn-press:not(:disabled):active {
+    transform: none;
+  }
+}

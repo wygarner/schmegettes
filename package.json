@@ -12,12 +12,13 @@
     "devtools"
   ],
   "scripts": {
+    "dev": "mise run dev",
     "build": "bun run --cwd shared build && bun run --cwd web build && bun run --cwd devtools build",
     "lint": "biome check .",
     "format": "biome format --write ."
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.3"
+    "@biomejs/biome": "2.6.6"
   },
   "overrides": {
     "ajv": "8.20.0"

@@ -8,6 +8,12 @@
       "$ref": "#/$defs/RoomSnapshot"
     },
     {
+      "$ref": "#/$defs/LobbyUpdated"
+    },
+    {
+      "$ref": "#/$defs/RoomClosed"
+    },
+    {
       "$ref": "#/$defs/PhaseChanged"
     },
     {
@@ -15,6 +21,33 @@
     },
     {
       "$ref": "#/$defs/AnswerJudged"
+    },
+    {
+      "$ref": "#/$defs/VerdictOverridden"
+    },
+    {
+      "$ref": "#/$defs/OverrideReviewChanged"
+    },
+    {
+      "$ref": "#/$defs/LiveTranscript"
+    },
+    {
+      "$ref": "#/$defs/ClueEnded"
+    },
+    {
+      "$ref": "#/$defs/WagerLocked"
+    },
+    {
+      "$ref": "#/$defs/FinalSubmitted"
+    },
+    {
+      "$ref": "#/$defs/RoundStarted"
+    },
+    {
+      "$ref": "#/$defs/GameOver"
+    },
+    {
+      "$ref": "#/$defs/GamePaused"
     },
     {
       "$ref": "#/$defs/TimerTick"
@@ -51,7 +84,7 @@
       "additionalProperties": false
     },
     "BoardClue": {
-      "description": "A clue as players see it. clueText is present only once the clue is revealed; the correct response is never sent before judging.",
+      "description": "A clue as players see it. clueText is sent only to the host device (the TV), and only once the clue is revealed; phones never receive it. The correct response is never on a board clue.",
       "type": "object",
       "properties": {
         "clueId": {
@@ -68,13 +101,17 @@
         },
         "clueText": {
           "type": "string"
+        },
+        "dailyDouble": {
+          "type": "boolean",
+          "description": "Set only on the active clue once a Daily Double is picked; never on board listings."
         }
       },
       "required": ["clueId", "category", "value", "state"],
       "additionalProperties": false
     },
     "RoomSnapshot": {
-      "description": "Full state, sent on connect and reconnect.",
+      "description": "Full state, sent on connect and reconnect. In the lobby, round is single, board is empty, and the lobby fields are present.",
       "type": "object",
       "properties": {
         "type": {
@@ -110,9 +147,180 @@
         },
         "activeClueId": {
           "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "hostDisplayName": {
+          "type": "string"
+        },
+        "hostPlays": {
+          "type": "boolean"
+        },
+        "maxPlayers": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "activeClue": {
+          "$ref": "#/$defs/BoardClue"
+        },
+        "deadlineAt": {
+          "type": "integer",
+          "description": "Server clock, ms since epoch, when the current step times out."
+        },
+        "answeringUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "attemptedUserIds": {
+          "type": "array",
+          "items": {
+            "$ref": "../domain.schema.json#/$defs/Uuid"
+          }
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "wagerMin": {
+          "type": "integer",
+          "description": "Daily Double: the lowest wager the picker may make ($5). Public."
+        },
+        "wagerMax": {
+          "type": "integer",
+          "description": "Daily Double: the highest wager the picker may make, max(score, round's top value). Public."
+        },
+        "wager": {
+          "type": "integer",
+          "description": "Daily Double: the picker's wager once locked. Public. Never set for Final."
+        },
+        "finalistUserIds": {
+          "type": "array",
+          "description": "Final: contestants above $0 when Double ended, in join order.",
+          "items": {
+            "$ref": "../domain.schema.json#/$defs/Uuid"
+          }
+        },
+        "lockedUserIds": {
+          "type": "array",
+          "description": "Final: finalists who locked a wager (final_wager) or submitted an answer (final_answer). Never amounts or answers.",
+          "items": {
+            "$ref": "../domain.schema.json#/$defs/Uuid"
+          }
+        },
+        "revealOrder": {
+          "type": "array",
+          "description": "final_reveal: finalists in reveal order, lowest pre-Final score first.",
+          "items": {
+            "$ref": "../domain.schema.json#/$defs/Uuid"
+          }
+        },
+        "myWager": {
+          "type": "integer",
+          "description": "This socket's user's own locked wager. Only in that user's copy, never for the host device."
+        },
+        "myFinalAnswer": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "This socket's user's own Final draft or submitted answer. Only in that user's copy, never for the host device."
+        },
+        "myFinalSubmitted": {
+          "type": "boolean",
+          "description": "Whether myFinalAnswer is submitted (locked) rather than a draft."
+        },
+        "clueAnswers": {
+          "type": "array",
+          "description": "Host copy only: the answers that can still be overridden (the clue just played, or the Final answer being revealed).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "answerId": {
+                "$ref": "../domain.schema.json#/$defs/Uuid"
+              },
+              "userId": {
+                "$ref": "../domain.schema.json#/$defs/Uuid"
+              },
+              "answer": {
+                "type": "string"
+              },
+              "verdict": {
+                "$ref": "../domain.schema.json#/$defs/Verdict"
+              },
+              "scoreDelta": {
+                "type": "integer"
+              }
+            },
+            "required": ["answerId", "userId", "answer", "verdict", "scoreDelta"],
+            "additionalProperties": false
+          }
+        },
+        "overrideReview": {
+          "type": "boolean",
+          "description": "The host is reviewing a verdict; the clock is paused."
+        },
+        "scores": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "userId -> score."
         }
       },
       "required": ["type", "roomId", "seq", "phase", "round", "players", "board"],
+      "additionalProperties": false
+    },
+    "LobbyUpdated": {
+      "description": "The lobby changed: someone joined, left, renamed, connected or disconnected, or the host joined or left the game. players is in join order; the host is listed only when hostPlays.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "lobby_updated"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hostUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "hostDisplayName": {
+          "type": "string"
+        },
+        "hostPlays": {
+          "type": "boolean"
+        },
+        "maxPlayers": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "players": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Player"
+          }
+        }
+      },
+      "required": ["type", "roomId", "seq", "hostUserId", "hostDisplayName", "hostPlays", "maxPlayers", "players"],
+      "additionalProperties": false
+    },
+    "RoomClosed": {
+      "description": "The room closed. host_absent: no host device for 30 minutes in the lobby. replaced: the host created a new room. closed: it had already closed when this socket connected. Clients stop reconnecting on any room_closed, whatever its seq.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "room_closed"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["host_absent", "replaced", "closed"]
+        }
+      },
+      "required": ["type", "roomId", "seq", "reason"],
       "additionalProperties": false
     },
     "PhaseChanged": {
@@ -137,6 +345,54 @@
         "deadlineAt": {
           "type": "integer",
           "description": "Server clock, ms since epoch, when this phase times out."
+        },
+        "answeringUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "attemptedUserIds": {
+          "type": "array",
+          "items": {
+            "$ref": "../domain.schema.json#/$defs/Uuid"
+          }
+        },
+        "controllingUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "wagerMin": {
+          "type": "integer",
+          "description": "Daily Double: the lowest wager the picker may make ($5). Public."
+        },
+        "wagerMax": {
+          "type": "integer",
+          "description": "Daily Double: the highest wager the picker may make, max(score, round's top value). Public."
+        },
+        "wager": {
+          "type": "integer",
+          "description": "Daily Double: the picker's wager once locked. Public. Never set for Final."
+        },
+        "finalistUserIds": {
+          "type": "array",
+          "description": "Final: contestants above $0 when Double ended, in join order.",
+          "items": {
+            "$ref": "../domain.schema.json#/$defs/Uuid"
+          }
+        },
+        "lockedUserIds": {
+          "type": "array",
+          "description": "Final: finalists who locked a wager (final_wager) or submitted an answer (final_answer). Never amounts or answers.",
+          "items": {
+            "$ref": "../domain.schema.json#/$defs/Uuid"
+          }
+        },
+        "revealOrder": {
+          "type": "array",
+          "description": "final_reveal: finalists in reveal order, lowest pre-Final score first.",
+          "items": {
+            "$ref": "../domain.schema.json#/$defs/Uuid"
+          }
         }
       },
       "required": ["type", "roomId", "seq", "phase"],
@@ -195,10 +451,15 @@
           "$ref": "../domain.schema.json#/$defs/Verdict"
         },
         "correctResponse": {
-          "type": "string"
+          "type": "string",
+          "description": "Sent only to the host device (the TV)."
         },
         "scoreDelta": {
           "type": "integer"
+        },
+        "wager": {
+          "type": "integer",
+          "description": "Set for a Daily Double verdict and each Final reveal step."
         },
         "scores": {
           "type": "object",
@@ -209,6 +470,223 @@
         }
       },
       "required": ["type", "roomId", "seq", "answerId", "userId", "answer", "verdict", "scoreDelta", "scores"],
+      "additionalProperties": false
+    },
+    "LiveTranscript": {
+      "description": "The answering player's interim transcript, for the TV.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "answer_progress"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "userId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      "required": ["type", "roomId", "seq", "userId", "text"],
+      "additionalProperties": false
+    },
+    "ClueEnded": {
+      "description": "The active clue is done. correctResponse is sent only to the host device (the TV).",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "clue_ended"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "clueId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "state": {
+          "type": "string",
+          "enum": ["answered", "unanswered"]
+        },
+        "correctResponse": {
+          "type": "string"
+        },
+        "controllingUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "scores": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "userId -> score."
+        }
+      },
+      "required": ["type", "roomId", "seq", "clueId", "state", "scores"],
+      "additionalProperties": false
+    },
+    "WagerLocked": {
+      "description": "A player locked a wager. Daily Double: amount is on every copy (public). Final: amount is only in the wagering player's own copy, never the host device's.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "wager_locked"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "userId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "amount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["type", "roomId", "seq", "userId"],
+      "additionalProperties": false
+    },
+    "FinalSubmitted": {
+      "description": "A finalist's typed answer is locked in. answer is only in that player's own copy, never the host device's.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "final_submitted"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "userId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "answer": {
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      "required": ["type", "roomId", "seq", "userId"],
+      "additionalProperties": false
+    },
+    "RoundStarted": {
+      "description": "A round's board is up.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "round_started"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "round": {
+          "$ref": "../domain.schema.json#/$defs/Round"
+        },
+        "board": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BoardClue"
+          }
+        },
+        "controllingUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        }
+      },
+      "required": ["type", "roomId", "seq", "round", "board"],
+      "additionalProperties": false
+    },
+    "GameOver": {
+      "description": "The game ended. Results are highest score first; ties share a placement.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "game_over"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "userId": {
+                "$ref": "../domain.schema.json#/$defs/Uuid"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "score": {
+                "type": "integer"
+              },
+              "placement": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": ["userId", "displayName", "score", "placement"],
+            "additionalProperties": false
+          }
+        },
+        "finalSkipped": {
+          "type": "boolean",
+          "description": "True when nobody was above $0 after Double Schmegettes, so Final was skipped."
+        },
+        "startedAt": {
+          "type": "integer",
+          "description": "Server ms when the game started."
+        },
+        "finishedAt": {
+          "type": "integer",
+          "description": "Server ms when the game ended."
+        }
+      },
+      "required": ["type", "roomId", "seq", "results"],
+      "additionalProperties": false
+    },
+    "GamePaused": {
+      "description": "The host device left (paused) or came back (resumed). Timers stop while paused.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "game_paused"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "paused": {
+          "type": "boolean"
+        }
+      },
+      "required": ["type", "roomId", "seq", "paused"],
       "additionalProperties": false
     },
     "TimerTick": {
@@ -241,13 +719,106 @@
         },
         "code": {
           "type": "string",
-          "enum": ["invalid_message", "not_your_turn", "not_host", "wrong_phase", "room_full", "internal"]
+          "enum": [
+            "invalid_message",
+            "not_your_turn",
+            "not_host",
+            "wrong_phase",
+            "room_full",
+            "internal",
+            "not_enough_players",
+            "game_started",
+            "invalid_name",
+            "not_in_control",
+            "already_attempted",
+            "invalid_wager",
+            "not_a_finalist",
+            "unknown_answer",
+            "not_a_host"
+          ]
         },
         "message": {
           "type": "string"
         }
       },
       "required": ["type", "code"],
+      "additionalProperties": false
+    },
+    "VerdictOverridden": {
+      "description": "The host changed a verdict. Labeled HOST OVERRIDE on the TV and on that player's phone.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "verdict_overridden"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "answerId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "userId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "verdict": {
+          "$ref": "../domain.schema.json#/$defs/Verdict"
+        },
+        "scoreDelta": {
+          "type": "integer",
+          "description": "The answer's new score change."
+        },
+        "scores": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "userId -> score after the override."
+        },
+        "controllingUserId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "deadlineAt": {
+          "type": "integer",
+          "description": "Server ms when the current step ends; absent while the review is open."
+        }
+      },
+      "required": ["type", "roomId", "seq", "answerId", "userId", "verdict", "scoreDelta", "scores"],
+      "additionalProperties": false
+    },
+    "OverrideReviewChanged": {
+      "description": "The host opened or closed a verdict review. While open, the clock is paused and the reviewed players' phones say so.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "override_review_changed"
+        },
+        "roomId": {
+          "$ref": "../domain.schema.json#/$defs/Uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open": {
+          "type": "boolean"
+        },
+        "userIds": {
+          "type": "array",
+          "items": {
+            "$ref": "../domain.schema.json#/$defs/Uuid"
+          },
+          "description": "The players whose answers are under review."
+        },
+        "deadlineAt": {
+          "type": "integer",
+          "description": "Server ms when the step ends, once the review closes."
+        }
+      },
+      "required": ["type", "roomId", "seq", "open", "userIds"],
       "additionalProperties": false
     },
     "Pong": {

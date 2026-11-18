@@ -6,11 +6,11 @@
 [tools]
 node = "24"          # web, devtools, shared codegen, repo scripts
 bun = "1.3.14"       # package manager + workspace for the TypeScript packages
-go = "1.25"          # game/
-ruby = "3.4"         # api/
+go = "1.25"          # game/, api/
 python = "3.13"      # worker/, evals/, .github/scripts
-uv = "latest"        # Python package manager (pin after first install)
-"aqua:supabase/cli" = "latest" # database migrations, local Supabase (pin after first install)
+uv = "0.13.5"        # Python package manager
+"aqua:supabase/cli" = "2.122.0" # database migrations, local Supabase
+flyctl = "0.4.123"   # api/ and game/ deploys and rollback (Fly.io)
 
 # ---------------------------------------------------------------------------
 # Tasks: `mise run <task>`. Test tasks take paths so you only run what you touched.
@@ -22,7 +22,7 @@ run = [
   "bun install",
   "mise run gen",
   "cd game && go mod download",
-  "cd api && bundle install",
+  "cd api && go mod download",
   "cd worker && uv sync",
 ]
 
@@ -42,6 +42,10 @@ run = "supabase db reset"
 description = "Run pgTAP tests in supabase/tests (row-level security)"
 run = "supabase test db"
 
+[tasks.dev]
+description = "Run web, game, and worker in parallel (`bun run dev` calls this)"
+depends = ["dev:web", "dev:api", "dev:game", "dev:worker"]
+
 [tasks."dev:web"]
 run = "bun run --cwd web dev"
 
@@ -50,19 +54,31 @@ run = "bun run --cwd devtools dev"
 
 [tasks."dev:game"]
 dir = "game"
-run = "go run ./cmd/game"
+# Go doesn't read env files, so load game/.env (copied from .env.example) first.
+run = "test -f .env || { echo 'game/.env missing: cp game/.env.example game/.env' >&2; exit 1; }; set -a; . ./.env; set +a; go run ./cmd/game"
 
 [tasks."dev:api"]
 dir = "api"
-run = "bin/rails server -p 3001"
+# Go doesn't read env files, so load api/.env (copied from .env.example) first.
+run = "test -f .env || { echo 'api/.env missing: cp api/.env.example api/.env' >&2; exit 1; }; set -a; . ./.env; set +a; go run ./cmd/api"
 
 [tasks."dev:worker"]
 dir = "worker"
 run = "uv run python -m schmegettes_worker"
 
+[tasks."clues:import"]
+description = "Load clue dataset seasons into the local catalog. Usage: mise run clues:import -- --seasons 1-5"
+dir = "worker"
+# Reads DATABASE_OWNER_URL and CLUE_DATASET_BASE_URL from worker/.env (copied from .env.example).
+run = "test -f .env || { echo 'worker/.env missing: cp worker/.env.example worker/.env' >&2; exit 1; }; set -a; . ./.env; set +a; uv run python -m schmegettes_worker import-clues"
+
 [tasks."test:web"]
 description = "Usage: mise run test:web -- src/path/to/file.test.tsx"
 run = "bun run --cwd web test"
+
+[tasks."test:devtools"]
+description = "Usage: mise run test:devtools -- src/path/to/file.test.tsx"
+run = "bun run --cwd devtools test"
 
 [tasks."test:game"]
 description = "Usage: mise run test:game -- ./internal/room/..."
@@ -70,9 +86,9 @@ dir = "game"
 run = "go test -race"
 
 [tasks."test:api"]
-description = "Usage: mise run test:api -- test/controllers/rooms_controller_test.rb"
+description = "Usage: mise run test:api -- ./internal/rooms/..."
 dir = "api"
-run = "bin/rails test"
+run = "go test -race"
 
 [tasks."test:worker"]
 description = "Usage: mise run test:worker -- tests/test_judging.py"

@@ -3,10 +3,28 @@
 /**
  * Every message the game server sends. seq increases by one per room; a client that sees a gap requests a fresh snapshot by reconnecting.
  */
-export type ServerMessage = RoomSnapshot | PhaseChanged | BuzzResult | AnswerJudged | TimerTick | Error | Pong;
+export type ServerMessage =
+  | RoomSnapshot
+  | LobbyUpdated
+  | RoomClosed
+  | PhaseChanged
+  | BuzzResult
+  | AnswerJudged
+  | VerdictOverridden
+  | OverrideReviewChanged
+  | LiveTranscript
+  | ClueEnded
+  | WagerLocked
+  | FinalSubmitted
+  | RoundStarted
+  | GameOver
+  | GamePaused
+  | TimerTick
+  | Error
+  | Pong;
 
 /**
- * Full state, sent on connect and reconnect.
+ * Full state, sent on connect and reconnect. In the lobby, round is single, board is empty, and the lobby fields are present.
  */
 export interface RoomSnapshot {
   type: "room_snapshot";
@@ -17,6 +35,7 @@ export interface RoomSnapshot {
    */
   phase:
     | "lobby"
+    | "building_board"
     | "board"
     | "clue_reading"
     | "buzzing_open"
@@ -32,6 +51,76 @@ export interface RoomSnapshot {
   board: BoardClue[];
   controllingUserId?: string;
   activeClueId?: string;
+  hostDisplayName?: string;
+  hostPlays?: boolean;
+  maxPlayers?: number;
+  activeClue?: BoardClue;
+  /**
+   * Server clock, ms since epoch, when the current step times out.
+   */
+  deadlineAt?: number;
+  answeringUserId?: string;
+  attemptedUserIds?: string[];
+  paused?: boolean;
+  /**
+   * Daily Double: the lowest wager the picker may make ($5). Public.
+   */
+  wagerMin?: number;
+  /**
+   * Daily Double: the highest wager the picker may make, max(score, round's top value). Public.
+   */
+  wagerMax?: number;
+  /**
+   * Daily Double: the picker's wager once locked. Public. Never set for Final.
+   */
+  wager?: number;
+  /**
+   * Final: contestants above $0 when Double ended, in join order.
+   */
+  finalistUserIds?: string[];
+  /**
+   * Final: finalists who locked a wager (final_wager) or submitted an answer (final_answer). Never amounts or answers.
+   */
+  lockedUserIds?: string[];
+  /**
+   * final_reveal: finalists in reveal order, lowest pre-Final score first.
+   */
+  revealOrder?: string[];
+  /**
+   * This socket's user's own locked wager. Only in that user's copy, never for the host device.
+   */
+  myWager?: number;
+  /**
+   * This socket's user's own Final draft or submitted answer. Only in that user's copy, never for the host device.
+   */
+  myFinalAnswer?: string;
+  /**
+   * Whether myFinalAnswer is submitted (locked) rather than a draft.
+   */
+  myFinalSubmitted?: boolean;
+  /**
+   * Host copy only: the answers that can still be overridden (the clue just played, or the Final answer being revealed).
+   */
+  clueAnswers?: {
+    answerId: string;
+    userId: string;
+    answer: string;
+    /**
+     * correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+     */
+    verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
+    scoreDelta: number;
+  }[];
+  /**
+   * The host is reviewing a verdict; the clock is paused.
+   */
+  overrideReview?: boolean;
+  /**
+   * userId -> score.
+   */
+  scores?: {
+    [k: string]: number;
+  };
 }
 export interface Player {
   userId: string;
@@ -44,7 +133,7 @@ export interface Player {
   connected: boolean;
 }
 /**
- * A clue as players see it. clueText is present only once the clue is revealed; the correct response is never sent before judging.
+ * A clue as players see it. clueText is sent only to the host device (the TV), and only once the clue is revealed; phones never receive it. The correct response is never on a board clue.
  */
 export interface BoardClue {
   clueId: string;
@@ -52,6 +141,32 @@ export interface BoardClue {
   value: number;
   state: "unplayed" | "active" | "answered" | "unanswered";
   clueText?: string;
+  /**
+   * Set only on the active clue once a Daily Double is picked; never on board listings.
+   */
+  dailyDouble?: boolean;
+}
+/**
+ * The lobby changed: someone joined, left, renamed, connected or disconnected, or the host joined or left the game. players is in join order; the host is listed only when hostPlays.
+ */
+export interface LobbyUpdated {
+  type: "lobby_updated";
+  roomId: string;
+  seq: number;
+  hostUserId: string;
+  hostDisplayName: string;
+  hostPlays: boolean;
+  maxPlayers: number;
+  players: Player[];
+}
+/**
+ * The room closed. host_absent: no host device for 30 minutes in the lobby. replaced: the host created a new room. closed: it had already closed when this socket connected. Clients stop reconnecting on any room_closed, whatever its seq.
+ */
+export interface RoomClosed {
+  type: "room_closed";
+  roomId: string;
+  seq: number;
+  reason: "host_absent" | "replaced" | "closed";
 }
 export interface PhaseChanged {
   type: "phase_changed";
@@ -62,6 +177,7 @@ export interface PhaseChanged {
    */
   phase:
     | "lobby"
+    | "building_board"
     | "board"
     | "clue_reading"
     | "buzzing_open"
@@ -77,6 +193,34 @@ export interface PhaseChanged {
    * Server clock, ms since epoch, when this phase times out.
    */
   deadlineAt?: number;
+  answeringUserId?: string;
+  attemptedUserIds?: string[];
+  controllingUserId?: string;
+  paused?: boolean;
+  /**
+   * Daily Double: the lowest wager the picker may make ($5). Public.
+   */
+  wagerMin?: number;
+  /**
+   * Daily Double: the highest wager the picker may make, max(score, round's top value). Public.
+   */
+  wagerMax?: number;
+  /**
+   * Daily Double: the picker's wager once locked. Public. Never set for Final.
+   */
+  wager?: number;
+  /**
+   * Final: contestants above $0 when Double ended, in join order.
+   */
+  finalistUserIds?: string[];
+  /**
+   * Final: finalists who locked a wager (final_wager) or submitted an answer (final_answer). Never amounts or answers.
+   */
+  lockedUserIds?: string[];
+  /**
+   * final_reveal: finalists in reveal order, lowest pre-Final score first.
+   */
+  revealOrder?: string[];
 }
 export interface BuzzResult {
   type: "buzz_result";
@@ -97,14 +241,161 @@ export interface AnswerJudged {
    * correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
    */
   verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
+  /**
+   * Sent only to the host device (the TV).
+   */
   correctResponse?: string;
   scoreDelta: number;
+  /**
+   * Set for a Daily Double verdict and each Final reveal step.
+   */
+  wager?: number;
   /**
    * userId -> score after this verdict.
    */
   scores: {
     [k: string]: number;
   };
+}
+/**
+ * The host changed a verdict. Labeled HOST OVERRIDE on the TV and on that player's phone.
+ */
+export interface VerdictOverridden {
+  type: "verdict_overridden";
+  roomId: string;
+  seq: number;
+  answerId: string;
+  userId: string;
+  /**
+   * correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+   */
+  verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
+  /**
+   * The answer's new score change.
+   */
+  scoreDelta: number;
+  /**
+   * userId -> score after the override.
+   */
+  scores: {
+    [k: string]: number;
+  };
+  controllingUserId?: string;
+  /**
+   * Server ms when the current step ends; absent while the review is open.
+   */
+  deadlineAt?: number;
+}
+/**
+ * The host opened or closed a verdict review. While open, the clock is paused and the reviewed players' phones say so.
+ */
+export interface OverrideReviewChanged {
+  type: "override_review_changed";
+  roomId: string;
+  seq: number;
+  open: boolean;
+  /**
+   * The players whose answers are under review.
+   */
+  userIds: string[];
+  /**
+   * Server ms when the step ends, once the review closes.
+   */
+  deadlineAt?: number;
+}
+/**
+ * The answering player's interim transcript, for the TV.
+ */
+export interface LiveTranscript {
+  type: "answer_progress";
+  roomId: string;
+  seq: number;
+  userId: string;
+  text: string;
+}
+/**
+ * The active clue is done. correctResponse is sent only to the host device (the TV).
+ */
+export interface ClueEnded {
+  type: "clue_ended";
+  roomId: string;
+  seq: number;
+  clueId: string;
+  state: "answered" | "unanswered";
+  correctResponse?: string;
+  controllingUserId?: string;
+  /**
+   * userId -> score.
+   */
+  scores: {
+    [k: string]: number;
+  };
+}
+/**
+ * A player locked a wager. Daily Double: amount is on every copy (public). Final: amount is only in the wagering player's own copy, never the host device's.
+ */
+export interface WagerLocked {
+  type: "wager_locked";
+  roomId: string;
+  seq: number;
+  userId: string;
+  amount?: number;
+}
+/**
+ * A finalist's typed answer is locked in. answer is only in that player's own copy, never the host device's.
+ */
+export interface FinalSubmitted {
+  type: "final_submitted";
+  roomId: string;
+  seq: number;
+  userId: string;
+  answer?: string;
+}
+/**
+ * A round's board is up.
+ */
+export interface RoundStarted {
+  type: "round_started";
+  roomId: string;
+  seq: number;
+  round: "single" | "double" | "final";
+  board: BoardClue[];
+  controllingUserId?: string;
+}
+/**
+ * The game ended. Results are highest score first; ties share a placement.
+ */
+export interface GameOver {
+  type: "game_over";
+  roomId: string;
+  seq: number;
+  results: {
+    userId: string;
+    displayName: string;
+    score: number;
+    placement: number;
+  }[];
+  /**
+   * True when nobody was above $0 after Double Schmegettes, so Final was skipped.
+   */
+  finalSkipped?: boolean;
+  /**
+   * Server ms when the game started.
+   */
+  startedAt?: number;
+  /**
+   * Server ms when the game ended.
+   */
+  finishedAt?: number;
+}
+/**
+ * The host device left (paused) or came back (resumed). Timers stop while paused.
+ */
+export interface GamePaused {
+  type: "game_paused";
+  roomId: string;
+  seq: number;
+  paused: boolean;
 }
 /**
  * Sent at most once per second. Clients render from deadlineAt and use ticks only to correct drift.
@@ -117,7 +408,22 @@ export interface TimerTick {
 }
 export interface Error {
   type: "error";
-  code: "invalid_message" | "not_your_turn" | "not_host" | "wrong_phase" | "room_full" | "internal";
+  code:
+    | "invalid_message"
+    | "not_your_turn"
+    | "not_host"
+    | "wrong_phase"
+    | "room_full"
+    | "internal"
+    | "not_enough_players"
+    | "game_started"
+    | "invalid_name"
+    | "not_in_control"
+    | "already_attempted"
+    | "invalid_wager"
+    | "not_a_finalist"
+    | "unknown_answer"
+    | "not_a_host";
   message?: string;
 }
 export interface Pong {

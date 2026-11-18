@@ -9,6 +9,7 @@
       "type": "string",
       "enum": [
         "lobby",
+        "building_board",
         "board",
         "clue_reading",
         "buzzing_open",
@@ -20,6 +21,16 @@
         "final_reveal",
         "finished"
       ]
+    },
+    "AnswerSource": {
+      "description": "How an answer was given: spoken (every clue and Daily Double) or typed (Final Schmegettes only). Mirrors public.answer_source.",
+      "type": "string",
+      "enum": ["voice", "typed"]
+    },
+    "MatchRule": {
+      "description": "Which judging rule decided an answer. Mirrors public.match_rule.",
+      "type": "string",
+      "enum": ["exact", "spelling_slip", "sounds_alike", "no_match", "nothing_heard"]
     },
     "Round": {
       "type": "string",
@@ -33,6 +44,11 @@
     "RoomStatus": {
       "type": "string",
       "enum": ["open", "in_game", "closed"]
+    },
+    "GameStatus": {
+      "description": "A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).",
+      "type": "string",
+      "enum": ["in_progress", "finished", "abandoned"]
     },
     "ClueState": {
       "type": "string",

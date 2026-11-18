@@ -5,11 +5,18 @@
   "description": "Every message a client may send on the game WebSocket. The server rejects anything that does not validate. The socket is authenticated at connect time (Supabase JWT); messages carry no identity.",
   "oneOf": [
     { "$ref": "#/$defs/StartGame" },
+    { "$ref": "#/$defs/SetDisplayName" },
+    { "$ref": "#/$defs/SetHostPlays" },
+    { "$ref": "#/$defs/LeaveRoom" },
     { "$ref": "#/$defs/SelectClue" },
+    { "$ref": "#/$defs/ReadingDone" },
     { "$ref": "#/$defs/Buzz" },
+    { "$ref": "#/$defs/AnswerProgress" },
     { "$ref": "#/$defs/SubmitAnswer" },
     { "$ref": "#/$defs/SubmitWager" },
     { "$ref": "#/$defs/OverrideVerdict" },
+    { "$ref": "#/$defs/OverrideReview" },
+    { "$ref": "#/$defs/Rematch" },
     { "$ref": "#/$defs/Ping" }
   ],
   "$defs": {
@@ -20,11 +27,48 @@
       "required": ["type"],
       "additionalProperties": false
     },
+    "SetDisplayName": {
+      "description": "Lobby only. Renames the sender in this room; the server adds a suffix when the name is taken.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "set_display_name" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 20 }
+      },
+      "required": ["type", "displayName"],
+      "additionalProperties": false
+    },
+    "SetHostPlays": {
+      "description": "Host only, lobby only. Joins or leaves the game as a contestant on the host device.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "set_host_plays" },
+        "plays": { "type": "boolean" }
+      },
+      "required": ["type", "plays"],
+      "additionalProperties": false
+    },
+    "LeaveRoom": {
+      "description": "Lobby only, not the host. Removes the sender from the room.",
+      "type": "object",
+      "properties": { "type": { "const": "leave_room" } },
+      "required": ["type"],
+      "additionalProperties": false
+    },
     "SelectClue": {
       "description": "Sent by the player who has control of the board.",
       "type": "object",
       "properties": {
         "type": { "const": "select_clue" },
+        "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" }
+      },
+      "required": ["type", "clueId"],
+      "additionalProperties": false
+    },
+    "ReadingDone": {
+      "description": "Host only. The host device finished reading the active clue aloud, so buzzing can open.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "reading_done" },
         "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" }
       },
       "required": ["type", "clueId"],
@@ -41,19 +85,40 @@
       "required": ["type", "clueId"],
       "additionalProperties": false
     },
+    "AnswerProgress": {
+      "description": "The answering player's interim transcript, so the TV can show it live. The server drops more than 4 per second. In final_answer it is instead the sender's private draft of their typed answer: kept by the server, never relayed, and submitted for them if time runs out. Clients debounce drafts and always send the last one.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "answer_progress" },
+        "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
+        "text": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["type", "clueId", "text"],
+      "additionalProperties": false
+    },
     "SubmitAnswer": {
       "type": "object",
       "properties": {
         "type": { "const": "submit_answer" },
         "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
         "answer": { "type": "string", "maxLength": 200 },
-        "source": { "type": "string", "enum": ["typed", "voice"] }
+        "source": {
+          "type": "string",
+          "enum": ["voice", "typed"],
+          "description": "voice for every clue and Daily Double; typed only in final_answer (Final Schmegettes answers are typed)."
+        },
+        "alternatives": {
+          "description": "Other transcripts the speech recognizer offered, most likely first, after answer (which stays its best guess). Voice only; omitted for typed answers and by recognizers that return one transcript. The server judges answer first, then each of these.",
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "maxItems": 4
+        }
       },
       "required": ["type", "clueId", "answer", "source"],
       "additionalProperties": false
     },
     "SubmitWager": {
-      "description": "Daily Double or Final round wager.",
+      "description": "Daily Double or Final round wager, in whole dollars. The server checks the range: Daily Double $5 to max(score, round's top value); Final $0 to score. The first valid wager locks.",
       "type": "object",
       "properties": {
         "type": { "const": "submit_wager" },
@@ -63,7 +128,7 @@
       "additionalProperties": false
     },
     "OverrideVerdict": {
-      "description": "Host only. Replaces the judge's verdict for one answer.",
+      "description": "Host only. Replaces the verdict on one answer of the clue just played, or of the Final answer being revealed.",
       "type": "object",
       "properties": {
         "type": { "const": "override_verdict" },
@@ -71,6 +136,23 @@
         "correct": { "type": "boolean" }
       },
       "required": ["type", "answerId", "correct"],
+      "additionalProperties": false
+    },
+    "OverrideReview": {
+      "description": "Host only. Opens or closes the review of a verdict on the clue just played (or the Final answer being revealed). While open, the clock is paused.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "override_review" },
+        "open": { "type": "boolean" }
+      },
+      "required": ["type", "open"],
+      "additionalProperties": false
+    },
+    "Rematch": {
+      "description": "Host only, once the game is finished: everyone still in the room goes back to the lobby for a new game.",
+      "type": "object",
+      "properties": { "type": { "const": "rematch" } },
+      "required": ["type"],
       "additionalProperties": false
     },
     "Ping": {

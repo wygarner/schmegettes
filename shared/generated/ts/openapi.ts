@@ -79,7 +79,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The caller's profile (created on first call) */
+        /**
+         * The caller's profile
+         * @description A caller with no profile yet (a guest who hasn't joined a room) gets an empty
+         *     displayName and a null accountName.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -102,10 +106,54 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete the caller's account
+         * @description Their results stay on other players' scoreboards as "Former player"; their seen clues
+         *     and host access are deleted. Refused while they are in a game in progress.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The caller is a guest (problem type `not-signed-in`) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description The caller is in a game in progress (problem type `in-game`) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["RateLimited"];
+            };
+        };
         options?: never;
         head?: never;
-        /** Update display name */
+        /**
+         * Set the account's name
+         * @description Signed-in players only (problem type `not-signed-in` for guests).
+         */
         patch: {
             parameters: {
                 query?: never;
@@ -116,7 +164,7 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        displayName: string;
+                        accountName: components["schemas"]["DisplayName"];
                     };
                 };
             };
@@ -130,8 +178,142 @@ export interface paths {
                         "application/json": components["schemas"]["Profile"];
                     };
                 };
+                400: components["responses"]["Problem"];
+                /** @description The caller is a guest (problem type `not-signed-in`) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
             };
         };
+        trace?: never;
+    };
+    "/v1/me/merge-tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A one-use ticket that lets this guest be moved into an account
+         * @description Called by a guest just before signing in with Apple or Google. A new ticket replaces
+         *     the guest's earlier ones. Valid for 24 hours.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ticket */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MergeTicket"];
+                    };
+                };
+                /** @description The caller isn't a guest (problem type `not-a-guest`) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a guest's games, seen clues, and host access into the caller's account
+         * @description Spends the ticket and deletes the guest. When the guest and the account were in the
+         *     same game, the account's result is kept and the guest's shows as "Former player".
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        ticket: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Moved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MergeResult"];
+                    };
+                };
+                /** @description The ticket is wrong, used, expired, or the caller's own (problem type `invalid-ticket`) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description The caller is a guest (problem type `not-signed-in`) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description The guest is in a game in progress (problem type `guest-in-game`); the ticket stays valid */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/rooms": {
@@ -143,7 +325,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a room; the caller becomes host */
+        /**
+         * Create a room; the caller becomes host
+         * @description Closes the caller's other rooms that are still in the lobby.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -151,23 +336,31 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
-                        seasons?: number[];
-                        /** @default 6 */
-                        maxPlayers?: number;
+                        displayName: components["schemas"]["DisplayName"];
                     };
                 };
             };
             responses: {
-                /** @description Room created; board is built asynchronously */
+                /** @description Room created. The board is built when the host starts the game. */
                 201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Room"];
+                        "application/json": components["schemas"]["RoomJoin"];
+                    };
+                };
+                400: components["responses"]["Problem"];
+                /** @description The caller has no host access (problem type `not-a-host`). Hosting is invite-only. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
                     };
                 };
             };
@@ -199,6 +392,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         code: components["schemas"]["RoomCode"];
+                        displayName: components["schemas"]["DisplayName"];
                         /**
                          * @default contestant
                          * @enum {string}
@@ -217,14 +411,361 @@ export interface paths {
                         "application/json": components["schemas"]["RoomJoin"];
                     };
                 };
-                404: components["responses"]["Problem"];
-                409: components["responses"]["Problem"];
+                400: components["responses"]["Problem"];
+                /** @description No open room with that code (problem type `room-not-found`) */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description The room is full (`room-full`) or its game has started (`game-started`) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["RateLimited"];
             };
         };
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/rooms/by-code/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A room the caller is already a member of, by code (used after a reload) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    code: components["schemas"]["RoomCode"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Room and its socket URL */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RoomJoin"];
+                    };
+                };
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/host-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether the caller's device can host */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Host access */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HostAccess"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/host-access/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeem the current rotating host code to give the caller host access
+         * @description The current code can be used by any number of callers. The previous code works for
+         *     five minutes after a scheduled rotation. Wrong, expired, manually retired, and
+         *     malformed codes get the same answer.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description 8 characters; case, spaces, and dashes are ignored */
+                        code: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description The caller can host */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HostAccess"];
+                    };
+                };
+                /** @description The code didn't work (problem type `invalid-code`) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/host-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the current rotating host code (admins only) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Current rotation state */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminHostCode"];
+                    };
+                };
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/host-code/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retire the displayed host code immediately (admins only) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        expectedCode: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Current rotation state; a stale request returns the code already created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminHostCode"];
+                    };
+                };
+                400: components["responses"]["Problem"];
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List every host newest first (admins only) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hosts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            hosts: components["schemas"]["AdminHost"][];
+                        };
+                    };
+                };
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosts/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove host access */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["Problem"];
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Set or clear an admin-only host note */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        note: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated host */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminHost"];
+                    };
+                };
+                400: components["responses"]["Problem"];
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
         trace?: never;
     };
     "/v1/rooms/{roomId}": {
@@ -263,7 +804,39 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Change room settings before the game starts (host only) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    roomId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Seasons to build boards from; null means every season */
+                        seasons?: number[] | null;
+                        maxPlayers?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated room */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Room"];
+                    };
+                };
+                403: components["responses"]["Problem"];
+                404: components["responses"]["Problem"];
+            };
+        };
         trace?: never;
     };
     "/v1/games": {
@@ -273,11 +846,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The caller's finished games, newest first */
+        /**
+         * The caller's ended games (finished or abandoned), played or watched, newest first
+         * @description 20 per page. Pass nextCursor back as cursor (with the same kind) for the next page; it is opaque. The first page (no cursor) also carries stats.
+         */
         get: {
             parameters: {
                 query?: {
                     cursor?: string;
+                    /** @description Only games the caller played (as a contestant), or only games they watched */
+                    kind?: "played" | "watched";
                 };
                 header?: never;
                 path?: never;
@@ -294,9 +872,60 @@ export interface paths {
                         "application/json": {
                             items: components["schemas"]["GameSummary"][];
                             nextCursor: string | null;
+                            /** @description Across all the caller's ended games, whatever the kind; on the first page only, null on later pages */
+                            stats?: {
+                                /** @description Ended games, played or watched */
+                                games: number;
+                                /** @description Ended games the caller played as a contestant */
+                                played: number;
+                                /** @description Finished (not abandoned) games the caller placed 1st in, ties included */
+                                wins: number;
+                                /** @description The caller's highest score in a played game; null if they never played */
+                                best: number | null;
+                            } | null;
                         };
                     };
                 };
+                400: components["responses"]["Problem"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/games/{gameId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A game's scoreboard (anyone who played or watched it) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    gameId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Game */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GameDetail"];
+                    };
+                };
+                404: components["responses"]["Problem"];
             };
         };
         put?: never;
@@ -325,6 +954,8 @@ export interface components {
             userId: string;
             displayName: string;
             isAnonymous: boolean;
+            /** @description The signed-in player's name (leaderboard, name prefill); null for guests and new accounts */
+            accountName: string | null;
         };
         Room: {
             /** Format: uuid */
@@ -333,9 +964,15 @@ export interface components {
             status: components["schemas"]["RoomStatus"];
             /** Format: uuid */
             hostUserId: string;
-            boardReady: boolean;
+            hostDisplayName: string;
+            /** @description The host joined the game as a contestant on the host device */
+            hostPlays: boolean;
             maxPlayers: number;
+            /** @description Seasons boards are built from; null means every season */
+            seasons: number[] | null;
         };
+        /** @description Trimmed by the server; must not be blank */
+        DisplayName: string;
         RoomJoin: {
             room: components["schemas"]["Room"];
             /**
@@ -344,14 +981,93 @@ export interface components {
              */
             gameSocketUrl: string;
         };
+        /** @description One of the caller's past games, from their point of view. */
         GameSummary: {
             /** Format: uuid */
             gameId: string;
+            status: components["schemas"]["GameStatus"];
             /** Format: date-time */
+            startedAt: string;
+            /**
+             * Format: date-time
+             * @description When the game ended
+             */
             finishedAt: string;
-            finalScore: number;
-            placement: number;
+            /** @description The caller's score */
+            score: number;
+            /** @description The caller's placement; ties share a place; null if they hosted (the TV) or watched */
+            placement: number | null;
+            /** @description Display names as they were in that game ("Former player" for deleted accounts) */
+            players: string[];
             playerCount: number;
+            /** @description The caller's name in that game, so a list can say "You"; null if they only watched */
+            callerDisplayName?: string | null;
+            /** @description The caller hosted without playing */
+            watched?: boolean;
+        };
+        GameDetail: {
+            /** Format: uuid */
+            gameId: string;
+            status: components["schemas"]["GameStatus"];
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            finishedAt: string | null;
+            /** @description Contestants ordered by placement; the host (the TV) and spectators are not listed */
+            results: components["schemas"]["GameResult"][];
+            /** @description The host's name in that game; null when the host's account was deleted */
+            hostDisplayName?: string | null;
+            /** @description The caller hosted without playing */
+            watched?: boolean;
+        };
+        GameResult: {
+            /** @description Name as it was in that game */
+            displayName: string;
+            score: number;
+            /** @description Ties share a place */
+            placement: number;
+            /** @description This row is the caller */
+            isCaller?: boolean;
+        };
+        HostAccess: {
+            canHost: boolean;
+        };
+        AdminHostCode: {
+            code: string;
+            /** Format: date-time */
+            currentStartedAt: string;
+            /** Format: date-time */
+            rotatesAt: string;
+            /** Format: date-time */
+            previousValidUntil: string | null;
+            /** Format: date-time */
+            serverTime: string;
+        };
+        AdminHost: {
+            /** Format: uuid */
+            userId: string;
+            /** @enum {string} */
+            kind: "account" | "guest";
+            /** Format: email */
+            email: string | null;
+            lastPlayedAs: string | null;
+            /** Format: date-time */
+            hostSince: string;
+            note: string | null;
+        };
+        MergeTicket: {
+            /** @description Secret; keep it only until it's redeemed */
+            ticket: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        MergeResult: {
+            /** @description Finished and abandoned games moved into the account */
+            gamesAdded: number;
+            /** @description The account can host now and couldn't before */
+            hostAccessAdded: boolean;
+            /** @description The account had no name yet (first sign-in) */
+            accountWasNew: boolean;
         };
         Problem: {
             type?: string;
@@ -363,11 +1079,26 @@ export interface components {
         RoomCode: string;
         /** @enum {string} */
         RoomStatus: "open" | "in_game" | "closed";
+        /**
+         * @description A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).
+         * @enum {string}
+         */
+        GameStatus: "in_progress" | "finished" | "abandoned";
     };
     responses: {
         /** @description Error (RFC 9457 problem details) */
         Problem: {
             headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description Too many tries (problem type `rate-limited`). Try again after `Retry-After` seconds. */
+        RateLimited: {
+            headers: {
+                "Retry-After"?: number;
                 [name: string]: unknown;
             };
             content: {

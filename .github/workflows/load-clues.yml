@@ -1,0 +1,77 @@
+name: Load Clues
+
+# Loads clue dataset seasons into an environment's catalog (worker `import-clues`), so the
+# owner database URL never has to sit on a laptop. Safe to run again: seasons already loaded
+# insert nothing. See docs/system-docs/operations/deployment.md, "Loading the clue catalog".
+#
+# Production holds the catalog only once private access is live: the loader refuses a
+# database without public.hosts, and production runs only from the production branch.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to load
+        required: true
+        type: choice
+        options: [staging, production]
+      seasons:
+        description: Seasons, e.g. 1-40 or 1-5,12
+        required: true
+        default: 1-40
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: load-clues-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  load:
+    name: Load clues (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash  # -eo pipefail, so a failed load fails the step despite tee
+        working-directory: worker
+    steps:
+      - name: Production loads only from the production branch
+        if: inputs.environment == 'production' && github.ref != 'refs/heads/production'
+        working-directory: .
+        run: |
+          echo "::error::Run this workflow on the production branch to load production."
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: python uv
+      - run: uv sync --locked --no-dev
+      - name: Load seasons
+        env:
+          APP_ENV: ${{ inputs.environment }}
+          SEASONS: ${{ inputs.seasons }}
+          # Each environment reads only its own secret: no fallback from one to the other.
+          PROD_OWNER_URL: ${{ secrets.PROD_SUPABASE_DB_OWNER_URL }}
+          STAGING_OWNER_URL: ${{ secrets.STAGING_SUPABASE_DB_OWNER_URL }}
+          CLUE_DATASET_BASE_URL: ${{ vars.CLUE_DATASET_BASE_URL || 'https://raw.githubusercontent.com/wygarner/jeopardy_clue_dataset/refs/heads/main/seasons' }}
+        run: |
+          if [ "$APP_ENV" = production ]; then DATABASE_OWNER_URL="$PROD_OWNER_URL"; else DATABASE_OWNER_URL="$STAGING_OWNER_URL"; fi
+          export DATABASE_OWNER_URL
+          unset PROD_OWNER_URL STAGING_OWNER_URL
+          if [ -z "$DATABASE_OWNER_URL" ]; then
+            echo "::error::No owner database URL for $APP_ENV (STAGING_SUPABASE_DB_OWNER_URL or PROD_SUPABASE_DB_OWNER_URL in the GitHub Environment)."
+            exit 1
+          fi
+          uv run --no-dev python -m schmegettes_worker import-clues --seasons "$SEASONS" | tee "$RUNNER_TEMP/summary.txt"
+      - name: Summary
+        if: always()
+        working-directory: .
+        run: |
+          if [ -f "$RUNNER_TEMP/summary.txt" ]; then
+            { echo '```text'; grep -v '^{' "$RUNNER_TEMP/summary.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi

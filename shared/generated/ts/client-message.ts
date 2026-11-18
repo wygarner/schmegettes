@@ -3,7 +3,21 @@
 /**
  * Every message a client may send on the game WebSocket. The server rejects anything that does not validate. The socket is authenticated at connect time (Supabase JWT); messages carry no identity.
  */
-export type ClientMessage = StartGame | SelectClue | Buzz | SubmitAnswer | SubmitWager | OverrideVerdict | Ping;
+export type ClientMessage =
+  | StartGame
+  | SetDisplayName
+  | SetHostPlays
+  | LeaveRoom
+  | SelectClue
+  | ReadingDone
+  | Buzz
+  | AnswerProgress
+  | SubmitAnswer
+  | SubmitWager
+  | OverrideVerdict
+  | OverrideReview
+  | Rematch
+  | Ping;
 
 /**
  * Host only. Moves the room from lobby to the first board.
@@ -12,10 +26,37 @@ export interface StartGame {
   type: "start_game";
 }
 /**
+ * Lobby only. Renames the sender in this room; the server adds a suffix when the name is taken.
+ */
+export interface SetDisplayName {
+  type: "set_display_name";
+  displayName: string;
+}
+/**
+ * Host only, lobby only. Joins or leaves the game as a contestant on the host device.
+ */
+export interface SetHostPlays {
+  type: "set_host_plays";
+  plays: boolean;
+}
+/**
+ * Lobby only, not the host. Removes the sender from the room.
+ */
+export interface LeaveRoom {
+  type: "leave_room";
+}
+/**
  * Sent by the player who has control of the board.
  */
 export interface SelectClue {
   type: "select_clue";
+  clueId: string;
+}
+/**
+ * Host only. The host device finished reading the active clue aloud, so buzzing can open.
+ */
+export interface ReadingDone {
+  type: "reading_done";
   clueId: string;
 }
 /**
@@ -29,26 +70,56 @@ export interface Buzz {
    */
   clientSentAt?: number;
 }
+/**
+ * The answering player's interim transcript, so the TV can show it live. The server drops more than 4 per second. In final_answer it is instead the sender's private draft of their typed answer: kept by the server, never relayed, and submitted for them if time runs out. Clients debounce drafts and always send the last one.
+ */
+export interface AnswerProgress {
+  type: "answer_progress";
+  clueId: string;
+  text: string;
+}
 export interface SubmitAnswer {
   type: "submit_answer";
   clueId: string;
   answer: string;
-  source: "typed" | "voice";
+  /**
+   * voice for every clue and Daily Double; typed only in final_answer (Final Schmegettes answers are typed).
+   */
+  source: "voice" | "typed";
+  /**
+   * Other transcripts the speech recognizer offered, most likely first, after answer (which stays its best guess). Voice only; omitted for typed answers and by recognizers that return one transcript. The server judges answer first, then each of these.
+   *
+   * @maxItems 4
+   */
+  alternatives?: [] | [string] | [string, string] | [string, string, string] | [string, string, string, string];
 }
 /**
- * Daily Double or Final round wager.
+ * Daily Double or Final round wager, in whole dollars. The server checks the range: Daily Double $5 to max(score, round's top value); Final $0 to score. The first valid wager locks.
  */
 export interface SubmitWager {
   type: "submit_wager";
   amount: number;
 }
 /**
- * Host only. Replaces the judge's verdict for one answer.
+ * Host only. Replaces the verdict on one answer of the clue just played, or of the Final answer being revealed.
  */
 export interface OverrideVerdict {
   type: "override_verdict";
   answerId: string;
   correct: boolean;
+}
+/**
+ * Host only. Opens or closes the review of a verdict on the clue just played (or the Final answer being revealed). While open, the clock is paused.
+ */
+export interface OverrideReview {
+  type: "override_review";
+  open: boolean;
+}
+/**
+ * Host only, once the game is finished: everyone still in the room goes back to the lobby for a new game.
+ */
+export interface Rematch {
+  type: "rematch";
 }
 export interface Ping {
   type: "ping";

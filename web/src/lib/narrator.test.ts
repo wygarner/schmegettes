@@ -24,7 +24,10 @@ class FakeSource {
   buffer: unknown = null;
   onended: (() => void) | null = null;
   started = false;
-  connect() {}
+  connectedTo: unknown = null;
+  connect(node: unknown) {
+    this.connectedTo = node;
+  }
   start() {
     this.started = true;
   }
@@ -84,6 +87,15 @@ test("a Schmegettes voice reads each sentence in order and ends after the last",
   for (const s of sources) s.onended?.();
   await expect(done).resolves.toBe("ended");
   expect(speak).not.toHaveBeenCalled();
+});
+
+test("plays through the narrator's output (the speakers here, off iOS)", async () => {
+  const sources = fakeAudio();
+  const done = narrate("Verdi wrote it.");
+  await flush();
+  expect(sources[0]?.connectedTo).toEqual({});
+  for (const s of sources) s.onended?.();
+  await done;
 });
 
 test("text is cleaned up for speech first", async () => {

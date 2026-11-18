@@ -27,7 +27,7 @@ The game also needs an ending worth staying for: a scoreboard that names the win
 - **Who:** only the host device, whether or not the host plays. Phones can't override. A playing host can override their own answer.
 - **What:** any judged answer of the clue that just ended: regular clues and Daily Doubles. "No answer heard" counts as a judged answer. A buzz that was never judged (the player disconnected before answering) isn't listed. Final answers are overridden during the reveal (below).
 - **When:** on the correct-response screen. An **Override** control sits next to the verdict line. A clue nobody buzzed on has nothing to override.
-- **The clock pauses** while the host reviews: the 6 s correct-response timer stops and resumes when the review closes. Nothing else is running at that point.
+- **The clock pauses** while the host reviews: the correct-response screen holds (the board doesn't return) and the countdown back to the board resumes when the review closes. Nothing else is running at that point.
 - **Effect:** the verdict flips. Incorrect → correct gives **+value** in place of **−value** (a swing of twice the value); correct → incorrect the reverse. For a Daily Double the amount is the wager. The answer's scored amount changes, so a final score is still the sum of that player's scored answers ([game history](../game-history/feature-brief.md)).
 - **Control** goes to whoever now has the latest correct answer on that clue. If no answer on it is correct, control goes back to whoever had it when the clue was picked. A Daily Double never moves control.
 - **Two right answers on one clue** are possible after an override (Bob overridden to correct, then Alice also correct). Each answer is scored on its own; both gain the value.

@@ -37,8 +37,8 @@ Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667
 │              Join at {site}/join                  │  ● Alice          │
 │                                                   │  ◌ Bob (reconn…)  │
 │                  K 7 R X M                        │ ┌───────────────┐ │
-│                                                   │ │ (red buzzer)  │ │ ◀ once the host
-│  [ Leave the game ]   🔊 Ava        [   Start   ] │ └───────────────┘ │   joined
+│        Seasons 20–40 · Fast timers                │ │ (red buzzer)  │ │ ◀ once the host
+│  [ Leave the game ] 🔊 Kristin ⚙ Options [ Start ]│ └───────────────┘ │   joined
 └───────────────────────────────────────────────────┴───────────────────┘
 ```
 
@@ -47,7 +47,9 @@ Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667
 - A new player animates into the list, without a sound.
 - **Start**: primary button. While there are no contestants it is disabled, with the hint "Need at least 1 player". A playing host counts.
 - **Join the game** (secondary) adds the host to the list at once, under their host name, tagged HOST, and the button becomes **Leave the game**. Editing the host name with ✎ updates both places.
-- **🔊 {voice name}** (subtle button) opens the narrator voice picker (below). While the chosen Schmegettes voice downloads it reads "🔊 Norman · 40%". It's hidden when the device can't speak at all.
+- **🔊 {voice name}** (subtle button) opens the narrator voice picker (below). While the chosen voice downloads it reads "🔊 Norman · 40%", and **Start** reads "Getting Norman ready… 40%" and is disabled.
+- On a device that can't run the voices, the 🔊 button is hidden and a notice replaces the join URL line: "This device can't run the Schmegettes narrator. Host from a recent iPhone, iPad or computer." Start stays disabled.
+- **⚙ Options** (subtle button) opens the game options sheet (below). The line under the code lists the options that aren't the default; it's empty with the defaults.
 
 ### Narrator voice picker (host device)
 
@@ -55,30 +57,54 @@ Rules: [gameplay](../gameplay/feature-brief.md#the-narrators-voice).
 
 ```text
 ┌──────────────────── Narrator voice ────────────────────┐
-│  ──────────── Schmegettes voices ────────────────────  │ ◀ always first
 │  ✓ Kristin                                             │
 │    Norman                           Downloading… 40%   │
 │    John                                                │
-│  ──────────── Voices on this device ─────────────────  │
-│    Ava (Premium)                                       │
-│    Samantha                                            │
-│    Daniel (UK)                                         │ ◀ list scrolls
-│  ──────────────────────────────────────────────────── │
-│  Want a more natural voice? Download a Premium voice   │ ◀ only when the Schmegettes
-│  in Settings → Accessibility → Spoken Content →        │   voice can't be used and no
-│  Voices → English, then reload this page.              │   Premium or Enhanced voice
-│                                                        │   is installed
+│                                                        │
 │                                             [ Done ]   │
 └────────────────────────────────────────────────────────┘
 ```
 
-1. The host taps **🔊 Kristin**. A modal lists the Schmegettes voices first (Kristin, Norman, John), then the device's English voices, best first, with the current one checked. Each device voice shows its name, its quality ("Premium", "Enhanced"), and the region when it isn't US ("UK", "Australia").
-2. Tapping a row selects it at once and says "Here's Volcanoes for 400." in that voice on the TV.
+1. The host taps **🔊 Kristin**. A modal lists the three Schmegettes voices, with the current one checked. The device's built-in voices aren't listed.
+2. Tapping a row selects it at once and says "Here's a sample of my voice." on the TV once it's ready.
 3. **Done** (or tapping outside the modal) closes it. The button shows the new name. The choice is saved on this device.
 
-- The settings path in the tip matches the device: iPhone/iPad, or Mac (System Settings). Other devices don't show a tip.
-- Novelty voices (singing, whispering, robot effects) aren't listed.
-- Each Schmegettes voice row shows its state on the right: "Downloading… 40%", nothing once it's ready or before it's picked, or "Couldn't download" with **Try again**. Tapping a voice that isn't on the device selects it and starts its download (about 63 MB); its sample plays once it's ready. Until then the narrator keeps the voice it had: the previous Schmegettes voice if one is on the device, else the best built-in voice.
+- Each row shows its state on the right: "Downloading… 40%", nothing once it's ready or before it's picked, or "Couldn't download" with **Try again**. Tapping a voice that isn't on the device selects it and starts its download (about 63 MB); its sample plays once it's ready, and Start waits for it.
+
+### Game options (host device)
+
+Rules: [lobby feature brief](./feature-brief.md#game-options).
+
+```text
+┌────────────────────── Game options ─────────────────────┐
+│  Seasons        1984 ●━━━━━━━━━━━━━━━━━━━━━━━● 2024      │
+│                 Seasons 1–40 (all)                      │
+│                                                         │
+│  Timers         ( Relaxed | Standard | Fast )           │
+│                 9 s to buzz in, 9 s to answer           │
+│                                                         │
+│  Double         [■■ On ]  Two boards, then Final        │
+│  Schmegettes                                            │
+│                                             [ Done ]    │
+└─────────────────────────────────────────────────────────┘
+```
+
+- **Seasons:** a two-handle range slider, ticks per season, labeled with years at the ends and the range as text below ("Seasons 20–40 · 2003–2024"). The handles can meet (one season) but not cross.
+- **Timers:** a three-way segmented control. The line below spells out the choice ("15 s to buzz in, 12 s to answer").
+- **Double Schmegettes:** a switch. The line beside it says "Two boards, then Final" or "One board, then Final".
+- Changes apply as they're made; **Done** or a tap outside closes the sheet. The line under the code updates live.
+- Laid out for 844 × 390 without scrolling, like every host screen.
+
+### Home Screen tip (iPhone and iPad Safari only)
+
+```text
+┌───────────────────────────────────────────────────┐
+│ ⤴ For full screen, add Schmegettes to your Home   │ ✕
+│   Screen: tap Share, then Add to Home Screen.     │
+└───────────────────────────────────────────────────┘
+```
+
+A slim banner across the top of the host lobby's stage, above the title. ✕ hides it for good on that device. It doesn't push the code off screen at 667 × 320.
 
 ### Join (phone)
 
@@ -141,18 +167,20 @@ When the host joined, their controls live in the **player column** on the right 
 | Player reloads | Rejoins as the same player, with no name prompt |
 | Player disconnects | Stays listed, dimmed "(reconnecting)". Start still counts them. |
 | Two Start presses (double tap) | Only the first counts. The second does nothing. |
-| Voice list not loaded yet when the lobby opens (browsers load it late) | The button reads "🔊 Default voice" and switches to the chosen voice's name when the list arrives. The picker says "Loading voices…" until then |
 | Host taps a second voice while a sample is playing | The first sample stops; the new one plays |
 | Host presses Start while a sample is playing, or the picker is open | The sample stops and the picker closes. The selected voice is kept |
-| Device has no English voice | The device's default voice reads. The picker says "No English voices on this device." with the tip |
 | The sample is blocked because sound isn't unlocked yet (iOS) | Tapping a row counts as the unlocking tap, so the sample plays |
-| The Schmegettes voice is still downloading at Start | Start works as usual. The narrator uses the best built-in voice and switches to the Schmegettes voice at the next line once it's ready |
-| The download fails (offline, blocked, out of space) | The row says "Couldn't download" with **Try again**. The best built-in voice reads. The next lobby tries again on its own |
+| The voice is still downloading when everyone's in | Start stays disabled and shows the progress; it enables the moment the voice is ready |
+| The download fails (offline, blocked, out of space) | The row and Start say "Couldn't download the voice" with **Try again**. Start stays disabled. The next lobby tries again on its own |
 | The browser deleted the saved voice (iOS clears site data that hasn't been used for a few weeks) | It downloads again in the background when the lobby opens |
-| The device can't generate speech fast enough | The Schmegettes voice rows say "Not available on this device". The built-in voices and the tip are shown |
+| The device can't generate speech fast enough | The device can't host: the lobby shows the notice and Start stays disabled |
 | Host picks Norman, then John, before either finishes downloading | Norman's download stops; John's starts. Only the voice that ends up picked is kept |
-| Host picks another Schmegettes voice and its download fails | The row says "Couldn't download" with **Try again**. The narrator keeps the voice already on the device |
-| Host switches from Norman back to Kristin after Norman replaced it | Kristin downloads again (about 63 MB); Norman keeps reading until it's ready |
+| Host picks another voice and its download fails | The row says "Couldn't download" with **Try again**. Start stays disabled until it downloads, or until the host picks back the voice already on the device |
+| Host switches from Norman back to Kristin after Norman replaced it | Kristin downloads again (about 63 MB); Start waits for it |
+| Host opens the lobby from the Home Screen app for the first time | Signs in or redeems a host code there, and the voice downloads there; iOS keeps the app's storage apart from Safari's |
+| Host changes the options, then a player joins | Nothing changes for the player; options are shown only on the TV |
+| Host picks a one-season range | Allowed. The board falls back to least-recently-seen categories if fresh ones run out |
+| Rematch | The room's options carry over; the host can change them before Start |
 | Host presses Start while a player is mid-join | Whoever has finished joining when the server handles Start is in. The rest see "This game has already started." |
 | A player leaves so the count drops below 2 | Start disables again |
 | Host presses Host a game again on Home while their lobby is open | The old lobby closes ("This room has closed" on its phones) and a new code appears |

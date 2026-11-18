@@ -109,9 +109,10 @@ A slim banner across the top of the host lobby's stage, above the title. ✕ hid
 ### Join (phone)
 
 1. Player enters the code on Home → `/join/K7RXM`.
-2. "What's your name?" with the last name used prefilled, then **Join**.
-3. "You're in, Alice." with the microphone prompt, **Edit name** and **Leave**, and the buzzer pinned to the bottom of the screen (dim; a tap only animates it). The buzzer stays there for the rest of the game ([gameplay](../gameplay/interaction-design.md)).
-4. On Start everyone sees "Shuffling a fresh board…" ([game-history](../game-history/interaction-design.md)).
+2. The microphone screen: **Allow microphone**. The player can't go on until it's allowed ([gameplay](../gameplay/interaction-design.md#microphone-permission)).
+3. "What's your name?" with the last name used prefilled, then **Join**.
+4. "You're in, Alice." with **Edit name** and **Leave**, and the buzzer pinned to the bottom of the screen (dim; a tap only animates it). The buzzer stays there for the rest of the game ([gameplay](../gameplay/interaction-design.md)).
+5. On Start everyone sees "Shuffling a fresh board…" ([game-history](../game-history/interaction-design.md)).
 
 ### Start (host device)
 
@@ -157,6 +158,7 @@ When the host joined, their controls live in the **player column** on the right 
 | Room closed | Phone: "This room has closed." with a link Home |
 | Duplicate contestant name | Shown as "Alice 2" |
 | Host joins and a contestant has the same name | The later of the two gets the suffix ("Wyatt 2") |
+| Host presses Join the game and blocks the microphone | Not added. The microphone screen shows the steps and **Try again**; **Cancel** returns to the lobby as a non-playing host |
 | Host joins when the room is full | **Join the game** is disabled: "Room is full" |
 | Host leaves the game so the count drops below 2 | Start disables again |
 | Host device disconnects mid-game while playing | Same as any contestant dropping: their buzzer is gone until reconnect. The game pauses only per the room rules. |

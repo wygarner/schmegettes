@@ -65,7 +65,7 @@ The same layout as the lobby ([lobby](../lobby/interaction-design.md)), with:
 
 ### Phone
 
-- Joining a resume room: code, then straight to "You're back, Alice. $1,200" with the buzzer. No name prompt: the name is the one from the game.
+- Joining a resume room: code, the microphone screen if the browser asks again, then straight to "You're back, Alice. $1,200" with the buzzer. No name prompt: the name is the one from the game.
 - After **Resume**, the phone shows the board as usual.
 
 ## Edge cases

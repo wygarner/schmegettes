@@ -60,3 +60,19 @@ test("a 4-row board shows every value", () => {
   for (const v of [200, 400, 600, 800])
     expect(screen.getByRole("button", { name: `VOLCANOES for ${v}` })).toBeInTheDocument();
 });
+
+test("a 5-category board fills five equal columns", () => {
+  const cats = ["VOLCANOES", "POTPOURRI", "80s TV", "CAPITALS", "OPERA"];
+  const five: BoardClue[] = cats.flatMap((category) =>
+    [200, 400, 600, 800].map((v) => ({ clueId: `${category}${v}`, category, value: v, state: "unplayed" as const })),
+  );
+  render(
+    <MantineProvider>
+      <Board board={five} size="tv" />
+    </MantineProvider>,
+  );
+  expect(screen.getByRole("region", { name: "Board" })).toHaveStyle({
+    gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+  });
+  expect(screen.getAllByRole("button")).toHaveLength(20);
+});

@@ -5,6 +5,7 @@ import { narrationState } from "../lib/narrator";
 import { saveVoice } from "../lib/narratorVoice";
 import { prepareVoice } from "../lib/piper/engine";
 import { initialRoom, type RoomState } from "../lib/room";
+import * as sfx from "../lib/sfx";
 import { type Recognizer, setRecognizerFactory } from "../lib/speech";
 import { HostGame } from "./HostGame";
 
@@ -248,11 +249,11 @@ function showHost(s: RoomState, send = vi.fn()) {
   };
 }
 
-test("a Daily Double: the reveal, the wager, then the clue read with the wager", () => {
+test("a Daily Double: the reveal, the wager, then the clue read with the wager", async () => {
   const dd: RoomState = { ...state, phase: "daily_double_wager", activeClue: ddClue, controllingUserId: "a" };
   const { update } = showHost(dd);
   expect(screen.getByText("DAILY DOUBLE")).toBeInTheDocument();
-  expect(spoken.map((u) => u.text)).toEqual(["It's a Daily Double."]);
+  await waitFor(() => expect(spoken.map((u) => u.text)).toEqual(["It's a Daily Double."]));
   update({ ...dd, wager: 1000 });
   expect(screen.getByText("Alice wagers $1,000")).toBeInTheDocument();
   update({ ...dd, phase: "clue_reading", wager: 1000, activeClue: { ...ddClue, clueText: "THIS GAS" } });
@@ -468,10 +469,10 @@ test("the final scoreboard has Rematch", () => {
   expect(send).toHaveBeenCalledWith({ type: "rematch" });
 });
 
-test("the correct response is read aloud once: right, missed, and Final", () => {
+test("the correct response is read aloud once: right, missed, and Final", async () => {
   const { update } = showHost({ ...state, phase: "answering" });
   update({ ...state, phase: "answering", clueEnd: { state: "answered", correctResponse: "Nitrogen" } });
-  expect(spoken.at(-1)?.text).toBe("Correct, Nitrogen is the right answer.");
+  await waitFor(() => expect(spoken.at(-1)?.text).toBe("Correct, Nitrogen is the right answer."));
   const count = spoken.length;
   update({
     ...state,
@@ -489,7 +490,7 @@ test("the correct response is read aloud once: right, missed, and Final", () => 
     activeClue: c2,
     clueEnd: { state: "unanswered", correctResponse: "Paris" },
   });
-  expect(spoken.at(-1)?.text).toBe("Sorry, we were looking for Paris.");
+  await waitFor(() => expect(spoken.at(-1)?.text).toBe("Sorry, we were looking for Paris."));
 
   update({
     ...finalState,
@@ -528,4 +529,46 @@ test("a host who picked a built-in voice doesn't download a Schmegettes voice", 
   );
   expect(prepareVoice).not.toHaveBeenCalled();
   window.localStorage.clear();
+});
+
+test("the sting plays before the correct response is read", async () => {
+  let end: () => void = () => {};
+  const sting = vi.spyOn(sfx, "playCorrect").mockReturnValue(new Promise<void>((r) => (end = r)));
+  showHost({ ...state, phase: "answering", clueEnd: { state: "answered", correctResponse: "Nitrogen" } });
+  expect(sting).toHaveBeenCalled();
+  expect(spoken.map((u) => u.text)).not.toContain("Correct, Nitrogen is the right answer.");
+  end();
+  await waitFor(() => expect(spoken.at(-1)?.text).toBe("Correct, Nitrogen is the right answer."));
+  sting.mockRestore();
+});
+
+test("nobody got it: the time's-up tone; Final gets no sound", async () => {
+  const timesUp = vi.spyOn(sfx, "playTimesUp");
+  const correct = vi.spyOn(sfx, "playCorrect");
+  const { update } = showHost({
+    ...state,
+    phase: "buzzing_open",
+    clueEnd: { state: "unanswered", correctResponse: "Paris" },
+  });
+  expect(timesUp).toHaveBeenCalledTimes(1);
+  update({
+    ...state,
+    phase: "final_reveal",
+    activeClue: { clueId: "f", category: "ISLANDS", value: 0, state: "answered" },
+    clueEnd: { state: "answered", correctResponse: "Krakatoa" },
+  });
+  await waitFor(() => expect(spoken.at(-1)?.text).toBe("The correct response is Krakatoa."));
+  expect(correct).not.toHaveBeenCalled();
+  expect(timesUp).toHaveBeenCalledTimes(1);
+  timesUp.mockRestore();
+  correct.mockRestore();
+});
+
+test("Double Schmegettes! gets its fanfare once", () => {
+  const fanfare = vi.spyOn(sfx, "playDoubleRound");
+  const intro: RoomState = { ...state, phase: "board", activeClue: undefined, roundIntro: "double" };
+  const { update } = showHost(intro);
+  update({ ...intro, scores: { a: 200 } });
+  expect(fanfare).toHaveBeenCalledTimes(1);
+  fanfare.mockRestore();
 });

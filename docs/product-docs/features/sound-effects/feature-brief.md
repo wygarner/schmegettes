@@ -31,10 +31,10 @@ Players also expect the buzzer to make a sound when pressed. Today it doesn't. W
 - **Sounds never hold up the game.** A sound that fails to load or play is skipped, without a message. No timer waits for one.
 - **Nothing plays for a wrong answer mid-clue** (buzzing reopens), when buzzing opens, or for the pick reveal. These happen often and would get tiresome. The pick reveal is silent.
 - **Level:** sounds are mixed a little below the narrator so the narrator stays the loudest thing. One volume, set by the device; there is no in-game volume or mute setting.
-- **Original sounds only.** Every sound is made for Schmegettes or comes from a public-domain (CC0) library, and none imitates a TV quiz show's sound cues. Their licenses are listed with the other third-party notices.
+- **Original sounds only.** Every sound is made for Schmegettes (generated in the browser from tones and noise), and none imitates a TV quiz show's sound cues. A sound swapped later for a recording must be public domain (CC0) and listed with the third-party notices.
 - **The silent switch doesn't mute them.** Like the narrator ([gameplay](../gameplay/feature-brief.md#the-narrators-voice)), game sounds play at media volume with an iPhone's ring/silent switch on, on the TV and on phones.
 - **Sound unlocking** works as for the narrator: the host's first tap turns on sound on the TV ("Tap to turn on sound" when it's blocked), and a phone's first buzzer press is the tap that unlocks its own sound.
-- Sounds are small (all together well under 1 MB) and load with the app, so they're ready at the first game, unlike the narrator's voice.
+- Sounds are generated in the browser, so there's nothing to download: they're ready at the first game, unlike the narrator's voice.
 
 ### What isn't changed
 

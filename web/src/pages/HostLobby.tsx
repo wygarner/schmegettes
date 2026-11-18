@@ -26,6 +26,7 @@ import { contestantCount, type RoomState, useRoom } from "../lib/room";
 import { type RoomJoin, roomByCode } from "../lib/rooms";
 import { getUserId } from "../lib/supabase";
 import { GoldButton } from "../ui/GoldButton";
+import { HomeScreenTip } from "../ui/HomeScreenTip";
 import { Stage, StageBody } from "../ui/Stage";
 import { BEVEL, DISPLAY, SOFT, TILE_BG } from "../ui/tokens";
 import { Wordmark } from "../ui/Wordmark";
@@ -171,6 +172,7 @@ export function HostLobbyView({
 
   const stage = (
     <Stage>
+      <HomeScreenTip />
       <Group justify="space-between" wrap="nowrap" gap="xs">
         <Wordmark size="clamp(14px, 8cqh, 32px)" />
         {editing ? (

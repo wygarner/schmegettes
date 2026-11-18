@@ -156,7 +156,7 @@ func TestHistory(t *testing.T) {
 	second := e.play(t, room.ID, alice, bob, "abandoned") // a rematch, left unfinished
 	s := PGStore{DB: e.db}
 
-	got, err := s.List(ctx, alice, nil, PageSize+1)
+	got, err := s.List(ctx, alice, All, nil, PageSize+1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,23 +172,54 @@ func TestHistory(t *testing.T) {
 		t.Errorf("status %q", got[0].Status)
 	}
 
-	page, err := s.List(ctx, alice, nil, 1)
+	page, err := s.List(ctx, alice, All, nil, 1)
 	if err != nil || len(page) != 1 {
 		t.Fatal(page, err)
 	}
-	next, err := s.List(ctx, alice, &After{FinishedAt: page[0].FinishedAt, GameID: page[0].GameID}, 1)
+	next, err := s.List(ctx, alice, All, &After{FinishedAt: page[0].FinishedAt, GameID: page[0].GameID}, 1)
 	if err != nil || len(next) != 1 || next[0].GameID != first {
 		t.Errorf("second page %+v %v", next, err)
 	}
 
 	for name, c := range map[string]auth.Claims{"Sam (spectator)": sam, "Wyatt (hosted, didn't play)": host} {
-		w, err := s.List(ctx, c, nil, PageSize)
+		w, err := s.List(ctx, c, All, nil, PageSize)
 		if err != nil || len(w) != 2 || !w[0].Watched || w[0].Placement != nil || w[0].CallerName != nil {
 			t.Errorf("%s: %+v %v", name, w, err)
 		}
 	}
-	if none, err := s.List(ctx, stranger, nil, PageSize); err != nil || len(none) != 0 {
+	if none, err := s.List(ctx, stranger, All, nil, PageSize); err != nil || len(none) != 0 {
 		t.Errorf("a stranger sees %+v %v", none, err)
+	}
+
+	// Kind: Alice played both games and watched none; Sam watched both.
+	if p, err := s.List(ctx, alice, Played, nil, PageSize); err != nil || len(p) != 2 {
+		t.Errorf("Alice played %+v %v", p, err)
+	}
+	if w, err := s.List(ctx, alice, Watched, nil, PageSize); err != nil || len(w) != 0 {
+		t.Errorf("Alice watched %+v %v", w, err)
+	}
+	if p, err := s.List(ctx, sam, Played, nil, PageSize); err != nil || len(p) != 0 {
+		t.Errorf("Sam played %+v %v", p, err)
+	}
+	if w, err := s.List(ctx, sam, Watched, nil, PageSize); err != nil || len(w) != 2 {
+		t.Errorf("Sam watched %+v %v", w, err)
+	}
+
+	// Stats: Alice won the finished game; the abandoned one counts as played but not as a win.
+	st, err := s.Stats(ctx, alice)
+	if err != nil || st.Games != 2 || st.Played != 2 || st.Wins != 1 || st.Best == nil || *st.Best != 400 {
+		t.Errorf("Alice's stats %+v %v", st, err)
+	}
+	st, err = s.Stats(ctx, bob)
+	if err != nil || st.Wins != 0 || st.Best == nil || *st.Best != -200 {
+		t.Errorf("Bob's stats %+v %v", st, err)
+	}
+	st, err = s.Stats(ctx, sam)
+	if err != nil || st.Games != 2 || st.Played != 0 || st.Wins != 0 || st.Best != nil {
+		t.Errorf("Sam's stats %+v %v", st, err)
+	}
+	if st, err := s.Stats(ctx, stranger); err != nil || st.Games != 0 || st.Best != nil {
+		t.Errorf("a stranger's stats %+v %v", st, err)
 	}
 
 	d, err := s.Detail(ctx, bob, first)

@@ -3,6 +3,8 @@
 One component library for product UI and prototypes: **Mantine 9**. Prototypes in `devtools/src/designs/` and production code in `web/` use the same theme values, so a prototype looks like the real thing.
 
 > Status: the look below is built in `web/` (`web/src/ui/`, `web/src/game/`). So are the end-of-game scoreboard, host overrides, and My games ([game history](../features/game-history/interaction-design.md)). The reference prototypes are [system/components](../../../devtools/src/designs/system/components.tsx) (the kit, with a fit check for the host screen), [lobby/host-and-join](../../../devtools/src/designs/lobby/host-and-join.tsx), [board/clue-loop](../../../devtools/src/designs/board/clue-loop.tsx), [final/final-schmegettes](../../../devtools/src/designs/final/final-schmegettes.tsx) and [results/scoreboard-and-history](../../../devtools/src/designs/results/scoreboard-and-history.tsx). Run `mise run dev:devtools` to see them.
+>
+> The [menu screens](#menu-screens) look (Home, My games, Account and their sheets) is built in `web/src/ui/menu.tsx`, with its tokens in `web/src/ui/tokens.ts` and motion in `web/src/ui/kit.css`. Its reference prototype is [system/menus-and-type](../../../devtools/src/designs/system/menus-and-type.tsx), with Oswald + Inter selected.
 
 ## Theme
 
@@ -33,7 +35,10 @@ The app loads **Oswald** (500, 600, 700) and **Inter** (400 to 800), latin subse
 | Room code, board values, scores, wagers, big moments (DAILY DOUBLE, FINAL SCHMEGETTES), headlines on phones | Oswald 700, values and scores 600 |
 | Clue text and correct responses | Oswald 500, uppercase. Condensed, so a long clue fits the 667 × 320 host screen |
 | Category headers | Inter 700, uppercase |
+| Menu screens: large titles, sheet titles, the primary button | Oswald 700, uppercase |
 | Everything else | Inter |
+
+Numbers in lists and stats use tabular figures, so scores line up.
 
 Board values are Oswald 700. Oswald has no 800 weight.
 
@@ -48,7 +53,9 @@ Board values are Oswald 700. Oswald has no 800 weight.
 | `TILE_BG` | deep mauve gradient, slightly lighter at the top | Player tiles, lobby rows |
 | `ACCENT` (`green.4`) | `#6bffb3`, Venice green | Values, scores, the control ring, the stage's lit border, **the main action** (Start, Pick, Wager, Lock in, Submit, Rematch), "BUZZ IN!" |
 | `INK` | `#140b2b` | Text on the accent |
-| `SOFT` (`pink.2`) | `#ffa6d9`, Corinthian pink | Secondary text and labels on mauve |
+| `SOFT` (`pink.2`) | `#ffa6d9`, Corinthian pink | Labels and small uppercase eyebrows on mauve. On the menu screens, pink is for labels only, not body text |
+| `QUIET` | `#b8a8d8`, cool lavender | Secondary body text on the menu screens: subtitles, sheet descriptions, info-box text |
+| `FAINT` | `#8a7aad` | Captions, hints under fields, chevrons, group dividers' labels on the menu screens |
 | `MUTED` / `DIM` | `#d6a3c8` / `#9a7aad` | Quieter text (dates, hints) / placeholders and "listening…" |
 | `GREEN` (`teal.4`) / `RED` (`red.4`) | Mantine | Correct / incorrect, and negative scores. Correct uses teal, not the accent green, so right and wrong still read at a glance |
 | Buzzer red | dome gradient `#ffb8b8` → `#ff3030` → `#d40c0c` → `#7a0404` | The buzzer, lit. It stays red: it's the one thing that should look like a button to hit |
@@ -116,6 +123,98 @@ Confirmations and reviews open as a sheet inside the screen: centered on the hos
 ### Phone screen
 
 A slim top bar ("ROOM K7RXM" on the left, my score in Oswald on the right), the content, and the buzzer pinned to the bottom. Big headlines are Oswald 600, 34 px ("Alice is picking…", "Listen…", "Look at the TV."). Moments are bigger and in the accent green ("DAILY DOUBLE!", "BUZZ IN!").
+
+## Menu screens
+
+Home, My games, Account and the sheets they open. Calmer than the game screens: one green button per screen, quiet surfaces, native-feeling lists. Game screens keep the look above.
+
+### Background and surfaces
+
+| Element | Treatment |
+|---|---|
+| Background | `NIGHT` base with a light-mauve glow at the top center and a faint pink glow top right, plus a light film grain (stops gradient banding on phones) |
+| Surface | Cards and grouped lists: a white tint from 7 % at the top to 3.5 % at the bottom, a 1 px hairline (`rgba(255,255,255,.08)`), a faint lit top edge, and a soft drop shadow. Radius 22–28 px |
+| Dividers | 1 px hairlines inside a surface, never gaps between floating boxes |
+
+### Headers
+
+- **Large title**: Oswald 700, uppercase, about 38 px, top left, with an optional pink eyebrow above (12 px, 700, uppercase, `.14em` tracking) and a `QUIET` subtitle below.
+- **Top bar**: a back link ("‹ Home") on the left. Once the large title scrolls away, the bar frosts (blur, dark mauve at 72 %, hairline under it) and shows the title small in the center.
+- **Section labels** above grouped lists: the eyebrow style in `QUIET` ("NOVEMBER 2026", "SECURITY").
+- Headings and short copy use balanced wrapping; paragraphs avoid single-word last lines.
+
+### Buttons
+
+All pills (fully rounded). Pressing scales to 97 %. Focus shows a 2 px accent outline.
+
+| Kind | Looks | Use |
+|---|---|---|
+| Primary | Accent gradient (`green.2` → `green.4` → `green.5`), `INK` text, a lit top edge and a soft green shadow. Oswald 700 uppercase, `.08em` tracking | The one main action on a screen (Join, Create room, Save) |
+| Secondary | Light mauve at 20 % with a mauve hairline, light text, Inter 650 | Sign in, Try again, actions inside info boxes |
+| Ghost | No fill, light mauve text | Cancel, Show more, "I have an account" |
+| Danger | Red tint with a red hairline | Destructive actions shown inline |
+| Danger solid | Red gradient, white text | The confirm button of an irreversible sheet (Delete account) |
+| Icon | 36 px circle, white at 8 % | Close (✕) on sheets, edit |
+
+Sizes: 56 px (full-width form actions), 46 px, 36 px. Loading replaces the label with a spinner and keeps the width; disabled is a flat white-at-6 % pill with faded text.
+
+### Forms
+
+- Label above the field (14 px, 600). A counter on the right of the label where there's a limit ("5/20").
+- Fields are 54 px tall, 16 px radius, white at 5 % with a 12 % hairline, optional leading icon. Focus: accent border plus a 4 px soft green ring.
+- Hint under the field in `FAINT`. An error replaces the hint, in `RED` with a warning icon; the field gets a red border and shakes once.
+- Passwords have a show/hide eye in the field. New passwords get a four-segment length meter ("3 more characters", Good, Strong, Very strong).
+- **Room code**: five separate 64 px boxes over one real input (pasting fills all five, Enter joins). The current box has an accent border and a blinking caret; filled boxes get a green tint.
+- One full-width primary button per form, at the bottom.
+
+### Informational text
+
+- **Info box**: tinted surface (18 px radius), a matching hairline, and a round icon chip on the left; optional title (15 px, 650, white), text in `QUIET`, an optional small secondary button, and an optional ✕. Tones: info (mauve), success (teal), warning (amber), error (red). Never a full-strength color block.
+- **Hint**: one line with a small icon in front, for notes under a button or field.
+- **Chips**: 20 px pills, 11 px bold, tinted fill and hairline in their color: accent, neutral, amber ("Unfinished").
+- **Empty and error states**: a tilted 88 px icon tile with a soft glow in its color, a headline (Oswald), a `QUIET` line, and one button.
+- **Toast**: frosted pill at the top with a teal check.
+
+### Grouped rows
+
+Settings-style rows inside one surface, divided by hairlines: a 34 px tinted icon tile, title (16 px, 550), optional `FAINT` subtitle, value in `QUIET` on the right, and a chevron when tappable. Destructive rows are red and sit in their own group at the bottom.
+
+### Sheets
+
+Every menu sheet and confirmation slides up from the bottom: 32 px top corners, a grab handle, the title in Oswald with a ✕ on the right, a `QUIET` description, then the form. Confirmations center an icon tile, title and text, with the action and **Cancel** (ghost) stacked full width. The backdrop is dark with a light blur. Tapping outside or Escape closes it.
+
+### Loading
+
+Skeletons in the shape of the content, with a slow shimmer, instead of a spinner.
+
+### Home
+
+```text
+┌────────────────────────────────────┐
+│                         [Sign in]  │  ◀ or the avatar (initial in a
+│            SCHMEGETTES             │     green-mauve-pink ring) → Account
+│  The quiz show for your living room│
+│ ┌────────────────────────────────┐ │
+│ │ JOIN A GAME                    │ │
+│ │ Enter the code on the TV       │ │
+│ │ [K][7][R][ ][ ]                │ │
+│ │ [          JOIN  →           ] │ │
+│ └────────────────────────────────┘ │
+│ ┌────────────────────────────────┐ │
+│ │ ▣ Host a game                › │ │
+│ │   On the device you'll put on  │ │
+│ │   the TV                       │ │
+│ │ ▣ My games                   › │ │
+│ │   Last: Today · −$400          │ │
+│ └────────────────────────────────┘ │
+└────────────────────────────────────┘
+```
+
+- The wordmark is Oswald 700 with a vertical green gradient, a dark drop shadow and a faint green glow.
+- "You've been signed out" is a warning info box above the Join card.
+- **Host a game** shows a spinner in place of its chevron while host access is checked.
+
+Layouts for [My games](../features/game-history/interaction-design.md#look-back-at-past-games-any-player) and the [Account page](../features/accounts/interaction-design.md#account-page-account) are in their specs.
 
 ## Host screen
 

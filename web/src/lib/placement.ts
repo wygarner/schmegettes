@@ -12,11 +12,19 @@ function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-/** "Today, 8:14 PM" or "Oct 26, 8:14 PM", for the My games list. */
+/** "Today · 8:14 PM" or "Sat, Nov 14 · 9:02 PM", for the My games list. */
 export function listWhen(iso: string, now = new Date()): string {
   const d = new Date(iso);
   const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  return `${sameDay(d, now) ? "Today" : d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${time}`;
+  const day = sameDay(d, now)
+    ? "Today"
+    : d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  return `${day} · ${time}`;
+}
+
+/** "November 2026": the month a game is grouped under in My games. */
+export function listMonth(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
 /** "Oct 26, 2026 · 8:14 PM · 41 min", for a game's scoreboard. */

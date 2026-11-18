@@ -227,10 +227,11 @@ paths:
               schema: { $ref: "#/components/schemas/HostAccess" }
   /v1/host-access/redeem:
     post:
-      summary: Spend a one-use host code to give the caller host access
+      summary: Redeem the current rotating host code to give the caller host access
       description: |
-        A spent code is replaced by a new unused one. A caller who can already host keeps
-        the code unspent. Wrong, spent, and malformed codes get the same answer.
+        The current code can be used by any number of callers. The previous code works for
+        five minutes after a scheduled rotation. Wrong, expired, manually retired, and
+        malformed codes get the same answer.
       requestBody:
         required: true
         content:
@@ -252,6 +253,86 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/admin/host-code:
+    get:
+      summary: Read the current rotating host code (admins only)
+      responses:
+        "200":
+          description: Current rotation state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminHostCode" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/admin/host-code/rotate:
+    post:
+      summary: Retire the displayed host code immediately (admins only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expectedCode: { type: string, maxLength: 16 }
+              required: [expectedCode]
+              additionalProperties: false
+      responses:
+        "200":
+          description: Current rotation state; a stale request returns the code already created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminHostCode" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/admin/hosts:
+    get:
+      summary: List every host newest first (admins only)
+      responses:
+        "200":
+          description: Hosts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hosts: { type: array, items: { $ref: "#/components/schemas/AdminHost" } }
+                required: [hosts]
+                additionalProperties: false
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/admin/hosts/{userId}:
+    parameters:
+      - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      summary: Set or clear an admin-only host note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: [string, "null"], maxLength: 200 }
+              required: [note]
+              additionalProperties: false
+      responses:
+        "200":
+          description: Updated host
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminHost" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    delete:
+      summary: Remove host access
+      responses:
+        "204": { description: Removed, or already absent }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
         "429": { $ref: "#/components/responses/RateLimited" }
   /v1/rooms/{roomId}:
     get:
@@ -293,9 +374,15 @@ paths:
   /v1/games:
     get:
       summary: The caller's ended games (finished or abandoned), played or watched, newest first
-      description: 20 per page. Pass nextCursor back as cursor for the next page; it is opaque.
+      description: >-
+        20 per page. Pass nextCursor back as cursor (with the same kind) for the next page; it
+        is opaque. The first page (no cursor) also carries stats.
       parameters:
         - { name: cursor, in: query, schema: { type: string } }
+        - name: kind
+          in: query
+          description: Only games the caller played (as a contestant), or only games they watched
+          schema: { type: string, enum: [played, watched] }
       responses:
         "400": { $ref: "#/components/responses/Problem" }
         "200":
@@ -307,6 +394,26 @@ paths:
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/GameSummary" } }
                   nextCursor: { type: [string, "null"] }
+                  stats:
+                    type: [object, "null"]
+                    description: Across all the caller's ended games, whatever the kind; on the first page only, null on later pages
+                    properties:
+                      games:
+                        type: integer
+                        minimum: 0
+                        description: Ended games, played or watched
+                      played:
+                        type: integer
+                        minimum: 0
+                        description: Ended games the caller played as a contestant
+                      wins:
+                        type: integer
+                        minimum: 0
+                        description: Finished (not abandoned) games the caller placed 1st in, ties included
+                      best:
+                        type: [integer, "null"]
+                        description: The caller's highest score in a played game; null if they never played
+                    required: [games, played, wins, best]
                 required: [items, nextCursor]
   /v1/games/{gameId}:
     get:
@@ -439,6 +546,27 @@ components:
       properties:
         canHost: { type: boolean }
       required: [canHost]
+      additionalProperties: false
+    AdminHostCode:
+      type: object
+      properties:
+        code: { type: string, pattern: "^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$" }
+        currentStartedAt: { type: string, format: date-time }
+        rotatesAt: { type: string, format: date-time }
+        previousValidUntil: { type: [string, "null"], format: date-time }
+        serverTime: { type: string, format: date-time }
+      required: [code, currentStartedAt, rotatesAt, previousValidUntil, serverTime]
+      additionalProperties: false
+    AdminHost:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        kind: { type: string, enum: [account, guest] }
+        email: { type: [string, "null"], format: email }
+        lastPlayedAs: { type: [string, "null"] }
+        hostSince: { type: string, format: date-time }
+        note: { type: [string, "null"], maxLength: 200 }
+      required: [userId, kind, email, lastPlayedAs, hostSince, note]
       additionalProperties: false
     MergeTicket:
       type: object

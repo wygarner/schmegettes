@@ -4,11 +4,13 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, expect, test, vi } from "vitest";
 import { currentAccount } from "../lib/account";
 import { markGamePlayed, setSignedOutNotice, shouldShowSavePrompt, signedOutNotice } from "../lib/accountFlags";
+import { lastGame } from "../lib/games";
 import { getHostAccess, redeemHostCode } from "../lib/hostAccess";
 import { createRoom } from "../lib/rooms";
 import { Home, normalizeRoomCode } from "./Home";
 
 vi.mock("../lib/rooms", () => ({ createRoom: vi.fn() }));
+vi.mock("../lib/games", () => ({ lastGame: vi.fn() }));
 vi.mock("../lib/account", async (original) => ({
   ...(await original<typeof import("../lib/account")>()),
   currentAccount: vi.fn(),
@@ -39,6 +41,7 @@ beforeEach(() => {
   vi.mocked(getHostAccess).mockReset().mockResolvedValue(true);
   vi.mocked(redeemHostCode).mockReset();
   vi.mocked(currentAccount).mockReset().mockResolvedValue({ kind: "guest" });
+  vi.mocked(lastGame).mockReset().mockResolvedValue(null);
   window.localStorage.clear();
 });
 
@@ -75,9 +78,9 @@ test("a signed-in player is never offered to save", async () => {
 test("a device that was signed out says so until dismissed", async () => {
   setSignedOutNotice(true);
   renderHome();
-  expect(screen.getByText("You've been signed out.")).toBeInTheDocument();
+  expect(screen.getByText("You've been signed out")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-  expect(screen.queryByText("You've been signed out.")).toBeNull();
+  expect(screen.queryByText("You've been signed out")).toBeNull();
   expect(signedOutNotice()).toBe(false);
 });
 
@@ -181,7 +184,26 @@ test("when host access can't be checked, Home says so", async () => {
   expect(screen.queryByLabelText("Host code")).not.toBeInTheDocument();
 });
 
-test("links to My games", () => {
+test("links to My games, with the last game under it", async () => {
   renderHome();
-  expect(screen.getByRole("link", { name: "My games" })).toHaveAttribute("href", "/games");
+  const link = screen.getByRole("link", { name: "My games" });
+  expect(link).toHaveAttribute("href", "/games");
+  expect(link).toHaveTextContent("Games you've played and watched");
+  cleanup();
+
+  vi.mocked(lastGame).mockResolvedValue({
+    gameId: "6f0d2a5e-8a0b-4c39-9a4e-2d1f0b7a9c11",
+    status: "finished",
+    startedAt: "2026-10-26T20:14:00Z",
+    finishedAt: "2026-10-26T20:55:00Z",
+    score: -400,
+    placement: 4,
+    players: ["Dana", "Bob"],
+    playerCount: 2,
+    callerDisplayName: "Dana",
+    watched: false,
+  });
+  renderHome();
+  expect(await screen.findByText(/Last: .* · 4th ·/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "My games" })).toHaveTextContent("−$400");
 });

@@ -18,7 +18,7 @@ Staging and production are separate projects with every provider: two Supabase p
 
 | Component | Requirement | Host | Deploy mode |
 |---|---|---|---|
-| web | Static/edge host, SPA fallback to `index.html`, CSP + HSTS headers, serves `/version.json` | Vercel (`schmegettes-web-staging`, `schmegettes-web-prod`) | CI builds the bundle; `web/scripts/vercel-deploy.mjs` uploads it with a `vercel.json` (headers, fallback) through Vercel's REST API and waits for the production deployment. No Vercel CLI: the job holding the token runs no npm packages. The projects' Git integration is off |
+| web | Static/edge host, SPA fallback to `index.html`, CSP + HSTS headers, serves `/version.json` | Vercel (`schmegettes-web-staging`, `schmegettes-web-prod`) | CI builds the bundle; `web/scripts/vercel-deploy.mjs` uploads it with a `vercel.json` (headers, fallback) through Vercel's REST API and waits for the production deployment. No Vercel CLI: the job holding the token runs no npm packages. The projects' Git integration is off. The largest files are the narrator's `piper_phonemize.data` (about 17 MB) and `ort-wasm-simd-threaded.wasm` (about 14 MB), hashed and cached as immutable; keep every file under 25 MB |
 | api | Runs a build of an exact commit; pre-release step not needed (migrations run in CI); health check on `/healthz`; horizontal scaling | Fly.io (`schmegettes-api-staging`, `schmegettes-api-prod`) | `flyctl deploy` from CI, image built on Fly's remote builder and labelled with the commit; rolling, waits for `/healthz` |
 | game | Long-lived WebSockets (no request timeout under 1 h), graceful SIGTERM with ≥20 s drain, sticky sessions not required. **One instance** until room ownership exists | Fly.io (`schmegettes-game-staging`, `schmegettes-game-prod`) | `flyctl deploy --ha=false` from CI; one machine, replaced in place, waits for `/healthz`; `kill_timeout` 30 s |
 | worker | Same commit as the others, separate process, no inbound traffic | None yet: the worker is only the `import-clues` command, run by `load-clues.yml`. **Not yet implemented:** a long-running worker process | — |
@@ -96,11 +96,17 @@ To free an email someone else registered, delete that user (Authentication → U
 
 ## Host access after a release
 
-The `private_access` migration creates the first host code, and nobody can host until someone uses it. Read it in the project's SQL editor and give it to the first host:
+Nobody can host until someone enters the current host code, which changes every 45 minutes. Read it on the devtools **Admin** page ([private access](../../product-docs/features/private-access/feature-brief.md#admin-page-devtools)).
 
-```sql
-select code from public.host_codes where used_at is null;
-```
+Once per environment, before the release that brings the Admin page:
+
+1. Sign up an account with email and password in that environment's web app.
+2. In the project's SQL editor, put it on the admin list:
+   ```sql
+   insert into private.admins (user_id) select id from auth.users where email = 'you@example.com' and not is_anonymous;
+   ```
+3. Add `http://localhost:5174` to the api app's `ALLOWED_ORIGINS` (`fly secrets set ALLOWED_ORIGINS=… -a schmegettes-api-{staging,prod}`).
+4. Fill in that environment's public values in `devtools/.env.local`, sign in on the Admin page, and check it shows a code.
 
 The web host also sends `X-Robots-Tag: noindex, nofollow` on every response (`web/scripts/vercel-deploy.mjs`); the pages carry the meta tag too, and `robots.txt` disallows everything.
 

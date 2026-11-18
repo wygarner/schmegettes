@@ -2,7 +2,7 @@ import { MantineProvider } from "@mantine/core";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, expect, test, vi } from "vitest";
-import { accountEmail, changePassword, currentAccount, deleteAccount, signOut } from "../lib/account";
+import { accountEmail, changePassword, currentAccount, deleteAccount, setAccountName, signOut } from "../lib/account";
 import { Account } from "./Account";
 
 vi.mock("../lib/account", async (original) => ({
@@ -38,8 +38,8 @@ beforeEach(() => {
 
 test("shows the name and the owner's email", async () => {
   show();
-  expect(await screen.findByText("Wyatt")).toBeInTheDocument();
-  expect(await screen.findByText("sam@example.com")).toBeInTheDocument();
+  expect(await screen.findAllByText("Wyatt")).toHaveLength(2); // the profile card and the Name row
+  expect(await screen.findAllByText("sam@example.com")).toHaveLength(2);
 });
 
 test("change password: a wrong current password says so; success says so", async () => {
@@ -61,6 +61,17 @@ test("change password: a wrong current password says so; success says so", async
   expect(await screen.findByText("Password changed.")).toBeInTheDocument();
 });
 
+test("the name opens a sheet; saving shows it", async () => {
+  vi.mocked(setAccountName).mockResolvedValue(true);
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: "Name" }));
+  const dialog = await screen.findByRole("dialog", { name: "Your name" });
+  fireEvent.change(within(dialog).getByLabelText("Your name"), { target: { value: "Sam" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+  expect(await screen.findByText("Name saved.")).toBeInTheDocument();
+  expect(screen.getAllByText("Sam")).toHaveLength(2);
+});
+
 test("sign out asks first, then goes home", async () => {
   show();
   fireEvent.click(await screen.findByRole("button", { name: "Sign out" }));
@@ -76,16 +87,19 @@ test("sign out asks first, then goes home", async () => {
 test("delete while in a game says so", async () => {
   vi.mocked(deleteAccount).mockResolvedValue("in-game");
   show();
-  fireEvent.click(await screen.findByText("Delete account"));
-  fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Delete account" }));
+  const dialog = await screen.findByRole("dialog", { name: "Delete your account?" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Delete account" }));
   expect(await screen.findByText("Finish or leave your game first.")).toBeInTheDocument();
 });
 
 test("a guest is offered sign-in", async () => {
   vi.mocked(currentAccount).mockResolvedValue({ kind: "guest" });
   show();
-  expect(await screen.findByText("You're playing as a guest.")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-  expect(await screen.findByLabelText("Email")).toBeInTheDocument();
+  expect(await screen.findByText("You're playing as a guest")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+  const dialog = await screen.findByRole("dialog", { name: "Keep your games" });
+  expect(within(dialog).getByRole("button", { name: "Create account" })).toBeInTheDocument();
+  expect(within(dialog).getByLabelText("Email")).toBeInTheDocument();
   expect(screen.queryByText("sam@example.com")).toBeNull();
 });

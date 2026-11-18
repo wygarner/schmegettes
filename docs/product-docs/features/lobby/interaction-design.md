@@ -45,13 +45,13 @@ Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667
 - The code is the biggest thing on screen (Oswald, readable at 3 m): each letter in gold on its own board-blue tile.
 - **✎** next to the host name edits it until Start.
 - A new player animates into the list, without a sound.
-- **Start**: primary button. While there are fewer than 2 contestants it is disabled, with the hint "Need at least 2 players". A playing host counts.
+- **Start**: primary button. While there are no contestants it is disabled, with the hint "Need at least 1 player". A playing host counts.
 - **Join the game** (secondary) adds the host to the list at once, under their host name, tagged HOST, and the button becomes **Leave the game**. Editing the host name with ✎ updates both places.
 - **🔊 {voice name}** (subtle button) opens the narrator voice picker (below). While the chosen Schmegettes voice downloads it reads "🔊 Norman · 40%". It's hidden when the device can't speak at all.
 
 ### Narrator voice picker (host device)
 
-Rules: [gameplay](../gameplay/feature-brief.md#the-narrators-voice). **Not yet implemented:** the Schmegettes voice rows, their download progress, and the new tip rule. Today the list has only the device's voices, and the tip shows whenever no Premium or Enhanced voice is installed.
+Rules: [gameplay](../gameplay/feature-brief.md#the-narrators-voice).
 
 ```text
 ┌──────────────────── Narrator voice ────────────────────┐
@@ -146,13 +146,13 @@ When the host joined, their controls live in the **player column** on the right 
 | Host presses Start while a sample is playing, or the picker is open | The sample stops and the picker closes. The selected voice is kept |
 | Device has no English voice | The device's default voice reads. The picker says "No English voices on this device." with the tip |
 | The sample is blocked because sound isn't unlocked yet (iOS) | Tapping a row counts as the unlocking tap, so the sample plays |
-| The Schmegettes voice is still downloading at Start | **Not yet implemented.** Start works as usual. The narrator uses the best built-in voice and switches to the Schmegettes voice at the next line once it's ready |
-| The download fails (offline, blocked, out of space) | **Not yet implemented.** The row says "Couldn't download" with **Try again**. The best built-in voice reads. The next lobby tries again on its own |
-| The browser deleted the saved voice (iOS clears site data that hasn't been used for a few weeks) | **Not yet implemented.** It downloads again in the background when the lobby opens |
-| The device can't generate speech fast enough | **Not yet implemented.** The Schmegettes voice rows say "Not available on this device". The built-in voices and the tip are shown |
-| Host picks Norman, then John, before either finishes downloading | **Not yet implemented.** Norman's download stops; John's starts. Only the voice that ends up picked is kept |
-| Host picks another Schmegettes voice and its download fails | **Not yet implemented.** The row says "Couldn't download" with **Try again**. The narrator keeps the voice already on the device |
-| Host switches from Norman back to Kristin after Norman replaced it | **Not yet implemented.** Kristin downloads again (about 63 MB); Norman keeps reading until it's ready |
+| The Schmegettes voice is still downloading at Start | Start works as usual. The narrator uses the best built-in voice and switches to the Schmegettes voice at the next line once it's ready |
+| The download fails (offline, blocked, out of space) | The row says "Couldn't download" with **Try again**. The best built-in voice reads. The next lobby tries again on its own |
+| The browser deleted the saved voice (iOS clears site data that hasn't been used for a few weeks) | It downloads again in the background when the lobby opens |
+| The device can't generate speech fast enough | The Schmegettes voice rows say "Not available on this device". The built-in voices and the tip are shown |
+| Host picks Norman, then John, before either finishes downloading | Norman's download stops; John's starts. Only the voice that ends up picked is kept |
+| Host picks another Schmegettes voice and its download fails | The row says "Couldn't download" with **Try again**. The narrator keeps the voice already on the device |
+| Host switches from Norman back to Kristin after Norman replaced it | Kristin downloads again (about 63 MB); Norman keeps reading until it's ready |
 | Host presses Start while a player is mid-join | Whoever has finished joining when the server handles Start is in. The rest see "This game has already started." |
 | A player leaves so the count drops below 2 | Start disables again |
 | Host presses Host a game again on Home while their lobby is open | The old lobby closes ("This room has closed" on its phones) and a new code appears |

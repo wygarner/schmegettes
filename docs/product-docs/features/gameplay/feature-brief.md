@@ -42,8 +42,6 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
 ### The narrator's voice
 
-**Not yet implemented:** the Schmegettes voices and everything about generating them (the first seven rules). Today the narrator uses the best built-in voice; the rules for built-in voices are built.
-
 - **The Schmegettes voices.** By default the narrator is one of the game's own voices: free, open-source voices (Piper) that the host device generates itself. They sound the same on every host device, cost nothing, and need no server. Phones never speak and never download them.
 
   | Voice | Sounds | License |

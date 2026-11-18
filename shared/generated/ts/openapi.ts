@@ -525,9 +525,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Spend a one-use host code to give the caller host access
-         * @description A spent code is replaced by a new unused one. A caller who can already host keeps
-         *     the code unspent. Wrong, spent, and malformed codes get the same answer.
+         * Redeem the current rotating host code to give the caller host access
+         * @description The current code can be used by any number of callers. The previous code works for
+         *     five minutes after a scheduled rotation. Wrong, expired, manually retired, and
+         *     malformed codes get the same answer.
          */
         post: {
             parameters: {
@@ -570,6 +571,201 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/host-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the current rotating host code (admins only) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Current rotation state */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminHostCode"];
+                    };
+                };
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/host-code/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retire the displayed host code immediately (admins only) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        expectedCode: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Current rotation state; a stale request returns the code already created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminHostCode"];
+                    };
+                };
+                400: components["responses"]["Problem"];
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List every host newest first (admins only) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hosts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            hosts: components["schemas"]["AdminHost"][];
+                        };
+                    };
+                };
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/hosts/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove host access */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["Problem"];
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Set or clear an admin-only host note */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        note: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated host */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminHost"];
+                    };
+                };
+                400: components["responses"]["Problem"];
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
         trace?: never;
     };
     "/v1/rooms/{roomId}": {
@@ -652,12 +848,14 @@ export interface paths {
         };
         /**
          * The caller's ended games (finished or abandoned), played or watched, newest first
-         * @description 20 per page. Pass nextCursor back as cursor for the next page; it is opaque.
+         * @description 20 per page. Pass nextCursor back as cursor (with the same kind) for the next page; it is opaque. The first page (no cursor) also carries stats.
          */
         get: {
             parameters: {
                 query?: {
                     cursor?: string;
+                    /** @description Only games the caller played (as a contestant), or only games they watched */
+                    kind?: "played" | "watched";
                 };
                 header?: never;
                 path?: never;
@@ -674,6 +872,17 @@ export interface paths {
                         "application/json": {
                             items: components["schemas"]["GameSummary"][];
                             nextCursor: string | null;
+                            /** @description Across all the caller's ended games, whatever the kind; on the first page only, null on later pages */
+                            stats?: {
+                                /** @description Ended games, played or watched */
+                                games: number;
+                                /** @description Ended games the caller played as a contestant */
+                                played: number;
+                                /** @description Finished (not abandoned) games the caller placed 1st in, ties included */
+                                wins: number;
+                                /** @description The caller's highest score in a played game; null if they never played */
+                                best: number | null;
+                            } | null;
                         };
                     };
                 };
@@ -822,6 +1031,29 @@ export interface components {
         };
         HostAccess: {
             canHost: boolean;
+        };
+        AdminHostCode: {
+            code: string;
+            /** Format: date-time */
+            currentStartedAt: string;
+            /** Format: date-time */
+            rotatesAt: string;
+            /** Format: date-time */
+            previousValidUntil: string | null;
+            /** Format: date-time */
+            serverTime: string;
+        };
+        AdminHost: {
+            /** Format: uuid */
+            userId: string;
+            /** @enum {string} */
+            kind: "account" | "guest";
+            /** Format: email */
+            email: string | null;
+            lastPlayedAs: string | null;
+            /** Format: date-time */
+            hostSince: string;
+            note: string | null;
         };
         MergeTicket: {
             /** @description Secret; keep it only until it's redeemed */

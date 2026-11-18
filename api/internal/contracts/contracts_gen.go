@@ -21,6 +21,12 @@ const (
 	SupabaseJwtScopes = "supabaseJwt.Scopes"
 )
 
+// Defines values for AdminHostKind.
+const (
+	Account AdminHostKind = "account"
+	Guest   AdminHostKind = "guest"
+)
+
 // Defines values for GameDetailStatus.
 const (
 	GameDetailStatusAbandoned  GameDetailStatus = "abandoned"
@@ -48,11 +54,39 @@ const (
 	Open   RoomStatus = "open"
 )
 
+// Defines values for GetV1GamesParamsKind.
+const (
+	Played  GetV1GamesParamsKind = "played"
+	Watched GetV1GamesParamsKind = "watched"
+)
+
 // Defines values for PostV1RoomsJoinJSONBodyRole.
 const (
 	Contestant PostV1RoomsJoinJSONBodyRole = "contestant"
 	Spectator  PostV1RoomsJoinJSONBodyRole = "spectator"
 )
+
+// AdminHost defines model for AdminHost.
+type AdminHost struct {
+	Email        *openapi_types.Email `json:"email"`
+	HostSince    time.Time            `json:"hostSince"`
+	Kind         AdminHostKind        `json:"kind"`
+	LastPlayedAs *string              `json:"lastPlayedAs"`
+	Note         *string              `json:"note"`
+	UserId       openapi_types.UUID   `json:"userId"`
+}
+
+// AdminHostKind defines model for AdminHost.Kind.
+type AdminHostKind string
+
+// AdminHostCode defines model for AdminHostCode.
+type AdminHostCode struct {
+	Code               string     `json:"code"`
+	CurrentStartedAt   time.Time  `json:"currentStartedAt"`
+	PreviousValidUntil *time.Time `json:"previousValidUntil"`
+	RotatesAt          time.Time  `json:"rotatesAt"`
+	ServerTime         time.Time  `json:"serverTime"`
+}
 
 // DisplayName Trimmed by the server; must not be blank
 type DisplayName = string
@@ -209,10 +243,26 @@ type Version struct {
 // RateLimited defines model for RateLimited.
 type RateLimited = Problem
 
+// PostV1AdminHostCodeRotateJSONBody defines parameters for PostV1AdminHostCodeRotate.
+type PostV1AdminHostCodeRotateJSONBody struct {
+	ExpectedCode string `json:"expectedCode"`
+}
+
+// PatchV1AdminHostsUserIdJSONBody defines parameters for PatchV1AdminHostsUserId.
+type PatchV1AdminHostsUserIdJSONBody struct {
+	Note *string `json:"note"`
+}
+
 // GetV1GamesParams defines parameters for GetV1Games.
 type GetV1GamesParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Kind Only games the caller played (as a contestant), or only games they watched
+	Kind *GetV1GamesParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
 }
+
+// GetV1GamesParamsKind defines parameters for GetV1Games.
+type GetV1GamesParamsKind string
 
 // PostV1HostAccessRedeemJSONBody defines parameters for PostV1HostAccessRedeem.
 type PostV1HostAccessRedeemJSONBody struct {
@@ -258,6 +308,12 @@ type PatchV1RoomsRoomIdJSONBody struct {
 	Seasons *[]int `json:"seasons"`
 }
 
+// PostV1AdminHostCodeRotateJSONRequestBody defines body for PostV1AdminHostCodeRotate for application/json ContentType.
+type PostV1AdminHostCodeRotateJSONRequestBody PostV1AdminHostCodeRotateJSONBody
+
+// PatchV1AdminHostsUserIdJSONRequestBody defines body for PatchV1AdminHostsUserId for application/json ContentType.
+type PatchV1AdminHostsUserIdJSONRequestBody PatchV1AdminHostsUserIdJSONBody
+
 // PostV1HostAccessRedeemJSONRequestBody defines body for PostV1HostAccessRedeem for application/json ContentType.
 type PostV1HostAccessRedeemJSONRequestBody PostV1HostAccessRedeemJSONBody
 
@@ -281,6 +337,21 @@ type ServerInterface interface {
 	// Liveness and dependency check
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
+	// Read the current rotating host code (admins only)
+	// (GET /v1/admin/host-code)
+	GetV1AdminHostCode(w http.ResponseWriter, r *http.Request)
+	// Retire the displayed host code immediately (admins only)
+	// (POST /v1/admin/host-code/rotate)
+	PostV1AdminHostCodeRotate(w http.ResponseWriter, r *http.Request)
+	// List every host newest first (admins only)
+	// (GET /v1/admin/hosts)
+	GetV1AdminHosts(w http.ResponseWriter, r *http.Request)
+	// Remove host access
+	// (DELETE /v1/admin/hosts/{userId})
+	DeleteV1AdminHostsUserId(w http.ResponseWriter, r *http.Request, userId openapi_types.UUID)
+	// Set or clear an admin-only host note
+	// (PATCH /v1/admin/hosts/{userId})
+	PatchV1AdminHostsUserId(w http.ResponseWriter, r *http.Request, userId openapi_types.UUID)
 	// The caller's ended games (finished or abandoned), played or watched, newest first
 	// (GET /v1/games)
 	GetV1Games(w http.ResponseWriter, r *http.Request, params GetV1GamesParams)
@@ -290,7 +361,7 @@ type ServerInterface interface {
 	// Whether the caller's device can host
 	// (GET /v1/host-access)
 	GetV1HostAccess(w http.ResponseWriter, r *http.Request)
-	// Spend a one-use host code to give the caller host access
+	// Redeem the current rotating host code to give the caller host access
 	// (POST /v1/host-access/redeem)
 	PostV1HostAccessRedeem(w http.ResponseWriter, r *http.Request)
 	// Delete the caller's account
@@ -351,6 +422,128 @@ func (siw *ServerInterfaceWrapper) GetHealthz(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetV1AdminHostCode operation middleware
+func (siw *ServerInterfaceWrapper) GetV1AdminHostCode(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1AdminHostCode(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1AdminHostCodeRotate operation middleware
+func (siw *ServerInterfaceWrapper) PostV1AdminHostCodeRotate(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1AdminHostCodeRotate(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetV1AdminHosts operation middleware
+func (siw *ServerInterfaceWrapper) GetV1AdminHosts(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1AdminHosts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteV1AdminHostsUserId operation middleware
+func (siw *ServerInterfaceWrapper) DeleteV1AdminHostsUserId(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "userId" -------------
+	var userId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", r.PathValue("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteV1AdminHostsUserId(w, r, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchV1AdminHostsUserId operation middleware
+func (siw *ServerInterfaceWrapper) PatchV1AdminHostsUserId(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "userId" -------------
+	var userId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", r.PathValue("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchV1AdminHostsUserId(w, r, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetV1Games operation middleware
 func (siw *ServerInterfaceWrapper) GetV1Games(w http.ResponseWriter, r *http.Request) {
 
@@ -370,6 +563,14 @@ func (siw *ServerInterfaceWrapper) GetV1Games(w http.ResponseWriter, r *http.Req
 	err = runtime.BindQueryParameter("form", true, false, "cursor", r.URL.Query(), &params.Cursor)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "kind", r.URL.Query(), &params.Kind)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
 		return
 	}
 
@@ -823,6 +1024,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc("GET "+options.BaseURL+"/healthz", wrapper.GetHealthz)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/host-code", wrapper.GetV1AdminHostCode)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/host-code/rotate", wrapper.PostV1AdminHostCodeRotate)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/hosts", wrapper.GetV1AdminHosts)
+	m.HandleFunc("DELETE "+options.BaseURL+"/v1/admin/hosts/{userId}", wrapper.DeleteV1AdminHostsUserId)
+	m.HandleFunc("PATCH "+options.BaseURL+"/v1/admin/hosts/{userId}", wrapper.PatchV1AdminHostsUserId)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/games", wrapper.GetV1Games)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/games/{gameId}", wrapper.GetV1GamesGameId)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/host-access", wrapper.GetV1HostAccess)

@@ -43,7 +43,7 @@ func (h Handler) Redeem(w http.ResponseWriter, r *http.Request) {
 	}
 	// Never log the code.
 	if !ok {
-		slog.InfoContext(r.Context(), "host code rejected", "request_id", server.RequestID(r.Context()))
+		slog.DebugContext(r.Context(), "host code rejected", "request_id", server.RequestID(r.Context()))
 		server.Problem(w, http.StatusBadRequest, "invalid-code", "That code didn't work")
 		return
 	}

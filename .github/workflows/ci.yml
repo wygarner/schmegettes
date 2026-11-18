@@ -173,7 +173,9 @@ jobs:
         with:
           install_args: node bun
       - run: bun install --frozen-lockfile
+      - run: bunx biome ci devtools
       - run: bun run --cwd devtools build
+      - run: bun run --cwd devtools test:coverage
 
   game:
     name: Game Server
@@ -304,7 +306,10 @@ jobs:
         with:
           install_args: bun
       - run: bun install --frozen-lockfile
-      - run: bun audit --audit-level=high
+      # Accepted (2026-11-18, release 0.1.0 internal notes): GHSA-fc5q-39xc-vjpf, ReDoS in picomatch <= 4.0.7.
+      # No fixed release exists; it reaches only build tools (vite, vitest, json-schema-to-typescript).
+      # Drop the --ignore once picomatch ships a fix.
+      - run: bun audit --audit-level=high --ignore=GHSA-fc5q-39xc-vjpf
 
   # One required check for branch protection: fails if any job above failed.
   ci-complete:

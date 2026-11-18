@@ -24,15 +24,19 @@ import (
 const me = "0b8a1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d"
 
 type fakeStore struct {
-	games  []Summary
-	detail Detail
-	err    error
-	after  *After
-	limit  int
+	games      []Summary
+	detail     Detail
+	stats      Stats
+	err        error
+	statsErr   error
+	after      *After
+	kind       Kind
+	limit      int
+	statsCalls int
 }
 
-func (f *fakeStore) List(_ context.Context, _ auth.Claims, after *After, limit int) ([]Summary, error) {
-	f.after, f.limit = after, limit
+func (f *fakeStore) List(_ context.Context, _ auth.Claims, kind Kind, after *After, limit int) ([]Summary, error) {
+	f.after, f.kind, f.limit = after, kind, limit
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -41,6 +45,11 @@ func (f *fakeStore) List(_ context.Context, _ auth.Claims, after *After, limit i
 		out = out[:limit]
 	}
 	return out, nil
+}
+
+func (f *fakeStore) Stats(context.Context, auth.Claims) (Stats, error) {
+	f.statsCalls++
+	return f.stats, f.statsErr
 }
 
 func (f *fakeStore) Detail(context.Context, auth.Claims, string) (Detail, error) {
@@ -53,7 +62,10 @@ func (allowAll) Verify(string) (auth.Claims, error) {
 	return auth.Claims{UserID: me, Raw: []byte(`{}`)}, nil
 }
 
-type routes struct{ Handler }
+type routes struct {
+	contracts.ServerInterface
+	Handler
+}
 
 func (routes) GetHealthz(http.ResponseWriter, *http.Request)                             {}
 func (routes) GetVersion(http.ResponseWriter, *http.Request)                             {}
@@ -80,7 +92,7 @@ func (r routes) GetV1GamesGameId(w http.ResponseWriter, req *http.Request, id op
 func call(t *testing.T, store *fakeStore, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	mux := http.NewServeMux()
-	app := server.Authenticate(allowAll{})(contracts.HandlerWithOptions(routes{Handler{Store: store}}, contracts.StdHTTPServerOptions{
+	app := server.Authenticate(allowAll{})(contracts.HandlerWithOptions(routes{Handler: Handler{Store: store}}, contracts.StdHTTPServerOptions{
 		BaseRouter: mux,
 		ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, _ error) {
 			server.Problem(w, http.StatusBadRequest, "invalid-request", "Invalid request")
@@ -180,6 +192,49 @@ func TestListWatchedGame(t *testing.T) {
 	rec := call(t, &fakeStore{games: []Summary{g}}, "/v1/games")
 	if !bytes.Contains(rec.Body.Bytes(), []byte(`"watched":true`)) || !bytes.Contains(rec.Body.Bytes(), []byte(`"placement":null`)) {
 		t.Errorf("body %s", rec.Body)
+	}
+}
+
+func TestListStatsOnFirstPageOnly(t *testing.T) {
+	best := 12400
+	s := &fakeStore{games: games(23), stats: Stats{Games: 30, Played: 26, Wins: 9, Best: &best}}
+	rec := call(t, s, "/v1/games")
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`"stats":{"games":30,"played":26,"wins":9,"best":12400}`)) {
+		t.Errorf("first page body %s", rec.Body)
+	}
+	var body struct {
+		NextCursor string `json:"nextCursor"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	rec = call(t, s, "/v1/games?cursor="+body.NextCursor)
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`"stats":null`)) || s.statsCalls != 1 {
+		t.Errorf("second page body %s, stats read %d times", rec.Body, s.statsCalls)
+	}
+
+	// Never played: best is null.
+	rec = call(t, &fakeStore{stats: Stats{Games: 2}}, "/v1/games")
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`"best":null`)) {
+		t.Errorf("watcher body %s", rec.Body)
+	}
+
+	rec = call(t, &fakeStore{statsErr: errors.New("db down")}, "/v1/games")
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("stats failure: status %d", rec.Code)
+	}
+}
+
+func TestListKind(t *testing.T) {
+	for path, want := range map[string]Kind{"/v1/games": All, "/v1/games?kind=played": Played, "/v1/games?kind=watched": Watched} {
+		s := &fakeStore{}
+		if rec := call(t, s, path); rec.Code != http.StatusOK || s.kind != want {
+			t.Errorf("%s: %d, kind %q", path, rec.Code, s.kind)
+		}
+	}
+	s := &fakeStore{}
+	if rec := call(t, s, "/v1/games?kind=hosted"); rec.Code != http.StatusBadRequest || s.limit != 0 {
+		t.Errorf("unknown kind: %d, store called: %v", rec.Code, s.limit != 0)
 	}
 }
 

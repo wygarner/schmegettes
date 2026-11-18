@@ -46,7 +46,9 @@ commit;
 | `games`, `game_players`, `answers`, `game_results` (view) | read if they played or watched that game (`is_game_member`); no writes |
 | `wagers` | **nothing**: Daily Double and Final wagers, and submitted Final answers, are secret until the reveal. Their outcomes reach players only as `answers` rows |
 | `seen_clues` | **nothing**: only used to build boards |
-| `host_codes`, `hosts` | **nothing** (no role but the owner): host codes and who can host. Players reach them only through `private.*` functions |
+| `host_codes`, `hosts` | **nothing** (no role but the owner): host codes and who can host (with the admin's note). Players reach them only through `private.*` functions; admins only through the `private.admin_*` functions |
+| `private.host_code_rotation` | **nothing** (no role but the owner): one row naming the current code, when it rotates, and the previous code with its grace deadline |
+| `private.admins` | **nothing** (no role but the owner): account user IDs allowed to use the admin functions. Edited only in the SQL editor |
 | `private.merge_tickets` | **nothing** (no role but the owner): one-use tickets for moving a guest into an account, stored hashed. Reached only through the account functions |
 
 Supabase's default grants to `anon`/`authenticated` are revoked, including default privileges for future tables. **Every new table needs an explicit grant, `enable row level security`, policies, and a test in `supabase/tests/`.**
@@ -73,10 +75,13 @@ Schema `private` holds functions the Data API doesn't expose, so calling them me
 
 | Function | Caller | Does |
 |---|---|---|
-| `private.redeem_host_code(code)` | `authenticated` (api, rate-limited) | Normalizes the code (case, spaces, dashes); spends it for the caller with one `update … where used_at is null`, so two racing callers can't both win; adds the caller to `hosts`; creates a new unused code. A caller who can already host keeps the code unspent |
+| `private.redeem_host_code(code)` | `authenticated` (api, rate-limited) | Normalizes the code (case, spaces, dashes); advances the rotation if due; accepts the current code, or the previous one until its 5-minute grace ends; adds the caller to `hosts` (`on conflict do nothing`, so any number of callers can use one code and an existing host keeps their original row). `host_codes.used_at/used_by` are no longer written |
 | `private.caller_is_host()` | `authenticated` (api) | Whether the caller can host |
 | `private.user_is_host(user)` | `game_engine`; `create_room` and `start_game` | Whether a user can host. `create_room` and `start_game` raise `42501` without it |
-| `private.new_host_code(note)` | owner only (admin, SQL editor) | Creates an unused code |
+| `private.new_host_code(note)` | owner only; the rotation functions | Creates a code row |
+| `private.advance_host_code(at)` | owner only; every function below | Takes a transaction advisory lock and, if `rotates_at` has passed, makes one new code on the latest 45-minute boundary. The old code gets 5 minutes of grace only when exactly one window elapsed |
+| `private.require_admin()` | owner only; every admin function | Raises `42501 not found` unless the caller is a non-anonymous account in `private.admins` |
+| `private.admin_current_host_code()`, `admin_rotate_host_code(expected)`, `admin_hosts()`, `admin_set_host_note(user, note)`, `admin_remove_host(user)` | `authenticated` (api `/v1/admin/*`, as the caller) | Each calls `require_admin()` first. Rotate replaces the code only if `expected` is still current (so two admins make one new code) and gives the old code no grace. Hosts are newest first, with email for accounts and the last display name for guests. Notes are trimmed, empty means none, at most 200 characters |
 
 ## Account functions
 

@@ -52,13 +52,32 @@ func (h Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	server.Problem(w, http.StatusInternalServerError, "internal", "Something went wrong")
 }
 
+type stats struct {
+	Games  int  `json:"games"`
+	Played int  `json:"played"`
+	Wins   int  `json:"wins"`
+	Best   *int `json:"best"`
+}
+
 type page struct {
 	Items      []contracts.GameSummary `json:"items"`
 	NextCursor *string                 `json:"nextCursor"`
+	Stats      *stats                  `json:"stats"`
 }
 
 // List handles GET /v1/games: the caller's ended games, played or watched, newest first.
+// The first page also carries the caller's stats.
 func (h Handler) List(w http.ResponseWriter, r *http.Request, params contracts.GetV1GamesParams) {
+	kind := All
+	if params.Kind != nil {
+		switch k := Kind(*params.Kind); k {
+		case Played, Watched:
+			kind = k
+		default:
+			server.Problem(w, http.StatusBadRequest, "invalid-kind", "Kind is played or watched")
+			return
+		}
+	}
 	var after *After
 	if params.Cursor != nil {
 		var ok bool
@@ -68,12 +87,21 @@ func (h Handler) List(w http.ResponseWriter, r *http.Request, params contracts.G
 		}
 	}
 	// One more than a page says whether there is a next one.
-	games, err := h.Store.List(r.Context(), server.Claims(r.Context()), after, PageSize+1)
+	claims := server.Claims(r.Context())
+	games, err := h.Store.List(r.Context(), claims, kind, after, PageSize+1)
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
 	out := page{Items: []contracts.GameSummary{}}
+	if after == nil {
+		st, err := h.Store.Stats(r.Context(), claims)
+		if err != nil {
+			h.fail(w, r, err)
+			return
+		}
+		out.Stats = &stats{Games: st.Games, Played: st.Played, Wins: st.Wins, Best: st.Best}
+	}
 	if len(games) > PageSize {
 		games = games[:PageSize]
 		next := encodeCursor(games[len(games)-1])

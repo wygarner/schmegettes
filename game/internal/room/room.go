@@ -596,8 +596,8 @@ func (r *Room) handle(ctx context.Context, c *Client, data []byte) {
 		if r.phase != contracts.GamePhaseLobby {
 			return // a second press while starting
 		}
-		if r.contestants() < 2 {
-			r.fail(c, contracts.ErrorCodeNotEnoughPlayers, "Need at least 2 players")
+		if r.contestants() < 1 {
+			r.fail(c, contracts.ErrorCodeNotEnoughPlayers, "Need at least 1 player")
 			return
 		}
 		r.start(ctx, c)

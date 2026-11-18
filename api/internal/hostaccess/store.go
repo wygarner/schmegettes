@@ -1,5 +1,5 @@
-// Package hostaccess serves host access: whether the caller's device can host, and spending
-// a one-use host code to get it. All data access runs as the caller (db.AsUser); the rules
+// Package hostaccess serves host access: whether the caller's device can host, and redeeming
+// the current rotating host code. All data access runs as the caller (db.AsUser); the rules
 // live in the private.* functions (supabase/migrations/*_private_access.sql).
 package hostaccess
 
@@ -15,7 +15,7 @@ import (
 // Store is the data access the handlers need.
 type Store interface {
 	CanHost(ctx context.Context, c auth.Claims) (bool, error)
-	// Redeem spends a code for the caller. True when the caller can host afterwards.
+	// Redeem accepts a current or grace-period code. True when the caller can host afterwards.
 	Redeem(ctx context.Context, c auth.Claims, code string) (bool, error)
 }
 

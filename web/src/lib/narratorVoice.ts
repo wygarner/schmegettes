@@ -3,6 +3,7 @@
 // docs/product-docs/features/gameplay/feature-brief.md, "The narrator's voice".
 
 import { useEffect, useState } from "react";
+import { DEFAULT_PIPER_VOICE, isPiperVoiceId, type PiperVoiceId } from "./piper/voices";
 
 /** The parts of a browser voice the ranking reads. */
 export type Voice = Pick<SpeechSynthesisVoice, "name" | "lang" | "voiceURI" | "default">;
@@ -122,6 +123,27 @@ export function getSavedVoice(): string | null {
   } catch {
     return null;
   }
+}
+
+/** What the narrator reads with: a Schmegettes (Piper) voice, or a voice built into the device. */
+export type NarratorChoice = { kind: "piper"; id: PiperVoiceId } | { kind: "device"; uri: string };
+
+const PIPER_PREFIX = "piper:";
+
+/** The stored value for a Schmegettes voice; built-in voices store their voiceURI. */
+export function piperChoiceValue(id: PiperVoiceId): string {
+  return `${PIPER_PREFIX}${id}`;
+}
+
+/**
+ * The host's choice on this device. Nothing saved means the default Schmegettes voice; a
+ * built-in voice saved before Schmegettes voices existed is kept.
+ */
+export function narratorChoice(): NarratorChoice {
+  const saved = getSavedVoice();
+  if (saved && !saved.startsWith(PIPER_PREFIX)) return { kind: "device", uri: saved };
+  const id = saved?.slice(PIPER_PREFIX.length) ?? "";
+  return { kind: "piper", id: isPiperVoiceId(id) ? id : DEFAULT_PIPER_VOICE };
 }
 
 export function saveVoice(uri: string): void {

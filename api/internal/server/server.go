@@ -54,27 +54,51 @@ var public = map[string]bool{"/healthz": true, "/version": true}
 
 // Authenticate requires a valid Bearer token on every route except /healthz and /version.
 func Authenticate(v Verifier) func(http.Handler) http.Handler {
+	return AuthenticateWithAdminLimit(v, nil)
+}
+
+// AuthenticateWithAdminLimit conceals every admin authentication failure as not-found and
+// lets the caller rate-limit admin attempts after verification. Non-admin routes keep their
+// existing 401 behavior. The callback key is a verified user id or "unauthenticated".
+func AuthenticateWithAdminLimit(v Verifier, allowAdmin func(http.ResponseWriter, *http.Request, string) bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if public[r.URL.Path] {
 				next.ServeHTTP(w, r)
 				return
 			}
+			admin := strings.HasPrefix(r.URL.Path, "/v1/admin/")
 			token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 			if !ok || token == "" {
+				if admin {
+					if allowAdmin == nil || allowAdmin(w, r, "unauthenticated") {
+						NotFound(w, r)
+					}
+					return
+				}
 				Problem(w, http.StatusUnauthorized, "unauthorized", "Sign in required")
 				return
 			}
 			claims, err := v.Verify(token)
 			if err != nil {
 				slog.DebugContext(r.Context(), "token rejected", "err", err, "request_id", RequestID(r.Context()))
+				if admin {
+					if allowAdmin == nil || allowAdmin(w, r, "unauthenticated") {
+						NotFound(w, r)
+					}
+					return
+				}
 				Problem(w, http.StatusUnauthorized, "unauthorized", "Sign in required")
 				return
 			}
 			if info, ok := r.Context().Value(requestKey).(*requestInfo); ok {
 				info.userID = claims.UserID
 			}
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), claimsKey, claims)))
+			r = r.WithContext(context.WithValue(r.Context(), claimsKey, claims))
+			if admin && allowAdmin != nil && !allowAdmin(w, r, claims.UserID) {
+				return
+			}
+			next.ServeHTTP(w, r)
 		})
 	}
 }
@@ -151,6 +175,11 @@ func Problem(w http.ResponseWriter, status int, kind, title string) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{"type": ProblemBase + kind, "title": title, "status": status})
+}
+
+// NotFound is shared by unknown api paths and concealed admin denials.
+func NotFound(w http.ResponseWriter, _ *http.Request) {
+	Problem(w, http.StatusNotFound, "not-found", "Not found")
 }
 
 // JSON writes a JSON response.

@@ -22,12 +22,12 @@ import {
   useVoiceStatus,
   type VoiceStatus,
 } from "../lib/piper/voices";
-import { announcement, speak } from "../lib/speech";
+import { speak } from "../lib/speech";
 import { Sheet } from "../ui/Sheet";
 import { SOFT } from "../ui/tokens";
 
 /** What a voice says when the host taps it. */
-export const VOICE_SAMPLE = announcement("Volcanoes", 400);
+export const VOICE_SAMPLE = "Here's a sample of my voice.";
 
 /** Where to download a better voice. The path is a constant so it's a one-line fix per OS release. */
 export const VOICE_TIPS = {

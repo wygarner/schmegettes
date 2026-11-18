@@ -93,7 +93,15 @@ func (f *fixture) toDeadline() {
 func (f *fixture) openBuzzing(clue string) {
 	f.t.Helper()
 	f.must(f.g.Pick(f.now, f.g.control, clue))
+	f.pastReveal()
 	f.must(f.g.ReadingDone(f.now, host, clue))
+}
+
+// pastReveal moves the clock to the end of the pick reveal, as the TV would.
+func (f *fixture) pastReveal() {
+	if f.g.revealUntil.After(f.now) {
+		f.now = f.g.revealUntil
+	}
 }
 
 func code(err error) contracts.ErrorCode {
@@ -141,6 +149,7 @@ func TestReadingOpensBuzzing(t *testing.T) {
 	t.Run("host reports speech ended", func(t *testing.T) {
 		f := setup(t, nil)
 		f.must(f.g.Pick(f.now, alice, "s1"))
+		f.pastReveal()
 		if err := f.do(f.g.ReadingDone(f.now, alice, "s1")); code(err) != contracts.ErrorCodeNotHost {
 			t.Errorf("a contestant ended reading: %v", err)
 		}
@@ -152,7 +161,7 @@ func TestReadingOpensBuzzing(t *testing.T) {
 	t.Run("fallback timer", func(t *testing.T) {
 		f := setup(t, nil)
 		f.must(f.g.Pick(f.now, alice, "s1"))
-		want := ReadingTime(Announcement("SCIENCE", 200) + " " + board()[0].Text)
+		want := PickReveal + ReadingTime(board()[0].Text)
 		if got := f.g.Deadline().Sub(f.now); got != want {
 			t.Errorf("reading deadline %v, want %v", got, want)
 		}
@@ -169,13 +178,6 @@ func TestReadingTime(t *testing.T) {
 	}
 	if got := ReadingTime(strings.Repeat("word ", 100)); got != MaxReading || MaxReading != 14*time.Second {
 		t.Errorf("long clue: %v", got)
-	}
-	if got := Announcement("VOLCANOES", 1200); got != "Here's VOLCANOES for 1200." {
-		t.Errorf("announcement %q", got)
-	}
-	// "Here's VOLCANOES for 400." adds 4 words to the clue's estimate.
-	if got := ReadingTime(Announcement("VOLCANOES", 400) + " one"); got != 3*time.Second {
-		t.Errorf("announced 1-word clue: %v", got)
 	}
 }
 
@@ -308,13 +310,14 @@ func TestControlHandoff(t *testing.T) {
 func TestEarlyBuzzLockout(t *testing.T) {
 	f := setup(t, nil)
 	f.must(f.g.Pick(f.now, alice, "s1"))
-	f.must(f.g.Buzz(f.now, bob, "s1")) // during reading
-	f.must(f.g.ReadingDone(f.now.Add(10*time.Millisecond), host, "s1"))
+	early := f.g.revealUntil.Add(-100 * time.Millisecond) // during the pick reveal
+	f.must(f.g.Buzz(early, bob, "s1"))
+	f.must(f.g.ReadingDone(f.g.revealUntil, host, "s1"))
 
-	if err := f.do(f.g.Buzz(t0.Add(249*time.Millisecond), bob, "s1")); !errors.Is(err, ErrIgnored) {
+	if err := f.do(f.g.Buzz(early.Add(249*time.Millisecond), bob, "s1")); !errors.Is(err, ErrIgnored) {
 		t.Errorf("buzz inside the lockout: %v", err)
 	}
-	f.must(f.g.Buzz(t0.Add(250*time.Millisecond), bob, "s1"))
+	f.must(f.g.Buzz(early.Add(250*time.Millisecond), bob, "s1"))
 	if f.g.answering != bob {
 		t.Errorf("answering %q", f.g.answering)
 	}
@@ -559,4 +562,102 @@ func TestSeqIsSharedByBothCopies(t *testing.T) {
 	if a.Seq != h.Seq || a.Seq == 0 {
 		t.Errorf("seq %d / %d", a.Seq, h.Seq)
 	}
+}
+
+func TestPickReveal(t *testing.T) {
+	t.Run("the pick's phase_changed carries the reveal; buzzing waits for it", func(t *testing.T) {
+		f := setup(t, nil)
+		f.must(f.g.Pick(f.now, alice, "s1"))
+		pc := last[contracts.PhaseChanged](t, f)
+		if pc.RevealUntil == nil || *pc.RevealUntil != *ms(f.now.Add(PickReveal)) {
+			t.Fatalf("revealUntil %v", pc.RevealUntil)
+		}
+		// The TV reports early: buzzing still waits for the reveal.
+		f.must(f.g.ReadingDone(f.now.Add(time.Second), host, "s1"))
+		if f.g.Phase() != contracts.GamePhaseClueReading || !f.g.Deadline().Equal(f.now.Add(PickReveal)) {
+			t.Fatalf("phase %s deadline %v", f.g.Phase(), f.g.Deadline())
+		}
+		f.toDeadline()
+		if f.g.Phase() != contracts.GamePhaseBuzzingOpen {
+			t.Errorf("phase %s after the reveal", f.g.Phase())
+		}
+		if pc := last[contracts.PhaseChanged](t, f); pc.RevealUntil != nil {
+			t.Error("a later phase_changed repeats the reveal")
+		}
+	})
+	t.Run("a snapshot never carries it", func(t *testing.T) {
+		f := setup(t, nil)
+		f.must(f.g.Pick(f.now, alice, "s1"))
+		var m contracts.RoomSnapshot
+		f.g.SnapshotFields(&m, true)
+		if b, _ := json.Marshal(m); strings.Contains(string(b), "revealUntil") {
+			t.Error("snapshot has revealUntil")
+		}
+	})
+	t.Run("a re-read after a pause has no reveal", func(t *testing.T) {
+		f := setup(t, nil)
+		f.must(f.g.Pick(f.now, alice, "s1"))
+		f.now = f.now.Add(500 * time.Millisecond) // mid-reveal
+		f.take(f.g.Disconnect(f.now, host))
+		f.now = f.now.Add(time.Minute)
+		f.take(f.g.Connect(f.now, host))
+		pc := last[contracts.PhaseChanged](t, f)
+		if pc.Phase != contracts.GamePhaseClueReading || pc.RevealUntil != nil {
+			t.Fatalf("phase %s revealUntil %v", pc.Phase, pc.RevealUntil)
+		}
+		if want := f.now.Add(ReadingTime(board()[0].Text)); !f.g.Deadline().Equal(want) {
+			t.Errorf("re-read deadline %v, want %v", f.g.Deadline(), want)
+		}
+		f.must(f.g.ReadingDone(f.now, host, "s1"))
+		if f.g.Phase() != contracts.GamePhaseBuzzingOpen {
+			t.Errorf("phase %s", f.g.Phase())
+		}
+	})
+}
+
+func TestResponseTail(t *testing.T) {
+	end := func(t *testing.T) *fixture {
+		f := setup(t, nil)
+		f.openBuzzing("s1")
+		f.toDeadline() // nobody buzzed: the correct response is up
+		if f.g.step != stepClueEnd || !f.g.Deadline().Equal(f.now.Add(ClueEndPause)) {
+			t.Fatalf("step %v deadline %v", f.g.step, f.g.Deadline())
+		}
+		return f
+	}
+	t.Run("the board returns 1 s after the response is read", func(t *testing.T) {
+		f := end(t)
+		read := f.now.Add(2500 * time.Millisecond)
+		f.must(f.g.ReadingDone(read, host, "s1"))
+		if !f.g.Deadline().Equal(read.Add(ResponseTail)) {
+			t.Errorf("deadline %v, want %v", f.g.Deadline(), read.Add(ResponseTail))
+		}
+	})
+	t.Run("never later than the 6 s cap", func(t *testing.T) {
+		f := end(t)
+		capAt := f.g.Deadline()
+		f.must(f.g.ReadingDone(f.now.Add(5800*time.Millisecond), host, "s1"))
+		if !f.g.Deadline().Equal(capAt) {
+			t.Errorf("deadline %v, want the cap %v", f.g.Deadline(), capAt)
+		}
+	})
+	t.Run("an open override review keeps the tail for when it closes", func(t *testing.T) {
+		f := setup(t, nil)
+		f.openBuzzing("s1")
+		f.must(f.g.Buzz(f.now, bob, "s1"))
+		f.must(f.g.Answer(f.now, bob, "s1", "nitrogen")) // right: the clue ends
+		f.must(f.g.Review(f.now, host, true))
+		f.must(f.g.ReadingDone(f.now.Add(2*time.Second), host, "s1"))
+		f.now = f.now.Add(10 * time.Second)
+		f.must(f.g.Review(f.now, host, false))
+		if !f.g.Deadline().Equal(f.now.Add(ResponseTail)) {
+			t.Errorf("deadline %v, want %v", f.g.Deadline(), f.now.Add(ResponseTail))
+		}
+	})
+	t.Run("only the host device reports it", func(t *testing.T) {
+		f := end(t)
+		if err := f.do(f.g.ReadingDone(f.now, alice, "s1")); code(err) != contracts.ErrorCodeNotHost {
+			t.Errorf("a contestant ended the response: %v", err)
+		}
+	})
 }

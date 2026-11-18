@@ -1,18 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { saveVoice, type Voice } from "./narratorVoice";
-import {
-  announcement,
-  type RecognitionResultList,
-  SPEECH_START_TIMEOUT_MS,
-  speak,
-  transcripts,
-  unlockSpeech,
-} from "./speech";
-
-test("the pick announcement speaks the value as a plain number", () => {
-  expect(announcement("VOLCANOES", 400)).toBe("Here's VOLCANOES for 400.");
-  expect(announcement("OPERA", 1200)).toBe("Here's OPERA for 1200.");
-});
+import { type RecognitionResultList, SPEECH_START_TIMEOUT_MS, speak, transcripts, unlockSpeech } from "./speech";
 
 class FakeUtterance {
   onstart?: () => void;

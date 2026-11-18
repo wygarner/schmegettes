@@ -69,7 +69,8 @@ jobs:
             echo "database=$(has "$CORE|^supabase/")"
             echo "scripts=$(has '^scripts/|^\.github/')"
             echo "evals=$(has '^evals/|^worker/prompts/')"
-            # PRs that only touch docs, tasks, or releases skip every check.
+            # PRs that only touch docs, tasks, or releases skip every check. Keep in step with
+            # deploy-staging.yml's paths-ignore, which skips the staging deploy for the same pushes.
             echo "docs_only=$(grep -qvE '^(docs/|tasks/|releases/|.*\.md$)' <<<"$FILES" && echo false || echo true)"
           } >> "$GITHUB_OUTPUT"
 

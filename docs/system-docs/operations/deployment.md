@@ -2,7 +2,7 @@
 
 **Source of truth:** `.github/workflows/deploy.yml` (called by `deploy-staging.yml` and `deploy-prod.yml`), `api/fly.toml`, `game/fly.toml`, `web/scripts/vercel-deploy.mjs`
 
-Hosting was decided on 2026-11-10: **Fly.io** for `api` and `game`, **Vercel** for `web`, **Supabase** for the database. A push to `develop` deploys staging (`deploy-staging.yml`) and a push to `production` deploys production (`deploy-prod.yml`). Both run the same jobs (`deploy.yml`). Custom domains are not set up yet: every URL below is the provider's default hostname and comes from configuration, so adding a domain changes configuration only.
+Hosting was decided on 2026-11-10: **Fly.io** for `api` and `game`, **Vercel** for `web`, **Supabase** for the database. A push to `develop` deploys staging (`deploy-staging.yml`; skipped when the push changes only `docs/`, `tasks/`, `releases/` or `.md` files, so staging can trail `develop` by docs commits) and a push to `production` deploys production (`deploy-prod.yml`). Both run the same jobs (`deploy.yml`). Custom domains are not set up yet: every URL below is the provider's default hostname and comes from configuration, so adding a domain changes configuration only.
 
 ## Environments
 

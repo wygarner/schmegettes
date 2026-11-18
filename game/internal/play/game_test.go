@@ -626,3 +626,22 @@ func TestNoDoubleGoesFromSingleToFinal(t *testing.T) {
 		t.Errorf("a round_started was sent: %+v", rs)
 	}
 }
+
+func TestNoDoubleRecoversIntoFinal(t *testing.T) {
+	f := setup(t, func(s *Setup) {
+		s.NoDouble = true
+		var single []Clue
+		for _, c := range s.Board {
+			if c.Round == contracts.RoundSingle {
+				c.State = contracts.ClueStateAnswered
+				single = append(single, c)
+			}
+		}
+		s.Board = single
+		s.Final = &Clue{ID: "f1", Round: contracts.RoundFinal, Category: "ISLANDS", Text: "Volcano", Response: "Krakatoa"}
+		s.Scores = map[string]int{alice: 400, bob: 200}
+	})
+	if f.g.Phase() != contracts.GamePhaseFinalCategory {
+		t.Errorf("a recovered game with Double off and Single done is at %s, want Final", f.g.Phase())
+	}
+}

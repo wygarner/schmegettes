@@ -298,7 +298,7 @@ func New(s Setup) *Game {
 	}
 
 	g.round = contracts.RoundSingle
-	if g.roundDone(contracts.RoundSingle) {
+	if g.roundDone(contracts.RoundSingle) && !s.NoDouble {
 		g.round = contracts.RoundDouble
 	}
 	switch {
@@ -322,7 +322,8 @@ func New(s Setup) *Game {
 			g.recoverDailyDouble(s.DDWager)
 		}
 	}
-	if g.roundDone(contracts.RoundDouble) {
+	// The boards are done: Final (with Double Schmegettes off, after the Single board).
+	if g.roundDone(contracts.RoundDouble) || (s.NoDouble && g.roundDone(contracts.RoundSingle)) {
 		g.recoverFinal(s)
 	}
 	return g

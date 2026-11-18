@@ -58,6 +58,7 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 - **A device that can't run the voices can't host.** The lobby says "This device can't run the Schmegettes narrator. Host from a recent iPhone, iPad or computer." and Start stays disabled.
 - **Reading starts quickly.** The narrator prepares the clue during the 1.5 s pick reveal, so the first word is heard within **1 s** of the clue appearing on the TV.
 - **A line that isn't ready in time** (not started **1.5 s** after it should have, or an error) is **skipped**: the text stays on screen and the game goes on (for a clue, buzzing opens on the server's estimate). The next line tries the voice again. No other voice stands in.
+- **Plays through the silent switch.** On an iPhone or iPad, the narrator is heard with the ring/silent switch on, at media volume, like a video. The volume buttons control it.
 - **It never slows the host's buzzer.** Generating speech must not make the host device's screen or buzzer lag: a host who plays buzzes as quickly as anyone.
 - The host can **change the voice in the lobby** and hear a sample first ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). The same voice speaks every line: clues, Daily Double and Final lines, and the correct response.
 - The choice is **kept on that host device** for every room it hosts until the host changes it. It isn't tied to the host's account and never reaches the server. A device that had picked a built-in voice before this change gets Kristin, without a message.

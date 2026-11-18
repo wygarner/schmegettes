@@ -59,10 +59,6 @@ export interface RoomSnapshot {
    * Server clock, ms since epoch, when the current step times out.
    */
   deadlineAt?: number;
-  /**
-   * Server clock, ms since epoch, when the pick reveal ends (the cell's blink and the category card; a Daily Double's blink). Present only right after a pick, never on a re-read after a pause or reload, so the reveal is never replayed.
-   */
-  revealUntil?: number;
   answeringUserId?: string;
   attemptedUserIds?: string[];
   paused?: boolean;

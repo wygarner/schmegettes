@@ -638,11 +638,6 @@ type RoomSnapshot struct {
 	// final_reveal: finalists in reveal order, lowest pre-Final score first.
 	RevealOrder []Uuid `json:"revealOrder,omitempty" yaml:"revealOrder,omitempty" mapstructure:"revealOrder,omitempty"`
 
-	// Server clock, ms since epoch, when the pick reveal ends (the cell's blink and
-	// the category card; a Daily Double's blink). Present only right after a pick,
-	// never on a re-read after a pause or reload, so the reveal is never replayed.
-	RevealUntil *int `json:"revealUntil,omitempty" yaml:"revealUntil,omitempty" mapstructure:"revealUntil,omitempty"`
-
 	// RoomId corresponds to the JSON schema field "roomId".
 	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
 

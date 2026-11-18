@@ -69,10 +69,6 @@ class RoomSnapshot(BaseModel):
         None,
         description='Server clock, ms since epoch, when the current step times out.',
     )
-    revealUntil: Optional[int] = Field(
-        None,
-        description="Server clock, ms since epoch, when the pick reveal ends (the cell's blink and the category card; a Daily Double's blink). Present only right after a pick, never on a re-read after a pause or reload, so the reveal is never replayed.",
-    )
     answeringUserId: Optional[domain_schema.Uuid] = None
     attemptedUserIds: Optional[List[domain_schema.Uuid]] = None
     paused: Optional[bool] = None

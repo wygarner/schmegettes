@@ -27,6 +27,25 @@ type After struct {
 	GameID     string
 }
 
+// Kind narrows the list: every game, only games played as a contestant, or only games watched.
+type Kind string
+
+const (
+	All     Kind = ""
+	Played  Kind = "played"
+	Watched Kind = "watched"
+)
+
+// Stats sum up all the caller's ended games, whatever the kind.
+type Stats struct {
+	Games  int
+	Played int
+	// Wins counts finished games placed 1st in (ties included); abandoned games don't count.
+	Wins int
+	// Best is the highest score in a played game; nil if they never played.
+	Best *int
+}
+
 // Summary is one past game, from the caller's point of view.
 type Summary struct {
 	GameID     string
@@ -63,8 +82,9 @@ type Detail struct {
 
 // Store is the data access the handlers need.
 type Store interface {
-	// List returns up to limit of the caller's ended games, newest first, after the cursor.
-	List(ctx context.Context, c auth.Claims, after *After, limit int) ([]Summary, error)
+	// List returns up to limit of the caller's ended games of that kind, newest first, after the cursor.
+	List(ctx context.Context, c auth.Claims, kind Kind, after *After, limit int) ([]Summary, error)
+	Stats(ctx context.Context, c auth.Claims) (Stats, error)
 	Detail(ctx context.Context, c auth.Claims, gameID string) (Detail, error)
 }
 
@@ -73,8 +93,8 @@ type PGStore struct {
 	DB *db.DB
 }
 
-// List reads the caller's finished and abandoned games, played or watched.
-func (s PGStore) List(ctx context.Context, c auth.Claims, after *After, limit int) ([]Summary, error) {
+// List reads the caller's finished and abandoned games, played, watched, or both.
+func (s PGStore) List(ctx context.Context, c auth.Claims, kind Kind, after *After, limit int) ([]Summary, error) {
 	var out []Summary
 	err := s.DB.AsUser(ctx, c, func(tx pgx.Tx) error {
 		var afterAt *time.Time
@@ -92,8 +112,9 @@ func (s PGStore) List(ctx context.Context, c auth.Claims, after *After, limit in
 			where me.user_id = $1::uuid
 			  and g.status in ('finished', 'abandoned')
 			  and ($2::timestamptz is null or (g.finished_at, g.id) < ($2, $3::uuid))
+			  and ($5 = '' or ($5 = 'played') = (me.role = 'contestant'))
 			order by g.finished_at desc, g.id desc
-			limit $4`, c.UserID, afterAt, afterID, limit)
+			limit $4`, c.UserID, afterAt, afterID, limit, string(kind))
 		if err != nil {
 			return err
 		}
@@ -131,6 +152,25 @@ func (s PGStore) List(ctx context.Context, c auth.Claims, after *After, limit in
 		return names.Err()
 	})
 	return out, err
+}
+
+// Stats counts the caller's ended games, played games and wins, and finds their best score.
+func (s PGStore) Stats(ctx context.Context, c auth.Claims) (Stats, error) {
+	var st Stats
+	err := s.DB.AsUser(ctx, c, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
+			select count(*)::int,
+			       (count(*) filter (where me.role = 'contestant'))::int,
+			       (count(*) filter (where me.role = 'contestant' and g.status = 'finished' and r.placement = 1))::int,
+			       max(r.score) filter (where me.role = 'contestant')
+			from public.game_players me
+			join public.games g on g.id = me.game_id
+			left join public.game_results r on r.game_player_id = me.id
+			where me.user_id = $1::uuid
+			  and g.status in ('finished', 'abandoned')`, c.UserID).
+			Scan(&st.Games, &st.Played, &st.Wins, &st.Best)
+	})
+	return st, err
 }
 
 // Detail reads one game's scoreboard: contestants by placement, and who hosted.

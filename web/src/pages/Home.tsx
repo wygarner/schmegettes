@@ -1,26 +1,29 @@
-import {
-  Alert,
-  Anchor,
-  Button,
-  Container,
-  Group,
-  Modal,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-  UnstyledButton,
-} from "@mantine/core";
+import { Stack } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { type Account, currentAccount } from "../lib/account";
 import { setSignedOutNotice, shouldShowSavePrompt, signedOutNotice, snoozeSavePrompt } from "../lib/accountFlags";
 import { getPrefillName, isValidName, MAX_NAME, setLastName } from "../lib/displayName";
+import { type GameSummary, lastGame } from "../lib/games";
 import { getHostAccess } from "../lib/hostAccess";
+import { money } from "../lib/money";
+import { listWhen, ordinal } from "../lib/placement";
 import { createRoom } from "../lib/rooms";
-import { GoldButton } from "../ui/GoldButton";
+import {
+  Avatar,
+  Callout,
+  CodeInput,
+  Eyebrow,
+  Field,
+  GroupList,
+  MenuButton,
+  MenuScreen,
+  MenuSheet,
+  Row,
+  Spinner,
+} from "../ui/menu";
 import { SignInSheet } from "../ui/SignInSheet";
-import { ACCENT, DISPLAY, INK, PHONE_BG, SOFT } from "../ui/tokens";
+import { FAINT, QUIET, RED, SOFT, SURFACE } from "../ui/tokens";
 import { Wordmark } from "../ui/Wordmark";
 import { HostCodeSheet } from "./HostCodeSheet";
 
@@ -29,6 +32,21 @@ export function normalizeRoomCode(input: string): string {
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")
     .slice(0, 5);
+}
+
+/** "Last: Today · 4th · −$400" under My games. */
+function lastLine(g: GameSummary | null) {
+  if (!g) return "Games you've played and watched";
+  const day = listWhen(g.startedAt).split(" · ")[0];
+  if (g.watched || g.placement == null) return `Last: ${day} · watched`;
+  return (
+    <>
+      Last: {day} · {ordinal(g.placement)} ·{" "}
+      <span style={{ color: g.score < 0 ? RED : "var(--mantine-color-green-4)", fontVariantNumeric: "tabular-nums" }}>
+        {money(g.score)}
+      </span>
+    </>
+  );
 }
 
 export function Home() {
@@ -43,6 +61,7 @@ export function Home() {
   const [account, setAccount] = useState<Account | null>(null);
   const [signIn, setSignIn] = useState<"sign-in" | "save" | null>(null);
   const [signedOut, setSignedOut] = useState(signedOutNotice);
+  const [last, setLast] = useState<GameSummary | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -51,6 +70,9 @@ export function Home() {
       setAccount(a);
       // A guest contestant back from a finished game: offer to save it.
       if (a?.kind === "guest" && shouldShowSavePrompt()) setSignIn("save");
+    });
+    void lastGame().then((g) => {
+      if (live) setLast(g);
     });
     return () => {
       live = false;
@@ -65,6 +87,10 @@ export function Home() {
   function dismissSignedOut() {
     setSignedOutNotice(false);
     setSignedOut(false);
+  }
+
+  function join() {
+    if (code.length === 5) navigate(`/join/${code}`);
   }
 
   // Hosting is invite-only: a device without host access enters its host code first.
@@ -102,94 +128,80 @@ export function Home() {
     navigate(`/host/${result.data.room.code}`);
   }
 
+  const corner =
+    account?.kind === "guest" ? (
+      <MenuButton kind="secondary" size="sm" onClick={() => setSignIn("sign-in")}>
+        Sign in
+      </MenuButton>
+    ) : account?.kind === "signed-in" ? (
+      <Link to="/account" aria-label="Account" className="mn-press" style={{ display: "block", borderRadius: 999 }}>
+        <Avatar name={account.name} size={40} />
+      </Link>
+    ) : null;
+
   return (
-    <div style={{ minHeight: "100dvh", background: PHONE_BG, color: "#fff" }}>
-      <Container size="xs" py={48} pos="relative">
-        <div style={{ position: "absolute", top: 12, right: 16 }}>
-          {account?.kind === "guest" && (
-            <Button variant="subtle" color="gray.0" onClick={() => setSignIn("sign-in")}>
-              Sign in
-            </Button>
-          )}
-          {account?.kind === "signed-in" && (
-            <UnstyledButton
-              component={Link}
-              to="/account"
-              aria-label="Account"
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                background: ACCENT,
-                color: INK,
-                display: "grid",
-                placeItems: "center",
-                fontFamily: DISPLAY,
-                fontWeight: 700,
-              }}
-            >
-              {(account.name ?? "?").charAt(0).toUpperCase()}
-            </UnstyledButton>
-          )}
+    <MenuScreen right={corner}>
+      <div className="sg-in" style={{ textAlign: "center", padding: "8px 20px 30px" }}>
+        <h1 style={{ margin: 0 }}>
+          <Wordmark size="clamp(42px, 13vw, 58px)" gradient />
+        </h1>
+        <p
+          className="mn-balance"
+          style={{ margin: "14px auto 0", maxWidth: 260, color: QUIET, fontSize: 16, lineHeight: 1.4 }}
+        >
+          The quiz show for your living room
+        </p>
+      </div>
+
+      <Stack gap={14} px={16}>
+        {signedOut && (
+          <Callout
+            tone="warn"
+            title="You've been signed out"
+            onClose={dismissSignedOut}
+            action={
+              <MenuButton kind="secondary" size="sm" onClick={() => setSignIn("sign-in")}>
+                Sign in
+              </MenuButton>
+            }
+          >
+            Sign in to get your games back. You can still play as a guest.
+          </Callout>
+        )}
+        {failed && <Callout tone="danger">Couldn't create a room. Try again.</Callout>}
+
+        <div className="sg-in" style={{ ...SURFACE, borderRadius: 28, padding: 20 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              gap: 12,
+              marginBottom: 14,
+            }}
+          >
+            <Eyebrow>Join a game</Eyebrow>
+            <span style={{ fontSize: 13, color: FAINT }}>Enter the code on the TV</span>
+          </div>
+          <CodeInput value={code} onChange={(v) => setCode(normalizeRoomCode(v))} onSubmit={join} />
+          <div style={{ marginTop: 16 }}>
+            <MenuButton full disabled={code.length !== 5} onClick={join} trailing="arrow">
+              Join
+            </MenuButton>
+          </div>
         </div>
-        <Stack gap={36}>
-          {signedOut && (
-            <Alert
-              color="yellow"
-              withCloseButton
-              onClose={dismissSignedOut}
-              closeButtonLabel="Dismiss"
-              title="You've been signed out."
-            >
-              <Group justify="space-between" align="center">
-                <Text size="sm">Sign in to get your games back.</Text>
-                <Button size="compact-sm" onClick={() => setSignIn("sign-in")}>
-                  Sign in
-                </Button>
-              </Group>
-            </Alert>
-          )}
-          <Stack gap={6} align="center" ta="center">
-            <Title order={1} style={{ margin: 0 }}>
-              <Wordmark size="clamp(40px, 12vw, 64px)" />
-            </Title>
-            <Text c={SOFT}>The quiz show for your living room</Text>
-          </Stack>
 
-          <Stack gap="sm">
-            <Group align="end" gap="xs" wrap="nowrap">
-              <TextInput
-                style={{ flex: 1 }}
-                label="Room code"
-                placeholder="ABCDE"
-                size="xl"
-                autoCapitalize="characters"
-                autoComplete="off"
-                styles={{ input: { fontFamily: DISPLAY, fontWeight: 700, letterSpacing: ".3em", textAlign: "center" } }}
-                value={code}
-                onChange={(e) => setCode(normalizeRoomCode(e.currentTarget.value))}
-              />
-              <GoldButton size="xl" disabled={code.length !== 5} onClick={() => navigate(`/join/${code}`)}>
-                Join
-              </GoldButton>
-            </Group>
-          </Stack>
-
-          <Stack gap="xs">
-            {failed && <Alert color="red">Couldn't create a room. Try again.</Alert>}
-            <Button size="lg" variant="light" loading={checking} onClick={hostAGame}>
-              Host a game
-            </Button>
-            <Text size="xs" c={SOFT} ta="center">
-              Host on the device you'll put on the TV. Everyone else joins on their phone.
-            </Text>
-          </Stack>
-
-          <Anchor component={Link} to="/games" ta="center" c="mauve.2">
-            My games
-          </Anchor>
-        </Stack>
-      </Container>
+        <GroupList inset={false}>
+          <Row
+            icon="tv"
+            title="Host a game"
+            sub="On the device you'll put on the TV"
+            onClick={() => void hostAGame()}
+            trailing={checking ? <Spinner color={QUIET} /> : undefined}
+          />
+          <Row icon="history" tint={SOFT} title="My games" sub={lastLine(last)} to="/games" />
+        </GroupList>
+      </Stack>
 
       <HostCodeSheet
         opened={askingCode}
@@ -216,26 +228,33 @@ export function Home() {
           setSignIn(null);
           setSignedOut(false);
           void currentAccount().then(setAccount);
+          void lastGame().then(setLast);
         }}
       />
 
-      <Modal opened={naming} onClose={() => setNaming(false)} title="What's your name?" centered>
+      <MenuSheet
+        opened={naming}
+        onClose={() => setNaming(false)}
+        title="What's your name?"
+        description="Shown on the TV as “Hosted by …”."
+      >
         <form onSubmit={create}>
-          <Stack>
-            <TextInput
+          <Stack gap={18}>
+            <Field
               label="Your name"
-              description="Shown on the TV as “Hosted by …”"
-              data-autofocus
+              icon="user"
+              autoFocus
               maxLength={MAX_NAME}
+              counter
               value={name}
-              onChange={(e) => setName(e.currentTarget.value)}
+              onChange={setName}
             />
-            <GoldButton type="submit" loading={creating} disabled={!isValidName(name)}>
+            <MenuButton type="submit" full loading={creating} disabled={!isValidName(name)}>
               Create room
-            </GoldButton>
+            </MenuButton>
           </Stack>
         </form>
-      </Modal>
-    </div>
+      </MenuSheet>
+    </MenuScreen>
   );
 }

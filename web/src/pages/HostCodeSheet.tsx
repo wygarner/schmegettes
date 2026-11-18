@@ -1,8 +1,8 @@
-import { Button, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
+import { Stack } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { formatHostCode, isCompleteHostCode, redeemHostCode } from "../lib/hostAccess";
-import { GoldButton } from "../ui/GoldButton";
-import { DISPLAY, SOFT } from "../ui/tokens";
+import { Callout, Field, Hint, MenuButton, MenuSheet } from "../ui/menu";
+import { DISPLAY, FAINT } from "../ui/tokens";
 
 const MESSAGES = {
   invalid: "That code didn't work.",
@@ -60,52 +60,54 @@ export function HostCodeSheet({
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Schmegettes is invite-only" centered>
+    <MenuSheet
+      opened={opened}
+      onClose={onClose}
+      title="Schmegettes is invite-only"
+      description="Enter the host code you were given."
+    >
       <form onSubmit={submit}>
-        <Stack>
-          <TextInput
+        <Stack gap={18}>
+          <Field
             label="Host code"
-            description="Enter the host code you were given."
+            icon="key"
             placeholder="K7RX-M2PQ"
-            data-autofocus
-            autoCapitalize="characters"
+            autoFocus
             autoComplete="off"
-            autoCorrect="off"
-            spellCheck={false}
-            size="lg"
-            styles={{ input: { fontFamily: DISPLAY, fontWeight: 700, letterSpacing: ".2em", textAlign: "center" } }}
+            inputProps={{ autoCapitalize: "characters", autoCorrect: "off", spellCheck: false }}
+            inputStyle={{ fontFamily: DISPLAY, fontWeight: 700, letterSpacing: ".2em", fontSize: 20 }}
             value={code}
             error={problem ? MESSAGES[problem] : undefined}
-            onChange={(e) => {
-              setCode(formatHostCode(e.currentTarget.value));
+            onChange={(v) => {
+              setCode(formatHostCode(v));
               if (problem !== "rate-limited") setProblem(null);
             }}
           />
-          <Group justify="space-between">
-            <GoldButton type="submit" loading={busy} disabled={!isCompleteHostCode(code) || waitSeconds > 0}>
-              Continue
-            </GoldButton>
-            <Button variant="subtle" color="gray" onClick={onClose}>
-              Cancel
-            </Button>
-          </Group>
           {waitSeconds > 0 && (
-            <Text size="xs" c={SOFT}>
+            <Hint icon="info" color={FAINT}>
               Try again in {waitSeconds} s.
-            </Text>
+            </Hint>
           )}
+          <MenuButton type="submit" full loading={busy} disabled={!isCompleteHostCode(code) || waitSeconds > 0}>
+            Continue
+          </MenuButton>
+          <MenuButton kind="ghost" full onClick={onClose}>
+            Cancel
+          </MenuButton>
           {onSignIn && (
-            <Group justify="space-between" wrap="nowrap">
-              <Text size="xs" c={SOFT}>
-                Sign in first so you can host from any device.
-              </Text>
-              <Button variant="subtle" size="compact-sm" onClick={onSignIn}>
-                Sign in
-              </Button>
-            </Group>
+            <Callout
+              tone="info"
+              action={
+                <MenuButton kind="secondary" size="sm" onClick={onSignIn}>
+                  Sign in
+                </MenuButton>
+              }
+            >
+              Sign in first so you can host from any device.
+            </Callout>
           )}
         </Stack>
       </form>
-    </Modal>
+    </MenuSheet>
   );
 }

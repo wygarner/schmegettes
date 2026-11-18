@@ -848,12 +848,14 @@ export interface paths {
         };
         /**
          * The caller's ended games (finished or abandoned), played or watched, newest first
-         * @description 20 per page. Pass nextCursor back as cursor for the next page; it is opaque.
+         * @description 20 per page. Pass nextCursor back as cursor (with the same kind) for the next page; it is opaque. The first page (no cursor) also carries stats.
          */
         get: {
             parameters: {
                 query?: {
                     cursor?: string;
+                    /** @description Only games the caller played (as a contestant), or only games they watched */
+                    kind?: "played" | "watched";
                 };
                 header?: never;
                 path?: never;
@@ -870,6 +872,17 @@ export interface paths {
                         "application/json": {
                             items: components["schemas"]["GameSummary"][];
                             nextCursor: string | null;
+                            /** @description Across all the caller's ended games, whatever the kind; on the first page only, null on later pages */
+                            stats?: {
+                                /** @description Ended games */
+                                games: number;
+                                /** @description Ended games the caller played as a contestant */
+                                played: number;
+                                /** @description Finished (not abandoned) games the caller placed 1st in */
+                                wins: number;
+                                /** @description The caller's highest score in a played game; null if they never played */
+                                best: number | null;
+                            } | null;
                         };
                     };
                 };

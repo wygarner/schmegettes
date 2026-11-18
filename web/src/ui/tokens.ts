@@ -24,3 +24,24 @@ export const BEVEL = "inset 0 1px 0 rgba(255,255,255,.14), inset 0 -3px 0 rgba(0
 /** Correct verdicts. Mantine teal, so right/wrong still reads at a glance. */
 export const GREEN = "var(--mantine-color-teal-4)";
 export const RED = "var(--mantine-color-red-4)";
+
+// Menu screens: Home, My games, Account and their sheets (design-system.md, "Menu screens").
+/** Secondary body text on the menu screens: subtitles, sheet descriptions, info-box text. */
+export const QUIET = "#b8a8d8";
+/** Captions, hints under fields, chevrons. */
+export const FAINT = "#8a7aad";
+/** Hairlines on and between surfaces. */
+export const LINE = "rgba(255,255,255,.08)";
+export const AMBER = "var(--mantine-color-yellow-4)";
+/** The menu background: a light-mauve glow at the top, a faint pink one top right, over NIGHT. */
+export const MENU_BG = [
+  "radial-gradient(90% 45% at 50% -8%, rgba(145,97,242,.55) 0%, rgba(145,97,242,0) 70%)",
+  "radial-gradient(60% 30% at 105% 4%, rgba(255,166,217,.16) 0%, rgba(255,166,217,0) 70%)",
+  "linear-gradient(180deg, #24134d 0%, #170d33 45%, #140b2b 100%)",
+].join(", ");
+/** Cards and grouped lists on the menu screens. */
+export const SURFACE = {
+  background: "linear-gradient(180deg, rgba(255,255,255,.07) 0%, rgba(255,255,255,.035) 100%)",
+  border: `1px solid ${LINE}`,
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,.06), 0 10px 30px -12px rgba(0,0,0,.6)",
+} as const;

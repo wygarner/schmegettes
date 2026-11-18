@@ -515,13 +515,23 @@ paths:
     get:
       summary: The caller's ended games (finished or abandoned), played or watched,
         newest first
-      description: 20 per page. Pass nextCursor back as cursor for the next page; it
-        is opaque.
+      description: 20 per page. Pass nextCursor back as cursor (with the same kind)
+        for the next page; it is opaque. The first page (no cursor) also carries
+        stats.
       parameters:
         - name: cursor
           in: query
           schema:
             type: string
+        - name: kind
+          in: query
+          description: Only games the caller played (as a contestant), or only games they
+            watched
+          schema:
+            type: string
+            enum:
+              - played
+              - watched
       responses:
         "200":
           description: Page of games
@@ -536,6 +546,36 @@ paths:
                       $ref: "#/components/schemas/GameSummary"
                   nextCursor:
                     type: string
+                    nullable: true
+                  stats:
+                    type: object
+                    description: Across all the caller's ended games, whatever the kind; on the
+                      first page only, null on later pages
+                    properties:
+                      games:
+                        type: integer
+                        minimum: 0
+                        description: Ended games
+                        played or watched: null
+                      played:
+                        type: integer
+                        minimum: 0
+                        description: Ended games the caller played as a contestant
+                      wins:
+                        type: integer
+                        minimum: 0
+                        description: Finished (not abandoned) games the caller placed 1st in
+                        ties included: null
+                      best:
+                        type: integer
+                        description: The caller's highest score in a played game; null if they never
+                          played
+                        nullable: true
+                    required:
+                      - games
+                      - played
+                      - wins
+                      - best
                     nullable: true
                 required:
                   - items

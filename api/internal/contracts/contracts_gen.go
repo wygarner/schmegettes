@@ -54,6 +54,12 @@ const (
 	Open   RoomStatus = "open"
 )
 
+// Defines values for GetV1GamesParamsKind.
+const (
+	Played  GetV1GamesParamsKind = "played"
+	Watched GetV1GamesParamsKind = "watched"
+)
+
 // Defines values for PostV1RoomsJoinJSONBodyRole.
 const (
 	Contestant PostV1RoomsJoinJSONBodyRole = "contestant"
@@ -250,7 +256,13 @@ type PatchV1AdminHostsUserIdJSONBody struct {
 // GetV1GamesParams defines parameters for GetV1Games.
 type GetV1GamesParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Kind Only games the caller played (as a contestant), or only games they watched
+	Kind *GetV1GamesParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
 }
+
+// GetV1GamesParamsKind defines parameters for GetV1Games.
+type GetV1GamesParamsKind string
 
 // PostV1HostAccessRedeemJSONBody defines parameters for PostV1HostAccessRedeem.
 type PostV1HostAccessRedeemJSONBody struct {
@@ -551,6 +563,14 @@ func (siw *ServerInterfaceWrapper) GetV1Games(w http.ResponseWriter, r *http.Req
 	err = runtime.BindQueryParameter("form", true, false, "cursor", r.URL.Query(), &params.Cursor)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "kind", r.URL.Query(), &params.Kind)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
 		return
 	}
 

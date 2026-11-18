@@ -12,9 +12,20 @@ jira-title: "Schmegettes narrator voices don't play in production"
 - The voice files are reachable: the pinned Hugging Face URL (`rhasspy/piper-voices` at `0ca208af…`) redirects to `us.aws.cdn.hf.co` and serves the 63,531,379-byte model with `access-control-allow-origin: *`.
 - Production's Content-Security-Policy `connect-src` allows `https://huggingface.co` and `https://*.hf.co`, and `script-src` has `'wasm-unsafe-eval'`.
 
-**Most likely cause (unverified):** the device speed check, not a crash. `web/src/lib/piper/engine.ts` times a warm-up line after loading a voice and, if synthesis takes more than `MAX_REALTIME_FACTOR = 0.5` of the audio's length, calls `markDeviceUnavailable()`: every Schmegettes voice becomes "Not available on this device" and the built-in voice reads, with no other sign. The worker runs onnxruntime on **one thread** (`numThreads = 1`), and production sends no `Cross-Origin-Opener-Policy` / `Cross-Origin-Embedder-Policy`, so multi-threaded WebAssembly isn't possible anyway. An iPhone 11 (A13) on one thread plausibly misses 0.5. First step: measure the real-time factor on an iPhone 11 in production and say whether the picker showed "Not available on this device".
+**Repro (QA, iPhone 11, Safari, production):**
+1. A game was narrated without the Schmegettes voice.
+2. Mid-game, "Tap to turn on sound" appeared. Tapped it.
+3. Back in the lobby, the Norman sample **played**.
+4. Closed the tab, reopened the lobby: the voice sample **didn't play**.
 
-**Other places to look if it isn't the speed check:** the speech worker (module worker, `worker-src` falls back to `script-src 'self'`), how onnxruntime-web finds its `.mjs`/`.wasm` in the production build (only `wasm` is set in `wasmPaths`), the espeak-ng/piper-phonemize data file, the browser's storage quota for 63 MB, and any difference between the staging and production builds or headers.
+So the device can generate the voice (step 3); what fails is getting its audio out, and only sometimes. The narrator noticed only mid-game, not before the first clue.
+
+**Leads, in order (unverified):**
+- **Web Audio stays locked or gets interrupted on iOS.** The voices play through one `AudioContext` (`web/src/lib/piper/audio.ts`), unlocked by `resume()` on a document click (`HostLayout.tsx`). On iOS a `resume()` alone isn't always enough (playing a silent buffer inside the tap is the usual fix), and the context goes `interrupted` when something else takes the audio session: the microphone (a host who plays), built-in speech, or the tab going to the background. Nothing re-unlocks it until the next tap, and "sound blocked" is only noticed later.
+- **The ring/silent switch.** On iOS, Web Audio follows the silent switch by default, but built-in speech doesn't. A phone on silent hears built-in voices but not the Schmegettes voice (`navigator.audioSession.type = "playback"` exists for this).
+- **The speed check on a cold start.** After reopening, the voice loads from storage and the first warm-up line runs on a cold engine. If it's slower than `MAX_REALTIME_FACTOR = 0.5`, `markDeviceUnavailable()` turns every Schmegettes voice off for the visit. The worker runs on one thread (`numThreads = 1`; production isn't cross-origin isolated).
+
+**Other places to look:** the speech worker (module worker, `worker-src` falls back to `script-src 'self'`), how onnxruntime-web finds its `.mjs`/`.wasm` in the production build (only `wasm` is set in `wasmPaths`), the espeak-ng/piper-phonemize data file, the browser's storage quota for 63 MB, and any difference between the staging and production builds or headers.
 
 **Player flow (expected, unchanged):**
 - The host lobby opens; Kristin downloads in the background, with progress on the 🔊 button.
@@ -22,6 +33,8 @@ jira-title: "Schmegettes narrator voices don't play in production"
 - In a game, every line (clues, Daily Double and Final lines, correct response) is read in that voice.
 
 **Success Criteria:**
+- The repro above passes: on an iPhone 11, the sample plays after a fresh tab, and every line of a game is heard in the Schmegettes voice, including after the host's microphone was used and after the phone was locked and unlocked.
+- If sound is blocked, the host sees "Tap to turn on sound" before the first line is due, never mid-game after lines were already lost.
 - **An iPhone 11 can host with a Schmegettes voice.** It's the oldest host device we target; `schmegettes-voices-only` makes a device that fails the check unable to host.
 - On production, on an iPhone 11 (Safari, current iOS), a recent iPhone, and desktop Chrome: Kristin downloads in the lobby, its sample plays, and a full clue is read in Kristin in a game.
 - The root cause is named in the PR and covered by a test where one is possible, or by a check in the staging smoke tests if it's a build/header problem.

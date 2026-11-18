@@ -59,6 +59,14 @@ export interface RoomSnapshot {
    * Server clock, ms since epoch, when the current step times out.
    */
   deadlineAt?: number;
+  /**
+   * This game's buzz window (each reopen too), from its timer pace. Absent before a game starts.
+   */
+  buzzWindowMs?: number;
+  /**
+   * How long this game's players have to say an answer, from its timer pace. Absent before a game starts.
+   */
+  answerWindowMs?: number;
   answeringUserId?: string;
   attemptedUserIds?: string[];
   paused?: boolean;

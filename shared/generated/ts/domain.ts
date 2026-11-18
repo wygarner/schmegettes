@@ -27,6 +27,13 @@ export type GamePhase =
  */
 export type AnswerSource = "voice" | "typed";
 /**
+ * The game's pace, chosen in the lobby: how long buzzing stays open and how long a player has to answer. relaxed 15 s / 12 s, standard 9 s / 9 s, fast 5 s / 7 s. Mirrors public.timer_pace.
+ *
+ * This interface was referenced by `Domain`'s JSON-Schema
+ * via the `definition` "TimerPace".
+ */
+export type TimerPace = "relaxed" | "standard" | "fast";
+/**
  * Which judging rule decided an answer. Mirrors public.match_rule.
  *
  * This interface was referenced by `Domain`'s JSON-Schema

@@ -60,12 +60,13 @@ Lobby changes go through `security definer` functions so names, capacity, and th
 | Function | Caller | Does |
 |---|---|---|
 | `create_room(name)` | `authenticated` (api) | Closes the caller's other open lobbies, picks a code without look-alikes, adds the host's membership with their name |
+| `set_room_options(room, set_seasons, seasons, timers, double_round, max_players)` | `authenticated` (api, `PATCH /v1/rooms/{roomId}`) | Security definer (authenticated can't update `rooms`). Only the room's host (`42501`), only while `open` (`55000`); seasons non-empty and 1–40 (`22023`). A null argument leaves that option |
 | `join_room(code, name, role)` | `authenticated` (api) | Locks the room; refuses contestants unless `status = 'open'` and there is room (a playing host counts); suffixes a taken name ("Alice 2"); a member joining again keeps their name |
 | `set_member_name(room, user, name)` | `game_engine` | Lobby only; same suffix rule |
 | `set_host_plays(room, plays)` | `game_engine` | Lobby only; the host joins or leaves the game on the host device |
 | `leave_room(room, user)` | `game_engine` | Removes a non-host member |
 
-- `room_members.display_name` is the name in that room; `profiles.display_name` is the last name used. `start_game()` snapshots the room name into `game_players`.
+- `room_members.display_name` is the name in that room; `profiles.display_name` is the last name used. `start_game()` snapshots the room name into `game_players`, and the room's game options (`timers`, `double_round`) onto `games`, so a game keeps the rules it started with; with `double_round` off it builds no Double board.
 - A host with `rooms.host_plays` is recorded in `game_players` as a `contestant`, so they count for fresh boards and placement.
 - Room codes are unique only among rooms that aren't closed (`rooms_live_code_idx`).
 

@@ -51,3 +51,20 @@ export function joinRoom(code: string, displayName: string): Promise<RoomResult>
 export function roomByCode(code: string): Promise<RoomResult> {
   return settle(api.GET("/v1/rooms/by-code/{code}", { params: { path: { code } } }));
 }
+
+export type Room = ApiComponents["schemas"]["Room"];
+export type RoomOptionsPatch = {
+  seasons?: number[] | null;
+  timers?: Room["timers"];
+  doubleRound?: boolean;
+};
+
+/** Changes the room's game options (host only, before Start). The updated room, or null. */
+export async function updateRoomOptions(roomId: string, options: RoomOptionsPatch): Promise<Room | null> {
+  try {
+    const { data } = await api.PATCH("/v1/rooms/{roomId}", { params: { path: { roomId } }, body: options });
+    return data ?? null;
+  } catch {
+    return null;
+  }
+}

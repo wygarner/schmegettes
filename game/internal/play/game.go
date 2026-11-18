@@ -15,7 +15,8 @@ import (
 	"schmegettes/game/internal/judge"
 )
 
-// Timings from the gameplay interaction design.
+// Timings from the gameplay interaction design. BuzzWindow and AnswerWindow are the Standard
+// pace; a game's own come from its timer option (Windows).
 const (
 	Lockout      = 250 * time.Millisecond
 	BuzzWindow   = 9 * time.Second
@@ -34,6 +35,18 @@ const (
 // announcement() in web/src/lib/speech.ts, which speaks it.
 func Announcement(category string, value int) string {
 	return fmt.Sprintf("Here's %s for %d.", category, value)
+}
+
+// Windows is a timer pace's buzz window (each reopen too) and answer time: the lobby's
+// Timers option. An unknown or empty pace is Standard.
+func Windows(pace contracts.TimerPace) (buzz, answer time.Duration) {
+	switch pace {
+	case contracts.TimerPaceRelaxed:
+		return 15 * time.Second, 12 * time.Second
+	case contracts.TimerPaceFast:
+		return 5 * time.Second, 7 * time.Second
+	}
+	return BuzzWindow, AnswerWindow
 }
 
 // ReadingTime estimates how long text-to-speech takes: about 2.5 words a second plus a
@@ -82,6 +95,10 @@ type Setup struct {
 
 	// Final is the Final Schmegettes clue. Nil means the game ends after Double.
 	Final *Clue
+	// The game's options (lobby): its timer pace ("" is Standard), and NoDouble when
+	// Double Schmegettes is off, so Final follows the Single board.
+	Pace     contracts.TimerPace
+	NoDouble bool
 	// Recovery of wagers: the active Daily Double's wager, if locked; Final wagers and
 	// submitted answers (from the wagers table); and the score change of each Final answer
 	// already revealed (answers rows on the Final clue).
@@ -189,14 +206,16 @@ const (
 
 // Game is one game's state.
 type Game struct {
-	s       Setup
-	round   contracts.Round
-	phase   contracts.GamePhase
-	step    step
-	clues   map[string]*Clue
-	order   []string // clue ids in board order
-	scores  map[string]int
-	control string
+	s Setup
+	// The game's buzz window and answer time (Setup.Pace).
+	buzzWindow, answerWindow time.Duration
+	round                    contracts.Round
+	phase                    contracts.GamePhase
+	step                     step
+	clues                    map[string]*Clue
+	order                    []string // clue ids in board order
+	scores                   map[string]int
+	control                  string
 
 	active    *Clue
 	attempted map[string]bool
@@ -264,6 +283,7 @@ func New(s Setup) *Game {
 		submitted:     map[string]bool{},
 		finalRevealed: map[string]bool{},
 	}
+	g.buzzWindow, g.answerWindow = Windows(s.Pace)
 	if s.Final != nil {
 		f := *s.Final
 		g.final = &f
@@ -456,6 +476,8 @@ func (g *Game) SnapshotFields(m *contracts.RoomSnapshot, host bool) {
 	m.Board = g.Board(host)
 	m.ControllingUserId = uid(g.control)
 	m.DeadlineAt = ms(g.deadline)
+	buzz, answer := int(g.buzzWindow.Milliseconds()), int(g.answerWindow.Milliseconds())
+	m.BuzzWindowMs, m.AnswerWindowMs = &buzz, &answer
 	m.AnsweringUserId = uid(g.answering)
 	m.AttemptedUserIds = g.attemptedList()
 	paused := g.paused
@@ -561,7 +583,7 @@ func (g *Game) openBuzzing(now time.Time, e *Effects) {
 	g.phase = contracts.GamePhaseBuzzingOpen
 	g.step = stepBuzzing
 	g.answering = ""
-	g.deadline = now.Add(BuzzWindow)
+	g.deadline = now.Add(g.buzzWindow)
 	g.emitPhase(e)
 }
 
@@ -591,7 +613,7 @@ func (g *Game) Buzz(now time.Time, user, clueID string) (Effects, error) {
 		g.phase = contracts.GamePhaseAnswering
 		g.step = stepAnswering
 		g.lastProg = time.Time{}
-		g.deadline = now.Add(AnswerWindow + AnswerGrace)
+		g.deadline = now.Add(g.answerWindow + AnswerGrace)
 		e.send(contracts.BuzzResult{
 			Type: "buzz_result", RoomId: contracts.Uuid(g.s.RoomID), Seq: g.s.NextSeq(),
 			UserId: contracts.Uuid(user), Outcome: contracts.BuzzResultOutcomeWon,
@@ -803,7 +825,8 @@ func (g *Game) nextAfterClue(now time.Time, e *Effects) {
 		g.checkControl(now)
 		return
 	}
-	if g.round == contracts.RoundSingle && !g.roundDone(contracts.RoundDouble) {
+	// With Double Schmegettes off there is no Double board: Final follows Single.
+	if g.round == contracts.RoundSingle && !g.s.NoDouble && !g.roundDone(contracts.RoundDouble) {
 		g.round = contracts.RoundDouble
 		g.control = g.lowestScore()
 		g.step = stepInterstitial

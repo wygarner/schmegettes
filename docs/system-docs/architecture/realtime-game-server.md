@@ -68,7 +68,7 @@ Daily Doubles and Final Schmegettes live in `internal/play/wager.go`. Rules and 
 
 ## Buzzing
 
-- Buzzing opens when the host (or the read timer) moves the clue to `buzzing_open`.
+- Buzzing opens when the host (or the read timer) moves the clue to `buzzing_open`. The buzz window and answer time come from the game's timer pace (`games.timers`: relaxed 15 s / 12 s, standard 9 s / 9 s, fast 5 s / 7 s; `play.Windows`), sent to clients as `buzzWindowMs` / `answerWindowMs` on `room_snapshot`. With `games.double_round` off (`Setup.NoDouble`), Final follows the Single board with no interstitial.
 - A buzz before that earns a lockout (`buzz_result: locked_out`, 250 ms), as on the show.
 - The first buzz the owner *receives* after opening wins. `clientSentAt` is logged for latency analysis but never trusted for ordering.
 

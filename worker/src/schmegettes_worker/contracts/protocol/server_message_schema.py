@@ -69,6 +69,14 @@ class RoomSnapshot(BaseModel):
         None,
         description='Server clock, ms since epoch, when the current step times out.',
     )
+    buzzWindowMs: Optional[int] = Field(
+        None,
+        description="This game's buzz window (each reopen too), from its timer pace. Absent before a game starts.",
+    )
+    answerWindowMs: Optional[int] = Field(
+        None,
+        description="How long this game's players have to say an answer, from its timer pace. Absent before a game starts.",
+    )
     answeringUserId: Optional[domain_schema.Uuid] = None
     attemptedUserIds: Optional[List[domain_schema.Uuid]] = None
     paused: Optional[bool] = None

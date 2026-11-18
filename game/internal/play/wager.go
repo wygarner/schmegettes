@@ -199,7 +199,7 @@ func (g *Game) startDDAnswer(now time.Time, e *Effects) {
 	g.phase = contracts.GamePhaseAnswering
 	g.step = stepAnswering
 	g.lastProg = time.Time{}
-	g.deadline = now.Add(AnswerWindow + AnswerGrace)
+	g.deadline = now.Add(g.answerWindow + AnswerGrace)
 	g.emitPhase(e)
 }
 

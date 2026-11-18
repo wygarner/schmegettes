@@ -359,9 +359,12 @@ paths:
               properties:
                 seasons:
                   type: [array, "null"]
-                  items: { type: integer, minimum: 1 }
+                  items: { type: integer, minimum: 1, maximum: 40 }
+                  minItems: 1
                   description: Seasons to build boards from; null means every season
                 maxPlayers: { type: integer, minimum: 2, maximum: 6 }
+                timers: { $ref: "./schemas/domain.schema.json#/$defs/TimerPace" }
+                doubleRound: { type: boolean, description: "false: Final follows the Single board" }
               additionalProperties: false
       responses:
         "200":
@@ -369,8 +372,22 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Room" }
-        "403": { $ref: "#/components/responses/Problem" }
+        "400":
+          description: Seasons empty or outside 1 to 40 (`invalid-settings`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "403":
+          description: The caller isn't the room's host (`not-the-host`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
+        "409":
+          description: The game has started; options are locked (`game-started`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
   /v1/games:
     get:
       summary: The caller's ended games (finished or abandoned), played or watched, newest first
@@ -483,7 +500,9 @@ components:
           type: [array, "null"]
           items: { type: integer }
           description: Seasons boards are built from; null means every season
-      required: [roomId, code, status, hostUserId, hostDisplayName, hostPlays, maxPlayers, seasons]
+        timers: { $ref: "./schemas/domain.schema.json#/$defs/TimerPace" }
+        doubleRound: { type: boolean, description: "Play the Double Schmegettes board; false: Final follows Single" }
+      required: [roomId, code, status, hostUserId, hostDisplayName, hostPlays, maxPlayers, seasons, timers, doubleRound]
     DisplayName:
       type: string
       minLength: 1

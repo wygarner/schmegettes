@@ -43,7 +43,8 @@ Two things end a game early today, and both lose it.
   | The board | The board. Same player in control; if they're not back, control passes after 10 s as usual |
   | A clue (reading, buzzing, answering) | The board. That clue is done with no score change, as if nobody buzzed: its text was already seen |
   | A Daily Double | The board. The Daily Double is done with no score change |
-  | The correct response or "Double Schmegettes!" | The next board |
+  | The correct response | The board, or the next board (or Final) if it was the round's last clue |
+  | "Double Schmegettes!" | The Double board |
   | Final (category, wager or answer) | The Final category again. Wagers and answers are entered again from scratch |
   | Final reveal | The reveal again from the first finalist. Wagers and answers are kept |
 

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -105,9 +106,15 @@ func (h Handler) handleError(w http.ResponseWriter, r *http.Request, message str
 	return true
 }
 
+// Times go out in UTC (the contract's RFC 3339 UTC), whatever zone the server runs in.
 func contractCode(c HostCode) contracts.AdminHostCode {
-	return contracts.AdminHostCode{Code: c.Code, CurrentStartedAt: c.CurrentStartedAt, RotatesAt: c.RotatesAt,
-		PreviousValidUntil: c.PreviousValidUntil, ServerTime: c.ServerTime}
+	var grace *time.Time
+	if c.PreviousValidUntil != nil {
+		t := c.PreviousValidUntil.UTC()
+		grace = &t
+	}
+	return contracts.AdminHostCode{Code: c.Code, CurrentStartedAt: c.CurrentStartedAt.UTC(), RotatesAt: c.RotatesAt.UTC(),
+		PreviousValidUntil: grace, ServerTime: c.ServerTime.UTC()}
 }
 
 func contractHost(h Host) contracts.AdminHost {
@@ -119,5 +126,5 @@ func contractHost(h Host) contracts.AdminHost {
 		email = &value
 	}
 	return contracts.AdminHost{UserId: id, Kind: contracts.AdminHostKind(h.Kind), Email: email,
-		LastPlayedAs: h.LastPlayedAs, HostSince: h.HostSince, Note: h.Note}
+		LastPlayedAs: h.LastPlayedAs, HostSince: h.HostSince.UTC(), Note: h.Note}
 }

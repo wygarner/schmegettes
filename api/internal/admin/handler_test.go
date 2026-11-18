@@ -24,7 +24,7 @@ import (
 const adminID = "11111111-1111-4111-8111-111111111111"
 
 var (
-	t0   = time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
+	t0   = time.Date(2026, 11, 17, 7, 0, 0, 0, time.FixedZone("EST", -5*3600)) // 12:00 UTC
 	code = HostCode{Code: "K7RXM2PQ", CurrentStartedAt: t0, RotatesAt: t0.Add(45 * time.Minute), ServerTime: t0.Add(14 * time.Minute)}
 	note = "Thursday trivia"
 	mail = "sam@example.com"
@@ -124,6 +124,9 @@ func TestCurrentCode(t *testing.T) {
 	rec := call(t, &fakeStore{}, "GET", "/v1/admin/host-code", "")
 	if rec.Code != http.StatusOK || !bytes.Contains(rec.Body.Bytes(), []byte(`"code":"K7RXM2PQ"`)) {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`"rotatesAt":"2026-11-17T12:45:00Z"`)) {
+		t.Errorf("times should be UTC: %s", rec.Body)
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte(`"previousValidUntil":null`)) {
 		t.Errorf("previousValidUntil should be null: %s", rec.Body)

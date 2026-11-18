@@ -18,10 +18,11 @@ import { Link, useParams } from "react-router";
 import { HostGame } from "../game/HostGame";
 import { HostLayout } from "../game/HostLayout";
 import { MicPrompt } from "../game/MicPrompt";
-import { NarratorVoicePicker } from "../game/NarratorVoicePicker";
+import { NarratorVoicePicker, useNarratorStatus } from "../game/NarratorVoicePicker";
 import { PlayerControls } from "../game/PlayerControls";
 import { isValidName, MAX_NAME, setLastName } from "../lib/displayName";
 import { stopNarration } from "../lib/narrator";
+import { prepareVoice } from "../lib/piper/engine";
 import { contestantCount, type RoomState, useRoom } from "../lib/room";
 import { type RoomJoin, roomByCode } from "../lib/rooms";
 import { getUserId } from "../lib/supabase";
@@ -112,6 +113,7 @@ export function HostLobbyView({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [starting, setStarting] = useState(false);
+  const narrator = useNarratorStatus();
 
   // A Start press ends when the phase moves on or the server answers with an error.
   useEffect(() => {
@@ -160,7 +162,18 @@ export function HostLobbyView({
 
   const count = contestantCount(state);
   const full = count >= state.maxPlayers;
-  const canStart = count >= 1;
+  const enoughPlayers = count >= 1;
+  // Start waits for the narrator's voice (gameplay feature brief, "Start waits for the voice").
+  const canStart = enoughPlayers && narrator.ready;
+  const voiceFailed = narrator.status.state === "failed";
+  let startLabel = "Start";
+  if (enoughPlayers && !narrator.ready && !narrator.unavailable && !voiceFailed) {
+    const s = narrator.status;
+    startLabel =
+      s.state === "downloading"
+        ? `Getting ${narrator.name} ready… ${Math.floor(s.fraction * 100)}%`
+        : `Getting ${narrator.name} ready…`;
+  }
 
   function saveName() {
     if (!isValidName(name)) return;
@@ -208,9 +221,15 @@ export function HostLobbyView({
       </Group>
 
       <StageBody gap="4cqh">
-        <Text fw={600} c={SOFT} style={{ fontSize: "clamp(11px, 6cqh, 24px)" }}>
-          Join at {joinUrl}
-        </Text>
+        {narrator.unavailable ? (
+          <Text fw={600} c="red.3" ta="center" style={{ fontSize: "clamp(11px, 5cqh, 20px)" }}>
+            This device can't run the Schmegettes narrator. Host from a recent iPhone, iPad or computer.
+          </Text>
+        ) : (
+          <Text fw={600} c={SOFT} style={{ fontSize: "clamp(11px, 6cqh, 24px)" }}>
+            Join at {joinUrl}
+          </Text>
+        )}
         <CodeTiles code={code} />
         {state.rematch && (
           <Text c={SOFT} style={{ fontSize: "clamp(10px, 4.5cqh, 18px)" }}>
@@ -249,10 +268,20 @@ export function HostLobbyView({
         </Stack>
         <NarratorVoicePicker />
         <Group gap="xs" wrap="nowrap" align="center">
-          {!canStart && (
+          {!enoughPlayers && (
             <Text size="sm" c={SOFT}>
               Need at least 1 player
             </Text>
+          )}
+          {enoughPlayers && voiceFailed && (
+            <Group gap={6} wrap="nowrap">
+              <Text size="sm" c="red.3">
+                Couldn't download the voice
+              </Text>
+              <Button size="compact-sm" variant="light" onClick={() => void prepareVoice(narrator.id)}>
+                Try again
+              </Button>
+            </Group>
           )}
           <GoldButton
             disabled={!canStart}
@@ -263,7 +292,7 @@ export function HostLobbyView({
               send({ type: "start_game" });
             }}
           >
-            Start
+            {startLabel}
           </GoldButton>
         </Group>
       </Group>

@@ -1,5 +1,5 @@
 // One AudioContext for the narrator. iOS starts it suspended until a tap resumes it, so the
-// host screen's first tap (unlockSpeech) resumes it along with speech synthesis.
+// host screen's taps (HostLayout) call unlockAudio.
 
 let ctx: AudioContext | null = null;
 

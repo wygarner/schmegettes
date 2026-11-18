@@ -54,7 +54,13 @@ func New(group string, perMinute, burst int) *Limiter {
 // Allow takes one token for the caller. When none is left it answers 429 with Retry-After
 // and returns false; the handler must then stop.
 func (l *Limiter) Allow(w http.ResponseWriter, r *http.Request) bool {
-	wait := l.take(server.Claims(r.Context()).UserID)
+	return l.AllowKey(w, r, server.Claims(r.Context()).UserID)
+}
+
+// AllowKey applies the limiter to an explicit non-secret key. It is used before admin auth
+// completes so invalid tokens share one bounded "unauthenticated" bucket.
+func (l *Limiter) AllowKey(w http.ResponseWriter, r *http.Request, key string) bool {
+	wait := l.take(key)
 	if wait == 0 {
 		return true
 	}

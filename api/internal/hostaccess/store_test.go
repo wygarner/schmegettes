@@ -80,8 +80,8 @@ func (e env) player(t *testing.T) auth.Claims {
 	return c
 }
 
-// newCode mints a code on the owner connection, as the admin would.
-func (e env) newCode(t *testing.T) string {
+// currentCode reads the current rotating code on the owner connection, as the admin page would.
+func (e env) currentCode(t *testing.T) string {
 	t.Helper()
 	ctx := context.Background()
 	conn, err := pgx.Connect(ctx, e.ownerURL)
@@ -90,7 +90,7 @@ func (e env) newCode(t *testing.T) string {
 	}
 	defer conn.Close(ctx)
 	var code string
-	if err := conn.QueryRow(ctx, "select private.new_host_code('hostaccess store test')").Scan(&code); err != nil {
+	if err := conn.QueryRow(ctx, "select current_code from private.host_code_rotation").Scan(&code); err != nil {
 		t.Fatal(err)
 	}
 	return code
@@ -100,7 +100,7 @@ func TestRedeemGivesHostAccess(t *testing.T) {
 	e := setupDB(t)
 	ctx := context.Background()
 	alice := e.player(t)
-	code := e.newCode(t)
+	code := e.currentCode(t)
 
 	if ok, err := e.store.CanHost(ctx, alice); err != nil || ok {
 		t.Fatalf("before: %v %v", ok, err)
@@ -115,16 +115,17 @@ func TestRedeemGivesHostAccess(t *testing.T) {
 	if ok, err := e.store.CanHost(ctx, alice); err != nil || !ok {
 		t.Fatalf("after: %v %v", ok, err)
 	}
-	if ok, _ := e.store.Redeem(ctx, e.player(t), code); ok {
-		t.Error("a spent code worked again")
+	if ok, err := e.store.Redeem(ctx, e.player(t), code); err != nil || !ok {
+		t.Errorf("the current code should work for a second player: %v %v", ok, err)
 	}
 }
 
-func TestTwoPlayersRaceForOneCode(t *testing.T) {
+// Any number of players can redeem the current code at the same moment.
+func TestPlayersRedeemOneCodeAtOnce(t *testing.T) {
 	e := setupDB(t)
 	ctx := context.Background()
-	players := []auth.Claims{e.player(t), e.player(t)}
-	code := e.newCode(t)
+	players := []auth.Claims{e.player(t), e.player(t), e.player(t)}
+	code := e.currentCode(t)
 
 	results := make([]bool, len(players))
 	errs := make([]error, len(players))
@@ -137,12 +138,9 @@ func TestTwoPlayersRaceForOneCode(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	for _, err := range errs {
-		if err != nil {
-			t.Fatal(err)
+	for i := range players {
+		if errs[i] != nil || !results[i] {
+			t.Errorf("player %d: %v %v", i, results[i], errs[i])
 		}
-	}
-	if results[0] == results[1] {
-		t.Errorf("exactly one player should get the code, got %v", results)
 	}
 }

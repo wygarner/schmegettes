@@ -638,7 +638,8 @@ func TestNoDoubleRecoversIntoFinal(t *testing.T) {
 			}
 		}
 		s.Board = single
-		s.Final = &Clue{ID: "f1", Round: contracts.RoundFinal, Category: "ISLANDS", Text: "Volcano", Response: "Krakatoa"}
+		s.Final = &Clue{ID: "f1", Round: contracts.RoundFinal, Category: "ISLANDS", Text: "Volcano", Response: "Krakatoa",
+			State: contracts.ClueStateUnplayed}
 		s.Scores = map[string]int{alice: 400, bob: 200}
 	})
 	if f.g.Phase() != contracts.GamePhaseFinalCategory {

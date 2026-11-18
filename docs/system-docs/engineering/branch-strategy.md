@@ -43,12 +43,12 @@ git checkout --no-track -b {task-type}/{task-name} origin/develop
 | | PR into `develop` | Merge into `develop` |
 |---|---|---|
 | CI | Full, path-filtered (`ci.yml`). Must be green before merging | None (no push trigger) |
-| Deploys | None | Staging (`deploy-staging.yml`): migrations, then api, game and web |
+| Deploys | None | Staging (`deploy-staging.yml`): migrations, then api, game and web. Skipped when the merge changes only `docs/`, `tasks/`, `releases/` or `.md` files |
 | Jira automation | Ticket creation and transitions | — |
 
 Rules:
 
-- **Green CI before merging.** CI runs on every PR into `develop`, and every merge deploys staging, so a red PR never merges.
+- **Green CI before merging.** CI runs on every PR into `develop`, and every merge that changes code deploys staging, so a red PR never merges.
 - Run targeted local tests before opening the PR anyway: they are faster than CI and catch most failures.
 - Merge `origin/develop` into the task branch before opening the PR. GitHub returns no file list for a PR opened with conflicts, so the Jira transitions would never fire.
 - Never push straight to `develop`: everything goes through a PR.

@@ -21,7 +21,7 @@ flowchart TB
   done --> develop[develop, deploys staging]
 ```
 
-Every task branch starts from and targets `develop`. CI runs on every PR into `develop` and must be green before it merges; each merge deploys staging.
+Every task branch starts from and targets `develop`. CI runs on every PR into `develop` and must be green before it merges; each merge deploys staging, except docs-only merges.
 
 | Step | Owner | What happens | Jira |
 |---|---|---|---|
@@ -119,7 +119,7 @@ See [release-strategy.md](../operations/release-strategy.md).
 | `create-jira-ticket.yml` | PR opened into `develop` touching `tasks/**/task-brief.md` | Creates the ticket, commits `.jira-meta.yml`, renames the folder. Task names must match `^[a-z0-9-]+$`. One ticket per spec PR. |
 | `jira-transitions.yml` | PR opened / merged | Spec merged → In Progress; implementation opened → In Review; merged → Done. |
 | `ci.yml` | PR into `develop` or `production`; weekly; manual | Path-filtered checks per package; `CI Complete` must pass before a PR merges. Docs/task-only PRs skip the package jobs. |
-| `deploy-staging.yml` | Push to `develop` (every merged PR); manual | Calls `deploy.yml` for staging: migrations (the release rehearsal), deploy, deployed-commit verification. |
+| `deploy-staging.yml` | Push to `develop` (every merged PR, except docs-only: only `docs/`, `tasks/`, `releases/` or `.md` files); manual | Calls `deploy.yml` for staging: migrations (the release rehearsal), deploy, deployed-commit verification. |
 | `deploy-prod.yml` | Push to `production`; manual | Calls `deploy.yml` for production: migrations, deploy, deployed-commit verification. |
 
 ## Jira setup (once per Jira project)

@@ -1,12 +1,19 @@
 name: Deploy Staging
 
-# Every merge to develop deploys staging: migrate, deploy api/game (Fly.io) and web
+# Every merge to develop deploys staging, except docs-only merges: migrate, deploy api/game (Fly.io) and web
 # (Vercel), verify. This is where migrations are rehearsed before a release.
 # The jobs live in deploy.yml; docs/system-docs/operations/deployment.md has the contract.
 on:
   push:
     branches:
       - develop
+    # Docs-only merges change nothing deployed. Same rule as ci.yml's docs_only: a push is
+    # skipped only when every changed file matches. Keep the two lists in step.
+    paths-ignore:
+      - "docs/**"
+      - "tasks/**"
+      - "releases/**"
+      - "**.md"
   # Manual re-run, e.g. after setting a missing secret. Start it on the develop branch.
   workflow_dispatch:
 

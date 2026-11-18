@@ -1,9 +1,12 @@
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { saveVoice, type Voice } from "./narratorVoice";
 import {
   announcement,
   type RecognitionResultList,
+  type Recognizer,
+  requestAnswerPermissions,
   SPEECH_START_TIMEOUT_MS,
+  setRecognizerFactory,
   speak,
   transcripts,
   unlockSpeech,
@@ -188,4 +191,49 @@ test("with no voices loaded yet, it speaks at once with the browser default", ()
   void speak("x");
   expect(spoken).toHaveLength(1);
   expect(spoken[0]?.voice).toBeNull();
+});
+
+describe("requestAnswerPermissions", () => {
+  const fake = () => {
+    const r: Recognizer & { aborted: number } = {
+      aborted: 0,
+      start: vi.fn(),
+      stop: vi.fn(),
+      abort() {
+        this.aborted++;
+      },
+    };
+    setRecognizerFactory(() => r);
+    return r;
+  };
+  afterEach(() => setRecognizerFactory(null));
+
+  test("granted once the browser starts listening, which stops at once", async () => {
+    const r = fake();
+    const done = requestAnswerPermissions();
+    expect(r.start).toHaveBeenCalled();
+    r.onStart?.();
+    await expect(done).resolves.toBe("granted");
+    expect(r.aborted).toBe(1);
+  });
+
+  test("denied when the browser refuses (microphone or speech recognition)", async () => {
+    const r = fake();
+    const done = requestAnswerPermissions();
+    r.onDenied?.();
+    await expect(done).resolves.toBe("denied");
+  });
+
+  test("denied when it can't even start", async () => {
+    const r = fake();
+    vi.mocked(r.start).mockImplementation(() => {
+      throw new Error("not allowed");
+    });
+    await expect(requestAnswerPermissions()).resolves.toBe("denied");
+  });
+
+  test("unsupported without speech recognition", async () => {
+    setRecognizerFactory(() => null);
+    await expect(requestAnswerPermissions()).resolves.toBe("unsupported");
+  });
 });

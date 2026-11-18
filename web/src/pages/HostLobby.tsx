@@ -13,11 +13,11 @@ import {
   Title,
 } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { HostGame } from "../game/HostGame";
 import { HostLayout } from "../game/HostLayout";
-import { MicPrompt } from "../game/MicPrompt";
+import { MicGate } from "../game/MicGate";
 import { NarratorVoicePicker } from "../game/NarratorVoicePicker";
 import { PlayerControls } from "../game/PlayerControls";
 import { isValidName, MAX_NAME, setLastName } from "../lib/displayName";
@@ -26,6 +26,7 @@ import { contestantCount, type RoomState, useRoom } from "../lib/room";
 import { type RoomJoin, roomByCode } from "../lib/rooms";
 import { getUserId } from "../lib/supabase";
 import { GoldButton } from "../ui/GoldButton";
+import { Sheet } from "../ui/Sheet";
 import { Stage, StageBody } from "../ui/Stage";
 import { BEVEL, DISPLAY, SOFT, TILE_BG } from "../ui/tokens";
 import { Wordmark } from "../ui/Wordmark";
@@ -112,6 +113,12 @@ export function HostLobbyView({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [starting, setStarting] = useState(false);
+  // Join the game asks for the host device's microphone first (nobody plays without it).
+  const [askingMic, setAskingMic] = useState(false);
+  const joinGame = useCallback(() => {
+    setAskingMic(false);
+    send({ type: "set_host_plays", plays: true });
+  }, [send]);
 
   // A Start press ends when the phase moves on or the server answers with an error.
   useEffect(() => {
@@ -236,7 +243,7 @@ export function HostLobbyView({
             variant="outline"
             color="mauve.1"
             disabled={!state.hostPlays && full}
-            onClick={() => send({ type: "set_host_plays", plays: !state.hostPlays })}
+            onClick={() => (state.hostPlays ? send({ type: "set_host_plays", plays: false }) : setAskingMic(true))}
           >
             {state.hostPlays ? "Leave the game" : "Join the game"}
           </Button>
@@ -245,7 +252,9 @@ export function HostLobbyView({
               Room is full
             </Text>
           )}
-          {state.hostPlays && <MicPrompt compact />}
+          <Sheet opened={askingMic} onClose={() => setAskingMic(false)} label="Microphone">
+            {askingMic && <MicGate host onGranted={joinGame} onLeave={() => setAskingMic(false)} />}
+          </Sheet>
         </Stack>
         <NarratorVoicePicker />
         <Group gap="xs" wrap="nowrap" align="center">

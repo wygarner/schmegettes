@@ -70,23 +70,39 @@ Home shows a banner: "You've been signed out. Sign in to get your games back." w
 
 ```text
 ┌────────────────────────────────────┐
-│ ‹ Home              Account        │
-│                                    │
-│ Name        Wyatt            Edit  │
-│ Email       sam@example.com        │
-│                                    │
-│ [ Change password ]                │
-│                                    │
-│ [ Sign out ]                       │
-│ Delete account                     │
+│ ‹ Home                             │
+│ ACCOUNT                            │
+│ ┌────────────────────────────────┐ │
+│ │ (P)  PRIYA                     │ │  ◀ avatar: initial in a
+│ │      priya.r@example.com       │ │    green-mauve-pink ring
+│ └────────────────────────────────┘ │
+│ PROFILE                            │
+│ ┌────────────────────────────────┐ │
+│ │ ▣ Name              Priya    › │ │
+│ │ ▣ Email   priya.r@example.com  │ │
+│ └────────────────────────────────┘ │
+│ Your email is your username. It    │
+│ can't be changed.                  │
+│ SECURITY                           │
+│ ┌────────────────────────────────┐ │
+│ │ ▣ Change password            › │ │
+│ │ ▣ Sign out                   › │ │
+│ │   Your games stay in your acct │ │
+│ └────────────────────────────────┘ │
+│ ┌────────────────────────────────┐ │
+│ │ ▣ Delete account (red)       › │ │
+│ └────────────────────────────────┘ │
 └────────────────────────────────────┘
 ```
 
-- **Edit** name: 1–20 characters. Changes the leaderboard name and future name prompts; old scoreboards keep their names.
+Rows and sheets follow the [menu screens](../../architecture/design-system.md#menu-screens) look. Every sheet below slides up from the bottom.
+
+- **Guest**: "You're playing as a guest. An account keeps your games and host access on any phone. Playing stays free of sign-ups." with **Create account** (primary) and **I have an account** (ghost), each opening the sign-in sheet on that tab.
+- **Name** opens a sheet: 1–20 characters, with a counter. Changes the leaderboard name and future name prompts; old scoreboards keep their names.
 - **Email** is shown only here, only to its owner. It can't be changed.
-- **Change password** opens a sheet: **Current password**, **New password** (at least 8 characters, with **Show**), **Save**. Success: toast "Password changed." A wrong current password: "That password isn't right."
+- **Change password** opens a sheet: **Current password**, **New password** (at least 8 characters, with a show/hide eye and a length meter), **Save**. Success: toast "Password changed." A wrong current password: "That password isn't right."
 - **Sign out** asks "Sign out? Your games stay in your account. This phone starts fresh as a guest." → **Sign out** / **Cancel**.
-- **Delete account** asks "Delete your account? Your stats and leaderboard spot are deleted. Past scoreboards will show you as Former player. This can't be undone." → **Delete** (red) / **Cancel**.
+- **Delete account** asks "Delete your account? Your stats and leaderboard spot are deleted. Past scoreboards will show you as Former player. This can't be undone." → **Delete account** (solid red) / **Cancel**. "Finish or leave your game first." shows as an error box at the top of the page.
 - The leaderboard switch is described in [stats and leaderboard](../stats-and-leaderboard/interaction-design.md).
 
 ## Messages

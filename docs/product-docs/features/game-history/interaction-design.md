@@ -34,32 +34,42 @@ If the board can't be built (server error), everyone returns to the lobby with "
 
 ### Look back at past games (any player)
 
-**My games** (a **My games** link on the Home screen; `/games`, a game at `/games/{id}`). Built in `web/src/pages/MyGames.tsx` and `GameScoreboard.tsx`, served by `GET /v1/games` and `GET /v1/games/{gameId}` (`api/internal/games`). Reference design: [results/scoreboard-and-history](../../../../devtools/src/designs/results/scoreboard-and-history.tsx).
+**My games** (a **My games** link on the Home screen; `/games`, a game at `/games/{id}`). Built in `web/src/pages/MyGames.tsx` and `GameScoreboard.tsx`, served by `GET /v1/games` and `GET /v1/games/{gameId}` (`api/internal/games`). Reference designs: [system/menus-and-type](../../../../devtools/src/designs/system/menus-and-type.tsx) (this list) and [results/scoreboard-and-history](../../../../devtools/src/designs/results/scoreboard-and-history.tsx) (the scoreboard).
 
 ```text
-┌────────────────────────────────────────┐
-│ My games                         Home  │
-│ ┌────┐ Today, 8:14 PM          −$400 › │
-│ │4th │ Alice, Bob, You, Wyatt          │
-│ └────┘                                 │
-│ ┌────┐ Oct 26, 8:14 PM       $12,400 › │
-│ │1st │ You, Bob, Carol, Former player  │
-│ └────┘                                 │
-│ ┌────┐ Oct 24, 9:02 PM [Unfinished]    │
-│ │2nd │ Alice, You               $3,200 │
-│ └────┘                                 │
-│ ┌────┐ Oct 19, 7:30 PM               › │
-│ │WATCHED Eun-ji, Farah, Gus            │
-│ └────┘                                 │
-│            [ Show more ]               │
-└────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│ ‹ Home                                   │
+│ MY GAMES                                 │
+│ ┌──────────┐ ┌──────────┐ ┌───────────┐  │
+│ │ GAMES 14 │ │ WINS   5 │ │ BEST $12k │  │
+│ └──────────┘ └──────────┘ └───────────┘  │
+│ (    All    |   Played   |   Watched  )  │
+│ NOVEMBER 2026                            │
+│ ┌──────────────────────────────────────┐ │
+│ │ [4th] Today · 8:14 PM        −$400 › │ │
+│ │       Alice, Bob, You, Dev           │ │
+│ │ [1st] Sat, Nov 14 · 9:02 PM $12,400 ›│ │
+│ │       You, Bob, Carol, Former player │ │
+│ │ [2nd] Sun, Nov 8 · 7:40 PM   $3,200 › │ │
+│ │       [Unfinished] Alice, You        │ │
+│ │ [ 👁 ] Mon, Nov 2 · 8:30 PM         › │ │
+│ │       [Watched] Eun-ji, Farah, Gus   │ │
+│ └──────────────────────────────────────┘ │
+│ OCTOBER 2026                             │
+│ …                                        │
+│               Show more                  │
+└──────────────────────────────────────────┘
 ```
 
-- One row per game: a placement badge (a board-blue square, the placement in gold for 1st, silver for 2nd, bronze for 3rd), the date and time ("Today" for today), an **Unfinished** tag when the game was abandoned, the players with "You" in place of my name, and my score.
-- Games I only watched (as a non-playing host or a spectator) are listed with a **WATCHED** badge and no score.
+- Above the list: three stats: **Games** (every game listed, played or watched), **Wins** (1st places in finished games, in the accent), **Best** (my highest score). They count all my games, not just the 20 loaded: `GET /v1/games` returns them as `stats` on the first page. Hidden for a player with no played games.
+- A filter: **All**, **Played**, **Watched**, applied by the server (`GET /v1/games?kind=played|watched`) so paging still works. "No watched games." when a filter is empty.
+- Games are grouped by month under small uppercase labels, the rows of a month inside one card with hairline dividers.
+- One row per game: a placement tile (deep mauve with the board bevel; the placement in the accent green with a soft glow for 1st, silver for 2nd, bronze for 3rd), the weekday, date and time ("Today" for today), on the second line an **Unfinished** chip when the game was abandoned, then the players with "You" in place of my name ("You" brighter, "Former player" in italics), and my score in tabular figures (red when negative).
+- Games I only watched (as a non-playing host or a spectator) have an eye in the tile, a **Watched** chip before the players, and no score.
 - Newest first, 20 at a time, then **Show more**. Tapping a row opens the scoreboard.
+- Loading shows skeleton stats and rows. Error: "Couldn't load your games" with **Try again**.
 - Empty: "No games yet. Games you play or watch show up here, with everyone's scores." and **Join a game**.
-- Under the list, for a guest: "Played without an account. Sign in to keep these on any phone." and **Sign in** ([accounts](../accounts/interaction-design.md)).
+- Under the list, for a guest: an info box "These games live on this phone. Played without an account. Sign in to keep them on any phone." with **Sign in to keep them** ([accounts](../accounts/interaction-design.md)).
 
 **Game scoreboard**:
 

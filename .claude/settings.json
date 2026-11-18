@@ -46,8 +46,7 @@
       "Bash(supabase db lint*)",
       "Bash(supabase migration new*)",
       "Bash(node --test*)",
-      "Bash(node scripts/release-scope.cjs*)",
-      "Bash(node scripts/daily-merge-guard.cjs*)"
+      "Bash(node scripts/release-scope.cjs*)"
     ],
     "ask": [
       "Bash(git push*)",

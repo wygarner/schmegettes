@@ -31,31 +31,29 @@ State the classification and why. If ambiguous, propose one and ask.
 
 ## Execution
 
-All branches start from today's daily branch:
+All branches start from and target `develop`. CI runs on every PR; merge only once it is green (docs-only PRs skip the package jobs, so it is quick):
 
 ```bash
-DAILY="daily/$(date +%F)"
-git fetch origin
-git ls-remote --exit-code --heads origin "$DAILY" >/dev/null || git push origin "origin/develop:refs/heads/$DAILY"
 git fetch origin
 ```
 
 ### New feature or enhancement: durable docs first (own PR)
 
 ```bash
-git checkout --no-track -b {task-type}/{task-name}-docs "origin/$DAILY"
+git checkout --no-track -b {task-type}/{task-name}-docs origin/develop
 # create/update docs/product-docs/features/{name}/feature-brief.md and interaction-design.md
 # no Jira frontmatter in docs/product-docs
 git add docs/product-docs/features/{name}/ && git commit -m "docs: product docs for {task-name}"
 git push -u origin {task-type}/{task-name}-docs
-gh pr create --base "$DAILY" --title "[Product] {task-name}: feature docs" --body "Durable docs for {task-name}"
+gh pr create --base develop --title "[Product] {task-name}: feature docs" --body "Durable docs for {task-name}"
+gh pr checks --watch --fail-fast
 gh pr merge --squash --delete-branch
 ```
 
 ### Every type: the product brief (own PR)
 
 ```bash
-git checkout --no-track -b {task-type}/{task-name}-product-brief "origin/$DAILY"
+git checkout --no-track -b {task-type}/{task-name}-product-brief origin/develop
 ```
 
 `tasks/{task-name}/product-brief.md`:
@@ -76,7 +74,8 @@ jira-title: "Human-readable title"
 ```bash
 git add "tasks/{task-name}/" && git commit -m "docs: product brief for {task-name}"
 git push -u origin {task-type}/{task-name}-product-brief
-gh pr create --base "$DAILY" --title "[Product] {task-name}: product brief" --body "Product brief for {task-name}"
+gh pr create --base develop --title "[Product] {task-name}: product brief" --body "Product brief for {task-name}"
+gh pr checks --watch --fail-fast
 gh pr merge --squash --delete-branch
 ```
 

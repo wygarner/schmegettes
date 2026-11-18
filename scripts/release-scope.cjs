@@ -1,5 +1,6 @@
 "use strict";
-// Lists the Jira tickets between two refs, whatever way the daily PRs were merged.
+// Lists the Jira tickets between two refs. Task PRs squash into develop, one commit each.
+// Before 2026-11-18 tasks went through daily branches, and three of those were squashed too.
 //
 // Ticket keys come from commit subjects. A daily PR that was squash-merged hides the day's tasks
 // in one "[Daily] YYYY-MM-DD (#N)" commit, so for those commits the keys are also read from the

@@ -6,7 +6,7 @@ Engineering-owned. Start with [stack.md](./engineering/stack.md).
 |---|---|
 | Stack decisions | [engineering/stack.md](./engineering/stack.md) |
 | Setup | [engineering/developer-setup.md](./engineering/developer-setup.md) |
-| Lifecycle (product → engineering → implementation → daily close) | [engineering/development-workflow.md](./engineering/development-workflow.md) |
+| Lifecycle (product → engineering → implementation → release) | [engineering/development-workflow.md](./engineering/development-workflow.md) |
 | Branches and merge methods | [engineering/branch-strategy.md](./engineering/branch-strategy.md) |
 | Testing | [engineering/testing-strategy.md](./engineering/testing-strategy.md) |
 | Architecture | [architecture/system-overview.md](./architecture/system-overview.md) |

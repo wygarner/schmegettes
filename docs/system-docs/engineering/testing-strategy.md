@@ -8,9 +8,9 @@ What each kind of test covers, where it runs, and the rules for new code. Tests 
 
 | Layer | Scope | Tools | When it runs |
 |---|---|---|---|
-| Unit | Functions, components, hooks, handlers, with dependencies faked | Vitest + Testing Library (`web/`, `devtools/`: `mise run test:devtools -- src/admin`), `go test -race` (`api/`, `game/`, `golib/`), pytest (`worker/`) | Locally on touched files; every package in CI on the daily PR |
-| Database | RLS policies, grants, and database functions against a real throwaway database | pgTAP via `supabase test db` (`supabase/tests/*.test.sql`) | Locally when `supabase/` changes; CI on the daily PR |
-| Contract | The shared schemas and that generated code matches them | `shared/test/schemas.test.ts`; the CI check that `mise run gen` leaves no diff; `api/internal/rooms/handler_test.go` validates responses against the OpenAPI copy | CI on the daily PR |
+| Unit | Functions, components, hooks, handlers, with dependencies faked | Vitest + Testing Library (`web/`, `devtools/`: `mise run test:devtools -- src/admin`), `go test -race` (`api/`, `game/`, `golib/`), pytest (`worker/`) | Locally on touched files; every package in CI on each PR |
+| Database | RLS policies, grants, and database functions against a real throwaway database | pgTAP via `supabase test db` (`supabase/tests/*.test.sql`) | Locally when `supabase/` changes; CI on each PR that touches `supabase/` |
+| Contract | The shared schemas and that generated code matches them | `shared/test/schemas.test.ts`; the CI check that `mise run gen` leaves no diff; `api/internal/rooms/handler_test.go` validates responses against the OpenAPI copy | CI on each PR |
 | End-to-end | Critical paths in a browser against a deployed environment: sign in, create room, join by code, buzz, judge, finish a game | Playwright. **Not yet implemented** | Release verification only ([release-strategy.md](../operations/release-strategy.md)) |
 | Evals | LLM prompts and judge behaviour | `evals/`. **Not yet implemented** | CI, non-blocking |
 
@@ -51,4 +51,4 @@ Coverage is a floor, not a goal: a test that asserts nothing still counts toward
 
 ## 5. Where tests run
 
-Locally, run only the tests for what you touched, with `mise run test:*`. CI runs every package on the daily PR. Commands and the full rule are in [development-workflow.md](./development-workflow.md), "Validation: targeted tests only".
+Locally, run only the tests for what you touched, with `mise run test:*`. CI runs the changed packages on every PR into `develop`, and on each release PR. Commands and the full rule are in [development-workflow.md](./development-workflow.md), "Validation: targeted tests only".

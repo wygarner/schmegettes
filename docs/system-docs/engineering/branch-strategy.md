@@ -1,22 +1,20 @@
 # Branch Strategy
 
-**Source of truth:** `.github/workflows/`, `scripts/daily-merge-guard.cjs`
+**Source of truth:** `.github/workflows/`
 
 ## Branch model
 
 ```text
 production
   └── develop
-      └── daily/YYYY-MM-DD
-          └── {task-type}/{branch-name}
+      └── {task-type}/{branch-name}
 ```
 
 | Branch | Cut from | PR into | Merge method |
 |---|---|---|---|
-| `{task-type}/{task-name}-product-brief` | daily | daily | Squash, delete branch |
-| `{task-type}/{task-name}` (task spec; folder gets the key when the PR opens) | daily | daily | Squash, delete branch |
-| `{task-type}/SCH-{N}-{task-name}` (implementation) | daily | daily | Squash, delete branch |
-| `daily/YYYY-MM-DD` | `develop` | `develop` | **Merge commit, never squash** |
+| `{task-type}/{task-name}-product-brief` | `develop` | `develop` | Squash, delete branch |
+| `{task-type}/{task-name}` (task spec; folder gets the key when the PR opens) | `develop` | `develop` | Squash, delete branch |
+| `{task-type}/SCH-{N}-{task-name}` (implementation) | `develop` | `develop` | Squash, delete branch |
 | `releases/X.Y.Z` | `develop` | `production` | **Merge commit, never squash** |
 | `hotfix/X.Y.Z-description` | `production` | `production`, then backport to `develop` | **Merge commit, never squash** |
 
@@ -33,41 +31,36 @@ No nested paths after the task-type prefix.
 
 `technical-improvement/` is the one mismatch: its frontmatter value is `improvement`. Writing `technical-improvement` in frontmatter fails ticket creation with `Unknown jira-type`.
 
-## Daily branch
+## Task branches and `develop`
 
-A daily branch is cut from `develop` each working day (local date). The first task of the day creates it:
+Every task branch starts from and targets `develop`:
 
 ```bash
-DAILY="daily/$(date +%F)"
 git fetch origin
-git ls-remote --exit-code --heads origin "$DAILY" >/dev/null || git push origin "origin/develop:refs/heads/$DAILY"
-git fetch origin
-git checkout --no-track -b {task-type}/{task-name} "origin/$DAILY"
+git checkout --no-track -b {task-type}/{task-name} origin/develop
 ```
 
-| | PR into `daily/*` | `daily/*` → `develop` |
+| | PR into `develop` | Merge into `develop` |
 |---|---|---|
-| CI | **None.** No tests, builds, lint, or secret scan. | Full, path-filtered |
-| Jira automation | Ticket creation and transitions | None (skipped) |
+| CI | Full, path-filtered (`ci.yml`). Must be green before merging | None (no push trigger) |
+| Deploys | None | Staging (`deploy-staging.yml`): migrations, then api, game and web |
+| Jira automation | Ticket creation and transitions | — |
 
 Rules:
 
-- A task merged into the daily branch is unverified until the daily PR is green, so targeted local tests before every task PR are required.
-- Never commit directly to a daily branch or open a task PR against `develop`.
-- Yesterday's daily PR merges before today's branch is cut. Retarget task PRs still open on an old daily branch (`gh pr edit {N} --base daily/YYYY-MM-DD`) before deleting it; GitHub closes a PR whose base branch is deleted.
+- **Green CI before merging.** CI runs on every PR into `develop`, and every merge deploys staging, so a red PR never merges.
+- Run targeted local tests before opening the PR anyway: they are faster than CI and catch most failures.
+- Merge `origin/develop` into the task branch before opening the PR. GitHub returns no file list for a PR opened with conflicts, so the Jira transitions would never fire.
+- Never push straight to `develop`: everything goes through a PR.
+- Never write `[skip ci]` in a commit message. A squash merge copies every commit message into one, and GitHub then starts no workflow for that push, including the staging deploy.
 
-### Why merge commits for daily, release, and hotfix PRs
+### Why squash into `develop`, and merge commits for release and hotfix PRs
 
-A squash copies every commit message into one. If any contains `[skip ci]`, GitHub starts no workflow for that push, including the production deploy. A merge commit also keeps each task as one commit on `develop`, which the release scope script reads.
+A squash keeps each task as one commit on `develop`, titled `[{Task Type}] SCH-{N}: … (#PR)`, which `scripts/release-scope.cjs` reads. Release and hotfix PRs merge as merge commits so `production` keeps every task commit as it was on `develop`.
 
-### When a daily PR was squashed
+### History before 2026-11-18
 
-`daily-merge-guard.yml` fails on the push. Check a commit by hand with `node scripts/daily-merge-guard.cjs {sha}`.
-
-1. **Leave it (preferred).** No code or ticket is lost: `scripts/release-scope.cjs` reads tickets from the squash commit's body and the PR description.
-2. **Revert and merge again**, only while the squash is still the tip of `develop` and the daily branch still exists: revert through a PR into `develop`, then reopen the daily PR and merge it with `gh pr merge --merge`.
-
-A task branch cut from the squashed daily is moved with `git rebase --onto origin/daily/{today} origin/daily/{squashed-day} {task-branch}`, not a plain rebase.
+Until 2026-11-18 tasks went through a `daily/YYYY-MM-DD` branch that merged into `develop` once a day. Those merges are still on `develop` as `Merge pull request #N from …/daily/…` commits, and three were squashed (`[Daily] … (#N)`). `scripts/release-scope.cjs` still expands the squashed ones.
 
 ## PR titles
 
@@ -75,7 +68,6 @@ A task branch cut from the squashed daily is moved with `git rebase --onto origi
 [{Task Type}] SCH-{N}: {brief description}
 [Engineering] SCH-{N}: task spec
 [Product] {task-name}: product brief
-[Daily] 2026-10-27
 [Release] 0.1.0
 ```
 

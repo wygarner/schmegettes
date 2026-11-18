@@ -20,7 +20,13 @@ beforeEach(() => {
   vi.mocked(prepareVoice).mockReset().mockResolvedValue(false);
   vi.mocked(narrate).mockClear();
   vi.mocked(stopNarration).mockClear();
-  vi.stubGlobal("AudioContext", class {});
+  vi.stubGlobal(
+    "AudioContext",
+    class {
+      state = "running";
+      resume = async () => undefined;
+    },
+  );
   setVoiceStatus("kristin", { state: "ready" });
 });
 afterEach(() => {

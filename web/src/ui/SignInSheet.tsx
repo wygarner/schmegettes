@@ -1,15 +1,4 @@
-import {
-  Alert,
-  Anchor,
-  Button,
-  Group,
-  Modal,
-  PasswordInput,
-  SegmentedControl,
-  Stack,
-  Text,
-  TextInput,
-} from "@mantine/core";
+import { Group, SegmentedControl, Stack } from "@mantine/core";
 import { useCallback, useEffect, useState } from "react";
 import {
   createAccount,
@@ -22,14 +11,15 @@ import {
 } from "../lib/account";
 import { getLastName } from "../lib/displayName";
 import { AccountNameSheet } from "./AccountNameSheet";
-import { GoldButton } from "./GoldButton";
+import { Callout, Field, Hint, MenuButton, MenuSheet, SEGMENTED, Strength } from "./menu";
 import { Toast } from "./Toast";
-import { SOFT } from "./tokens";
+import { FAINT } from "./tokens";
 
 type Tab = "sign-in" | "create";
 
 const COPY = {
   "sign-in": { title: "Keep your games", lead: "Your history, stats, and hosting, on any phone.", tab: "sign-in" },
+  create: { title: "Keep your games", lead: "Your history, stats, and hosting, on any phone.", tab: "create" },
   save: {
     title: "Save your games",
     lead: "Tonight's scores are only on this phone. Create an account to keep them on any phone.",
@@ -117,24 +107,23 @@ export function SignInSheet({
   let body: React.ReactNode;
   if (forgot) {
     body = (
-      <Stack>
-        <Text>
+      <Stack gap={18}>
+        <Callout tone="info">
           Ask the person who runs Schmegettes to reset your password. Then sign in and change it on your Account page.
-        </Text>
-        <Group justify="flex-start">
-          <Button variant="subtle" onClick={() => setForgot(false)}>
-            Back
-          </Button>
-        </Group>
+        </Callout>
+        <MenuButton kind="secondary" full onClick={() => setForgot(false)}>
+          Back
+        </MenuButton>
       </Stack>
     );
   } else {
     body = (
       <form onSubmit={submit}>
-        <Stack>
-          <Text>{COPY[variant].lead}</Text>
+        <Stack gap={16}>
           <SegmentedControl
             fullWidth
+            radius="xl"
+            withItemsBorders={false}
             value={tab}
             onChange={(v) => {
               setTab(v as Tab);
@@ -144,61 +133,67 @@ export function SignInSheet({
               { value: "sign-in", label: "Sign in" },
               { value: "create", label: "Create account" },
             ]}
+            styles={SEGMENTED}
           />
           {problem && (
-            <Alert color="red">
-              <Group justify="space-between" wrap="nowrap" gap="xs">
-                <Text size="sm">{ERRORS[problem]}</Text>
-                {problem === "email-taken" && (
-                  <Button
-                    size="compact-sm"
-                    variant="white"
+            <Callout
+              tone="danger"
+              action={
+                problem === "email-taken" ? (
+                  <MenuButton
+                    kind="secondary"
+                    size="sm"
                     onClick={() => {
                       setTab("sign-in");
                       setProblem(null);
                     }}
                   >
                     Sign in
-                  </Button>
-                )}
-              </Group>
-            </Alert>
+                  </MenuButton>
+                ) : undefined
+              }
+            >
+              {ERRORS[problem]}
+            </Callout>
           )}
-          <TextInput
+          <Field
             label="Email"
             type="email"
+            icon="mail"
             autoComplete="username"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            data-autofocus
+            autoFocus
+            inputProps={{ autoCapitalize: "none", autoCorrect: "off", spellCheck: false }}
             value={email}
-            onChange={(e) => setEmail(e.currentTarget.value)}
+            onChange={setEmail}
           />
-          <PasswordInput
-            label="Password"
-            description={tab === "create" ? `At least ${MIN_PASSWORD} characters.` : undefined}
-            autoComplete={tab === "create" ? "new-password" : "current-password"}
-            visibilityToggleButtonProps={{ "aria-label": "Show password" }}
-            value={password}
-            onChange={(e) => setPassword(e.currentTarget.value)}
-          />
-          <GoldButton type="submit" loading={busy} disabled={!ready}>
+          <div>
+            <Field
+              label="Password"
+              type="password"
+              autoComplete={tab === "create" ? "new-password" : "current-password"}
+              value={password}
+              onChange={setPassword}
+            />
+            {tab === "create" && <Strength value={password} min={MIN_PASSWORD} />}
+          </div>
+          <MenuButton type="submit" full loading={busy} disabled={!ready}>
             {tab === "create" ? "Create account" : "Sign in"}
-          </GoldButton>
-          {tab === "sign-in" && (
-            <Anchor component="button" type="button" size="sm" ta="left" onClick={() => setForgot(true)}>
-              Forgot password?
-            </Anchor>
-          )}
+          </MenuButton>
           <Group justify="space-between" align="center" wrap="nowrap">
-            <Text size="xs" c={SOFT}>
-              We never email you or show your email to anyone.
-            </Text>
-            <Button variant="subtle" color="gray" onClick={onClose}>
+            {tab === "sign-in" ? (
+              <MenuButton kind="ghost" size="sm" onClick={() => setForgot(true)}>
+                Forgot password?
+              </MenuButton>
+            ) : (
+              <span />
+            )}
+            <MenuButton kind="ghost" size="sm" onClick={onClose}>
               Not now
-            </Button>
+            </MenuButton>
           </Group>
+          <Hint icon="lock" color={FAINT}>
+            We never email you or show your email to anyone.
+          </Hint>
         </Stack>
       </form>
     );
@@ -206,9 +201,14 @@ export function SignInSheet({
 
   return (
     <>
-      <Modal opened={opened && naming === null} onClose={onClose} title={COPY[variant].title} centered>
+      <MenuSheet
+        opened={opened && naming === null}
+        onClose={onClose}
+        title={COPY[variant].title}
+        description={forgot ? undefined : COPY[variant].lead}
+      >
         {body}
-      </Modal>
+      </MenuSheet>
       <AccountNameSheet
         opened={naming !== null}
         initial={getLastName()}

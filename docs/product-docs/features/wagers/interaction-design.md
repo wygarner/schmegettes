@@ -132,7 +132,7 @@ Lines appear about 2 s apart. The score in that player's tile updates on the las
 | Daily Double picked by a player with a negative score | Range is $5 – $800 (Single) or $5 – $1,600 (Double) |
 | Player confirms a wager the instant the 30 s ends | The first event the server receives wins. A late wager is ignored, and the $5 / $0 default stands |
 | Daily Double player says nothing for 9 s | Incorrect: −wager |
-| Daily Double player's microphone is blocked | No answer, so −wager. The phone warns before the wager, as it does before every clue |
+| Daily Double player's microphone is turned off mid-game | The phone shows the microphone screen and the player counts as disconnected, so no answer: −wager ([gameplay](../gameplay/interaction-design.md#microphone-permission)) |
 | The last clue of the Double board is a Daily Double | It plays normally, then Final starts |
 | Exactly one finalist | Final runs for that player alone. The reveal has one step |
 | Finalist submits a typo ("Krakatowa") | Judged generously, like a mishearing: correct |

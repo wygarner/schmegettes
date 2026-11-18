@@ -134,7 +134,8 @@ The buzzer is pinned to the bottom of the phone screen on every screen from the 
 
 | Phase | Above the buzzer | Buzzer |
 |---|---|---|
-| Lobby | "You're in, Alice." Microphone prompt, **Edit name**, **Leave** | `idle` |
+| Joining | Microphone screen (below), then the name | none until the player is in |
+| Lobby | "You're in, Alice." **Edit name**, **Leave** | `idle` |
 | `board`, I have control | Mini board (category names and values). No "Your pick" heading, no score, no microphone button: the buzzer is it. While listening, a green "Listening… Say a category and value, like “Opera for 600”" panel. | `pick`, `listening` while it listens |
 | `board`, someone else picks | "Alice is picking…" and my score | `idle` |
 | `clue_reading` | "Listen…" | `dim` |
@@ -180,9 +181,28 @@ The same states as the phone, in the player column, minus what the stage already
 
 ### Microphone permission
 
-- The first time a phone wins a buzz, the browser asks for the microphone. To avoid that delay mid-game, phones ask during the **lobby**: "Allow the microphone so you can answer". The prompt appears after joining, and again on Start if not yet allowed.
-- Microphone blocked: the phone shows "Turn on the microphone to answer" with how to do it. That player's buzzer is still live, and a buzz with no microphone counts as no answer (incorrect), so the phone warns them before every clue.
-- Browser can't do speech recognition: show "This browser can't hear answers. Try Chrome or Safari." right after joining.
+**Nobody plays without a microphone.** Allowing it is the first thing a player does, and there's no way past it.
+
+```text
+┌──────────────────────────────┐
+│            🎤                │
+│  You answer out loud, so     │
+│  Schmegettes needs your      │
+│  microphone.                 │
+│                              │
+│   [   Allow microphone   ]   │
+│                              │
+│          Leave               │
+└──────────────────────────────┘
+```
+
+- **When:** on a phone, right after the room code is accepted, before the name. On the host device, when the host presses **Join the game**. A host who only hosts is never asked.
+- **Allow microphone** starts the same listening that answering uses, so the browser asks for everything it needs (on iPhone, the microphone and speech recognition) now and never mid-game.
+- **Not added until allowed.** The player isn't in the room (not on the TV, not counted) until they allow it and enter their name. A host isn't added as a contestant until they allow it.
+- **Blocked or "Don't Allow":** the screen says "Your microphone is blocked." with steps for that browser (iPhone Safari: **aA** → **Website Settings** → **Microphone** → **Allow**; Chrome: the icon left of the address → **Microphone** → **Allow**) and **Try again**. Only **Leave** gets out.
+- **Browser can't hear answers** (no speech recognition): a stop screen, "This browser can't hear answers. Open {site} in Safari or Chrome." with **Leave**.
+- **Asked again.** Some browsers (iPhone Safari) ask again on each visit. A reload or **Rejoin** shows the screen again before the player is back in their seat; until then their tile shows "(reconnecting)", as for any disconnect.
+- **Lost mid-game** (the permission is turned off in Settings): the screen covers the game on that phone, and the player counts as disconnected (no buzzing, a pick in control passes after 10 s) until they allow it again.
 
 ## Edge cases
 

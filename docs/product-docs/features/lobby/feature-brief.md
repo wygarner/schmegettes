@@ -35,7 +35,7 @@ Every game starts with one person pressing **Host a game** on the device that wi
 
 The host plays on the **host device**, the same one that drives the TV. There's no second device.
 
-- **Join the game** in the lobby adds the host to the player list under their display name, with a "Host" tag. **Leave the game** takes them off again. Both are possible only until Start.
+- **Join the game** in the lobby first asks for the host device's microphone, with the same hard stop as phones ([gameplay](../gameplay/interaction-design.md#microphone-permission)); once it's allowed, it adds the host to the player list under their display name, with a "Host" tag. **Leave the game** takes them off again. Both are possible only until Start.
 - A playing host counts toward the 2 contestants needed to Start, toward the player limit, and toward fresh boards, history, and placement like any contestant ([game-history](../game-history/feature-brief.md)).
 
 The host device is an iPhone in landscape, mirrored to the TV ([gameplay](../gameplay/feature-brief.md)). Once the host joins, from the lobby on, it shows the normal TV view plus the host's controls in the **player column** on the right, visible to the room:
@@ -90,7 +90,7 @@ iPhone and iPad Safari don't let a web page hide the browser's toolbar; only the
 
 ### Joining (contestant phone)
 
-- A player enters the code, then their display name.
+- A player enters the code, **allows the microphone** (a hard stop: nobody plays without it, [gameplay](../gameplay/interaction-design.md#microphone-permission)), then enters their display name.
 - The phone shows "You're in, {name}" and **the buzzer**, which stays on the phone from then until the game ends. In the lobby it's dim, and a tap only animates it (nothing is sent), so players can get a feel for it while they wait.
 
 ### Presence

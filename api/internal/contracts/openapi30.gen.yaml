@@ -555,8 +555,7 @@ paths:
                       games:
                         type: integer
                         minimum: 0
-                        description: Ended games
-                        played or watched: null
+                        description: Ended games, played or watched
                       played:
                         type: integer
                         minimum: 0
@@ -564,8 +563,8 @@ paths:
                       wins:
                         type: integer
                         minimum: 0
-                        description: Finished (not abandoned) games the caller placed 1st in
-                        ties included: null
+                        description: Finished (not abandoned) games the caller placed 1st in, ties
+                          included
                       best:
                         type: integer
                         description: The caller's highest score in a played game; null if they never

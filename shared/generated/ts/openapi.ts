@@ -874,11 +874,11 @@ export interface paths {
                             nextCursor: string | null;
                             /** @description Across all the caller's ended games, whatever the kind; on the first page only, null on later pages */
                             stats?: {
-                                /** @description Ended games */
+                                /** @description Ended games, played or watched */
                                 games: number;
                                 /** @description Ended games the caller played as a contestant */
                                 played: number;
-                                /** @description Finished (not abandoned) games the caller placed 1st in */
+                                /** @description Finished (not abandoned) games the caller placed 1st in, ties included */
                                 wins: number;
                                 /** @description The caller's highest score in a played game; null if they never played */
                                 best: number | null;

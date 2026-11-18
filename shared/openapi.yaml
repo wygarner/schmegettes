@@ -398,10 +398,21 @@ paths:
                     type: [object, "null"]
                     description: Across all the caller's ended games, whatever the kind; on the first page only, null on later pages
                     properties:
-                      games: { type: integer, minimum: 0, description: Ended games, played or watched }
-                      played: { type: integer, minimum: 0, description: Ended games the caller played as a contestant }
-                      wins: { type: integer, minimum: 0, description: Finished (not abandoned) games the caller placed 1st in, ties included }
-                      best: { type: [integer, "null"], description: The caller's highest score in a played game; null if they never played }
+                      games:
+                        type: integer
+                        minimum: 0
+                        description: Ended games, played or watched
+                      played:
+                        type: integer
+                        minimum: 0
+                        description: Ended games the caller played as a contestant
+                      wins:
+                        type: integer
+                        minimum: 0
+                        description: Finished (not abandoned) games the caller placed 1st in, ties included
+                      best:
+                        type: [integer, "null"]
+                        description: The caller's highest score in a played game; null if they never played
                     required: [games, played, wins, best]
                 required: [items, nextCursor]
   /v1/games/{gameId}:

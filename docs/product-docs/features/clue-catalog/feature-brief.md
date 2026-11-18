@@ -60,7 +60,6 @@ Unchanged: clue text and responses go only to the host device (the TV), and only
 
 - Showing host notes (a later enhancement would bring back the categories that have them)
 - The special-matches file
-- Choosing seasons in the lobby (the API supports it; no UI yet)
 - Difficulty tuning, or filtering out kids/teen tournament games
 - An original clue set of our own
 - An admin screen for the catalog, or a way for players to report a broken clue

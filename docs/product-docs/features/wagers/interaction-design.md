@@ -7,7 +7,7 @@
 ```text
 board ──pick DD──▶ daily_double_wager ──wager / 30 s──▶ clue_reading ──speech ends──▶ answering
   ▲                (2 s reveal, then wager)              (no buzzing)                    │
-  └──────────────────── 6 s correct response ◀──── judged (± wager) ◀────────────────────┘
+  └──────────────────── correct response ◀──────── judged (± wager) ◀────────────────────┘
 ```
 
 `clue_reading` for a Daily Double never opens buzzing: when speech ends (or on the fallback timer) it goes straight to `answering` for the player who picked it.
@@ -15,7 +15,7 @@ board ──pick DD──▶ daily_double_wager ──wager / 30 s──▶ clue
 ### Final Schmegettes
 
 ```text
-Double board done ──▶ any score > 0? ──no──▶ finished (4 s "Nobody's in the black")
+Last board done ───▶ any score > 0? ──no──▶ finished (4 s "Nobody's in the black")
                            │ yes
                            ▼
 final_category ──▶ final_wager ──all locked / 30 s──▶ final_answer ──all submitted / 30 s──▶ final_reveal ──▶ finished
@@ -114,7 +114,7 @@ Lines appear about 2 s apart. The score in that player's tile updates on the las
 2. The TV shows "DAILY DOUBLE". Alice's phone shows the number pad and "$5 – $1,200".
 3. Alice taps 1 0 0 0 and **Wager**. The TV shows "Alice wagers $1,000".
 4. The narrator says "For 1,000, here's the clue." and reads it. Alice's phone starts listening when the reading ends.
-5. Alice says "what is Etna": correct. She now has $2,200 and keeps control. The correct response shows for 6 s, then the board.
+5. Alice says "what is Etna": correct. She now has $2,200 and keeps control. A chime, the correct response is read, and 1 s later the board is back.
 
 ### Final Schmegettes
 

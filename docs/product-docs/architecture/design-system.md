@@ -98,7 +98,7 @@ Name and score, in join order, sharing the player column's height.
 
 ### Board
 
-6 categories × 4 values. `mauve.9` cells with a bevel, values in the accent (`green.4`) Oswald 700 with a dark drop shadow, no "$" on the board. Headers wrap to at most 3 lines and shrink to fit. A played cell is an empty cell. Pressed cells shrink slightly, and only when the board is tappable. Phones show the same board, compact (48 px rows).
+5 categories × 4 values, sharing the stage's width. `mauve.9` cells with a bevel, values in the accent (`green.4`) Oswald 700 with a dark drop shadow, no "$" on the board. Headers wrap to at most 3 lines and shrink to fit. A played cell is an empty cell. Pressed cells shrink slightly, and only when the board is tappable. Phones show the same board, compact (48 px rows).
 
 ### Stage
 

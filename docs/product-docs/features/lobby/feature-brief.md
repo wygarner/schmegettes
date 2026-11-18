@@ -25,7 +25,7 @@ Every game starts with one person pressing **Host a game** on the device that wi
 
 ### Creating a room
 
-- **Host a game** asks "What's your name?" (prefilled), then creates the room with the default settings: up to 6 contestants (also the maximum), every season. The host lands on the lobby showing the new code.
+- **Host a game** asks "What's your name?" (prefilled), then creates the room with up to 6 contestants (also the maximum) and the [game options](#game-options) this device used last (every season, Standard timers, Double Schmegettes on, the first time). The host lands on the lobby showing the new code.
 - The device that pressed it is the **host device**. It shows the TV view and controls Start. It plays only if the host joins the game (below).
 - No account is needed. If the device has no session, it signs in anonymously first, without showing anything. Hosting is invite-only: a device without host access enters a one-use host code first ([private access](../private-access/feature-brief.md)). Joining stays anonymous.
 - **Room codes**: 5 characters made of letters and digits, with look-alikes (`0 O 1 I L`) left out so a code read off a TV is never ambiguous. Codes are unique among rooms that aren't closed.
@@ -59,8 +59,34 @@ The host device is an iPhone in landscape, mirrored to the TV ([gameplay](../gam
 - Shows the **room code**, the join URL in plain text, and "Hosted by {name}".
 - Shows **joined contestants** live, by display name, in the order they joined, with a count against the limit ("3 / 6").
 - **Join the game** / **Leave the game**: adds or removes the host as a contestant.
-- **Voice** shows the narrator's voice by name and opens a list: the Schmegettes voices Kristin, Norman, and John first, then the device's English voices, best first. While the chosen Schmegettes voice downloads, the button shows its progress. Tapping a voice selects it and plays a sample line on the TV ("Here's Volcanoes for 400."), so the host hears it before Start. It's available only in the lobby. The rules for choosing a voice are in [gameplay](../gameplay/feature-brief.md#the-narrators-voice).
-- **Start** is enabled once at least **2 contestants** have joined, counting the host if they joined. It closes joining, and the room moves to `building_board`. What happens after that belongs to game-history and gameplay.
+- **Voice** shows the narrator's voice by name and opens a list of the Schmegettes voices: Kristin, Norman, and John. The device's built-in voices aren't offered. While the chosen voice downloads, the button shows its progress. Tapping a voice selects it and plays a sample line on the TV ("Here's Volcanoes for 400."), so the host hears it before Start. It's available only in the lobby. The rules for choosing a voice are in [gameplay](../gameplay/feature-brief.md#the-narrators-voice).
+- **Options** opens the [game options](#game-options).
+- **Start** is enabled once at least **2 contestants** have joined, counting the host if they joined, **and the narrator's voice is ready** on the host device. Until the voice is ready, Start reads "Getting Kristin ready… 40%". On a device that can't run the voices, Start stays disabled and the lobby says "This device can't run the Schmegettes narrator. Host from a recent iPhone, iPad or computer." It closes joining, and the room moves to `building_board`. What happens after that belongs to game-history and gameplay.
+
+### Game options
+
+The host sets how the game plays before Start. **Options** in the lobby opens a sheet with three settings:
+
+| Option | Choices | Default |
+|---|---|---|
+| **Seasons** | A range of seasons, from 1 (1984) to 40 (2024), at least one season | All (1–40) |
+| **Timers** | **Relaxed**: 15 s to buzz, 12 s to answer · **Standard**: 9 s, 9 s · **Fast**: 5 s, 7 s | Standard |
+| **Double Schmegettes** | On / Off. Off: Final Schmegettes follows the Single board | On |
+
+- Only the host device sees and changes them, and only in the lobby. They lock at **Start**.
+- The lobby shows the options that aren't the default under the code, so the room knows: "Seasons 20–40 · Fast timers · No Double Schmegettes". Phones don't show them.
+- The host device **remembers** the last options for the next room it hosts, like the voice. A **Rematch** keeps the room's options; the host can change them in the lobby before pressing Start again.
+- Timers change only the buzz window and the answer time. Wager and Final timers (30 s), the reading, and the early-buzz lockout stay the same.
+- Seasons narrow which clues the board is built from. A narrow range can run out of fresh categories sooner; the board then falls back to the least-recently-seen ones, as it always does ([game history](../game-history/feature-brief.md#building-a-fresh-board)). The game always starts.
+- With Double Schmegettes off, the game has one board with its 1 Daily Double, then Final.
+
+### Full screen on iPhone and iPad
+
+iPhone and iPad Safari don't let a web page hide the browser's toolbar; only the app added to the Home Screen opens without it. Every other browser goes full screen on the first tap, as it does now.
+
+- On an iPhone or iPad in Safari, not opened from the Home Screen, the **host lobby** shows a tip: "**For full screen, add Schmegettes to your Home Screen:** tap Share, then Add to Home Screen, and host from there." with ✕.
+- ✕ hides it on that device for good. It's never shown on phones that join, in a game, or in the Home Screen app.
+- The Home Screen app is a separate place to iOS: the host signs in (or redeems a host code) there once, and the narrator's voice downloads again there once.
 
 ### Joining (contestant phone)
 
@@ -76,7 +102,7 @@ The host device is an iPhone in landscape, mirrored to the TV ([gameplay](../gam
 ## Out of scope
 
 - QR code for joining
-- Room settings before Start (seasons, max players). The API supports them; the UI comes later.
+- A max-players setting (always 6)
 - Removing (kicking) a player
 - Joining as a spectator from the UI
 - Hosting from a phone while a separate screen shows the TV view (a TV browser or a second display)

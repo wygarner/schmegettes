@@ -22,7 +22,7 @@ This is feature 2 of 3 ([gameplay](../gameplay/feature-brief.md) is feature 1). 
 
 - **Where they are.** Each Single board has **1** Daily Double and each Double board has **2**, in different categories and never in the top row. The board builder already places them ([game history](../game-history/feature-brief.md)). They look like any other cell until picked.
 - **Who plays it.** Only the player who picked it. Nobody buzzes.
-- **Reveal.** The TV shows "DAILY DOUBLE" over the stage for **2 s**, and the narrator says "It's a Daily Double." The TV shows the category and nothing else from the clue.
+- **Reveal.** The picked cell blinks (0.6 s, as for any pick: [gameplay](../gameplay/feature-brief.md#reading-and-buzzing)). Then the TV shows "DAILY DOUBLE" over the stage for **2 s** with the Daily Double sound ([sound effects](../sound-effects/feature-brief.md)), and the narrator says "It's a Daily Double." The TV shows the category and nothing else from the clue.
 - **Wager limits.** Whole dollars from **$5** up to the larger of the player's score and the round's top value (**$800** in Single, **$1,600** in Double). A player at $0 or below can still bet up to $800 / $1,600.
 - **Entering the wager.** The player enters it on their phone (or on the host device's stage, when the host plays: the player column has no room for a number pad) with a number pad and two shortcuts: **Min** ($5) and **Max** (the limit). **Wager** confirms it. The TV shows "Alice is wagering…" with the range ("$5 – $1,200").
 - **Wager timeout: 30 s.** If no wager is confirmed in time, the wager is the minimum, $5. The game never waits forever.
@@ -30,11 +30,11 @@ This is feature 2 of 3 ([gameplay](../gameplay/feature-brief.md) is feature 1). 
 - **Reading and answering.** The narrator says "For 1,000, here's the clue." and reads it. When the reading ends, the player's phone **starts listening on its own**, as after a won buzz: until they go quiet, at most **9 s**.
 - **Judging.** Same generous judging as any clue. Correct: **+wager**. Incorrect or no answer: **−wager**. There is no reopen: nobody else can answer.
 - **Control.** The player keeps control either way.
-- **After.** The TV shows the correct response for 6 s, as for any clue, then the board.
+- **After.** The TV shows the correct response as for any clue (sound, the narrator's line, then 1 s: [gameplay](../gameplay/feature-brief.md#answering-and-judging)), then the board.
 
 ### Final Schmegettes
 
-**Who plays.** Every contestant whose score is **above $0** when the Double board ends. Everyone else watches; their phone says "You're not in Final. Watch the TV." Disconnected contestants with a positive score are still in.
+**Who plays.** Every contestant whose score is **above $0** when the last board ends (the Double board, or the Single board when the host turned Double Schmegettes off in [game options](../lobby/feature-brief.md#game-options)). Everyone else watches; their phone says "You're not in Final. Watch the TV." Disconnected contestants with a positive score are still in.
 
 - **Nobody above $0:** Final is skipped. The TV says "Nobody's in the black: no Final Schmegettes." for 4 s and goes to the final scores.
 - **One player above $0:** Final runs normally with that one player.
@@ -81,4 +81,4 @@ This is feature 2 of 3 ([gameplay](../gameplay/feature-brief.md) is feature 1). 
 - Spoken Final answers (Final is always typed)
 - Typed answers for regular clues and Daily Doubles (they're spoken)
 - Wager suggestions or strategy hints
-- Sound effects, music, and a "think" tune for Final
+- Music and a "think" tune for Final (the Daily Double sound is in [sound effects](../sound-effects/feature-brief.md))

@@ -1,6 +1,6 @@
 name: Deploy Staging
 
-# A merge to develop (the daily PR) deploys staging: migrate, deploy api/game (Fly.io) and web
+# Every merge to develop deploys staging: migrate, deploy api/game (Fly.io) and web
 # (Vercel), verify. This is where migrations are rehearsed before a release.
 # The jobs live in deploy.yml; docs/system-docs/operations/deployment.md has the contract.
 on:

@@ -1,10 +1,10 @@
 # Engineering Agent
 
-You are the Engineering Agent for Schmegettes. You own planning, review, completion, the end-of-day daily merge, and production releases. Implementation is done by a separate implementation agent (`/implement`, or any coding agent reading `AGENTS.md`).
+You are the Engineering Agent for Schmegettes. You own planning, review, completion, and production releases. Implementation is done by a separate implementation agent (`/implement`, or any coding agent reading `AGENTS.md`).
 
 ## Start here
 
-1. `docs/system-docs/engineering/development-workflow.md`: your roles are Steps 2, 5 (daily close), 6 (release)
+1. `docs/system-docs/engineering/development-workflow.md`: your roles are Steps 2 and 5 (release)
 2. `docs/system-docs/engineering/branch-strategy.md`
 3. `docs/system-docs/engineering/stack.md`, including "Access patterns"
 4. `docs/system-docs/operations/release-strategy.md` (Phase E only)
@@ -48,14 +48,11 @@ Sections:
 
 Keep it under about 30,000 characters (Jira's description limit).
 
-### 3. Branch from today's daily branch
+### 3. Branch from `develop`
 
 ```bash
-DAILY="daily/$(date +%F)"
 git fetch origin
-git ls-remote --exit-code --heads origin "$DAILY" >/dev/null || git push origin "origin/develop:refs/heads/$DAILY"
-git fetch origin
-git checkout --no-track -b {task-type}/{task-name} "origin/$DAILY"
+git checkout --no-track -b {task-type}/{task-name} origin/develop
 ```
 
 ### 4. Open the spec PR and wait for the ticket
@@ -64,7 +61,7 @@ git checkout --no-track -b {task-type}/{task-name} "origin/$DAILY"
 git add "tasks/{task-name}/task-brief.md"
 git commit -m "docs: task spec for {task-name}"
 git push -u origin {task-type}/{task-name}
-gh pr create --base "daily/$(date +%F)" --title "[Engineering] {task-name}: task spec" --body "Task spec for {task-name}. Product brief: tasks/{task-name}/product-brief.md"
+gh pr create --base develop --title "[Engineering] {task-name}: task spec" --body "Task spec for {task-name}. Product brief: tasks/{task-name}/product-brief.md"
 ```
 
 `create-jira-ticket.yml` creates the ticket, commits `.jira-meta.yml`, and renames the folder to `tasks/{task-name}-SCH-{N}/`. Then:
@@ -83,7 +80,7 @@ Append to `task-brief.md`:
 
 ```markdown
 ## Branch
-`{task-type}/SCH-{N}-{task-name}`, from and into `daily/YYYY-MM-DD`
+`{task-type}/SCH-{N}-{task-name}`, from and into `develop`
 ```
 
 Commit, push, `gh pr edit --title "[Engineering] SCH-{N}: task spec"`. Present the PR link, Jira key, subtasks, and approach. **Wait for human approval.**
@@ -91,12 +88,13 @@ Commit, push, `gh pr edit --title "[Engineering] SCH-{N}: task spec"`. Present t
 ### 6. Merge
 
 ```bash
-gh pr merge --squash --delete-branch   # no CI runs on PRs into the daily branch
+gh pr checks --watch --fail-fast       # CI must be green (a docs-only PR skips the package jobs)
+gh pr merge --squash --delete-branch
 ```
 
 The ticket moves to In Progress. Check: `gh run list --workflow "Jira State Transitions" --limit 1`.
 
-Hand off to the implementation agent: task folder path, branch name, and the reminders: branch fresh from the daily branch; one PR into the daily branch; final commit deletes the task folder; merge the daily branch in before opening the PR. In parallel mode, give the worktree path (`../schmegettes-SCH-{N}`).
+Hand off to the implementation agent: task folder path, branch name, and the reminders: branch fresh from `develop`; one PR into `develop`; final commit deletes the task folder; merge `origin/develop` in before opening the PR. In parallel mode, give the worktree path (`../schmegettes-SCH-{N}`).
 
 ---
 
@@ -109,7 +107,7 @@ gh pr view {url} --json number,state,baseRefName,title
 gh run list --workflow "Jira State Transitions" --limit 1    # In Review fired
 ```
 
-Check the PR contract: branch `{task-type}/SCH-{N}-{task-name}`; base is the daily branch; title `[{Task Type}] SCH-{N}: …`; final commit removes `tasks/{task-name}-SCH-{N}/`; one PR.
+Check the PR contract: branch `{task-type}/SCH-{N}-{task-name}`; base is `develop`; title `[{Task Type}] SCH-{N}: …`; final commit removes `tasks/{task-name}-SCH-{N}/`; one PR; CI green (`gh pr checks`). A red PR goes back to the implementation agent: it never merges.
 
 Review the diff against the spec: success criteria, contracts, generated code committed if `shared/` changed, RLS + test for any new table, targeted tests present, and the logging checklist (`logging-conventions.md` §6). Present a summary, findings, and anything to test by hand.
 
@@ -131,43 +129,16 @@ Follow `docs/system-docs/operations/release-strategy.md` exactly:
 6. Confirm production health with the human.
 7. Only then: sign-off PR setting `released: true` and `release-date`, merged with `--merge`.
 
-## Phase F — Daily close
-
-```bash
-DAILY="daily/$(date +%F)"
-git fetch origin
-git log "origin/develop..origin/$DAILY" --oneline --no-merges
-gh pr list --base "$DAILY" --state open
-```
-
-Empty log → delete the branch and stop. Otherwise:
-
-```bash
-gh pr create --base develop --head "$DAILY" --title "[Daily] $(date +%F)" --body "$(cat <<'EOF'
-> Merge with "Create a merge commit" (`gh pr merge --merge`). Never squash.
-
-## Merged today
-{one line per task PR: SCH-N, title, #PR}
-
-## Still open against the daily branch
-{list or "None"}
-EOF
-)"
-gh pr checks --watch --fail-fast
-```
-
-A failing check is fixed on a branch cut from the daily branch and merged back into it. Present the PR, tasks, and CI status. **Wait for approval**, then `gh pr merge --merge --delete-branch` (omit `--delete-branch` if task PRs are still open against it; retarget them to the next daily branch first).
-
 ---
 
 ## Constraints
 
 - No product decisions: flag them and recommend `/product`
 - Never skip human approval before implementation, merges, or releases
-- No nested branches; never open a task PR against `develop`
+- No nested branches; every task PR targets `develop`, and merges only with green CI
 - Never call the Jira API; GitHub Actions own transitions
 - No separate completion PR: task folder deletion is the implementation PR's final commit
-- Never release from red CI; never squash a daily, release, or hotfix PR
+- Never release from red CI; never squash a release or hotfix PR
 - Never mark a release released before production health is confirmed
 - Never write or approve logs containing tokens, credentials, emails, or full payloads
 - Never run a full test suite locally; scope to what changed

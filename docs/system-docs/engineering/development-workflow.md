@@ -16,22 +16,20 @@ flowchart TB
   plan --> progress[Jira: In Progress]
   progress --> impl[Implementation PR]
   impl --> review[Jira: In Review]
-  review --> done[Jira: Done]
-  done --> daily[Daily PR]
-  daily --> ci[CI]
-  ci --> develop[develop]
+  impl --> ci[CI on the PR]
+  ci --> done[Jira: Done]
+  done --> develop[develop, deploys staging]
 ```
 
-Every task branch starts from and targets `daily/YYYY-MM-DD`. The end-of-day daily PR is the only route to `develop` and the only place CI runs.
+Every task branch starts from and targets `develop`. CI runs on every PR into `develop` and must be green before it merges; each merge deploys staging.
 
 | Step | Owner | What happens | Jira |
 |---|---|---|---|
-| 1. Scope | `/product` | Writes `tasks/{task-name}/product-brief.md`; PR to the daily branch | — |
-| 2. Plan | `/engineering` | Writes `task-brief.md` in the same folder; PR to the daily branch | Ticket **created** when the PR opens; **In Progress** when it merges |
-| 3. Implement | Implementation agent (`/implement`, or any coding agent reading [AGENTS.md](../../../AGENTS.md)) | Fresh branch from the daily branch; one PR; final commit deletes the task folder | **In Review** when the PR opens |
-| 4. Done | Human merges | — | **Done** when the PR merges |
-| 5. Daily close | `/engineering` | Opens the daily PR, waits for CI, human approves, merge commit | — |
-| 6. Release | `/engineering`, human-triggered | See [release-strategy.md](../operations/release-strategy.md) | — |
+| 1. Scope | `/product` | Writes `tasks/{task-name}/product-brief.md`; PR to `develop` | — |
+| 2. Plan | `/engineering` | Writes `task-brief.md` in the same folder; PR to `develop` | Ticket **created** when the PR opens; **In Progress** when it merges |
+| 3. Implement | Implementation agent (`/implement`, or any coding agent reading [AGENTS.md](../../../AGENTS.md)) | Fresh branch from `develop`; one PR; final commit deletes the task folder | **In Review** when the PR opens |
+| 4. Done | Human merges once CI is green | Staging deploys | **Done** when the PR merges |
+| 5. Release | `/engineering`, human-triggered | See [release-strategy.md](../operations/release-strategy.md) | — |
 
 **No agent calls the Jira API.** Every Jira write happens in GitHub Actions, triggered by PR events.
 
@@ -50,11 +48,11 @@ The workflows pattern-match on the PR's file-status list (added, renamed, remove
 
 ## Step 1 — Scope with `/product`
 
-Output: one PR to the daily branch adding `tasks/{task-name}/product-brief.md`, with Jira frontmatter (`jira-type`, `jira-title`). Merging it does not create a ticket. New features and enhancements first update the durable docs in `docs/product-docs/features/{name}/` in their own PR.
+Output: one PR to `develop` adding `tasks/{task-name}/product-brief.md`, with Jira frontmatter (`jira-type`, `jira-title`). Merging it does not create a ticket. New features and enhancements first update the durable docs in `docs/product-docs/features/{name}/` in their own PR.
 
 ## Step 2 — Plan with `/engineering`
 
-`/engineering` writes `task-brief.md` and opens a PR to the daily branch. When the PR **opens**, `create-jira-ticket.yml`:
+`/engineering` writes `task-brief.md` and opens a PR to `develop`. When the PR **opens**, `create-jira-ticket.yml`:
 
 1. creates the ticket from the frontmatter and the markdown body (keep `task-brief.md` under about 30,000 characters, Jira's description limit)
 2. writes `.jira-meta.yml` into the folder
@@ -64,7 +62,7 @@ Output: one PR to the daily branch adding `tasks/{task-name}/product-brief.md`, 
 
 ## Step 3 — Implement
 
-The implementation agent branches fresh from the daily branch as `{task-type}/SCH-{N}-{task-name}` and reads, before editing:
+The implementation agent branches fresh from `develop` as `{task-type}/SCH-{N}-{task-name}` and reads, before editing:
 
 - `tasks/{task-name}-SCH-{N}/task-brief.md` and `product-brief.md`
 - [stack.md](./stack.md) "Access patterns"
@@ -74,7 +72,7 @@ Rules: preserve the contracts in `shared/` unless the spec says to change them; 
 
 ### Validation: targeted tests only
 
-**Never run a full test suite locally as routine validation.** Run the tests for the files you touched. No CI runs on task PRs, so these targeted runs are the only check before code reaches the daily branch. CI runs everything on the daily PR.
+**Never run a full test suite locally as routine validation.** Run the tests for the files you touched. CI runs everything, path-filtered, on the PR into `develop`, and the PR merges only when it is green.
 
 ```bash
 mise run test:web -- src/pages/Home.test.tsx
@@ -87,22 +85,18 @@ mise run gen                           # only when shared/ changed; commit the o
 
 ## Step 4 — Implementation PR
 
-One PR to the daily branch. Its final commit:
+One PR to `develop`. Its final commit:
 
 ```bash
 git rm -r "tasks/{task-name}-SCH-{N}/"
 git commit -m "chore: delete task folder for SCH-{N}"
 ```
 
-Title: `[{Task Type}] SCH-{N}: {brief description}`. Opening it moves the ticket to **In Review**; merging moves it to **Done**. The implementation agent never merges.
+Title: `[{Task Type}] SCH-{N}: {brief description}`. Opening it moves the ticket to **In Review**; merging moves it to **Done** and deploys staging. CI must be green before it merges. The implementation agent never merges.
 
-**Merge the daily branch into the task branch before opening the PR.** GitHub returns no file list for a PR opened with conflicts, so the In Review transition would never fire.
+**Merge `origin/develop` into the task branch before opening the PR.** GitHub returns no file list for a PR opened with conflicts, so the In Review transition would never fire.
 
-## Step 5 — Daily close
-
-At the end of the day, `/engineering` opens `daily/YYYY-MM-DD` → `develop` titled `[Daily] YYYY-MM-DD`. CI green + human approval → **merge commit, never squash**. A CI failure is fixed on a branch cut from the daily branch and merged back. No Jira transition fires on this PR.
-
-## Step 6 — Release
+## Step 5 — Release
 
 See [release-strategy.md](../operations/release-strategy.md).
 
@@ -122,11 +116,10 @@ See [release-strategy.md](../operations/release-strategy.md).
 
 | Workflow | Trigger | Result |
 |---|---|---|
-| `create-jira-ticket.yml` | PR opened into `daily/**` or `develop` touching `tasks/**/task-brief.md` | Creates the ticket, commits `.jira-meta.yml`, renames the folder. Task names must match `^[a-z0-9-]+$`. One ticket per spec PR. |
-| `jira-transitions.yml` | PR opened / merged | Spec merged → In Progress; implementation opened → In Review; merged → Done. Skips `daily/*` heads. |
-| `ci.yml` | PR into `develop` or `production`; weekly; manual | Path-filtered checks per package. Docs/task-only PRs skip. |
-| `daily-merge-guard.yml` | Push to `develop` | Fails when a daily PR was squashed. |
-| `deploy-staging.yml` | Push to `develop`; manual | Calls `deploy.yml` for staging: migrations (the release rehearsal), deploy, deployed-commit verification. |
+| `create-jira-ticket.yml` | PR opened into `develop` touching `tasks/**/task-brief.md` | Creates the ticket, commits `.jira-meta.yml`, renames the folder. Task names must match `^[a-z0-9-]+$`. One ticket per spec PR. |
+| `jira-transitions.yml` | PR opened / merged | Spec merged → In Progress; implementation opened → In Review; merged → Done. |
+| `ci.yml` | PR into `develop` or `production`; weekly; manual | Path-filtered checks per package; `CI Complete` must pass before a PR merges. Docs/task-only PRs skip the package jobs. |
+| `deploy-staging.yml` | Push to `develop` (every merged PR); manual | Calls `deploy.yml` for staging: migrations (the release rehearsal), deploy, deployed-commit verification. |
 | `deploy-prod.yml` | Push to `production`; manual | Calls `deploy.yml` for production: migrations, deploy, deployed-commit verification. |
 
 ## Jira setup (once per Jira project)

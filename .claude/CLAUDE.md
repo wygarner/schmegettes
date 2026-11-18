@@ -17,6 +17,6 @@ Operate only inside this repository (`~/schmegettes/`) and its worktrees (`~/sch
 - Smallest safe diff. Preserve runtime behavior unless told otherwise.
 - Contracts in `shared/` change only when the task says so; run `mise run gen` and commit the output.
 - Every new table gets RLS, explicit grants, and a test in `supabase/tests/`.
-- Run targeted tests for what you touched. Never run a full suite locally; CI does that on the daily PR.
+- Run targeted tests for what you touched. Never run a full suite locally; CI does that on every PR into `develop`.
 - Never call the Jira API. GitHub Actions own every Jira write.
 - Never put secrets in `.claude/settings*.json`, commits, or logs. Approvals for commands that carry a token go in `.claude/settings.local.json` (git-ignored); better, the token comes from the environment.

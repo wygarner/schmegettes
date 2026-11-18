@@ -7,11 +7,7 @@ on:
 jobs:
   transition:
     runs-on: ubuntu-latest
-    # The end-of-day daily/* -> develop PR re-carries every task PR already
-    # transitioned when it merged into the daily branch, so it is skipped.
-    if: >-
-      !startsWith(github.head_ref, 'daily/') &&
-      (github.event.action == 'opened' || github.event.pull_request.merged == true)
+    if: github.event.action == 'opened' || github.event.pull_request.merged == true
     permissions:
       pull-requests: read
       contents: read

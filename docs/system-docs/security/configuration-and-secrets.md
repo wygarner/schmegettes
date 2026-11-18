@@ -17,7 +17,7 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `DATABASE_OWNER_URL` | worker | **yes** (owner role, bypasses RLS) | Only for `import-clues`. Local: `worker/.env`. Staging and production: never on a laptop; `load-clues.yml` reads the GitHub Environment secrets below |
 | `SUPABASE_URL` | api, game | no | Fly secret (not secret, kept with the rest) |
 | `SUPABASE_JWKS_URL` | api, game | no (public keys) | Fly secret: `{SUPABASE_URL}/auth/v1/.well-known/jwks.json` |
-| `ALLOWED_ORIGINS` | api, game | no | Fly secret: the web origin, e.g. `https://schmegettes-web-prod.vercel.app` |
+| `ALLOWED_ORIGINS` | api, game | no | Fly secret: the web origin, e.g. `https://schmegettes-web-prod.vercel.app`. The api's also includes `http://localhost:5174`, so the devtools Admin page can call it |
 | `GAME_SOCKET_BASE_URL` | api | no | Fly secret: `wss://schmegettes-game-{staging,prod}.fly.dev` |
 | `REDIS_URL` | game | **yes** | host secret store. Listed in `game/.env.example` but not read yet: no service uses Redis |
 | `CLUE_DATASET_BASE_URL` | worker | no | `worker/.env`; in `load-clues.yml`, the optional repo variable `CLUE_DATASET_BASE_URL` (defaults to the dataset URL) |
@@ -25,6 +25,7 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `VITE_SUPABASE_URL` | web | no | GitHub Environment variable, read by `deploy.yml` at build time |
 | `VITE_SUPABASE_ANON_KEY` | web | no (public by design) | GitHub Environment variable |
 | `VITE_API_URL` | web | no | GitHub Environment variable |
+| `VITE_{LOCAL,STAGING,PRODUCTION}_{SUPABASE_URL,SUPABASE_ANON_KEY,API_URL}` | devtools | no (public, like web's) | `devtools/.env.local` on the admin's computer only. Never a database URL or service-role key: the Admin page signs in as the admin |
 
 `VITE_*` values are bundled into the client, so anyone can read them. Never put a secret in a `VITE_*` variable.
 

@@ -33,11 +33,17 @@ mise run db:reset      # re-apply migrations + seed any time
 mise run db:test       # RLS tests
 ```
 
-Hosting needs host access. Locally, enter **`DEVS-TEST`** when **Host a game** asks for a code. It works once; after that, read the new code with `select code from public.host_codes where used_at is null;` (Studio's SQL editor), or `mise run db:reset`. Auth settings (`[auth.*]` in `config.toml`) take effect on `supabase stop && mise run db:start`, not on `db:reset`.
+Hosting needs host access. Locally, enter **`DEVS-TEST`** when **Host a game** asks for a code, on as many devices as you like: the seed makes it the current code and it never rotates on its own. **Rotate now** on the devtools Admin page replaces it until the next `mise run db:reset`.
+
+To use the Admin page locally, sign up an account in the web app (email and password), then in Studio's SQL editor:
+
+```sql
+insert into private.admins (user_id) select id from auth.users where email = 'you@example.com' and not is_anonymous;
+``` Auth settings (`[auth.*]` in `config.toml`) take effect on `supabase stop && mise run db:start`, not on `db:reset`.
 
 ## 4. Environment files
 
-Copy each `.env.example` next to it (`web/.env.local`, `api/.env`, `game/.env`, `worker/.env`) and fill in the anon key from `db:start`. Local env files point at local Supabase only. Staging and production credentials are never put in a local file.
+Copy each `.env.example` next to it (`web/.env.local`, `devtools/.env.local`, `api/.env`, `game/.env`, `worker/.env`) and fill in the anon key from `db:start`. `devtools/.env.local` may also hold the staging and production **public** Supabase URL, anon key, and api URL for the Admin page; never a database URL or service-role key. Local env files point at local Supabase only. Staging and production credentials are never put in a local file.
 
 ### Accounts
 
@@ -63,7 +69,7 @@ mise run dev:api        # :3001
 mise run dev:game       # :3002
 mise run dev:worker
 mise run dev:web        # :5173
-mise run dev:devtools   # :5174, prototypes
+mise run dev:devtools   # :5174, prototypes and the Admin page
 ```
 
 ## Testing

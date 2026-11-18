@@ -1,8 +1,6 @@
 # Private Access
 
-Built in `supabase/migrations/*_private_access.sql` (codes, hosts, and the checks in `create_room` and `start_game`), `api/internal/hostaccess` and `api/internal/ratelimit`, `game/internal/room` (Start and Rematch), and `web/src/pages/HostCodeSheet.tsx`.
-
-> **Not yet implemented:** rotating host codes and the admin page in devtools (decided 2026-11-17, below). Until they ship, codes are one-use and the admin works in the Supabase SQL editor.
+Built in `supabase/migrations/*_private_access.sql` (codes, hosts, and the checks in `create_room` and `start_game`) and `*_host_code_rotation.sql` (the rotating code, the admin list, the admin functions), `api/internal/hostaccess`, `api/internal/admin`, and `api/internal/ratelimit`, `game/internal/room` (Start and Rematch), `web/src/pages/HostCodeSheet.tsx`, and `devtools/src/admin/` (the admin page).
 
 ## Why
 

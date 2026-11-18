@@ -59,7 +59,7 @@ mise run clues:import -- --seasons 1-3     # all 40 seasons: about 160 MB, 40 s
 
 ## 5. Run
 
-`bun run dev` starts web, game, and worker in one terminal (`mise run dev`). Start Redis first. The API is not in it yet; run it on its own.
+`bun run dev` (`mise run dev`) starts local Supabase if it isn't running (`mise run db:up`; needs Docker), then web, api, game, and worker in one terminal.
 
 Or one service per terminal:
 

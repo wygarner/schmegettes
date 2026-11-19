@@ -49,11 +49,11 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
   | Voice | Sounds | License |
   |---|---|---|
-  | **Kristin** (default) | US English, female | Public domain |
-  | **Norman** | US English, male | Public domain |
+  | **Norman** (default) | US English, male | Public domain |
+  | **Kristin** | US English, female | Public domain |
   | **John** | US English, male | Public domain |
 
-- **Downloaded before the game, one kept.** Each voice is about **63 MB**. Kristin starts downloading in the background as soon as the host lobby opens; Norman or John downloads when the host picks it. The browser keeps the voice in use for next time, and only that one: when the host switches, the old voice is removed once the new one is ready.
+- **Downloaded before the game, one kept.** Each voice is about **63 MB**. Norman starts downloading in the background as soon as the host lobby opens; Kristin or John downloads when the host picks it. The browser keeps the voice in use for next time, and only that one: when the host switches, the old voice is removed once the new one is ready.
 - **Start waits for the voice.** Until the picked voice is ready on the host device, **Start** is disabled and shows the progress ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). A failed download says so, with **Try again**. Once a voice has downloaded, later games start at once.
 - **A device that can't run the voices can't host.** The lobby says "This device can't run the Schmegettes narrator. Host from a recent iPhone, iPad or computer." and Start stays disabled.
 - **Reading starts quickly.** The narrator prepares the clue during the 1.5 s pick reveal, so the first word is heard within **1 s** of the clue appearing on the TV.
@@ -61,7 +61,7 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 - **Plays through the silent switch.** On an iPhone or iPad, the narrator is heard with the ring/silent switch on, at media volume, like a video. The volume buttons control it.
 - **It never slows the host's buzzer.** Generating speech must not make the host device's screen or buzzer lag: a host who plays buzzes as quickly as anyone.
 - The host can **change the voice in the lobby** and hear a sample first ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). The same voice speaks every line: clues, Daily Double and Final lines, and the correct response.
-- The choice is **kept on that host device** for every room it hosts until the host changes it. It isn't tied to the host's account and never reaches the server. A device that had picked a built-in voice before this change gets Kristin, without a message.
+- The choice is **kept on that host device** for every room it hosts until the host changes it. It isn't tied to the host's account and never reaches the server. A device where the host never picked a voice gets Norman, including one that has been using Kristin only because she was the default before; it downloads Norman once (Start waits, as for any new voice). A device where the host picked Kristin or John keeps it. A device that had picked a built-in voice before gets Norman, without a message.
 - **Every voice speaks at its normal pace, and buzzing never opens before the reading ends.** There's no speed setting. The server's fallback estimate starts when the clue is picked, so the reveal and the time spent generating speech count against it.
 
 ### Answering and judging

@@ -66,7 +66,7 @@ Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667
 - **✎** next to the host name edits it until Start.
 - **Start**: primary button. It is disabled while nobody has joined, with no hint text. A playing host counts.
 - **Join** (secondary) adds the host to the list at once, under their host name, tagged HOST, and the button becomes **Leave**. Editing the host name with ✎ updates both places. Joining doesn't open the column.
-- **🔊** (icon button, no text) opens the narrator voice picker (below). Its accessible name and hover tooltip are "Narrator voice: Kristin". While the chosen voice downloads, a progress ring fills around the icon, and **Start** reads "Getting Norman ready… 40%" and is disabled.
+- **🔊** (icon button, no text) opens the narrator voice picker (below). Its accessible name and hover tooltip are "Narrator voice: Norman". While the chosen voice downloads, a progress ring fills around the icon, and **Start** reads "Getting Kristin ready… 40%" and is disabled.
 - On a device that can't run the voices, the 🔊 button is hidden and a notice replaces the join URL line: "This device can't run the Schmegettes narrator. Host from a recent iPhone, iPad or computer." Start stays disabled.
 - **⚙** (icon button, no text; accessible name and tooltip "Game options") opens the game options sheet (below). The line under the code lists the options that aren't the default; it's empty with the defaults.
 - Both icon buttons are at least 44 × 44 px to tap.
@@ -77,15 +77,15 @@ Rules: [gameplay](../gameplay/feature-brief.md#the-narrators-voice).
 
 ```text
 ┌──────────────────── Narrator voice ────────────────────┐
-│  ✓ Kristin                                             │
-│    Norman                           Downloading… 40%   │
+│  ✓ Norman                                              │
+│    Kristin                          Downloading… 40%   │
 │    John                                                │
 │                                                        │
 │                                             [ Done ]   │
 └────────────────────────────────────────────────────────┘
 ```
 
-1. The host taps **🔊**. A modal lists the three Schmegettes voices, with the current one checked. The device's built-in voices aren't listed.
+1. The host taps **🔊**. A modal lists the three Schmegettes voices (Norman, the default, first), with the current one checked. The device's built-in voices aren't listed.
 2. Tapping a row selects it at once and says "Here's a sample of my voice." on the TV once it's ready.
 3. **Done** (or tapping outside the modal) closes it. The button's accessible name and tooltip give the new voice. The choice is saved on this device.
 
@@ -182,7 +182,7 @@ When the host joined, their controls live in the **player column** on the right 
 | A player edits their name in the lobby | The TV list updates live |
 | A player joins or leaves while the player list is folded | The tab's count updates; a join flashes the tab once |
 | A player reconnects or drops while the list is folded | Nothing on the tab changes; open the list to see "(reconnecting)" |
-| The host taps 🔊 or ⚙ with a screen reader | The buttons are announced as "Narrator voice: Kristin" and "Game options" |
+| The host taps 🔊 or ⚙ with a screen reader | The buttons are announced as "Narrator voice: Norman" and "Game options" |
 | A device saved Relaxed or Fast timers from before | Ignored: every game uses the standard times ([game options](./feature-brief.md#game-options)) |
 | Host reloads the TV | Returns to the same lobby with the same players and host name |
 | Host opens `/host/{code}` on a second device | That device is the same account only if it's the same browser session. Otherwise "Only the host can open this screen" and a link to join |

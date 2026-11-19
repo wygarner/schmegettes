@@ -12,6 +12,7 @@ Players also expect the buzzer to make a sound when pressed. Today it doesn't. W
 |---|---|
 | Everyone in the room | "I hear right away when something big happens: a Daily Double, the Double round, whether the clue was got." |
 | Contestant | "When I press my buzzer, I hear it, every time." |
+| Everyone in the room | "When someone buzzes in, the room hears it, so we all look up at who's answering." |
 | Host (TV) | "The sounds play by themselves, never talk over the narrator, and never slow the game down." |
 
 ## Rules
@@ -25,8 +26,10 @@ Players also expect the buzzer to make a sound when pressed. Today it doesn't. W
 | **Daily Double** | TV | A rising flourish as "DAILY DOUBLE" appears, before "It's a Daily Double." | under 1.5 s |
 | **"Double Schmegettes!"** | TV | A short fanfare during the 3 s interstitial | under 2.5 s |
 | **Buzzer press** | The pressing device only (phone, or the host device when the host plays) | A short, solid "thunk" | under 0.2 s |
+| **Buzz-in** (a player wins the buzz) | TV | A bright electronic buzz, clearly different from the thunk | under 0.4 s |
 
 - **The buzzer sound plays on every press that does something**: a buzz in `dim` (early) or `lit`, and the press that starts a spoken pick. A press that does nothing (`idle`, `locked`, `answering`) plays nothing, so the sound never suggests a press counted when it didn't. It plays the moment the finger lands, before the server answers; it isn't a "you won the buzz" sound.
+- **The buzz-in plays on the TV once per winning buzz**: the moment the host device learns the clue moved to `answering`, for whoever won, the host included. After a wrong answer buzzing reopens silently, and the next winning buzz plays it again. Early buzzes, losing buzzes and spoken picks play nothing on the TV. Daily Doubles and Final have no buzzing, so no buzz-in. It never delays the answer: the winner's microphone and answer time start as they do today.
 - **Sounds never overlap the narrator.** Each TV sound ends before the narrator's next line starts. The narrator's line waits for the sound, and the sound counts against the existing timings: the correct-response screen still returns to the board 1 s after the line ends, at most 6 s after the clue ended ([gameplay](../gameplay/feature-brief.md#answering-and-judging)); the Daily Double reveal is still 2 s ([wagers](../wagers/feature-brief.md#daily-doubles)); the interstitial is still 3 s.
 - **Sounds never hold up the game.** A sound that fails to load or play is skipped, without a message. No timer waits for one.
 - **Nothing plays for a wrong answer mid-clue** (buzzing reopens), when buzzing opens, or for the pick reveal. These happen often and would get tiresome. The pick reveal is silent.
@@ -43,6 +46,6 @@ Players also expect the buzzer to make a sound when pressed. Today it doesn't. W
 ## Out of scope
 
 - Music, a "think" tune for Final, and a theme
-- A sound for each player's buzz on the TV, or a "you won the buzz" sound
+- A TV sound for every press (only the winning buzz has one), or a "you won the buzz" sound on the winner's phone
 - Volume or mute settings in the game
 - Haptics (vibration) on the buzzer

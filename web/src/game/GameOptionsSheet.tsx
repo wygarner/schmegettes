@@ -13,7 +13,7 @@ export function seasonsText(range: [number, number] | null): string {
 }
 
 /**
- * The lobby's game options: seasons, Double Schmegettes. Each change applies at once
+ * The lobby's game options: seasons, Double Schmegettes, Quick picks. Each change applies at once
  * (onChange); Done or a tap outside closes it. Rules:
  * docs/product-docs/features/lobby/interaction-design.md, "Game options".
  */
@@ -75,6 +75,13 @@ export function GameOptionsSheet({
           description={options.doubleRound ? "Two boards, then Final" : "One board, then Final"}
           checked={options.doubleRound}
           onChange={(e) => onChange({ ...options, doubleRound: e.currentTarget.checked })}
+          color="green.4"
+        />
+        <Switch
+          label="Quick picks"
+          description={options.quickPicks ? "Just the category picks its lowest clue" : "Say the category and amount"}
+          checked={options.quickPicks}
+          onChange={(e) => onChange({ ...options, quickPicks: e.currentTarget.checked })}
           color="green.4"
         />
       </Stack>

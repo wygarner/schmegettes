@@ -59,6 +59,8 @@ export interface RoomState {
   /** This game's buzz window and answer time (its timer pace); absent: Standard. */
   buzzWindowMs?: number;
   answerWindowMs?: number;
+  /** This game's Quick picks option (room_snapshot); false before a game starts. */
+  quickPicks: boolean;
   controllingUserId?: string;
   answeringUserId?: string;
   attemptedUserIds: string[];
@@ -124,6 +126,7 @@ export const initialRoom: RoomState = {
   board: [],
   attemptedUserIds: [],
   paused: false,
+  quickPicks: false,
   scores: {},
   lockouts: {},
   finalistUserIds: [],
@@ -206,6 +209,7 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         ...clueReset(),
         buzzWindowMs: event.buzzWindowMs,
         answerWindowMs: event.answerWindowMs,
+        quickPicks: event.quickPicks ?? false,
         results: finished ? (state.results ?? resultsFrom(event.players, scores)) : undefined,
         finalSkipped: finished ? state.finalSkipped : undefined,
         reveals: finished || event.phase === "final_reveal" ? state.reveals : [],

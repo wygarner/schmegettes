@@ -219,6 +219,20 @@ test("a snapshot restores this player's own Final state", () => {
   expect(s.finalistUserIds).toEqual(["a"]);
 });
 
+test("a snapshot carries the game's Quick picks; false when absent", () => {
+  const snap = {
+    type: "room_snapshot" as const,
+    roomId: ROOM,
+    seq: 1,
+    phase: "board" as const,
+    round: "single" as const,
+    players: [alice],
+    board: [],
+  };
+  expect(reduceRoom(initialRoom, { ...snap, quickPicks: true }).quickPicks).toBe(true);
+  expect(reduceRoom(initialRoom, snap).quickPicks).toBe(false);
+});
+
 describe("overrides, the scoreboard and Rematch", () => {
   const players = [
     { userId: "a", displayName: "Alice", role: "contestant" as const, score: 0, connected: true },

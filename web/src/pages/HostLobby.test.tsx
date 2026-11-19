@@ -381,7 +381,7 @@ describe("game options", () => {
   };
 
   test("the line under the code lists what isn't the default", () => {
-    withOptions({ seasons: [20, 40], doubleRound: false });
+    withOptions({ seasons: [20, 40], doubleRound: false, quickPicks: false });
     expect(screen.getByLabelText("Game options in use")).toHaveTextContent("Seasons 20–40 · No Double Schmegettes");
   });
 
@@ -401,6 +401,20 @@ describe("game options", () => {
     expect(within(sheet).queryByRole("radiogroup")).toBeNull();
     fireEvent.click(within(sheet).getByRole("switch", { name: /Double Schmegettes/ }));
     expect(onOptions).toHaveBeenLastCalledWith({ ...DEFAULT_OPTIONS, doubleRound: false });
+  });
+
+  test("Quick picks: off by default; the switch turns it on; the line under the code says so", () => {
+    const onOptions = withOptions(DEFAULT_OPTIONS);
+    fireEvent.click(screen.getByRole("button", { name: "Game options" }));
+    const sheet = screen.getByRole("dialog", { name: "Game options" });
+    const quick = within(sheet).getByRole("switch", { name: /Quick picks/ });
+    expect(quick).not.toBeChecked();
+    expect(sheet).toHaveTextContent("Say the category and amount");
+    fireEvent.click(quick);
+    expect(onOptions).toHaveBeenLastCalledWith({ ...DEFAULT_OPTIONS, quickPicks: true });
+    cleanup();
+    withOptions({ ...DEFAULT_OPTIONS, quickPicks: true });
+    expect(screen.getByLabelText("Game options in use")).toHaveTextContent("Quick picks");
   });
 });
 

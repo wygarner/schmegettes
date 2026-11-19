@@ -317,6 +317,32 @@ test("a voice pick that doesn't match says so and picks nothing", () => {
   expect(send).not.toHaveBeenCalled();
 });
 
+test("Quick picks: the hint says a category is enough, and it picks the lowest left", () => {
+  const board = [
+    { clueId: "s2", category: "SCIENCE", value: 200, state: "answered" as const },
+    { clueId: "s4", category: "SCIENCE", value: 400, state: "unplayed" as const },
+    { clueId: "s6", category: "SCIENCE", value: 600, state: "unplayed" as const },
+  ];
+  const { send } = setup({ ...base, phase: "board", controllingUserId: me, board, quickPicks: true });
+  fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
+  expect(screen.getByText("Say a category, like “Opera”, or a category and value")).toBeInTheDocument();
+  act(() => rec.onFinal?.("science"));
+  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "s4" });
+});
+
+test("without Quick picks, just a category asks for the amount", () => {
+  const board = [
+    { clueId: "s4", category: "SCIENCE", value: 400, state: "unplayed" as const },
+    { clueId: "s6", category: "SCIENCE", value: 600, state: "unplayed" as const },
+  ];
+  const { send } = setup({ ...base, phase: "board", controllingUserId: me, board });
+  fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
+  expect(screen.getByText("Say a category and value, like “Opera for 600”")).toBeInTheDocument();
+  act(() => rec.onFinal?.("science"));
+  expect(screen.getByText(/Didn't catch the amount/)).toBeInTheDocument();
+  expect(send).not.toHaveBeenCalled();
+});
+
 test("listening stops when control moves on", () => {
   const { update } = setup({ ...base, phase: "board", controllingUserId: me });
   fireEvent.click(screen.getByRole("button", { name: "Buzz" }));

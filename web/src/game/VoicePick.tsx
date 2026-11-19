@@ -18,6 +18,8 @@ export interface VoicePick {
   /** Start listening, or stop if already listening (nothing is picked then). */
   toggle: () => void;
   cancel: () => void;
+  /** This game's Quick picks option: just a category picks its lowest clue left. */
+  quickPicks: boolean;
 }
 
 /**
@@ -25,13 +27,13 @@ export interface VoicePick {
  * the matching clue is picked with no confirmation. There is no separate microphone button
  * (docs/product-docs/features/gameplay/interaction-design.md).
  */
-export function useVoicePick(board: BoardClue[], onPick: (clueId: string) => void): VoicePick {
+export function useVoicePick(board: BoardClue[], onPick: (clueId: string) => void, quickPicks = false): VoicePick {
   const [listening, setListening] = useState(false);
   const [heard, setHeard] = useState("");
   const [problem, setProblem] = useState("");
   const recRef = useRef<Recognizer | null>(null);
-  const latest = useRef({ board, onPick });
-  latest.current = { board, onPick };
+  const latest = useRef({ board, onPick, quickPicks });
+  latest.current = { board, onPick, quickPicks };
 
   useEffect(() => () => recRef.current?.abort(), []);
 
@@ -65,7 +67,7 @@ export function useVoicePick(board: BoardClue[], onPick: (clueId: string) => voi
         setProblem("Didn't hear anything.");
         return;
       }
-      const pick = matchPick(text, latest.current.board);
+      const pick = matchPick(text, latest.current.board, { quickPicks: latest.current.quickPicks });
       if ("clueId" in pick) latest.current.onPick(pick.clueId);
       else setProblem(PROBLEMS[pick.problem]);
     };
@@ -78,5 +80,5 @@ export function useVoicePick(board: BoardClue[], onPick: (clueId: string) => voi
     }
   }, [cancel]);
 
-  return { listening, heard, problem, toggle, cancel };
+  return { listening, heard, problem, toggle, cancel, quickPicks };
 }

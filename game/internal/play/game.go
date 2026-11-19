@@ -100,6 +100,9 @@ type Setup struct {
 	// Double Schmegettes is off, so Final follows the Single board.
 	Pace     contracts.TimerPace
 	NoDouble bool
+	// QuickPicks: a spoken pick of just a category picks the lowest clue left in it. Spoken
+	// picks are matched on the phone, so the game only tells its players (room_snapshot).
+	QuickPicks bool
 	// Recovery of wagers: the active Daily Double's wager, if locked; Final wagers and
 	// submitted answers (from the wagers table); and the score change of each Final answer
 	// already revealed (answers rows on the Final clue).
@@ -491,6 +494,8 @@ func (g *Game) SnapshotFields(m *contracts.RoomSnapshot, host bool) {
 	m.DeadlineAt = ms(g.deadline)
 	buzz, answer := int(g.buzzWindow.Milliseconds()), int(g.answerWindow.Milliseconds())
 	m.BuzzWindowMs, m.AnswerWindowMs = &buzz, &answer
+	quick := g.s.QuickPicks
+	m.QuickPicks = &quick
 	m.AnsweringUserId = uid(g.answering)
 	m.AttemptedUserIds = g.attemptedList()
 	paused := g.paused

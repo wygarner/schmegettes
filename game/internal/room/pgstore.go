@@ -36,6 +36,33 @@ func (s PGStore) Load(ctx context.Context, roomID string) (Lobby, error) {
 			return err
 		}
 		l.Status = contracts.RoomStatus(status)
+		var resumeID *string
+		if err := tx.QueryRow(ctx, "select resume_game_id::text from public.rooms where id = $1", roomID).Scan(&resumeID); err != nil {
+			return err
+		}
+		if resumeID != nil {
+			res := &Resume{GameID: *resumeID}
+			if err := tx.QueryRow(ctx, "select started_at from public.games where id = $1", *resumeID).Scan(&res.StartedAt); err != nil {
+				return err
+			}
+			rows, err := tx.Query(ctx, `
+				select r.user_id::text, r.display_name, r.score
+				from public.game_results r
+				join public.game_players gp on gp.id = r.game_player_id
+				where r.game_id = $1 and r.role = 'contestant' and r.user_id is not null
+				order by gp.id`, *resumeID)
+			if err != nil {
+				return err
+			}
+			res.Players, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (ResumePlayer, error) {
+				var p ResumePlayer
+				return p, row.Scan(&p.UserID, &p.Name, &p.Score)
+			})
+			if err != nil {
+				return err
+			}
+			l.Resume = res
+		}
 		rows, err := tx.Query(ctx, `
 			select m.user_id::text, coalesce(m.display_name, p.display_name), m.role::text
 			from public.room_members m
@@ -79,6 +106,15 @@ func (s PGStore) StartGame(ctx context.Context, roomID string) (string, error) {
 		return mapError(tx.QueryRow(ctx, "select public.start_game($1)::text", roomID).Scan(&gameID))
 	})
 	return gameID, err
+}
+
+// StartResumed starts a resume lobby's game where it stopped.
+func (s PGStore) StartResumed(ctx context.Context, roomID string) (string, error) {
+	var id string
+	err := s.DB.AsEngine(ctx, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, "select public.start_resumed_game($1)::text", roomID).Scan(&id)
+	})
+	return id, mapError(err)
 }
 
 // HostCanHost reports whether the room's host still has host access (private access).
@@ -128,10 +164,13 @@ func mapError(err error) error {
 func (s PGStore) LoadGame(ctx context.Context, roomID string) (GameData, error) {
 	var d GameData
 	err := s.DB.AsEngine(ctx, func(tx pgx.Tx) error {
+		var pace string
+		var double bool
 		err := tx.QueryRow(ctx, `
-			select id::text, started_at from public.games
+			select id::text, started_at, timers::text, double_round from public.games
 			where room_id = $1 and status = 'in_progress'
-			order by started_at desc limit 1`, roomID).Scan(&d.GameID, &d.StartedAt)
+			order by started_at desc limit 1`, roomID).Scan(&d.GameID, &d.StartedAt, &pace, &double)
+		d.Pace, d.NoDouble = contracts.TimerPace(pace), !double
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}

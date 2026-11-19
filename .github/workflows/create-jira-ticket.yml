@@ -3,8 +3,8 @@ name: Create Jira Ticket
 on:
   pull_request:
     types: [opened]
-    # Task-spec PRs target the daily branch; develop is kept for direct PRs.
-    branches: [develop, 'daily/**']
+    # Task-spec PRs target develop.
+    branches: [develop]
     paths:
       - 'tasks/**/task-brief.md'
   workflow_dispatch:

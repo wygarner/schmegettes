@@ -132,6 +132,19 @@ paths:
                 $ref: "#/components/schemas/Problem"
         "429":
           $ref: "#/components/responses/RateLimited"
+  /v1/me/current-room:
+    get:
+      summary: The room the caller is in, to rejoin from Home (a game first, then a
+        resume invite, then a lobby)
+      responses:
+        "200":
+          description: The room
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentRoom"
+        "204":
+          description: Not in any room
   /v1/me/merge:
     post:
       summary: Move a guest's games, seen clues, and host access into the caller's
@@ -251,6 +264,12 @@ paths:
                 $ref: "#/components/schemas/RoomJoin"
         "400":
           $ref: "#/components/responses/Problem"
+        "403":
+          description: A resume lobby, and the caller didn't play that game (`not-in-game`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
         "404":
           description: No open room with that code (problem type `room-not-found`)
           content:
@@ -493,12 +512,27 @@ paths:
                   items:
                     type: integer
                     minimum: 1
+                    maximum: 40
+                  minItems: 1
                   description: Seasons to build boards from; null means every season
                   nullable: true
                 maxPlayers:
                   type: integer
                   minimum: 2
                   maximum: 6
+                timers:
+                  description: "The game's pace, chosen in the lobby: how long buzzing stays open
+                    and how long a player has to answer. relaxed 15 s / 12 s,
+                    standard 9 s / 9 s, fast 5 s / 7 s. Mirrors
+                    public.timer_pace."
+                  type: string
+                  enum:
+                    - relaxed
+                    - standard
+                    - fast
+                doubleRound:
+                  type: boolean
+                  description: "false: Final follows the Single board"
               additionalProperties: false
       responses:
         "200":
@@ -507,10 +541,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Room"
+        "400":
+          description: Seasons empty or outside 1 to 40 (`invalid-settings`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
         "403":
-          $ref: "#/components/responses/Problem"
+          description: The caller isn't the room's host (`not-the-host`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
         "404":
           $ref: "#/components/responses/Problem"
+        "409":
+          description: The game has started; options are locked (`game-started`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
   /v1/games:
     get:
       summary: The caller's ended games (finished or abandoned), played or watched,
@@ -600,6 +650,40 @@ paths:
                 $ref: "#/components/schemas/GameDetail"
         "404":
           $ref: "#/components/responses/Problem"
+  /v1/games/{gameId}/resume:
+    post:
+      summary: Resume an abandoned game (its host, within 30 days); opens a resume
+        lobby with a new code
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: The resume lobby; pressing again returns the one already open
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomJoin"
+        "403":
+          description: Not this game's host (`not-the-host`), or no host access any more
+            (`not-a-host`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: Finished, in progress, or abandoned more than 30 days ago
+            (`not-resumable`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 components:
   securitySchemes:
     supabaseJwt:
@@ -699,6 +783,18 @@ components:
             type: integer
           description: Seasons boards are built from; null means every season
           nullable: true
+        timers:
+          description: "The game's pace, chosen in the lobby: how long buzzing stays open
+            and how long a player has to answer. relaxed 15 s / 12 s, standard 9
+            s / 9 s, fast 5 s / 7 s. Mirrors public.timer_pace."
+          type: string
+          enum:
+            - relaxed
+            - standard
+            - fast
+        doubleRound:
+          type: boolean
+          description: "Play the Double Schmegettes board; false: Final follows Single"
       required:
         - roomId
         - code
@@ -708,6 +804,8 @@ components:
         - hostPlays
         - maxPlayers
         - seasons
+        - timers
+        - doubleRound
     DisplayName:
       type: string
       minLength: 1
@@ -818,12 +916,53 @@ components:
           type: boolean
           description: The caller hosted without playing
           or was a spectator: null
+        resumableUntil:
+          type: string
+          format: date-time
+          description: Only for the game's host, on an abandoned game that can still be
+            resumed
       required:
         - gameId
         - status
         - startedAt
         - finishedAt
         - results
+    CurrentRoom:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+            - game
+            - lobby
+            - resume_invite
+          description: "game: a game in progress; lobby: a lobby; resume_invite: the host
+            is resuming a game the caller played"
+        roomId:
+          type: string
+          format: uuid
+        code:
+          description: Short code players type to join a room.
+          type: string
+          pattern: ^[A-Z0-9]{5}$
+        role:
+          type: string
+          enum:
+            - host
+            - contestant
+        hostDisplayName:
+          type: string
+        playerNames:
+          type: array
+          items:
+            type: string
+      required:
+        - kind
+        - roomId
+        - code
+        - role
+        - hostDisplayName
+        - playerNames
     GameResult:
       type: object
       properties:

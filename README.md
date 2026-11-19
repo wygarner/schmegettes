@@ -16,8 +16,8 @@ Start with [docs/system-docs/engineering/stack.md](docs/system-docs/engineering/
 
 ```bash
 mise install && mise run setup
-mise run db:start
-bun run dev             # web, game, and worker together
+mise run db:start       # first time: prints the anon key for the .env files
+bun run dev             # starts local Supabase if needed, then web, api, game, and worker
 ```
 
 Agents: `/product`, `/engineering`, `/implement`, `/designer`, `/marketing`, `/revenue` (in `.claude/commands/`). The lifecycle is in [development-workflow.md](docs/system-docs/engineering/development-workflow.md).

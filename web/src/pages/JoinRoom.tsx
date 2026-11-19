@@ -1,13 +1,15 @@
 import { Alert, Anchor, Button, Center, Container, Group, Loader, Stack, Text, TextInput, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
-import { type ReactNode, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
-import { MicPrompt } from "../game/MicPrompt";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { MicGate } from "../game/MicGate";
 import { PlayerGame } from "../game/PlayerGame";
 import { markGamePlayed } from "../lib/accountFlags";
 import { getPrefillName, isValidName, MAX_NAME, setLastName } from "../lib/displayName";
+import { money } from "../lib/money";
 import { type RoomState, useRoom } from "../lib/room";
 import { joinRoom, type RoomJoin, type RoomProblem, roomByCode } from "../lib/rooms";
+import { onMicPermissionChange } from "../lib/speech";
 import { getUserId } from "../lib/supabase";
 import { GoldButton } from "../ui/GoldButton";
 import { DISPLAY, PHONE_BG, SOFT } from "../ui/tokens";
@@ -19,14 +21,30 @@ export const JOIN_ERRORS: Record<RoomProblem, string> = {
   "invalid-name": "Names are 1 to 20 characters.",
   "not-a-host": "Hosting is invite-only.",
   "rate-limited": "Too many tries. Wait a minute and try again.",
+  "not-in-game": "This game is being resumed. Only its players can join.",
+  "not-the-host": "Couldn't join. Try again.",
+  "not-resumable": "Couldn't join. Try again.",
   error: "Couldn't join. Try again.",
 };
 
-type Stage = { kind: "checking" } | { kind: "name" } | { kind: "joined"; room: RoomJoin; userId: string };
+type Stage =
+  | { kind: "checking" }
+  | { kind: "mic" }
+  | { kind: "name" }
+  | { kind: "rejoin"; room: RoomJoin; userId: string }
+  | { kind: "joined"; room: RoomJoin; userId: string };
 
-/** /join/:code: a phone joins a room. A member who reloads goes straight back in. */
+/**
+ * /join/:code: a phone joins a room. The microphone comes first: nobody is added to the room
+ * until it's allowed. A member who reloads goes back in, through the microphone screen again
+ * if the browser asks again (iPhone Safari does on each visit).
+ */
 export function JoinRoom() {
   const { code = "" } = useParams();
+  // From Home's "resuming your game" card: the seat and name come from the game, so no prompt.
+  const [params] = useSearchParams();
+  const resuming = params.get("resume") === "1";
+  const navigate = useNavigate();
   const [stage, setStage] = useState<Stage>({ kind: "checking" });
   const [name, setName] = useState(getPrefillName);
   const [joining, setJoining] = useState(false);
@@ -37,12 +55,35 @@ export function JoinRoom() {
     void (async () => {
       const [result, userId] = await Promise.all([roomByCode(code), getUserId().catch(() => "")]);
       if (!live) return;
-      setStage(result.ok ? { kind: "joined", room: result.data, userId } : { kind: "name" });
+      if (!result.ok) setStage({ kind: "mic" });
+      else if (result.data.room.hostUserId === userId) setStage({ kind: "joined", room: result.data, userId });
+      else setStage({ kind: "rejoin", room: result.data, userId });
     })();
     return () => {
       live = false;
     };
   }, [code]);
+
+  // After the microphone: the name, or, from a resume invite, straight into the seat (the
+  // name comes from the game).
+  const toName = useCallback(() => {
+    if (!resuming) {
+      setStage({ kind: "name" });
+      return;
+    }
+    void (async () => {
+      const [joined, userId] = await Promise.all([
+        joinRoom(code, getPrefillName() || "Player"),
+        getUserId().catch(() => ""),
+      ]);
+      if (joined.ok) {
+        setStage({ kind: "joined", room: joined.data, userId });
+        return;
+      }
+      setProblem(joined.problem);
+      setStage({ kind: "name" });
+    })();
+  }, [resuming, code]);
 
   async function join(event: { preventDefault(): void }) {
     event.preventDefault();
@@ -66,6 +107,16 @@ export function JoinRoom() {
       </Centered>
     );
   if (stage.kind === "joined") return <ConnectedPlayer room={stage.room} userId={stage.userId} />;
+  if (stage.kind === "mic" || stage.kind === "rejoin") {
+    return (
+      <Centered>
+        <MicGate
+          onGranted={stage.kind === "mic" ? toName : () => setStage({ ...stage, kind: "joined" })}
+          onLeave={() => navigate("/")}
+        />
+      </Centered>
+    );
+  }
 
   return (
     <div style={{ minHeight: "100dvh", background: PHONE_BG, color: "#fff" }}>
@@ -108,8 +159,26 @@ export function JoinRoom() {
 function ConnectedPlayer({ room, userId }: { room: RoomJoin; userId: string }) {
   const navigate = useNavigate();
   const isHost = room.room.hostUserId === userId;
+  // Microphone turned off mid-game: the phone drops its socket (the TV shows the player
+  // "(reconnecting)") until it's allowed again.
+  const [micLost, setMicLost] = useState(false);
+  useEffect(() => (isHost ? undefined : onMicPermissionChange((s) => setMicLost(s === "denied"))), [isHost]);
+  const micBack = useCallback(() => setMicLost(false), []);
   // The host's device is the TV; it never connects here as a player.
-  const { state, send, leave } = useRoom(isHost ? null : room.gameSocketUrl, room.room.hostUserId);
+  const { state, send, leave } = useRoom(isHost || micLost ? null : room.gameSocketUrl, room.room.hostUserId);
+  if (micLost && !isHost) {
+    return (
+      <Centered>
+        <MicGate
+          onGranted={micBack}
+          onLeave={() => {
+            leave();
+            navigate("/");
+          }}
+        />
+      </Centered>
+    );
+  }
   if (isHost) {
     return (
       <Centered>
@@ -168,7 +237,7 @@ export function PlayerView({
     return (
       <Centered>
         <Title order={2} ff={DISPLAY} fw={600}>
-          This room has closed.
+          {state.replaced ? "You're playing on another device." : "This room has closed."}
         </Title>
         <Anchor component={Link} to="/">
           Back to home
@@ -216,7 +285,9 @@ export function PlayerView({
           </Text>
         )}
         <Title order={2} ff={DISPLAY} fw={500} fz={32} lh={1.1}>
-          You're in, {me?.displayName ?? "…"}.
+          {state.resume
+            ? `You're back, ${me?.displayName ?? "…"}. ${money(state.resume.players.find((p) => p.userId === userId)?.score ?? 0)}`
+            : `You're in, ${me?.displayName ?? "…"}.`}
         </Title>
         <Text size="sm" c={SOFT} mt={6}>
           {state.rematch
@@ -224,7 +295,6 @@ export function PlayerView({
             : `Hosted by ${state.hostDisplayName}. Look for your name on the TV.`}
         </Text>
       </div>
-      <MicPrompt />
       {editing ? (
         <Group>
           <TextInput

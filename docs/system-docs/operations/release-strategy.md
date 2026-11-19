@@ -21,7 +21,7 @@ git fetch origin
 node scripts/release-scope.cjs origin/production origin/develop
 ```
 
-The script reads commit bodies and PR descriptions as well as subjects (a squashed daily's subject names no ticket). Its output has three parts: **Implemented** (with task type, which sets the bump; tickets marked "already on origin/production" shipped in a hotfix and are excluded), **Task spec or docs only** (not in the release), and **Named without a type** (check by hand).
+The script reads commit bodies and PR descriptions as well as subjects (the three squashed daily PRs from before 2026-11-18 name no ticket in their subjects). Its output has three parts: **Implemented** (with task type, which sets the bump; tickets marked "already on origin/production" shipped in a hotfix and are excluded), **Task spec or docs only** (not in the release), and **Named without a type** (check by hand).
 
 ## Process
 
@@ -50,7 +50,7 @@ The gap between "code is live" and "marked released" is deliberate: a human conf
 
 1. Branch `hotfix/X.Y.Z-description` from `production`. When possible, land the fix on `develop` first and cherry-pick it; test the cherry-pick before promising a hotfix, because production may be far behind `develop`.
 2. PR to `production` (merge commit), deploy, verify as in steps 5–6, sign off.
-3. Backport to `develop` (the one non-daily PR that targets `develop` directly).
+3. Backport to `develop` (a PR into `develop` like any task).
 4. `releases/X.Y.Z/` with `tickets.md`, `metadata.md`, `internal-release-notes.md` (user notes only if user-visible).
 
 ## Rollback

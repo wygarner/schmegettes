@@ -14,7 +14,7 @@ lobby ──Start──▶ building_board ──ready──▶ board … final_r
 | `building_board` | "Shuffling a fresh board…" on the TV and phones. Target under 3 s. Joining is closed from here. |
 | `board` onward | Normal play (product-overview.md, "Game phases") |
 | `finished` | Final scoreboard on the TV, **Rematch** on the host device, **Leave** on phones ([scoreboard and overrides](../scoreboard-and-overrides/interaction-design.md#end-of-game-scoreboard)) |
-| `abandoned` | Nobody is in the room to see it; it appears in history with an "Unfinished" tag |
+| `abandoned` | Nobody is in the room to see it; it appears in history with an "Unfinished" tag. Its host can resume it ([rejoin and resume](../rejoin-games/interaction-design.md)) |
 
 ## Flows
 

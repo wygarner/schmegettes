@@ -162,7 +162,11 @@ func write(conn *websocket.Conn, c *room.Client) {
 						return
 					}
 				default:
-					err := conn.Close(websocket.StatusNormalClosure, "")
+					code, reason := websocket.StatusNormalClosure, ""
+					if c.CloseCode == room.CloseOtherDevice {
+						code, reason = websocket.StatusCode(room.CloseOtherDevice), "other_device"
+					}
+					err := conn.Close(code, reason)
 					if err != nil && !errors.Is(err, context.Canceled) {
 						_ = conn.CloseNow()
 					}

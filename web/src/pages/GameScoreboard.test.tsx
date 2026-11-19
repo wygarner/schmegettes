@@ -1,11 +1,13 @@
 import { MantineProvider } from "@mantine/core";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, expect, test, vi } from "vitest";
 import { type GameDetail, gameDetail } from "../lib/games";
+import { resumeGame } from "../lib/rooms";
 import { GameScoreboard } from "./GameScoreboard";
 
 vi.mock("../lib/games", () => ({ gameDetail: vi.fn() }));
+vi.mock("../lib/rooms", () => ({ resumeGame: vi.fn() }));
 
 const detail: GameDetail = {
   gameId: "6f0d2a5e-8a0b-4c39-9a4e-2d1f0b7a9c11",
@@ -28,6 +30,7 @@ function show() {
       <MemoryRouter initialEntries={[`/games/${detail.gameId}`]}>
         <Routes>
           <Route path="/games/:gameId" element={<GameScoreboard />} />
+          <Route path="/host/:code" element={<p>host screen</p>} />
         </Routes>
       </MemoryRouter>
     </MantineProvider>,
@@ -65,4 +68,27 @@ test("a game the player didn't play or watch", async () => {
   vi.mocked(gameDetail).mockResolvedValue({ ok: false, notFound: true });
   show();
   expect(await screen.findByText("This game isn't in your history.")).toBeInTheDocument();
+});
+
+test("the host of an Unfinished game can resume it", async () => {
+  vi.mocked(gameDetail).mockResolvedValue({
+    ok: true,
+    data: { ...detail, status: "abandoned", resumableUntil: "2026-12-18T20:00:00Z" },
+  });
+  vi.mocked(resumeGame).mockResolvedValue({
+    ok: true,
+    data: { gameSocketUrl: "ws://g", room: { code: "M4QTP" } } as never,
+  });
+  show();
+  expect(await screen.findByText("You can resume until Dec 18.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Resume game" }));
+  expect(await screen.findByText("host screen")).toBeInTheDocument();
+  expect(resumeGame).toHaveBeenCalledWith(detail.gameId);
+});
+
+test("no Resume without resumableUntil", async () => {
+  vi.mocked(gameDetail).mockResolvedValue({ ok: true, data: { ...detail, status: "abandoned" } });
+  show();
+  await screen.findByLabelText("Scoreboard");
+  expect(screen.queryByRole("button", { name: "Resume game" })).toBeNull();
 });

@@ -2,9 +2,8 @@ name: CI
 
 on:
   pull_request:
-    # Do not add daily/** here: no CI runs on PRs into a daily branch. The day's work is
-    # checked once, on the daily/* -> develop PR. There is no push trigger either: commits
-    # pushed straight to develop need a manual dispatch before a release includes them.
+    # Every task PR targets develop and merges only with this green. There is no push trigger:
+    # commits pushed straight to develop need a manual dispatch before a release includes them.
     branches:
       - develop
       - production
@@ -70,7 +69,8 @@ jobs:
             echo "database=$(has "$CORE|^supabase/")"
             echo "scripts=$(has '^scripts/|^\.github/')"
             echo "evals=$(has '^evals/|^worker/prompts/')"
-            # PRs that only touch docs, tasks, or releases skip every check.
+            # PRs that only touch docs, tasks, or releases skip every check. Keep in step with
+            # deploy-staging.yml's paths-ignore, which skips the staging deploy for the same pushes.
             echo "docs_only=$(grep -qvE '^(docs/|tasks/|releases/|.*\.md$)' <<<"$FILES" && echo false || echo true)"
           } >> "$GITHUB_OUTPUT"
 

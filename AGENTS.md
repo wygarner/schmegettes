@@ -15,9 +15,8 @@ Read:
 ## Branch
 
 ```bash
-DAILY="daily/$(date +%F)"
 git fetch origin
-git checkout --no-track -b {task-type}/SCH-{N}-{task-name} "origin/$DAILY"
+git checkout --no-track -b {task-type}/SCH-{N}-{task-name} origin/develop
 ```
 
 In parallel mode, work in the worktree `../schmegettes-SCH-{N}` you were given.
@@ -34,19 +33,19 @@ Work through the spec's subtasks in order (contracts → migrations → services
 
 ## Validate (targeted only)
 
-Run the tests for what you changed, e.g. `mise run test:game -- ./internal/judge/...`, `mise run test:web -- src/…test.tsx`, `mise run db:test`. Run the package's linter for touched files. **Never run a full suite locally.** No CI runs on your PR, so these runs are the only check before your code reaches the daily branch. Do not open a PR with failing tests.
+Run the tests for what you changed, e.g. `mise run test:game -- ./internal/judge/...`, `mise run test:web -- src/…test.tsx`, `mise run db:test`. Run the package's linter for touched files. **Never run a full suite locally.** CI runs every package on your PR into `develop`, and the PR merges only when it is green, but don't use CI to find failures: do not open a PR with failing tests.
 
 ## Open the PR
 
 ```bash
-git fetch origin && git merge "origin/$DAILY"      # a PR opened with conflicts skips the In Review transition
+git fetch origin && git merge origin/develop      # a PR opened with conflicts skips the In Review transition
 git rm -r "tasks/{task-name}-SCH-{N}/"
 git commit -m "chore: delete task folder for SCH-{N}"
 git push -u origin {task-type}/SCH-{N}-{task-name}
-gh pr create --base "$DAILY" --title "[{Task Type}] SCH-{N}: {brief description}" --body "{summary, tests run, anything to check by hand}"
+gh pr create --base develop --title "[{Task Type}] SCH-{N}: {brief description}" --body "{summary, tests run, anything to check by hand}"
 ```
 
-One PR. The task folder deletion is its final commit.
+One PR. The task folder deletion is its final commit. Then watch CI (`gh pr checks --watch --fail-fast`) and fix any failure with a new commit on the same branch.
 
 ## Never
 

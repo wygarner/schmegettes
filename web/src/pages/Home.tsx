@@ -8,7 +8,7 @@ import { type GameSummary, lastGame } from "../lib/games";
 import { getHostAccess } from "../lib/hostAccess";
 import { money } from "../lib/money";
 import { listWhen, ordinal } from "../lib/placement";
-import { createRoom } from "../lib/rooms";
+import { type CurrentRoom, createRoom, currentRoom } from "../lib/rooms";
 import {
   Avatar,
   Callout,
@@ -62,6 +62,9 @@ export function Home() {
   const [signIn, setSignIn] = useState<"sign-in" | "save" | null>(null);
   const [signedOut, setSignedOut] = useState(signedOutNotice);
   const [last, setLast] = useState<GameSummary | null>(null);
+  // The room this account is in, to rejoin (rejoin-games feature brief).
+  const [room, setRoom] = useState<CurrentRoom | null>(null);
+  const [roomEnded, setRoomEnded] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -74,10 +77,25 @@ export function Home() {
     void lastGame().then((g) => {
       if (live) setLast(g);
     });
+    void currentRoom().then((r) => {
+      if (live) setRoom(r);
+    });
     return () => {
       live = false;
     };
   }, []);
+
+  /** Rejoin: the TV view for the host, the seat for a contestant; a resume invite joins at once. */
+  async function rejoin(r: CurrentRoom) {
+    const still = await currentRoom();
+    if (!still || still.roomId !== r.roomId) {
+      setRoom(null);
+      setRoomEnded(true);
+      return;
+    }
+    if (r.role === "host") navigate(`/host/${r.code}`);
+    else navigate(r.kind === "resume_invite" ? `/join/${r.code}?resume=1` : `/join/${r.code}`);
+  }
 
   function closeSignIn() {
     if (signIn === "save") snoozeSavePrompt();
@@ -168,6 +186,26 @@ export function Home() {
             Sign in to get your games back. You can still play as a guest.
           </Callout>
         )}
+        {room && (
+          <Callout
+            tone="success"
+            title={
+              room.kind === "game"
+                ? `Game in progress · ${room.code}`
+                : room.kind === "lobby"
+                  ? `You're in a lobby · ${room.code}`
+                  : `${room.hostDisplayName} is resuming your game · ${room.code}`
+            }
+            action={
+              <MenuButton kind="primary" size="sm" onClick={() => void rejoin(room)}>
+                {room.kind === "resume_invite" ? "Join" : "Rejoin"}
+              </MenuButton>
+            }
+          >
+            {room.playerNames.join(", ") || "Waiting for players"}
+          </Callout>
+        )}
+        {roomEnded && <Callout tone="info">That game has ended.</Callout>}
         {failed && <Callout tone="danger">Couldn't create a room. Try again.</Callout>}
 
         <div className="sg-in" style={{ ...SURFACE, borderRadius: 28, padding: 20 }}>

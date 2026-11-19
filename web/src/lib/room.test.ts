@@ -321,3 +321,49 @@ describe("overrides, the scoreboard and Rematch", () => {
     expect(s.results?.map((r) => r.placement)).toEqual([1, 1]);
   });
 });
+
+test("the pick reveal comes only with the pick's phase_changed", () => {
+  const board = [{ ...clue, state: "unplayed" as const }];
+  let s = reduceRoom(
+    { ...initialRoom, connection: "open", board },
+    { type: "phase_changed", roomId: ROOM, seq: 1, phase: "clue_reading", activeClue: clue, revealUntil: 1500 },
+  );
+  expect(s.reveal).toEqual({ clueId: "c1", kind: "card" });
+  s = reduceRoom(s, { type: "phase_changed", roomId: ROOM, seq: 2, phase: "buzzing_open", activeClue: clue });
+  expect(s.reveal).toBeUndefined();
+  s = reduceRoom(s, {
+    type: "phase_changed",
+    roomId: ROOM,
+    seq: 3,
+    phase: "daily_double_wager",
+    activeClue: { ...clue, clueId: "dd" },
+    revealUntil: 600,
+  });
+  expect(s.reveal).toEqual({ clueId: "dd", kind: "blink" });
+});
+
+test("another device took the seat: the room stops here", () => {
+  const s = reduceRoom({ ...initialRoom, connection: "open" }, { type: "replaced" });
+  expect(s.connection).toBe("closed");
+  expect(s.replaced).toBe(true);
+});
+
+test("a resume lobby's players come with the lobby", () => {
+  const resume = {
+    gameId: "g",
+    startedAt: 1,
+    players: [{ userId: "a", displayName: "Alice", score: 1200, back: true }],
+  };
+  const s = reduceRoom(initialRoom, {
+    type: "lobby_updated",
+    roomId: ROOM,
+    seq: 1,
+    hostUserId: "h",
+    hostDisplayName: "Wyatt",
+    hostPlays: false,
+    maxPlayers: 6,
+    players: [],
+    resume,
+  });
+  expect(s.resume).toEqual(resume);
+});

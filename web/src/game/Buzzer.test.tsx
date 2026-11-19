@@ -1,7 +1,10 @@
 import { MantineProvider } from "@mantine/core";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+import { playBuzz } from "../lib/sfx";
 import { Buzzer, type BuzzerState } from "./Buzzer";
+
+vi.mock("../lib/sfx", () => ({ playBuzz: vi.fn(async () => undefined) }));
 
 const cases: [BuzzerState, string, boolean, boolean][] = [
   // state, what screen readers hear, enabled, a press calls onBuzz
@@ -40,4 +43,25 @@ test("never shorter than 64 px", () => {
     </MantineProvider>,
   );
   expect(screen.getByRole("button", { name: "Buzz" })).toHaveStyle({ height: "64px" });
+});
+
+describe("the press sound", () => {
+  test.each([
+    ["dim", true],
+    ["lit", true],
+    ["pick", true],
+    ["idle", false],
+    ["answering", false],
+    ["listening", false],
+    ["early", false],
+  ] as const)("%s: sound %s", (state, sounds) => {
+    vi.mocked(playBuzz).mockClear();
+    render(
+      <MantineProvider>
+        <Buzzer state={state} onBuzz={() => {}} />
+      </MantineProvider>,
+    );
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Buzz" }));
+    expect(playBuzz).toHaveBeenCalledTimes(sounds ? 1 : 0);
+  });
 });

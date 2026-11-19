@@ -7,21 +7,22 @@ board ──pick──▶ clue_reading ──speech ends / timer──▶ buzzin
   ▲                                                     │   ▲                  │
   │                                       9 s, no buzz  │   └── incorrect, ────┤
   │                                                     ▼       others left    │ correct, or
-  └────────────── 6 s (TV shows correct response) ◀── clue ends ◀──────────────┘ nobody left
+  └──── response read + 1 s (at most 6 s) ◀───────── clue ends ◀──────────────┘ nobody left
 ```
 
-Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `clue_reading`, `buzzing_open`, `answering`. The "correct response" screen is the end of `answering` or `buzzing_open`, before `board`.
+Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `clue_reading`, `buzzing_open`, `answering`. The 1.5 s pick reveal is the start of `clue_reading`. The "correct response" screen is the end of `answering` or `buzzing_open`, before `board`.
 
 ## Timing
 
 | Step | Time |
 |---|---|
 | Pick a clue | No limit while the controller is connected. Controller disconnected for 10 s: control passes to the next connected contestant in join order. |
-| Reading | "Here's {category} for {value}." then the clue, until speech ends. Fallback: about 2.5 words per second + 1 s over both, at most 14 s |
+| Pick reveal | 1.5 s: the cell blinks (0.6 s), then grows into the category card (0.9 s) |
+| Reading | The clue only, until speech ends. Fallback: 1.5 s + about 2.5 words per second + 1 s, at most 14 s for the reading part |
 | Early-buzz lockout | 250 ms |
-| Buzz window (and each reopen) | 9 s |
-| Answer | Until the player goes quiet, at most 9 s |
-| Correct response on screen | 6 s |
+| Buzz window (and each reopen) | 9 s Standard · 15 s Relaxed · 5 s Fast ([game options](../lobby/feature-brief.md#game-options)) |
+| Answer | Until the player goes quiet, at most 9 s Standard · 12 s Relaxed · 7 s Fast |
+| Correct response on screen | Sound (under 1 s), the narrator's line, then 1 s. At most 6 s from the clue's end if the host device never reports the line's end |
 | "Double Schmegettes!" interstitial | 3 s |
 
 ## Screens
@@ -36,19 +37,19 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 
 ```text
 ┌───────────────────────────────────────────────────┬───────────────────┐
-│ VOLCA- │ POTPOU-│ 80s TV │ CAPI-  │ RHYME │ OPERA  │┏━━━━━━━━━━━━━━━━━┓│
-│ NOES   │ RRI    │        │ TALS   │ TIME  │        │┃ Alice   $1,200  ┃│ ◀ picking:
-│  200   │  200   │  200   │        │  200  │  200   │┃ PICKING         ┃│   yellow.4 border
-│  400   │  400   │  400   │  400   │  400  │  400   │┗━━━━━━━━━━━━━━━━━┛│
-│  600   │  600   │  600   │  600   │  600  │  600   │  Bob       $400   │
-│  800   │  800   │  800   │  800   │  800  │  800   │  Wyatt    −$200   │
+│ VOLCANOES│POTPOURRI │  80s TV  │ CAPITALS │  OPERA   │┏━━━━━━━━━━━━━━━━━┓│
+│          │          │          │          │          │┃ Alice   $1,200  ┃│ ◀ picking:
+│   200    │   200    │   200    │          │   200    │┃ PICKING         ┃│   yellow.4 border
+│   400    │   400    │   400    │   400    │   400    │┗━━━━━━━━━━━━━━━━━┛│
+│   600    │   600    │   600    │   600    │   600    │  Bob       $400   │
+│   800    │   800    │   800    │   800    │   800    │  Wyatt    −$200   │
 │                                                    │ ┌───────────────┐ │
 │                                                    │ │ (red buzzer)  │ │ ◀ only when the
 │                                                    │ └───────────────┘ │   host plays
 └───────────────────────────────────────────────────┴───────────────────┘
 ```
 
-- Board: 6 categories × 4 rows (Single 200–800, Double 400–1,600). `boardBlue.9` cells, values in `yellow.4` weight 800, category headers uppercase white, wrapping to at most 3 lines and shrinking to fit. A finished clue shows an empty cell.
+- Board: **5 categories** × 4 rows (Single 200–800, Double 400–1,600). The five columns share the stage's full width, so each cell is a fifth wider than with six and headers wrap less. `boardBlue.9` cells, values in `yellow.4` weight 800, category headers uppercase white, wrapping to at most 3 lines and shrinking to fit. A finished clue shows an empty cell.
 - **The board is tappable only when the host plays and has control.** Otherwise taps do nothing, and the cells don't show a pressed state.
 - No caption under the board: no "Waiting for … to pick", no host-pick hint.
 
@@ -60,7 +61,28 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 - At most 6 contestants. Up to 4: two-line tiles (name, then score). 5 or 6: one-line tiles (name, PICKING, score). Tiles share the column's height (one-line tiles up to 48 px), so 6 tiles and the host's buzzer fit at 667 × 320 (about 35 px each there).
 - When the host plays, their buzzer sits at the bottom of the column, at least 64 px tall, and the tiles share the space above it.
 
-**Clue (`clue_reading`, `buzzing_open`, `answering`):** the stage shows the category and value small at the top ("VOLCANOES · $400"), and the clue text uppercase, white on `boardBlue.9`, as large as fits. The narrator says "Here's Volcanoes for 400." and then reads the clue.
+**Pick reveal (first 1.5 s of `clue_reading`):**
+
+```text
+0.0 s                      0.6 s                         1.5 s
+┌──────────────────────┐   ┌──────────────────────┐      ┌──────────────────────┐
+│ ▓▓ ░░ ▓▓ ░░ ▓▓       │   │   ┌──────────────┐   │      │  VOLCANOES · $400    │
+│ cell blinks 3× in    │──▶│   │  VOLCANOES   │   │─────▶│                      │
+│ yellow.4 / white     │   │   │     $400     │   │      │  THIS HAWAIIAN …     │
+│ (the rest of the     │   │   └──────────────┘   │      │                      │
+│  board stays put)    │   │ cell lifts and grows │      │  clue screen; the    │
+└──────────────────────┘   │ to a centered card   │      │  narrator reads      │
+                           └──────────────────────┘      └──────────────────────┘
+```
+
+- **0–0.6 s:** the picked cell blinks three times (its value flashes `yellow.4` ↔ white). The rest of the board stays still.
+- **0.6–1.5 s:** the cell lifts out of the board and grows, with an ease-out, into a card centered on the stage: about 60% of the stage's width, `boardBlue.9` with the board bevel, the category in white uppercase (Oswald) and the value in `yellow.4` below it ("$400"). The board dims behind it. The card holds for the last 0.3 s.
+- **At 1.5 s:** the card shrinks into the clue screen's header ("VOLCANOES · $400") and the clue text appears. The narrator starts reading.
+- No sound and no speech during the reveal. On a Daily Double, the blink is followed by the Daily Double reveal instead of the card ([wagers](../wagers/interaction-design.md)).
+- With reduced motion turned on, the cell doesn't blink or fly: the card fades in for the same 1.5 s.
+- Phones: the buzzer goes `dim` at the pick, and the screen above it says "Volcanoes for $400" during the reveal, then "Listen…".
+
+**Clue (`clue_reading`, `buzzing_open`, `answering`):** the stage shows the category and value small at the top ("VOLCANOES · $400"), and the clue text uppercase, white on `boardBlue.9`, as large as fits. The narrator reads the clue (no announcement first).
 
 **Buzzing open:** a lit `yellow.4` border around the stage and a 9 s countdown bar.
 
@@ -70,7 +92,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 - Correct: "✓ Alice: *what is Paris*" in `green` and "+$400".
 - Incorrect: "✗ Alice: *Lyon*" in `red` and "−$400". Buzzing reopens.
 
-**Correct response (6 s):** the clue text is **gone**, and the narrator says "Correct, Mauna Loa is the right answer." when someone got it, or "Sorry, we were looking for Mauna Loa." when nobody did (wrong answers, no buzz, a missed Daily Double) The stage shows:
+**Correct response:** the clue text is **gone**, a short sound plays (a chime when someone got it, a time's-up tone when nobody did: [sound effects](../sound-effects/feature-brief.md)), and then the narrator says "Correct, Mauna Loa is the right answer." when someone got it, or "Sorry, we were looking for Mauna Loa." when nobody did (wrong answers, no buzz, a missed Daily Double) The stage shows:
 
 ```text
 │            VOLCANOES · $400               │
@@ -81,7 +103,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 │             MAUNA LOA                     │
 ```
 
-The verdict line appears only when the clue ended on a judged answer. A clue nobody buzzed on shows just the category, value and correct response.
+One second after the line ends, the board returns (at most 6 s after the clue ended, if the host device never reports the end of the line). The verdict line appears only when the clue ended on a judged answer. A clue nobody buzzed on shows just the category, value and correct response.
 
 **"Double Schmegettes!" (3 s), paused, game over:** shown on the stage; the player column stays.
 
@@ -112,7 +134,8 @@ The buzzer is pinned to the bottom of the phone screen on every screen from the 
 
 | Phase | Above the buzzer | Buzzer |
 |---|---|---|
-| Lobby | "You're in, Alice." Microphone prompt, **Edit name**, **Leave** | `idle` |
+| Joining | Microphone screen (below), then the name | none until the player is in |
+| Lobby | "You're in, Alice." **Edit name**, **Leave** | `idle` |
 | `board`, I have control | Mini board (category names and values). No "Your pick" heading, no score, no microphone button: the buzzer is it. While listening, a green "Listening… Say a category and value, like “Opera for 600”" panel. | `pick`, `listening` while it listens |
 | `board`, someone else picks | "Alice is picking…" and my score | `idle` |
 | `clue_reading` | "Listen…" | `dim` |
@@ -149,18 +172,37 @@ The same states as the phone, in the player column, minus what the stage already
 ### A clue, start to finish
 
 1. Alice has control; her tile on the TV is highlighted. She taps "VOLCANOES 400" on her phone and confirms **Pick**.
-2. The TV shows the clue. The narrator says "Here's Volcanoes for 400." and reads the clue.
+2. On the TV her cell blinks and grows into a "VOLCANOES / $400" card. 1.5 s after the pick the clue appears and the narrator reads it.
 3. Speech ends, buzzing opens, and every buzzer lights.
 4. Bob buzzes 180 ms later and wins. His buzzer turns green and his phone says "Say your answer".
 5. Bob says "Kilauea" and is judged incorrect: −$400. Buzzing reopens for everyone except Bob.
 6. Alice buzzes and says "what is Mauna Loa": correct, +$400, and she keeps control.
-7. The clue text disappears. The TV shows "Correct response: Mauna Loa" for 6 s, then the board with VOLCANOES 400 gone. Alice's tile is still highlighted.
+7. The clue text disappears. A chime plays, the TV shows "Correct response: Mauna Loa", the narrator says "Correct, Mauna Loa is the right answer.", and 1 s later the board is back with VOLCANOES 400 gone. Alice's tile is still highlighted.
 
 ### Microphone permission
 
-- The first time a phone wins a buzz, the browser asks for the microphone. To avoid that delay mid-game, phones ask during the **lobby**: "Allow the microphone so you can answer". The prompt appears after joining, and again on Start if not yet allowed.
-- Microphone blocked: the phone shows "Turn on the microphone to answer" with how to do it. That player's buzzer is still live, and a buzz with no microphone counts as no answer (incorrect), so the phone warns them before every clue.
-- Browser can't do speech recognition: show "This browser can't hear answers. Try Chrome or Safari." right after joining.
+**Nobody plays without a microphone.** Allowing it is the first thing a player does, and there's no way past it.
+
+```text
+┌──────────────────────────────┐
+│            🎤                │
+│  You answer out loud, so     │
+│  Schmegettes needs your      │
+│  microphone.                 │
+│                              │
+│   [   Allow microphone   ]   │
+│                              │
+│          Leave               │
+└──────────────────────────────┘
+```
+
+- **When:** on a phone, right after the room code is accepted, before the name. On the host device, when the host presses **Join the game**. A host who only hosts is never asked.
+- **Allow microphone** starts the same listening that answering uses, so the browser asks for everything it needs (on iPhone, the microphone and speech recognition) now and never mid-game.
+- **Not added until allowed.** The player isn't in the room (not on the TV, not counted) until they allow it and enter their name. A host isn't added as a contestant until they allow it.
+- **Blocked or "Don't Allow":** the screen says "Your microphone is blocked." with steps for that browser (iPhone Safari: **aA** → **Website Settings** → **Microphone** → **Allow**; Chrome: the icon left of the address → **Microphone** → **Allow**) and **Try again**. Only **Leave** gets out.
+- **Browser can't hear answers** (no speech recognition): a stop screen, "This browser can't hear answers. Open {site} in Safari or Chrome." with **Leave**.
+- **Asked again.** Some browsers (iPhone Safari) ask again on each visit. A reload or **Rejoin** shows the screen again before the player is back in their seat; until then their tile shows "(reconnecting)", as for any disconnect.
+- **Lost mid-game** (the permission is turned off in Settings): the screen covers the game on that phone, and the player counts as disconnected (no buzzing, a pick in control passes after 10 s) until they allow it again.
 
 ## Edge cases
 
@@ -176,21 +218,21 @@ The same states as the phone, in the player column, minus what the stage already
 | Controller disconnects on the board | 10 s later control passes to the next connected contestant in join order, and that tile highlights. Back within 10 s: they keep control |
 | Controller is the only connected contestant and disconnects | Control stays with them; the game waits |
 | Confirmation modal open when control passes or the phase changes | The modal closes; nothing is picked |
-| Speech synthesis unavailable on the host device | Clue shown silently; buzzing opens on the fallback timer |
-| The device's voice list hasn't loaded when the first clue is read | The reading starts at once with the default voice and never waits for the list. Later lines use the chosen voice ([feature brief](./feature-brief.md#the-narrators-voice)) |
-| The saved narrator voice was removed from the device | The Schmegettes voice reads instead (until it's ready, the best built-in voice), without a message |
-| A line in the Schmegettes voice hasn't started 1.5 s after it should have, or fails | That line is read with the best built-in voice. After 2 such lines in a row, the built-in voice reads for the rest of the game ([feature brief](./feature-brief.md#the-narrators-voice)) |
-| The Schmegettes voice becomes ready mid-game | The narrator switches to it at the next line, never mid-line |
-| The host device reloads mid-game | The Schmegettes voice loads from the browser's storage. Lines before it's ready use the best built-in voice |
+| The host device can't run the Schmegettes voices | It can't host: the lobby says so and Start stays disabled ([lobby](../lobby/interaction-design.md)) |
+| A line hasn't started 1.5 s after it should have, or fails | The line is skipped silently; the text stays on screen and buzzing opens on the fallback timer. The next line tries again ([feature brief](./feature-brief.md#the-narrators-voice)) |
+| The host device reloads mid-game | The voice loads from the browser's storage. Lines before it's ready are skipped silently |
+| The browser deleted the saved voice before a game | It downloads again in the lobby, and Start waits for it |
+| A clue is picked while the previous correct response is still being read | Can't happen: the board returns only after the line ends |
 | A player taps the buzzer outside a clue (lobby, board, between clues) | Press animation only. No lockout, nothing sent. Exception: the player in control on the board starts a spoken pick |
 | A player buzzes during `answering` | Ignored (not a lockout) |
-| Everyone has tried and all were wrong | Clue ends, correct response shown for 6 s without the clue, control unchanged |
+| Everyone has tried and all were wrong | Clue ends, time's-up sound, correct response read without the clue, board back 1 s later, control unchanged |
 | Transcript is empty after 9 s (connected) | Incorrect |
 | The answer sounds like the response but is spelled differently ("mona lowa" for Mauna Loa) | Correct. The verdict line shows what was heard: "✓ Alice: *mona lowa*". Rules in the [feature brief](./feature-brief.md#how-an-answer-is-matched) |
 | Speech recognition offers several transcripts and only a less likely one matches | Correct. The verdict line shows the transcript that matched |
 | Phone disconnects while answering | No penalty, buzzing reopens for the others, and that player is out for this clue |
 | Phone reconnects mid-clue | It gets the current phase and buzzer state. If it already tried this clue, its buzzer is locked |
-| Host device disconnects mid-clue | Paused. On return the announcement and clue are read again from the start, and buzzing reopens for those who haven't tried |
+| Host device disconnects mid-clue | Paused. On return the clue is read again from the start (no pick reveal), and buzzing reopens for those who haven't tried |
+| Host device disconnects during the pick reveal | Paused. On return the clue screen shows at once and the clue is read |
 | 6 contestants plus the host's buzzer on a 667 × 320 screen | One-line tiles of about 35 px; all 4 board rows stay visible |
 | Only one contestant left connected | Play continues |
 | A Daily Double square | Wager, then the picker answers alone ([wagers](../wagers/interaction-design.md)) |

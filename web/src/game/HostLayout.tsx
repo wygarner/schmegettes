@@ -1,7 +1,7 @@
 import { Box, Center, Stack, Text, Title } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { type ReactNode, useEffect } from "react";
-import { unlockSpeech } from "../lib/speech";
+import { unlockAudio } from "../lib/piper/audio";
 import { DISPLAY, NIGHT } from "../ui/tokens";
 
 /**
@@ -15,11 +15,11 @@ export function HostLayout({ stage, column }: { stage: ReactNode; column: ReactN
   // The host device reads clues aloud. iOS allows that only after speech started from a
   // tap, so the first tap anywhere on the host screen (Host a game, Start…) unlocks it.
   useEffect(() => {
-    document.addEventListener("click", unlockSpeech);
-    document.addEventListener("keydown", unlockSpeech);
+    document.addEventListener("click", unlockAudio);
+    document.addEventListener("keydown", unlockAudio);
     return () => {
-      document.removeEventListener("click", unlockSpeech);
-      document.removeEventListener("keydown", unlockSpeech);
+      document.removeEventListener("click", unlockAudio);
+      document.removeEventListener("keydown", unlockAudio);
     };
   }, []);
   return (

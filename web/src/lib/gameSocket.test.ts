@@ -1,12 +1,12 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { GameSocket } from "./gameSocket";
+import { CLOSE_OTHER_DEVICE, GameSocket } from "./gameSocket";
 
 vi.mock("./supabase", () => ({ getAccessToken: vi.fn().mockResolvedValue("token") }));
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
   onmessage?: (e: { data: string }) => void;
-  onclose?: () => void;
+  onclose?: (e: { code: number }) => void;
   constructor(
     public url: string,
     public protocols: string[],
@@ -57,4 +57,14 @@ test("a real gap still reconnects", async () => {
   ws?.emit({ type: "room_snapshot", roomId: ROOM, seq: 1, phase: "lobby", round: "single", players: [], board: [] });
   ws?.emit({ type: "phase_changed", roomId: ROOM, seq: 5, phase: "lobby" });
   await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(2));
+});
+
+test("the drop listener hears the close code (4001: another device took the seat)", async () => {
+  vi.stubGlobal("WebSocket", FakeWebSocket);
+  const socket = new GameSocket("ws://game/rooms/r/ws");
+  const codes: Array<number | undefined> = [];
+  socket.onDrop((code) => codes.push(code));
+  await socket.connect();
+  FakeWebSocket.instances[0]?.onclose?.({ code: CLOSE_OTHER_DEVICE });
+  expect(codes).toEqual([CLOSE_OTHER_DEVICE]);
 });

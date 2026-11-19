@@ -27,6 +27,7 @@ export type ServerMessage =
  * Full state, sent on connect and reconnect. In the lobby, round is single, board is empty, and the lobby fields are present.
  */
 export interface RoomSnapshot {
+  resume?: ResumeLobby;
   type: "room_snapshot";
   roomId: string;
   seq: number;
@@ -59,6 +60,14 @@ export interface RoomSnapshot {
    * Server clock, ms since epoch, when the current step times out.
    */
   deadlineAt?: number;
+  /**
+   * This game's buzz window (each reopen too), from its timer pace. Absent before a game starts.
+   */
+  buzzWindowMs?: number;
+  /**
+   * How long this game's players have to say an answer, from its timer pace. Absent before a game starts.
+   */
+  answerWindowMs?: number;
   answeringUserId?: string;
   attemptedUserIds?: string[];
   paused?: boolean;
@@ -122,6 +131,22 @@ export interface RoomSnapshot {
     [k: string]: number;
   };
 }
+/**
+ * A resume lobby: the abandoned game being resumed, and its contestants with their scores. back: they're in the room again.
+ */
+export interface ResumeLobby {
+  gameId: string;
+  /**
+   * Server ms when the game first started.
+   */
+  startedAt: number;
+  players: {
+    userId: string;
+    displayName: string;
+    score: number;
+    back: boolean;
+  }[];
+}
 export interface Player {
   userId: string;
   displayName: string;
@@ -158,6 +183,7 @@ export interface LobbyUpdated {
   hostPlays: boolean;
   maxPlayers: number;
   players: Player[];
+  resume?: ResumeLobby;
 }
 /**
  * The room closed. host_absent: no host device for 30 minutes in the lobby. replaced: the host created a new room. closed: it had already closed when this socket connected. Clients stop reconnecting on any room_closed, whatever its seq.
@@ -193,6 +219,10 @@ export interface PhaseChanged {
    * Server clock, ms since epoch, when this phase times out.
    */
   deadlineAt?: number;
+  /**
+   * Server clock, ms since epoch, when the pick reveal ends (the cell's blink and the category card; a Daily Double's blink). Present only right after a pick, never on a re-read after a pause or reload, so the reveal is never replayed.
+   */
+  revealUntil?: number;
   answeringUserId?: string;
   attemptedUserIds?: string[];
   controllingUserId?: string;

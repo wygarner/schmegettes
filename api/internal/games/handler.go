@@ -129,7 +129,7 @@ func (h Handler) Detail(w http.ResponseWriter, r *http.Request, gameID openapi_t
 	body := contracts.GameDetail{
 		GameId: uuid.MustParse(d.GameID), Status: contracts.GameDetailStatus(d.Status),
 		StartedAt: d.StartedAt, FinishedAt: d.FinishedAt, HostDisplayName: d.HostName, Watched: &watched,
-		Results: []contracts.GameResult{},
+		Results: []contracts.GameResult{}, ResumableUntil: d.ResumableUntil,
 	}
 	for _, res := range d.Results {
 		caller := res.IsCaller

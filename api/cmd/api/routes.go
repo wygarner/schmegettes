@@ -63,7 +63,13 @@ func (routes) GetVersion(w http.ResponseWriter, _ *http.Request) {
 	server.JSON(w, http.StatusOK, contracts.Version{Service: "api", Commit: buildCommit()})
 }
 
-func (rt routes) PostV1Rooms(w http.ResponseWriter, r *http.Request) { rt.rooms.Create(w, r) }
+func (rt routes) PostV1Rooms(w http.ResponseWriter, r *http.Request)        { rt.rooms.Create(w, r) }
+func (rt routes) GetV1MeCurrentRoom(w http.ResponseWriter, r *http.Request) { rt.rooms.Current(w, r) }
+func (rt routes) PostV1GamesGameIdResume(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	if rt.limits.join.Allow(w, r) {
+		rt.rooms.Resume(w, r, id.String())
+	}
+}
 func (rt routes) PostV1RoomsJoin(w http.ResponseWriter, r *http.Request) {
 	if rt.limits.join.Allow(w, r) {
 		rt.rooms.Join(w, r)
@@ -128,8 +134,8 @@ func (rt routes) PostV1MeMerge(w http.ResponseWriter, r *http.Request) {
 func (routes) GetV1RoomsRoomId(w http.ResponseWriter, _ *http.Request, _ openapi_types.UUID) {
 	notImplemented(w)
 }
-func (routes) PatchV1RoomsRoomId(w http.ResponseWriter, _ *http.Request, _ openapi_types.UUID) {
-	notImplemented(w)
+func (rt routes) PatchV1RoomsRoomId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	rt.rooms.Patch(w, r, id.String())
 }
 
 // handler wires the routes behind logging, CORS, and authentication.

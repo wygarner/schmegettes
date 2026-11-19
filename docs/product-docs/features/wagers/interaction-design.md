@@ -7,7 +7,7 @@
 ```text
 board ──pick DD──▶ daily_double_wager ──wager / 30 s──▶ clue_reading ──speech ends──▶ answering
   ▲                (2 s reveal, then wager)              (no buzzing)                    │
-  └──────────────────── 6 s correct response ◀──── judged (± wager) ◀────────────────────┘
+  └──────────────────── correct response ◀──────── judged (± wager) ◀────────────────────┘
 ```
 
 `clue_reading` for a Daily Double never opens buzzing: when speech ends (or on the fallback timer) it goes straight to `answering` for the player who picked it.
@@ -15,7 +15,7 @@ board ──pick DD──▶ daily_double_wager ──wager / 30 s──▶ clue
 ### Final Schmegettes
 
 ```text
-Double board done ──▶ any score > 0? ──no──▶ finished (4 s "Nobody's in the black")
+Last board done ───▶ any score > 0? ──no──▶ finished (4 s "Nobody's in the black")
                            │ yes
                            ▼
 final_category ──▶ final_wager ──all locked / 30 s──▶ final_answer ──all submitted / 30 s──▶ final_reveal ──▶ finished
@@ -114,7 +114,7 @@ Lines appear about 2 s apart. The score in that player's tile updates on the las
 2. The TV shows "DAILY DOUBLE". Alice's phone shows the number pad and "$5 – $1,200".
 3. Alice taps 1 0 0 0 and **Wager**. The TV shows "Alice wagers $1,000".
 4. The narrator says "For 1,000, here's the clue." and reads it. Alice's phone starts listening when the reading ends.
-5. Alice says "what is Etna": correct. She now has $2,200 and keeps control. The correct response shows for 6 s, then the board.
+5. Alice says "what is Etna": correct. She now has $2,200 and keeps control. A chime, the correct response is read, and 1 s later the board is back.
 
 ### Final Schmegettes
 
@@ -132,7 +132,7 @@ Lines appear about 2 s apart. The score in that player's tile updates on the las
 | Daily Double picked by a player with a negative score | Range is $5 – $800 (Single) or $5 – $1,600 (Double) |
 | Player confirms a wager the instant the 30 s ends | The first event the server receives wins. A late wager is ignored, and the $5 / $0 default stands |
 | Daily Double player says nothing for 9 s | Incorrect: −wager |
-| Daily Double player's microphone is blocked | No answer, so −wager. The phone warns before the wager, as it does before every clue |
+| Daily Double player's microphone is turned off mid-game | The phone shows the microphone screen and the player counts as disconnected, so no answer: −wager ([gameplay](../gameplay/interaction-design.md#microphone-permission)) |
 | The last clue of the Double board is a Daily Double | It plays normally, then Final starts |
 | Exactly one finalist | Final runs for that player alone. The reveal has one step |
 | Finalist submits a typo ("Krakatowa") | Judged generously, like a mishearing: correct |

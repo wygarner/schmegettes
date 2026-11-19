@@ -1,96 +1,8 @@
-// Browser speech: the TV reads clues aloud (speechSynthesis) and players answer out loud
-// (SpeechRecognition). Recognition runs on the device; only text is sent to the server.
+// Browser speech: players answer out loud (SpeechRecognition), and the lines the narrator
+// says. Recognition runs on the device; only text is sent to the server. The narrator itself
+// is in narrator.ts (Schmegettes voices only; the device's speech synthesis is never used).
 
-import { chooseVoice, currentVoices, getSavedVoice } from "./narratorVoice";
-import { unlockAudio } from "./piper/audio";
-
-/** How a reading went. Only "ended" means the room heard the clue. */
-export type SpeakResult = "ended" | "failed" | "unavailable";
-
-/** How long speech may take to start before it counts as blocked. */
-export const SPEECH_START_TIMEOUT_MS = 2500;
-
-/**
- * Reads text aloud. "failed" usually means the browser blocked sound because the page
- * hasn't been tapped since it loaded; a tap (speak again from the click) fixes it. iOS
- * Safari blocks it silently (no error, no end), so speech that still hasn't started after
- * SPEECH_START_TIMEOUT_MS counts as "failed" too. Safari doesn't always fire `start`, so
- * speech also counts as started once a word boundary fires or the browser says it's
- * speaking; speech that is playing is never cut off.
- *
- * The narrator's voice is `voice` (the lobby's sample) or the one chosen for this device,
- * looked up on every call so a late voice list or a reload picks it up. With no voices yet,
- * it speaks at once with the browser default; it never waits for the list.
- */
-export function speak(text: string, voice?: SpeechSynthesisVoice): Promise<SpeakResult> {
-  return new Promise((resolve) => {
-    const synth = typeof window !== "undefined" ? window.speechSynthesis : undefined;
-    if (!synth || typeof SpeechSynthesisUtterance === "undefined") {
-      resolve("unavailable");
-      return;
-    }
-    // Cancelling right before speaking makes Safari drop the new utterance's events, so only
-    // cancel when something is actually playing or queued.
-    if (synth.speaking || synth.pending) synth.cancel();
-    let started = false;
-    let settled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const done = (result: SpeakResult) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve(result);
-    };
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1; // every voice at its normal pace: the server's reading estimate assumes it
-    const narrator = voice ?? chooseVoice(currentVoices(), getSavedVoice());
-    if (narrator) {
-      utterance.voice = narrator;
-      utterance.lang = narrator.lang;
-    }
-    utterance.onstart = () => {
-      started = true;
-    };
-    utterance.onboundary = () => {
-      started = true;
-    };
-    utterance.onend = () => done("ended");
-    utterance.onerror = () => done("failed");
-    synth.speak(utterance);
-    timer = setTimeout(() => {
-      if (started || synth.speaking) return;
-      synth.cancel();
-      done("failed");
-    }, SPEECH_START_TIMEOUT_MS);
-  });
-}
-
-let unlocked = false;
-
-/**
- * Call from a tap. iOS only lets a page speak once speech has been started inside a user
- * gesture; a silent utterance from the first tap unlocks narration for the rest of the visit.
- */
-export function unlockSpeech() {
-  unlockAudio(); // the Schmegettes voices play through Web Audio, which iOS also unlocks on a tap
-  if (unlocked || typeof window === "undefined" || !window.speechSynthesis) return;
-  if (typeof SpeechSynthesisUtterance === "undefined") return;
-  try {
-    const silent = new SpeechSynthesisUtterance(" ");
-    silent.volume = 0;
-    window.speechSynthesis.speak(silent);
-    unlocked = true;
-  } catch {
-    // try again on the next tap
-  }
-}
-
-/** What the host device says before a clue: "Here's VOLCANOES for 400." The value is a
- * plain number so it isn't read as dollars. Keep in sync with play.Announcement in
- * game/internal/play/game.go, which estimates how long it takes. */
-export function announcement(category: string, value: number): string {
-  return `Here's ${category} for ${value}.`;
-}
+import { restorePlaybackSession } from "./piper/audio";
 
 /**
  * Said on the correct-response screen. After a clue someone got right: "Correct, …"; after
@@ -117,14 +29,6 @@ export function finalAnnouncement(category: string): string {
   return `The Final Schmegettes category is: ${category}.`;
 }
 
-export function stopSpeaking() {
-  try {
-    window.speechSynthesis?.cancel();
-  } catch {
-    // nothing to stop
-  }
-}
-
 /** A one-shot listener: interim text while the player talks, then one final result. */
 export interface Recognizer {
   start(): void;
@@ -136,6 +40,10 @@ export interface Recognizer {
    * other guesses, most likely first (at most MAX_ALTERNATIVES, none equal to text).
    */
   onFinal?: (text: string, alternatives?: string[]) => void;
+  /** The browser started listening: every permission it needed was granted. */
+  onStart?: () => void;
+  /** The browser refused: the microphone or speech recognition is blocked for this site. */
+  onDenied?: () => void;
 }
 
 /** How many other guesses an answer carries (SubmitAnswer.alternatives). */
@@ -173,6 +81,7 @@ interface BrowserRecognition {
   stop(): void;
   abort(): void;
   onresult: ((e: { results: RecognitionResultList }) => void) | null;
+  onstart: (() => void) | null;
   onend: (() => void) | null;
   onerror: ((e: { error: string }) => void) | null;
 }
@@ -206,6 +115,7 @@ function createBrowserRecognizer(): Recognizer | null {
     abort: () => {
       done = true;
       rec.abort();
+      restorePlaybackSession();
     },
   };
   rec.onresult = (e) => {
@@ -215,10 +125,16 @@ function createBrowserRecognizer(): Recognizer | null {
   const finish = () => {
     if (done) return;
     done = true;
+    // Listening switched iOS to play-and-record; the narrator needs playback again.
+    restorePlaybackSession();
     recognizer.onFinal?.(transcript, alternatives);
   };
+  rec.onstart = () => recognizer.onStart?.();
   rec.onend = finish;
-  rec.onerror = finish;
+  rec.onerror = (e) => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") recognizer.onDenied?.();
+    finish();
+  };
   return recognizer;
 }
 
@@ -238,18 +154,76 @@ export function setRecognizerFactory(make: (() => Recognizer | null) | null) {
   factory = make ?? createBrowserRecognizer;
 }
 
-export type MicState = "unknown" | "granted" | "denied" | "unsupported";
+export type MicState = "granted" | "denied" | "unsupported";
 
-/** Asks for the microphone. Call from a tap: iOS only prompts from a user gesture. */
-export async function requestMicrophone(): Promise<MicState> {
-  if (!navigator.mediaDevices?.getUserMedia) return "unsupported";
+/** How long to wait for the browser's answer before taking the microphone as allowed. */
+const PERMISSION_WAIT_MS = 15_000;
+
+/**
+ * Asks for everything answering needs, from one tap (iOS only prompts from a user gesture):
+ * starting a recognizer makes the browser ask for the microphone and, on iPhone, for speech
+ * recognition too, so neither prompt can appear mid-game. Listening stops at once.
+ */
+export function requestAnswerPermissions(): Promise<MicState> {
+  const rec = createRecognizer();
+  if (!rec) return Promise.resolve("unsupported");
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (state: MicState) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      rec.onStart = rec.onDenied = rec.onFinal = undefined;
+      try {
+        rec.abort();
+      } catch {
+        // already stopped
+      }
+      resolve(state);
+    };
+    const timer = setTimeout(() => done("granted"), PERMISSION_WAIT_MS);
+    rec.onStart = () => done("granted");
+    rec.onDenied = () => done("denied");
+    // Ended without a refusal (nothing heard, a network hiccup): the permissions are there.
+    rec.onFinal = () => done("granted");
+    try {
+      rec.start();
+    } catch {
+      done("denied");
+    }
+  });
+}
+
+/** What the browser says about the microphone without asking: "ask" when it can't tell. */
+export async function micPermission(): Promise<"granted" | "denied" | "ask"> {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    for (const track of stream.getTracks()) track.stop();
-    return "granted";
+    const status = await navigator.permissions?.query({ name: "microphone" as PermissionName });
+    if (status?.state === "granted" || status?.state === "denied") return status.state;
   } catch {
-    return "denied";
+    // Not supported for the microphone here.
   }
+  return "ask";
+}
+
+/** Calls back when the microphone permission changes (turned off in settings mid-game). */
+export function onMicPermissionChange(cb: (state: "granted" | "denied" | "ask") => void): () => void {
+  let status: PermissionStatus | undefined;
+  let stopped = false;
+  const handler = () => {
+    if (status) cb(status.state === "prompt" ? "ask" : status.state);
+  };
+  void navigator.permissions
+    ?.query({ name: "microphone" as PermissionName })
+    .then((s) => {
+      if (stopped) return;
+      status = s;
+      s.addEventListener("change", handler);
+    })
+    .catch(() => undefined);
+  return () => {
+    stopped = true;
+    status?.removeEventListener("change", handler);
+  };
 }
 
 /** Clue text as it should sound: "&" is read as "and" (the dataset writes "Lewis & Clark"). */

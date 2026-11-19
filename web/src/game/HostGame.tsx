@@ -6,6 +6,7 @@ import { narrate, stopNarration } from "../lib/narrator";
 import { narratorChoice } from "../lib/narratorVoice";
 import { prepareVoice } from "../lib/piper/engine";
 import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
+import { playCorrect, playDailyDouble, playDoubleRound, playTimesUp, stopEffects } from "../lib/sfx";
 import {
   correctResponseAnnouncement,
   DAILY_DOUBLE_INTRO,
@@ -33,12 +34,16 @@ import { buzzWindowMs, FINAL_SKIPPED_MS } from "./timing";
 import { useSince } from "./useSince";
 import { WagerPad } from "./WagerPad";
 
-/** Something the TV says. reportDone: tell the server when it ends (reading_done). */
+/**
+ * Something the TV says. reportDone: tell the server when it ends (reading_done). sound: an
+ * effect that plays first; the line waits for it (sound-effects feature brief).
+ */
 interface Speech {
   key: string;
   text: string;
   clueId: string;
   reportDone: boolean;
+  sound?: () => Promise<void>;
 }
 
 /**
@@ -59,6 +64,8 @@ function currentSpeech(state: RoomState, revealing: boolean): Speech | null {
       text: correctResponseAnnouncement(response, outcome),
       clueId: clue.clueId,
       reportDone: !inFinal(state.phase),
+      // A chime when someone got it, a time's-up tone when nobody did; Final is neutral.
+      sound: outcome === "right" ? playCorrect : outcome === "missed" ? playTimesUp : undefined,
     };
   }
   if (revealing) return null;
@@ -80,7 +87,13 @@ function currentSpeech(state: RoomState, revealing: boolean): Speech | null {
     }
     case "daily_double_wager":
       if (state.wager !== undefined) return null;
-      return { key: `dd:${clue.clueId}`, text: DAILY_DOUBLE_INTRO, clueId: clue.clueId, reportDone: false };
+      return {
+        key: `dd:${clue.clueId}`,
+        text: DAILY_DOUBLE_INTRO,
+        clueId: clue.clueId,
+        reportDone: false,
+        sound: playDailyDouble,
+      };
     case "final_category":
       return {
         key: `category:${clue.clueId}:${state.deadlineAt}`,
@@ -127,14 +140,21 @@ export function HostGame({
   // nobody can buzz (or the Final can't start) before the room could have heard it.
   const say = useCallback(
     (speech: Speech) => {
-      void narrate(speech.text).then((result) => {
-        if (result === "failed") setSoundBlocked(true);
-        if (result === "ended") {
-          setSoundBlocked(false);
-          if (speech.reportDone && spokenRef.current === speech.key)
-            send({ type: "reading_done", clueId: speech.clueId });
-        }
-      });
+      const read = () =>
+        void narrate(speech.text).then((result) => {
+          if (result === "failed") setSoundBlocked(true);
+          if (result === "ended") {
+            setSoundBlocked(false);
+            if (speech.reportDone && spokenRef.current === speech.key)
+              send({ type: "reading_done", clueId: speech.clueId });
+          }
+        });
+      // The line waits for its sound, unless the screen moved on meanwhile.
+      if (speech.sound)
+        void speech.sound().then(() => {
+          if (spokenRef.current === speech.key) read();
+        });
+      else read();
     },
     [send],
   );
@@ -148,6 +168,7 @@ export function HostGame({
   useEffect(() => {
     if (state.paused) {
       spokenRef.current = ""; // the server reads again on resume
+      stopEffects();
       return;
     }
     const current = speechRef.current;
@@ -166,6 +187,19 @@ export function HostGame({
   useEffect(() => {
     if (!speechKey) stopNarration();
   }, [speechKey]);
+
+  // "Double Schmegettes!" gets its fanfare, once per round, inside the 3 s interstitial.
+  const doubleIntro = state.roundIntro === "double" && state.phase !== "clue_reading" && !state.paused;
+  const fanfareRef = useRef(false);
+  useEffect(() => {
+    if (!doubleIntro) {
+      fanfareRef.current = false;
+      return;
+    }
+    if (fanfareRef.current) return;
+    fanfareRef.current = true;
+    void playDoubleRound();
+  }, [doubleIntro]);
 
   const skipSince = useSince(state.finalSkipped ? "skipped" : "", FINAL_SKIPPED_MS);
 

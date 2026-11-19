@@ -1,5 +1,7 @@
 import { UnstyledButton } from "@mantine/core";
 import { useId, useState } from "react";
+import { unlockAudio } from "../lib/piper/audio";
+import { playBuzz } from "../lib/sfx";
 
 /**
  * idle: no clue in play (lobby, board without control, between clues); a tap only animates.
@@ -41,6 +43,18 @@ const DOME: Record<BuzzerState, { stops: string[]; glow?: string }> = {
 /** States in which a press does something: a buzz, an early buzz, or a spoken pick. */
 const ACTIVE: BuzzerState[] = ["dim", "lit", "pick", "listening"];
 
+/** Presses that make the buzzer's sound: a buzz (early or not) and starting a spoken pick. */
+const SOUNDS: BuzzerState[] = ["dim", "lit", "pick"];
+
+/**
+ * The buzzer's sound for a press in this state, the moment the finger lands. The press also
+ * unlocks this device's sound (iOS wants a tap). Rules: sound-effects feature brief.
+ */
+export function pressSound(state: BuzzerState): void {
+  unlockAudio();
+  if (SOUNDS.includes(state)) void playBuzz();
+}
+
 /**
  * The one buzzer, on phones and the host device: an oblong red dome the full width of its
  * container, in a dark rim, with no lettering. At least 64 px tall. The state shows in the
@@ -63,7 +77,10 @@ export function Buzzer({ state, onBuzz, height = 120 }: { state: BuzzerState; on
       data-state={state}
       disabled={state === "locked"}
       className={state === "early" ? "sg-shake" : undefined}
-      onPointerDown={() => setDown(true)}
+      onPointerDown={() => {
+        setDown(true);
+        if (state !== "locked") pressSound(state);
+      }}
       onPointerUp={() => setDown(false)}
       onPointerLeave={() => setDown(false)}
       // idle, early and answering taps do nothing but the press animation

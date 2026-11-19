@@ -7,7 +7,7 @@ import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
 import { Meter } from "../ui/Meter";
 import { ACCENT, DISPLAY, GREEN, RED, SOFT } from "../ui/tokens";
 import { Board } from "./Board";
-import { Buzzer } from "./Buzzer";
+import { Buzzer, pressSound } from "./Buzzer";
 import { buzzerState, canBuzz, canPick } from "./buzzerState";
 import { Countdown } from "./Countdown";
 import { FinalAnswerField } from "./FinalAnswerField";
@@ -81,17 +81,19 @@ export function PlayerControls({
     send({ type: "buzz", clueId, clientSentAt: Date.now() });
   }, [picking, toggleVoice, clueId, buzzable, capture, send]);
 
+  const buzzerNow = buzzerState(state, userId, early, voice.listening);
   useEffect(() => {
     if (!spaceToBuzz) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "Space" || e.repeat) return;
       if ((e.target as HTMLElement | null)?.closest?.("input, textarea")) return;
       e.preventDefault();
+      pressSound(buzzerNow);
       press();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [spaceToBuzz, press]);
+  }, [spaceToBuzz, press, buzzerNow]);
 
   const status = (
     <PlayerStatus
@@ -107,9 +109,7 @@ export function PlayerControls({
       onLeave={onLeave}
     />
   );
-  const buzzer = (
-    <Buzzer state={buzzerState(state, userId, early, voice.listening)} onBuzz={press} height={buzzerHeight ?? 120} />
-  );
+  const buzzer = <Buzzer state={buzzerNow} onBuzz={press} height={buzzerHeight ?? 120} />;
 
   if (compact) {
     return (

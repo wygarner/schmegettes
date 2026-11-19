@@ -1,3 +1,4 @@
+/// <reference path="./audio-session.d.ts" />
 // One AudioContext for the narrator. iOS starts it suspended until a tap resumes it, so the
 // host screen's taps (HostLayout) call unlockAudio.
 //

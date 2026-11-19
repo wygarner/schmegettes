@@ -13,18 +13,29 @@ import {
   Title,
 } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
+import { GameOptionsSheet } from "../game/GameOptionsSheet";
 import { HostGame } from "../game/HostGame";
 import { HostLayout } from "../game/HostLayout";
 import { MicGate } from "../game/MicGate";
 import { NarratorVoicePicker, useNarratorStatus } from "../game/NarratorVoicePicker";
 import { PlayerControls } from "../game/PlayerControls";
 import { isValidName, MAX_NAME, setLastName } from "../lib/displayName";
+import {
+  DEFAULT_OPTIONS,
+  fromRoom,
+  type GameOptions,
+  isDefault,
+  savedOptions,
+  saveOptions,
+  seasonList,
+  summary,
+} from "../lib/gameOptions";
 import { stopNarration } from "../lib/narrator";
 import { prepareVoice } from "../lib/piper/engine";
 import { contestantCount, type RoomState, useRoom } from "../lib/room";
-import { type RoomJoin, roomByCode } from "../lib/rooms";
+import { type RoomJoin, roomByCode, updateRoomOptions } from "../lib/rooms";
 import { getUserId } from "../lib/supabase";
 import { GoldButton } from "../ui/GoldButton";
 import { HomeScreenTip } from "../ui/HomeScreenTip";
@@ -83,7 +94,47 @@ export function HostLobby() {
 
 function ConnectedHostLobby({ room }: { room: RoomJoin }) {
   const { state, send } = useRoom(room.gameSocketUrl, room.room.hostUserId);
-  return <HostLobbyView code={room.room.code} joinUrl={`${window.location.origin}/join`} state={state} send={send} />;
+  const [options, change] = useGameOptions(room);
+  return (
+    <HostLobbyView
+      code={room.room.code}
+      joinUrl={`${window.location.origin}/join`}
+      state={state}
+      send={send}
+      options={options}
+      onOptions={change}
+    />
+  );
+}
+
+/**
+ * The room's game options. A new room (still on the defaults) gets the options this device
+ * used last. A change shows at once, is saved on the device, and is sent to the server; a
+ * refusal puts back what the server has.
+ */
+function useGameOptions(room: RoomJoin): [GameOptions, (next: GameOptions) => void] {
+  const roomId = room.room.roomId;
+  const [options, setOptions] = useState(() => fromRoom(room.room));
+  const change = useCallback(
+    (next: GameOptions) => {
+      setOptions(next);
+      saveOptions(next);
+      void updateRoomOptions(roomId, {
+        seasons: seasonList(next.seasons),
+        timers: next.timers,
+        doubleRound: next.doubleRound,
+      }).then((updated) => setOptions(updated ? fromRoom(updated) : fromRoom(room.room)));
+    },
+    [roomId, room.room],
+  );
+  const first = useRef(true);
+  useEffect(() => {
+    if (!first.current) return;
+    first.current = false;
+    const saved = savedOptions();
+    if (room.room.status === "open" && isDefault(fromRoom(room.room)) && !isDefault(saved)) change(saved);
+  }, [room.room, change]);
+  return [options, change];
 }
 
 function Centered({ children }: { children: ReactNode }) {
@@ -106,12 +157,18 @@ export function HostLobbyView({
   joinUrl,
   state,
   send,
+  options = DEFAULT_OPTIONS,
+  onOptions,
 }: {
   code: string;
   joinUrl: string;
   state: RoomState;
   send: (message: ClientMessage) => void;
+  /** The room's game options and how to change them (absent: no Options button). */
+  options?: GameOptions;
+  onOptions?: (next: GameOptions) => void;
 }) {
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [starting, setStarting] = useState(false);
@@ -240,6 +297,11 @@ export function HostLobbyView({
           </Text>
         )}
         <CodeTiles code={code} />
+        {summary(options) && (
+          <Text c={SOFT} aria-label="Game options" style={{ fontSize: "clamp(10px, 4.5cqh, 18px)" }}>
+            {summary(options)}
+          </Text>
+        )}
         {state.rematch && (
           <Text c={SOFT} style={{ fontSize: "clamp(10px, 4.5cqh, 18px)" }}>
             Fresh board: none of tonight's clues come back.
@@ -278,6 +340,19 @@ export function HostLobbyView({
           </Sheet>
         </Stack>
         <NarratorVoicePicker />
+        {onOptions && (
+          <Button variant="subtle" color="mauve.1" size="compact-sm" onClick={() => setOptionsOpen(true)}>
+            ⚙ Options
+          </Button>
+        )}
+        {onOptions && (
+          <GameOptionsSheet
+            opened={optionsOpen}
+            onClose={() => setOptionsOpen(false)}
+            options={options}
+            onChange={onOptions}
+          />
+        )}
         <Group gap="xs" wrap="nowrap" align="center">
           {!enoughPlayers && (
             <Text size="sm" c={SOFT}>

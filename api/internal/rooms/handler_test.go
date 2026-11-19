@@ -24,6 +24,7 @@ type fakeStore struct {
 	room Room
 	err  error
 	got  []string
+	opts *Options
 }
 
 func (f *fakeStore) Create(_ context.Context, _ auth.Claims, name string) (Room, error) {
@@ -38,10 +39,16 @@ func (f *fakeStore) ByCode(_ context.Context, _ auth.Claims, code string) (Room,
 	f.got = []string{code}
 	return f.room, f.err
 }
+func (f *fakeStore) SetOptions(_ context.Context, _ auth.Claims, roomID string, o Options) (Room, error) {
+	f.got = []string{roomID}
+	f.opts = &o
+	return f.room, f.err
+}
 
 var sample = Room{
 	ID: "6f0d2a5e-8a0b-4c39-9a4e-2d1f0b7a9c11", Code: "K7RXM", Status: "open",
 	HostUserID: "0b8a1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d", HostDisplayName: "Wyatt", MaxPlayers: 6,
+	Timers: "standard", DoubleRound: true,
 }
 
 type allowAll struct{}
@@ -67,9 +74,11 @@ func (routes) DeleteV1Me(http.ResponseWriter, *http.Request)                    
 func (routes) PostV1MeMerge(http.ResponseWriter, *http.Request)                          {}
 func (routes) PostV1MeMergeTickets(http.ResponseWriter, *http.Request)                   {}
 func (routes) GetV1RoomsRoomId(http.ResponseWriter, *http.Request, openapi_types.UUID)   {}
-func (routes) PatchV1RoomsRoomId(http.ResponseWriter, *http.Request, openapi_types.UUID) {}
-func (r routes) PostV1Rooms(w http.ResponseWriter, req *http.Request)                    { r.Create(w, req) }
-func (r routes) PostV1RoomsJoin(w http.ResponseWriter, req *http.Request)                { r.Join(w, req) }
+func (r routes) PatchV1RoomsRoomId(w http.ResponseWriter, req *http.Request, id openapi_types.UUID) {
+	r.Patch(w, req, id.String())
+}
+func (r routes) PostV1Rooms(w http.ResponseWriter, req *http.Request)     { r.Create(w, req) }
+func (r routes) PostV1RoomsJoin(w http.ResponseWriter, req *http.Request) { r.Join(w, req) }
 func (r routes) GetV1RoomsByCodeCode(w http.ResponseWriter, req *http.Request, c string) {
 	r.ByCode(w, req, c)
 }
@@ -196,4 +205,63 @@ func TestByCode(t *testing.T) {
 	if rec := call(t, &fakeStore{err: ErrNotFound}, "GET", "/v1/rooms/by-code/K7RXM", ""); rec.Code != 404 {
 		t.Errorf("non-member: %d", rec.Code)
 	}
+}
+
+func TestPatchOptions(t *testing.T) {
+	path := "/v1/rooms/" + sample.ID
+	t.Run("sets what's sent and returns the room", func(t *testing.T) {
+		s := &fakeStore{room: Room{ID: sample.ID, Code: "K7RXM", Status: "open", HostUserID: sample.HostUserID,
+			HostDisplayName: "Wyatt", MaxPlayers: 6, Seasons: []int{20, 21}, Timers: "fast", DoubleRound: false}}
+		rec := call(t, s, "PATCH", path, `{"seasons":[20,21],"timers":"fast","doubleRound":false}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body)
+		}
+		o := s.opts
+		if !o.SetSeasons || len(o.Seasons) != 2 || *o.Timers != "fast" || *o.DoubleRound || o.MaxPlayers != nil {
+			t.Errorf("options %+v", o)
+		}
+		if !bytes.Contains(rec.Body.Bytes(), []byte(`"timers":"fast"`)) ||
+			!bytes.Contains(rec.Body.Bytes(), []byte(`"doubleRound":false`)) {
+			t.Errorf("body %s", rec.Body)
+		}
+	})
+	t.Run("null seasons means every season; absent leaves them", func(t *testing.T) {
+		s := &fakeStore{room: sample}
+		call(t, s, "PATCH", path, `{"seasons":null}`)
+		if !s.opts.SetSeasons || s.opts.Seasons != nil {
+			t.Errorf("null: %+v", s.opts)
+		}
+		call(t, s, "PATCH", path, `{"timers":"relaxed"}`)
+		if s.opts.SetSeasons {
+			t.Errorf("absent: %+v", s.opts)
+		}
+	})
+	t.Run("nothing to change, or a bad body, never reaches the store", func(t *testing.T) {
+		for _, body := range []string{`{}`, `{"timers":"slow"}`, `{"x":1}`, `{"seasons":"all"}`} {
+			s := &fakeStore{room: sample}
+			if rec := call(t, s, "PATCH", path, body); rec.Code != http.StatusBadRequest {
+				t.Errorf("%s: status %d", body, rec.Code)
+			}
+			if s.opts != nil {
+				t.Errorf("%s reached the store", body)
+			}
+		}
+	})
+	t.Run("refusals", func(t *testing.T) {
+		for _, c := range []struct {
+			err    error
+			status int
+			kind   string
+		}{
+			{ErrNotTheHost, http.StatusForbidden, "not-the-host"},
+			{ErrGameStarted, http.StatusConflict, "game-started"},
+			{ErrInvalidSettings, http.StatusBadRequest, "invalid-settings"},
+			{ErrNotFound, http.StatusNotFound, "room-not-found"},
+		} {
+			rec := call(t, &fakeStore{err: c.err}, "PATCH", path, `{"timers":"fast"}`)
+			if rec.Code != c.status || !bytes.Contains(rec.Body.Bytes(), []byte("/problems/"+c.kind)) {
+				t.Errorf("%v: %d %s", c.err, rec.Code, rec.Body)
+			}
+		}
+	})
 }

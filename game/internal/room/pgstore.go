@@ -128,10 +128,13 @@ func mapError(err error) error {
 func (s PGStore) LoadGame(ctx context.Context, roomID string) (GameData, error) {
 	var d GameData
 	err := s.DB.AsEngine(ctx, func(tx pgx.Tx) error {
+		var pace string
+		var double bool
 		err := tx.QueryRow(ctx, `
-			select id::text, started_at from public.games
+			select id::text, started_at, timers::text, double_round from public.games
 			where room_id = $1 and status = 'in_progress'
-			order by started_at desc limit 1`, roomID).Scan(&d.GameID, &d.StartedAt)
+			order by started_at desc limit 1`, roomID).Scan(&d.GameID, &d.StartedAt, &pace, &double)
+		d.Pace, d.NoDouble = contracts.TimerPace(pace), !double
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}

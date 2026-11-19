@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { VOICE_SAMPLE } from "../game/NarratorVoicePicker";
+import { DEFAULT_OPTIONS, type GameOptions } from "../lib/gameOptions";
 import { narrate, stopNarration } from "../lib/narrator";
 import { getSavedVoice, piperChoiceValue, saveVoice } from "../lib/narratorVoice";
 import { prepareVoice } from "../lib/piper/engine";
@@ -301,5 +302,49 @@ describe("narrator voice", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start" }));
     expect(stopNarration).toHaveBeenCalled();
     expect(send).toHaveBeenCalledWith({ type: "start_game" });
+  });
+});
+
+describe("game options", () => {
+  const withOptions = (options: GameOptions) => {
+    const onOptions = vi.fn();
+    render(
+      <MantineProvider>
+        <MemoryRouter>
+          <HostLobbyView
+            code="K7RXM"
+            joinUrl="https://example.test/join"
+            state={lobby()}
+            send={vi.fn()}
+            options={options}
+            onOptions={onOptions}
+          />
+        </MemoryRouter>
+      </MantineProvider>,
+    );
+    return onOptions;
+  };
+
+  test("the line under the code lists what isn't the default", () => {
+    withOptions({ seasons: [20, 40], timers: "fast", doubleRound: false });
+    expect(screen.getByLabelText("Game options")).toHaveTextContent(
+      "Seasons 20–40 · Fast timers · No Double Schmegettes",
+    );
+  });
+
+  test("no line with the defaults", () => {
+    withOptions(DEFAULT_OPTIONS);
+    expect(screen.queryByLabelText("Game options")).toBeNull();
+  });
+
+  test("Options opens the sheet; timers and Double change at once", () => {
+    const onOptions = withOptions(DEFAULT_OPTIONS);
+    fireEvent.click(screen.getByRole("button", { name: "⚙ Options" }));
+    const sheet = screen.getByRole("dialog", { name: "Game options" });
+    expect(sheet).toHaveTextContent("9 s to buzz in, 9 s to answer");
+    fireEvent.click(within(sheet).getByText("Fast"));
+    expect(onOptions).toHaveBeenLastCalledWith({ ...DEFAULT_OPTIONS, timers: "fast" });
+    fireEvent.click(within(sheet).getByRole("switch", { name: /Double Schmegettes/ }));
+    expect(onOptions).toHaveBeenLastCalledWith({ ...DEFAULT_OPTIONS, doubleRound: false });
   });
 });

@@ -13,7 +13,7 @@ import { Countdown } from "./Countdown";
 import { FinalAnswerField } from "./FinalAnswerField";
 import { usePickConfirm } from "./PickConfirm";
 import { usePickReveal } from "./PickReveal";
-import { ANSWER_TOTAL_MS, BUZZ_WINDOW_MS, WAGER_MS } from "./timing";
+import { ANSWER_GRACE_MS, answerMs, buzzWindowMs, WAGER_MS } from "./timing";
 import { useAnswerCapture } from "./useAnswerCapture";
 import { useVoicePick, type VoicePick } from "./VoicePick";
 import { WagerPad } from "./WagerPad";
@@ -334,7 +334,7 @@ function PlayerStatus({
           <Text ff={DISPLAY} fw={700} fz={64} lh={1} c="green.4" className="sg-pop">
             BUZZ IN!
           </Text>
-          <Countdown deadlineAt={state.deadlineAt} total={BUZZ_WINDOW_MS} height={10} />
+          <Countdown deadlineAt={state.deadlineAt} total={buzzWindowMs(state)} height={10} />
         </div>
       );
     case "answering":
@@ -348,7 +348,11 @@ function PlayerStatus({
             <Text fz={22} fs="italic" mih={60} aria-label="What we heard">
               {heard ? `“${heard}”` : <span style={{ color: "#9a7aad" }}>{listening ? "Listening…" : "…"}</span>}
             </Text>
-            <Countdown deadlineAt={state.deadlineAt} total={ANSWER_TOTAL_MS} color="var(--mantine-color-teal-6)" />
+            <Countdown
+              deadlineAt={state.deadlineAt}
+              total={answerMs(state) + ANSWER_GRACE_MS}
+              color="var(--mantine-color-teal-6)"
+            />
             <Text size="sm" c={SOFT}>
               “What is” is optional. It stops when you go quiet.
             </Text>

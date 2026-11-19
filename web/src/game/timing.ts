@@ -14,6 +14,14 @@ export const ANSWER_GRACE_MS = 1500;
 /** The answering countdown: the server's whole answer deadline. */
 export const ANSWER_TOTAL_MS = ANSWER_MS + ANSWER_GRACE_MS;
 
+/** This game's windows (the lobby's timer pace, from the snapshot); Standard when unknown. */
+export function buzzWindowMs(s: { buzzWindowMs?: number }): number {
+  return s.buzzWindowMs ?? BUZZ_WINDOW_MS;
+}
+export function answerMs(s: { answerWindowMs?: number }): number {
+  return s.answerWindowMs ?? ANSWER_MS;
+}
+
 // Wagers (docs/product-docs/features/wagers/interaction-design.md, "Timing").
 
 /** "DAILY DOUBLE" over the stage before the wager. */

@@ -54,6 +54,13 @@ const (
 	Open   RoomStatus = "open"
 )
 
+// Defines values for RoomTimers.
+const (
+	RoomTimersFast     RoomTimers = "fast"
+	RoomTimersRelaxed  RoomTimers = "relaxed"
+	RoomTimersStandard RoomTimers = "standard"
+)
+
 // Defines values for GetV1GamesParamsKind.
 const (
 	Played  GetV1GamesParamsKind = "played"
@@ -64,6 +71,13 @@ const (
 const (
 	Contestant PostV1RoomsJoinJSONBodyRole = "contestant"
 	Spectator  PostV1RoomsJoinJSONBodyRole = "spectator"
+)
+
+// Defines values for PatchV1RoomsRoomIdJSONBodyTimers.
+const (
+	PatchV1RoomsRoomIdJSONBodyTimersFast     PatchV1RoomsRoomIdJSONBodyTimers = "fast"
+	PatchV1RoomsRoomIdJSONBodyTimersRelaxed  PatchV1RoomsRoomIdJSONBodyTimers = "relaxed"
+	PatchV1RoomsRoomIdJSONBodyTimersStandard PatchV1RoomsRoomIdJSONBodyTimers = "standard"
 )
 
 // AdminHost defines model for AdminHost.
@@ -209,7 +223,10 @@ type Profile struct {
 // Room defines model for Room.
 type Room struct {
 	// Code Short code players type to join a room.
-	Code            string `json:"code"`
+	Code string `json:"code"`
+
+	// DoubleRound Play the Double Schmegettes board; false: Final follows Single
+	DoubleRound     bool   `json:"doubleRound"`
 	HostDisplayName string `json:"hostDisplayName"`
 
 	// HostPlays The host joined the game as a contestant on the host device
@@ -221,10 +238,16 @@ type Room struct {
 	// Seasons Seasons boards are built from; null means every season
 	Seasons *[]int     `json:"seasons"`
 	Status  RoomStatus `json:"status"`
+
+	// Timers The game's pace, chosen in the lobby: how long buzzing stays open and how long a player has to answer. relaxed 15 s / 12 s, standard 9 s / 9 s, fast 5 s / 7 s. Mirrors public.timer_pace.
+	Timers RoomTimers `json:"timers"`
 }
 
 // RoomStatus defines model for Room.Status.
 type RoomStatus string
+
+// RoomTimers The game's pace, chosen in the lobby: how long buzzing stays open and how long a player has to answer. relaxed 15 s / 12 s, standard 9 s / 9 s, fast 5 s / 7 s. Mirrors public.timer_pace.
+type RoomTimers string
 
 // RoomJoin defines model for RoomJoin.
 type RoomJoin struct {
@@ -302,11 +325,19 @@ type PostV1RoomsJoinJSONBodyRole string
 
 // PatchV1RoomsRoomIdJSONBody defines parameters for PatchV1RoomsRoomId.
 type PatchV1RoomsRoomIdJSONBody struct {
-	MaxPlayers *int `json:"maxPlayers,omitempty"`
+	// DoubleRound false: Final follows the Single board
+	DoubleRound *bool `json:"doubleRound,omitempty"`
+	MaxPlayers  *int  `json:"maxPlayers,omitempty"`
 
 	// Seasons Seasons to build boards from; null means every season
 	Seasons *[]int `json:"seasons"`
+
+	// Timers The game's pace, chosen in the lobby: how long buzzing stays open and how long a player has to answer. relaxed 15 s / 12 s, standard 9 s / 9 s, fast 5 s / 7 s. Mirrors public.timer_pace.
+	Timers *PatchV1RoomsRoomIdJSONBodyTimers `json:"timers,omitempty"`
 }
+
+// PatchV1RoomsRoomIdJSONBodyTimers defines parameters for PatchV1RoomsRoomId.
+type PatchV1RoomsRoomIdJSONBodyTimers string
 
 // PostV1AdminHostCodeRotateJSONRequestBody defines body for PostV1AdminHostCodeRotate for application/json ContentType.
 type PostV1AdminHostCodeRotateJSONRequestBody PostV1AdminHostCodeRotateJSONBody

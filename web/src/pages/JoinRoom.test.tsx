@@ -33,6 +33,8 @@ const room: RoomJoin = {
     hostPlays: false,
     maxPlayers: 6,
     seasons: null,
+    timers: "standard",
+    doubleRound: true,
   },
 };
 

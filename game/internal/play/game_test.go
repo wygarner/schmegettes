@@ -661,3 +661,89 @@ func TestResponseTail(t *testing.T) {
 		}
 	})
 }
+
+func TestTimerPace(t *testing.T) {
+	for _, c := range []struct {
+		pace         contracts.TimerPace
+		buzz, answer time.Duration
+	}{
+		{"", 9 * time.Second, 9 * time.Second},
+		{contracts.TimerPaceStandard, 9 * time.Second, 9 * time.Second},
+		{contracts.TimerPaceRelaxed, 15 * time.Second, 12 * time.Second},
+		{contracts.TimerPaceFast, 5 * time.Second, 7 * time.Second},
+	} {
+		t.Run(string(c.pace), func(t *testing.T) {
+			f := setup(t, func(s *Setup) { s.Pace = c.pace })
+			f.openBuzzing("s1")
+			if got := f.g.Deadline().Sub(f.now); got != c.buzz {
+				t.Errorf("buzz window %v, want %v", got, c.buzz)
+			}
+			f.must(f.g.Buzz(f.now, bob, "s1"))
+			if got := f.g.Deadline().Sub(f.now); got != c.answer+AnswerGrace {
+				t.Errorf("answer time %v, want %v", got, c.answer+AnswerGrace)
+			}
+			var m contracts.RoomSnapshot
+			f.g.SnapshotFields(&m, false)
+			if *m.BuzzWindowMs != int(c.buzz.Milliseconds()) || *m.AnswerWindowMs != int(c.answer.Milliseconds()) {
+				t.Errorf("snapshot %d / %d", *m.BuzzWindowMs, *m.AnswerWindowMs)
+			}
+		})
+	}
+	t.Run("a Daily Double answer uses the pace too", func(t *testing.T) {
+		f := setup(t, func(s *Setup) { ddBoard(s); s.Pace = contracts.TimerPaceFast })
+		f.must(f.g.Pick(f.now, alice, "s1"))
+		f.must(f.g.Wager(f.now, alice, 100))
+		f.toDeadline() // the wager shown, then the clue read
+		f.must(f.g.ReadingDone(f.now, host, "s1"))
+		if f.g.Phase() != contracts.GamePhaseAnswering || f.g.Deadline().Sub(f.now) != 7*time.Second+AnswerGrace {
+			t.Errorf("phase %s, answer time %v", f.g.Phase(), f.g.Deadline().Sub(f.now))
+		}
+	})
+}
+
+func TestNoDoubleGoesFromSingleToFinal(t *testing.T) {
+	f := setup(t, func(s *Setup) {
+		s.NoDouble = true
+		var single []Clue
+		for _, c := range s.Board {
+			if c.Round == contracts.RoundSingle {
+				single = append(single, c)
+			}
+		}
+		s.Board = single
+		s.Final = &Clue{ID: "f1", Round: contracts.RoundFinal, Category: "ISLANDS", Text: "Volcano", Response: "Krakatoa"}
+	})
+	f.openBuzzing("s1")
+	f.must(f.g.Buzz(f.now, alice, "s1"))
+	f.must(f.g.Answer(f.now, alice, "s1", "nitrogen"))
+	f.toDeadline() // the correct response
+	f.openBuzzing("s2")
+	f.toDeadline() // nobody buzzed
+	f.toDeadline() // the correct response
+	if f.g.Phase() != contracts.GamePhaseFinalCategory {
+		t.Fatalf("phase %s after the Single board, want Final (no Double interstitial)", f.g.Phase())
+	}
+	if rs := all[contracts.RoundStarted](f); len(rs) != 0 {
+		t.Errorf("a round_started was sent: %+v", rs)
+	}
+}
+
+func TestNoDoubleRecoversIntoFinal(t *testing.T) {
+	f := setup(t, func(s *Setup) {
+		s.NoDouble = true
+		var single []Clue
+		for _, c := range s.Board {
+			if c.Round == contracts.RoundSingle {
+				c.State = contracts.ClueStateAnswered
+				single = append(single, c)
+			}
+		}
+		s.Board = single
+		s.Final = &Clue{ID: "f1", Round: contracts.RoundFinal, Category: "ISLANDS", Text: "Volcano", Response: "Krakatoa",
+			State: contracts.ClueStateUnplayed}
+		s.Scores = map[string]int{alice: 400, bob: 200}
+	})
+	if f.g.Phase() != contracts.GamePhaseFinalCategory {
+		t.Errorf("a recovered game with Double off and Single done is at %s, want Final", f.g.Phase())
+	}
+}

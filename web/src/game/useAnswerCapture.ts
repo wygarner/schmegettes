@@ -2,7 +2,7 @@ import type { ClientMessage } from "@schmegettes/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RoomState } from "../lib/room";
 import { createRecognizer, type Recognizer } from "../lib/speech";
-import { ANSWER_MS } from "./timing";
+import { answerMs } from "./timing";
 
 const PROGRESS_MS = 250;
 
@@ -102,6 +102,7 @@ export function useAnswerCapture(state: RoomState, userId: string, send: (m: Cli
 
   const clueId = state.activeClue?.clueId;
   const mine = state.phase === "answering" && state.answeringUserId === userId;
+  const answerTime = answerMs(state);
   useEffect(() => {
     if (mine && !confirmedRef.current && clueId) {
       confirmedRef.current = true;
@@ -111,14 +112,14 @@ export function useAnswerCapture(state: RoomState, userId: string, send: (m: Cli
         return;
       }
       if (!recRef.current) start(clueId);
-      capRef.current = setTimeout(() => recRef.current?.stop(), ANSWER_MS);
+      capRef.current = setTimeout(() => recRef.current?.stop(), answerTime);
       return;
     }
     if (!mine && state.phase !== "buzzing_open") {
       // Someone else won, or the clue moved on: drop any recording.
       if (recRef.current || confirmedRef.current) reset();
     }
-  }, [mine, clueId, state.phase, start, submit, reset]);
+  }, [mine, clueId, state.phase, start, submit, reset, answerTime]);
 
   useEffect(() => reset, [reset]);
 

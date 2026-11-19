@@ -29,7 +29,7 @@ import { PickRevealStage, usePickReveal } from "./PickReveal";
 import { PlayerColumn } from "./PlayerColumn";
 import { PlayerControls } from "./PlayerControls";
 import { Scoreboard } from "./Scoreboard";
-import { BUZZ_WINDOW_MS, FINAL_SKIPPED_MS } from "./timing";
+import { buzzWindowMs, FINAL_SKIPPED_MS } from "./timing";
 import { useSince } from "./useSince";
 import { WagerPad } from "./WagerPad";
 
@@ -392,7 +392,7 @@ function ClueView({
       {!ended && !answering && !judged && state.lastVerdict && (
         <VerdictRow state={state} verdict={state.lastVerdict} small />
       )}
-      {open && <Countdown deadlineAt={state.deadlineAt} total={BUZZ_WINDOW_MS} />}
+      {open && <Countdown deadlineAt={state.deadlineAt} total={buzzWindowMs(state)} />}
     </Stage>
   );
 }

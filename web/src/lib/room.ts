@@ -55,6 +55,9 @@ export interface RoomState {
   reveal?: { clueId: string; kind: "card" | "blink" };
   /** Server clock, ms, when the current step times out. */
   deadlineAt?: number;
+  /** This game's buzz window and answer time (its timer pace); absent: Standard. */
+  buzzWindowMs?: number;
+  answerWindowMs?: number;
   controllingUserId?: string;
   answeringUserId?: string;
   attemptedUserIds: string[];
@@ -191,6 +194,8 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
       return {
         ...state,
         ...clueReset(),
+        buzzWindowMs: event.buzzWindowMs,
+        answerWindowMs: event.answerWindowMs,
         results: finished ? (state.results ?? resultsFrom(event.players, scores)) : undefined,
         finalSkipped: finished ? state.finalSkipped : undefined,
         reveals: finished || event.phase === "final_reveal" ? state.reveals : [],

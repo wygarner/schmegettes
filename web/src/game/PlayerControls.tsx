@@ -7,12 +7,13 @@ import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
 import { Meter } from "../ui/Meter";
 import { ACCENT, DISPLAY, GREEN, RED, SOFT } from "../ui/tokens";
 import { Board } from "./Board";
-import { Buzzer } from "./Buzzer";
+import { Buzzer, pressSound } from "./Buzzer";
 import { buzzerState, canBuzz, canPick } from "./buzzerState";
 import { Countdown } from "./Countdown";
 import { FinalAnswerField } from "./FinalAnswerField";
 import { usePickConfirm } from "./PickConfirm";
-import { ANSWER_TOTAL_MS, BUZZ_WINDOW_MS, WAGER_MS } from "./timing";
+import { usePickReveal } from "./PickReveal";
+import { ANSWER_GRACE_MS, answerMs, buzzWindowMs, WAGER_MS } from "./timing";
 import { useAnswerCapture } from "./useAnswerCapture";
 import { useVoicePick, type VoicePick } from "./VoicePick";
 import { WagerPad } from "./WagerPad";
@@ -80,17 +81,19 @@ export function PlayerControls({
     send({ type: "buzz", clueId, clientSentAt: Date.now() });
   }, [picking, toggleVoice, clueId, buzzable, capture, send]);
 
+  const buzzerNow = buzzerState(state, userId, early, voice.listening);
   useEffect(() => {
     if (!spaceToBuzz) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "Space" || e.repeat) return;
       if ((e.target as HTMLElement | null)?.closest?.("input, textarea")) return;
       e.preventDefault();
+      pressSound(buzzerNow);
       press();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [spaceToBuzz, press]);
+  }, [spaceToBuzz, press, buzzerNow]);
 
   const status = (
     <PlayerStatus
@@ -106,9 +109,7 @@ export function PlayerControls({
       onLeave={onLeave}
     />
   );
-  const buzzer = (
-    <Buzzer state={buzzerState(state, userId, early, voice.listening)} onBuzz={press} height={buzzerHeight ?? 120} />
-  );
+  const buzzer = <Buzzer state={buzzerNow} onBuzz={press} height={buzzerHeight ?? 120} />;
 
   if (compact) {
     return (
@@ -208,6 +209,7 @@ function PlayerStatus({
   onTapPick: (clueId: string) => void;
   onLeave?: () => void;
 }) {
+  const revealStage = usePickReveal(state.reveal);
   if (state.phase === "lobby" || state.phase === "building_board") return <>{lobby}</>;
   // On the host device the stage already says what's happening, and the host's wager pads
   // and Final keypad are on the stage; the column keeps only voice-pick problems and the
@@ -305,6 +307,14 @@ function PlayerStatus({
           </Status>
         );
       }
+      if (revealStage && state.activeClue) {
+        // The pick reveal on the TV: the phone names the pick until the clue is read.
+        return (
+          <Status sub="Look at the TV.">
+            {state.activeClue.category} for {money(state.activeClue.value)}
+          </Status>
+        );
+      }
       return (
         <Status
           sub={
@@ -324,7 +334,7 @@ function PlayerStatus({
           <Text ff={DISPLAY} fw={700} fz={64} lh={1} c="green.4" className="sg-pop">
             BUZZ IN!
           </Text>
-          <Countdown deadlineAt={state.deadlineAt} total={BUZZ_WINDOW_MS} height={10} />
+          <Countdown deadlineAt={state.deadlineAt} total={buzzWindowMs(state)} height={10} />
         </div>
       );
     case "answering":
@@ -338,7 +348,11 @@ function PlayerStatus({
             <Text fz={22} fs="italic" mih={60} aria-label="What we heard">
               {heard ? `“${heard}”` : <span style={{ color: "#9a7aad" }}>{listening ? "Listening…" : "…"}</span>}
             </Text>
-            <Countdown deadlineAt={state.deadlineAt} total={ANSWER_TOTAL_MS} color="var(--mantine-color-teal-6)" />
+            <Countdown
+              deadlineAt={state.deadlineAt}
+              total={answerMs(state) + ANSWER_GRACE_MS}
+              color="var(--mantine-color-teal-6)"
+            />
             <Text size="sm" c={SOFT}>
               “What is” is optional. It stops when you go quiet.
             </Text>

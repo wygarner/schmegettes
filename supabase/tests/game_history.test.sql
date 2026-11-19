@@ -3,7 +3,7 @@
 -- users run as authenticated with request.jwt.claims, as in rls.test.sql.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(57);
+select plan(58);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (all rolled back)
@@ -142,12 +142,16 @@ select is(
   (select array[count(*) filter (where round = 'single'), count(*) filter (where round = 'double'),
                 count(*) filter (where round = 'final')]::integer[]
    from public.board_clues where game_id = tests.game('g1')),
-  array[24, 24, 1], 'the board has 24 single, 24 double, and 1 final clue'
+  array[20, 20, 1], 'the board has 20 single, 20 double, and 1 final clue'
 );
 select is(
   (select count(distinct column_index)::integer from public.board_clues
    where game_id = tests.game('g1') and round = 'single'),
-  6, 'six categories per round'
+  5, 'five categories per round'
+);
+select is(
+  (select max(column_index)::integer from public.board_clues where game_id = tests.game('g1')),
+  4, 'columns 0 to 4, Daily Doubles included'
 );
 select is(
   (select array[count(*) filter (where round = 'single' and is_daily_double),
@@ -203,7 +207,7 @@ select throws_ok(
 );
 
 -- Play the single round only, then finish.
-select is(tests.reveal_round(tests.game('g1'), 'single'), 24, 'reveal the single round');
+select is(tests.reveal_round(tests.game('g1'), 'single'), 20, 'reveal the single round');
 select lives_ok($$ select public.end_game(tests.game('g1'), 'finished') $$, 'end game 1');
 reset role;
 
@@ -212,7 +216,7 @@ select is(
      select s.user_id as u, count(*)::integer as n from public.seen_clues s
      join public.clues c on c.id = s.clue_id
      where c.season = 1 group by s.user_id) x),
-  array[24, 24, 24], 'host, contestant, and spectator each saw the 24 revealed clues'
+  array[20, 20, 20], 'host, contestant, and spectator each saw the 20 revealed clues'
 );
 select is(
   (select count(*)::integer from public.seen_clues s join public.clues c on c.id = s.clue_id
@@ -262,12 +266,12 @@ reset role;
 select is(
   (select count(distinct category)::integer from public.board_clues
    where game_id = tests.game('g3') and round = 'single' and category like 'SPEC%'),
-  6, 'the host''s and spectators'' seen clues do not limit the board'
+  5, 'the host''s and spectators'' seen clues do not limit the board'
 );
 select is(
   (select count(distinct category)::integer from public.board_clues
    where game_id = tests.game('g4') and round = 'single' and category like 'OLD%'),
-  6, 'when nothing is fresh, take categories seen by the fewest contestants, longest ago'
+  5, 'when nothing is fresh, take categories seen by the fewest contestants, longest ago'
 );
 select is(
   (select array[(select count(*) from public.games where room_id = 'a4a4a4a4-a4a4-4a4a-8a4a-a4a4a4a4a4a4'),

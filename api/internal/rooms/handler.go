@@ -1,6 +1,7 @@
 package rooms
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -25,23 +26,29 @@ func validName(name string) bool {
 	return n >= 1 && n <= 20
 }
 
-func (h Handler) respond(w http.ResponseWriter, status int, room Room) {
-	body := contracts.RoomJoin{
-		GameSocketUrl: strings.TrimRight(h.SocketBase, "/") + "/rooms/" + room.ID + "/ws",
-		Room: contracts.Room{
-			RoomId:          uuid.MustParse(room.ID),
-			Code:            room.Code,
-			Status:          contracts.RoomStatus(room.Status),
-			HostUserId:      uuid.MustParse(room.HostUserID),
-			HostDisplayName: room.HostDisplayName,
-			HostPlays:       room.HostPlays,
-			MaxPlayers:      room.MaxPlayers,
-		},
+func contractRoom(room Room) contracts.Room {
+	out := contracts.Room{
+		RoomId:          uuid.MustParse(room.ID),
+		Code:            room.Code,
+		Status:          contracts.RoomStatus(room.Status),
+		HostUserId:      uuid.MustParse(room.HostUserID),
+		HostDisplayName: room.HostDisplayName,
+		HostPlays:       room.HostPlays,
+		MaxPlayers:      room.MaxPlayers,
+		Timers:          contracts.RoomTimers(room.Timers),
+		DoubleRound:     room.DoubleRound,
 	}
 	if room.Seasons != nil {
-		body.Room.Seasons = &room.Seasons
+		out.Seasons = &room.Seasons
 	}
-	server.JSON(w, status, body)
+	return out
+}
+
+func (h Handler) respond(w http.ResponseWriter, status int, room Room) {
+	server.JSON(w, status, contracts.RoomJoin{
+		GameSocketUrl: strings.TrimRight(h.SocketBase, "/") + "/rooms/" + room.ID + "/ws",
+		Room:          contractRoom(room),
+	})
 }
 
 func (h Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
@@ -57,11 +64,13 @@ func (h Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, ErrNotAHost):
 		server.Problem(w, http.StatusForbidden, "not-a-host", "Hosting is invite-only")
 	case errors.Is(err, ErrNotTheHost):
-		server.Problem(w, http.StatusForbidden, "not-the-host", "Only the game's host can resume it")
+		server.Problem(w, http.StatusForbidden, "not-the-host", "Only the host can do that")
 	case errors.Is(err, ErrNotResumable):
 		server.Problem(w, http.StatusConflict, "not-resumable", "This game can't be resumed")
 	case errors.Is(err, ErrNotInGame):
 		server.Problem(w, http.StatusForbidden, "not-in-game", "This game is being resumed. Only its players can join.")
+	case errors.Is(err, ErrInvalidSettings):
+		server.Problem(w, http.StatusBadRequest, "invalid-settings", "Pick at least one season, from 1 to 40")
 	default:
 		slog.ErrorContext(r.Context(), "room request failed", "err", err,
 			"request_id", server.RequestID(r.Context()), "user_id", server.Claims(r.Context()).UserID)
@@ -126,6 +135,55 @@ func (h Handler) ByCode(w http.ResponseWriter, r *http.Request, code string) {
 		return
 	}
 	h.respond(w, http.StatusOK, room)
+}
+
+// optionsBody is PATCH /v1/rooms/{roomId}'s body. Seasons stays raw so an absent key (leave
+// it) and null (every season) differ.
+type optionsBody struct {
+	Seasons     json.RawMessage                             `json:"seasons"`
+	MaxPlayers  *int                                        `json:"maxPlayers"`
+	Timers      *contracts.PatchV1RoomsRoomIdJSONBodyTimers `json:"timers"`
+	DoubleRound *bool                                       `json:"doubleRound"`
+}
+
+// Patch handles PATCH /v1/rooms/{roomId}: the host's game options, before Start.
+func (h Handler) Patch(w http.ResponseWriter, r *http.Request, roomID string) {
+	var body optionsBody
+	if !server.DecodeJSON(w, r, &body) {
+		return
+	}
+	var o Options
+	if len(body.Seasons) > 0 {
+		o.SetSeasons = true
+		if err := json.Unmarshal(body.Seasons, &o.Seasons); err != nil {
+			server.Problem(w, http.StatusBadRequest, "invalid-request", "Invalid request body")
+			return
+		}
+	}
+	if body.Timers != nil {
+		switch *body.Timers {
+		case contracts.PatchV1RoomsRoomIdJSONBodyTimersRelaxed, contracts.PatchV1RoomsRoomIdJSONBodyTimersStandard,
+			contracts.PatchV1RoomsRoomIdJSONBodyTimersFast:
+			pace := string(*body.Timers)
+			o.Timers = &pace
+		default:
+			server.Problem(w, http.StatusBadRequest, "invalid-request", "Unknown timer pace")
+			return
+		}
+	}
+	o.DoubleRound, o.MaxPlayers = body.DoubleRound, body.MaxPlayers
+	if !o.SetSeasons && o.Timers == nil && o.DoubleRound == nil && o.MaxPlayers == nil {
+		server.Problem(w, http.StatusBadRequest, "invalid-request", "Nothing to change")
+		return
+	}
+	room, err := h.Store.SetOptions(r.Context(), server.Claims(r.Context()), roomID, o)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	slog.InfoContext(r.Context(), "room options changed", "room_id", room.ID, "timers", room.Timers,
+		"double_round", room.DoubleRound, "request_id", server.RequestID(r.Context()))
+	server.JSON(w, http.StatusOK, contractRoom(room))
 }
 
 // Current handles GET /v1/me/current-room: the room Home offers to rejoin, or 204.

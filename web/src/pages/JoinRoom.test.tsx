@@ -1,13 +1,22 @@
 import { MantineProvider } from "@mantine/core";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
-import { beforeEach, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { initialRoom, type RoomState, useRoom } from "../lib/room";
 import { joinRoom, type RoomJoin, type RoomProblem, roomByCode } from "../lib/rooms";
+import { micPermission, onMicPermissionChange, recognitionSupported, requestAnswerPermissions } from "../lib/speech";
 import { JOIN_ERRORS, JoinRoom } from "./JoinRoom";
 
 vi.mock("../lib/rooms", () => ({ joinRoom: vi.fn(), roomByCode: vi.fn() }));
 vi.mock("../lib/supabase", () => ({ getUserId: vi.fn().mockResolvedValue("me") }));
+// The microphone is allowed already unless a test says otherwise.
+vi.mock("../lib/speech", async (original) => ({
+  ...(await original<typeof import("../lib/speech")>()),
+  micPermission: vi.fn(),
+  recognitionSupported: vi.fn(),
+  requestAnswerPermissions: vi.fn(),
+  onMicPermissionChange: vi.fn(),
+}));
 vi.mock("../lib/room", async (original) => ({
   ...(await original<typeof import("../lib/room")>()),
   useRoom: vi.fn(),
@@ -24,6 +33,8 @@ const room: RoomJoin = {
     hostPlays: false,
     maxPlayers: 6,
     seasons: null,
+    timers: "standard",
+    doubleRound: true,
   },
 };
 
@@ -38,7 +49,13 @@ const inLobby: RoomState = {
 beforeEach(() => {
   vi.mocked(joinRoom).mockReset();
   vi.mocked(roomByCode).mockReset();
-  vi.mocked(useRoom).mockReturnValue({ state: inLobby, send: vi.fn(), leave: vi.fn() });
+  vi.mocked(useRoom).mockReset().mockReturnValue({ state: inLobby, send: vi.fn(), leave: vi.fn() });
+  vi.mocked(micPermission).mockReset().mockResolvedValue("granted");
+  vi.mocked(recognitionSupported).mockReset().mockReturnValue(true);
+  vi.mocked(requestAnswerPermissions).mockReset().mockResolvedValue("granted");
+  vi.mocked(onMicPermissionChange)
+    .mockReset()
+    .mockReturnValue(() => {});
   window.localStorage.clear();
 });
 
@@ -122,6 +139,71 @@ test("a closed room and a started game", async () => {
   vi.mocked(useRoom).mockReturnValue({ state: { ...inLobby, phase: "building_board" }, send: vi.fn(), leave: vi.fn() });
   renderJoin();
   expect(await screen.findByText("Shuffling a fresh board…")).toBeInTheDocument();
+});
+
+describe("the microphone comes first", () => {
+  test("a new player allows it before the name, and isn't joined before", async () => {
+    vi.mocked(micPermission).mockResolvedValue("ask");
+    vi.mocked(roomByCode).mockResolvedValue({ ok: false, problem: "room-not-found" });
+    renderJoin();
+    fireEvent.click(await screen.findByRole("button", { name: "Allow microphone" }));
+    expect(await screen.findByLabelText("What's your name?")).toBeInTheDocument();
+    expect(requestAnswerPermissions).toHaveBeenCalled();
+    expect(joinRoom).not.toHaveBeenCalled();
+  });
+
+  test("blocked: the steps and Try again; there's no way past it but Leave", async () => {
+    vi.mocked(micPermission).mockResolvedValue("ask");
+    vi.mocked(requestAnswerPermissions).mockResolvedValueOnce("denied").mockResolvedValueOnce("granted");
+    vi.mocked(roomByCode).mockResolvedValue({ ok: false, problem: "room-not-found" });
+    renderJoin();
+    fireEvent.click(await screen.findByRole("button", { name: "Allow microphone" }));
+    expect(await screen.findByText("Your microphone is blocked.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("What's your name?")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByLabelText("What's your name?")).toBeInTheDocument();
+  });
+
+  test("already blocked: straight to the steps; Leave goes home", async () => {
+    vi.mocked(micPermission).mockResolvedValue("denied");
+    vi.mocked(roomByCode).mockResolvedValue({ ok: false, problem: "room-not-found" });
+    renderJoin();
+    expect(await screen.findByText("Your microphone is blocked.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Leave" }));
+    expect(await screen.findByText("home")).toBeInTheDocument();
+  });
+
+  test("a browser that can't hear answers stops here", async () => {
+    vi.mocked(recognitionSupported).mockReturnValue(false);
+    vi.mocked(roomByCode).mockResolvedValue({ ok: false, problem: "room-not-found" });
+    renderJoin();
+    expect(await screen.findByText("This browser can't hear answers.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Allow microphone" })).toBeNull();
+  });
+
+  test("a member who reloads goes through it again when the browser asks again", async () => {
+    vi.mocked(micPermission).mockResolvedValue("ask");
+    vi.mocked(roomByCode).mockResolvedValue({ ok: true, data: room });
+    renderJoin();
+    fireEvent.click(await screen.findByRole("button", { name: "Allow microphone" }));
+    expect(await screen.findByText("You're in, Alice.")).toBeInTheDocument();
+    expect(useRoom).toHaveBeenLastCalledWith(room.gameSocketUrl, "host");
+  });
+
+  test("turned off mid-game: the gate covers the game and the socket closes", async () => {
+    let change: (s: "granted" | "denied" | "ask") => void = () => {};
+    vi.mocked(onMicPermissionChange).mockImplementation((cb) => {
+      change = cb;
+      return () => {};
+    });
+    vi.mocked(roomByCode).mockResolvedValue({ ok: true, data: room });
+    vi.mocked(micPermission).mockResolvedValueOnce("granted").mockResolvedValue("denied");
+    renderJoin();
+    expect(await screen.findByText("You're in, Alice.")).toBeInTheDocument();
+    act(() => change("denied"));
+    expect(await screen.findByText("Your microphone is blocked.")).toBeInTheDocument();
+    expect(useRoom).toHaveBeenLastCalledWith(null, "host");
+  });
 });
 
 test("from a resume invite, the player joins at once with their game name", async () => {

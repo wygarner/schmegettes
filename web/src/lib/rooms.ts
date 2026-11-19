@@ -11,9 +11,9 @@ export type RoomProblem =
   | "invalid-name"
   | "not-a-host"
   | "rate-limited"
-  | "not-in-game"
-  | "not-the-host"
   | "not-resumable"
+  | "not-the-host"
+  | "not-in-game"
   | "error";
 
 export type RoomResult = { ok: true; data: RoomJoin } | { ok: false; problem: RoomProblem };
@@ -25,9 +25,9 @@ const KNOWN: RoomProblem[] = [
   "invalid-name",
   "not-a-host",
   "rate-limited",
-  "not-in-game",
-  "not-the-host",
   "not-resumable",
+  "not-the-host",
+  "not-in-game",
 ];
 
 function problemOf(error: unknown): RoomProblem {
@@ -56,6 +56,23 @@ export function joinRoom(code: string, displayName: string): Promise<RoomResult>
 /** A room the caller already belongs to; room-not-found for everyone else. */
 export function roomByCode(code: string): Promise<RoomResult> {
   return settle(api.GET("/v1/rooms/by-code/{code}", { params: { path: { code } } }));
+}
+
+export type Room = ApiComponents["schemas"]["Room"];
+export type RoomOptionsPatch = {
+  seasons?: number[] | null;
+  timers?: Room["timers"];
+  doubleRound?: boolean;
+};
+
+/** Changes the room's game options (host only, before Start). The updated room, or null. */
+export async function updateRoomOptions(roomId: string, options: RoomOptionsPatch): Promise<Room | null> {
+  try {
+    const { data } = await api.PATCH("/v1/rooms/{roomId}", { params: { path: { roomId } }, body: options });
+    return data ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export type CurrentRoom = ApiComponents["schemas"]["CurrentRoom"];

@@ -466,6 +466,11 @@ type PhaseChanged struct {
 	// final_reveal: finalists in reveal order, lowest pre-Final score first.
 	RevealOrder []Uuid `json:"revealOrder,omitempty" yaml:"revealOrder,omitempty" mapstructure:"revealOrder,omitempty"`
 
+	// Server clock, ms since epoch, when the pick reveal ends (the cell's blink and
+	// the category card; a Daily Double's blink). Present only right after a pick,
+	// never on a re-read after a pause or reload, so the reveal is never replayed.
+	RevealUntil *int `json:"revealUntil,omitempty" yaml:"revealUntil,omitempty" mapstructure:"revealUntil,omitempty"`
+
 	// RoomId corresponds to the JSON schema field "roomId".
 	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
 
@@ -602,6 +607,10 @@ type RoomSnapshot struct {
 	// ActiveClueId corresponds to the JSON schema field "activeClueId".
 	ActiveClueId *Uuid `json:"activeClueId,omitempty" yaml:"activeClueId,omitempty" mapstructure:"activeClueId,omitempty"`
 
+	// How long this game's players have to say an answer, from its timer pace. Absent
+	// before a game starts.
+	AnswerWindowMs *int `json:"answerWindowMs,omitempty" yaml:"answerWindowMs,omitempty" mapstructure:"answerWindowMs,omitempty"`
+
 	// AnsweringUserId corresponds to the JSON schema field "answeringUserId".
 	AnsweringUserId *Uuid `json:"answeringUserId,omitempty" yaml:"answeringUserId,omitempty" mapstructure:"answeringUserId,omitempty"`
 
@@ -610,6 +619,10 @@ type RoomSnapshot struct {
 
 	// Board corresponds to the JSON schema field "board".
 	Board []BoardClue `json:"board" yaml:"board" mapstructure:"board"`
+
+	// This game's buzz window (each reopen too), from its timer pace. Absent before a
+	// game starts.
+	BuzzWindowMs *int `json:"buzzWindowMs,omitempty" yaml:"buzzWindowMs,omitempty" mapstructure:"buzzWindowMs,omitempty"`
 
 	// Host copy only: the answers that can still be overridden (the clue just played,
 	// or the Final answer being revealed).
@@ -816,6 +829,12 @@ type SubmitWager struct {
 	// Type corresponds to the JSON schema field "type".
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
 }
+
+type TimerPace string
+
+const TimerPaceFast TimerPace = "fast"
+const TimerPaceRelaxed TimerPace = "relaxed"
+const TimerPaceStandard TimerPace = "standard"
 
 // Sent at most once per second. Clients render from deadlineAt and use ticks only
 // to correct drift.

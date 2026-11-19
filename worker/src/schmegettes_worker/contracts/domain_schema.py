@@ -38,6 +38,12 @@ class AnswerSource(Enum):
     typed = 'typed'
 
 
+class TimerPace(Enum):
+    relaxed = 'relaxed'
+    standard = 'standard'
+    fast = 'fast'
+
+
 class MatchRule(Enum):
     exact = 'exact'
     spelling_slip = 'spelling_slip'

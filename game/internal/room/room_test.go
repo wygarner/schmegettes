@@ -258,6 +258,17 @@ func (tm *timers) fireAfter(c *conn) {
 	f()
 }
 
+// readingDone reports the TV finished reading, once the pick reveal is over: it waits for the
+// room to handle everything sent so far (the pick), moves the clock past the reveal, then
+// sends reading_done.
+func (f *fixture) readingDone(tv *conn, clueID string) {
+	tv.t.Helper()
+	tv.send(map[string]any{"type": "ping"})
+	tv.until("pong")
+	f.clock.advance(play.PickReveal)
+	tv.send(map[string]any{"type": "reading_done", "clueId": clueID})
+}
+
 func setup(t *testing.T) *fixture {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())

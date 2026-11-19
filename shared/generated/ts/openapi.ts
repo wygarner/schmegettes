@@ -872,6 +872,9 @@ export interface paths {
                         /** @description Seasons to build boards from; null means every season */
                         seasons?: number[] | null;
                         maxPlayers?: number;
+                        timers?: components["schemas"]["TimerPace"];
+                        /** @description false: Final follows the Single board */
+                        doubleRound?: boolean;
                     };
                 };
             };
@@ -885,8 +888,34 @@ export interface paths {
                         "application/json": components["schemas"]["Room"];
                     };
                 };
-                403: components["responses"]["Problem"];
+                /** @description Seasons empty or outside 1 to 40 (`invalid-settings`) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description The caller isn't the room's host (`not-the-host`) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
                 404: components["responses"]["Problem"];
+                /** @description The game has started; options are locked (`game-started`) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
             };
         };
         trace?: never;
@@ -1079,6 +1108,9 @@ export interface components {
             maxPlayers: number;
             /** @description Seasons boards are built from; null means every season */
             seasons: number[] | null;
+            timers: components["schemas"]["TimerPace"];
+            /** @description Play the Double Schmegettes board; false: Final follows Single */
+            doubleRound: boolean;
         };
         /** @description Trimmed by the server; must not be blank */
         DisplayName: string;
@@ -1207,6 +1239,11 @@ export interface components {
         RoomCode: string;
         /** @enum {string} */
         RoomStatus: "open" | "in_game" | "closed";
+        /**
+         * @description The game's pace, chosen in the lobby: how long buzzing stays open and how long a player has to answer. relaxed 15 s / 12 s, standard 9 s / 9 s, fast 5 s / 7 s. Mirrors public.timer_pace.
+         * @enum {string}
+         */
+        TimerPace: "relaxed" | "standard" | "fast";
         /**
          * @description A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).
          * @enum {string}

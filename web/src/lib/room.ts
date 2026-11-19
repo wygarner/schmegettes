@@ -49,8 +49,16 @@ export interface RoomState {
   /** The current round's clues, column by column. Phones never get clue text. */
   board: BoardClue[];
   activeClue?: BoardClue;
+  /**
+   * The pick reveal to play, set only by the pick's phase_changed (never by a re-read or a
+   * snapshot): "card" for a clue (blink, then the category card), "blink" for a Daily Double.
+   */
+  reveal?: { clueId: string; kind: "card" | "blink" };
   /** Server clock, ms, when the current step times out. */
   deadlineAt?: number;
+  /** This game's buzz window and answer time (its timer pace); absent: Standard. */
+  buzzWindowMs?: number;
+  answerWindowMs?: number;
   controllingUserId?: string;
   answeringUserId?: string;
   attemptedUserIds: string[];
@@ -196,6 +204,8 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
       return {
         ...state,
         ...clueReset(),
+        buzzWindowMs: event.buzzWindowMs,
+        answerWindowMs: event.answerWindowMs,
         results: finished ? (state.results ?? resultsFrom(event.players, scores)) : undefined,
         finalSkipped: finished ? state.finalSkipped : undefined,
         reveals: finished || event.phase === "final_reveal" ? state.reveals : [],
@@ -257,6 +267,10 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         paused: event.paused ?? state.paused,
         activeClue: event.activeClue,
         board: withClue(state.board, event.activeClue),
+        reveal:
+          event.revealUntil !== undefined && event.activeClue
+            ? { clueId: event.activeClue.clueId, kind: event.phase === "daily_double_wager" ? "blink" : "card" }
+            : undefined,
         ...wagerFields(event),
       };
       if (event.phase === "daily_double_wager" && state.phase !== "daily_double_wager") {

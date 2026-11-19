@@ -322,6 +322,26 @@ describe("overrides, the scoreboard and Rematch", () => {
   });
 });
 
+test("the pick reveal comes only with the pick's phase_changed", () => {
+  const board = [{ ...clue, state: "unplayed" as const }];
+  let s = reduceRoom(
+    { ...initialRoom, connection: "open", board },
+    { type: "phase_changed", roomId: ROOM, seq: 1, phase: "clue_reading", activeClue: clue, revealUntil: 1500 },
+  );
+  expect(s.reveal).toEqual({ clueId: "c1", kind: "card" });
+  s = reduceRoom(s, { type: "phase_changed", roomId: ROOM, seq: 2, phase: "buzzing_open", activeClue: clue });
+  expect(s.reveal).toBeUndefined();
+  s = reduceRoom(s, {
+    type: "phase_changed",
+    roomId: ROOM,
+    seq: 3,
+    phase: "daily_double_wager",
+    activeClue: { ...clue, clueId: "dd" },
+    revealUntil: 600,
+  });
+  expect(s.reveal).toEqual({ clueId: "dd", kind: "blink" });
+});
+
 test("another device took the seat: the room stops here", () => {
   const s = reduceRoom({ ...initialRoom, connection: "open" }, { type: "replaced" });
   expect(s.connection).toBe("closed");

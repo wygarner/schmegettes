@@ -1,39 +1,20 @@
 import { Button, Group, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useCallback, useEffect, useState } from "react";
 import { narrate } from "../lib/narrator";
-import {
-  chooseVoice,
-  getSavedVoice,
-  hasNaturalVoice,
-  narratorChoice,
-  piperChoiceValue,
-  rankVoices,
-  saveVoice,
-  tipPlatform,
-  useNarratorVoices,
-  voiceLabel,
-} from "../lib/narratorVoice";
+import { getSavedVoice, narratorChoice, piperChoiceValue, saveVoice } from "../lib/narratorVoice";
 import { prepareVoice } from "../lib/piper/engine";
 import {
-  DEFAULT_PIPER_VOICE,
   PIPER_VOICES,
   type PiperVoice,
   type PiperVoiceId,
   useVoiceStatus,
   type VoiceStatus,
 } from "../lib/piper/voices";
-import { announcement, speak } from "../lib/speech";
 import { Sheet } from "../ui/Sheet";
 import { SOFT } from "../ui/tokens";
 
 /** What a voice says when the host taps it. */
-export const VOICE_SAMPLE = announcement("Volcanoes", 400);
-
-/** Where to download a better voice. The path is a constant so it's a one-line fix per OS release. */
-export const VOICE_TIPS = {
-  ios: "Want a more natural voice? Download a Premium voice in Settings → Accessibility → Spoken Content → Voices → English, then reload this page.",
-  mac: "Want a more natural voice? Download a Premium voice in System Settings → Accessibility → Spoken Content → System voice → Manage Voices, then reload this page.",
-} as const;
+export const VOICE_SAMPLE = "Here's a sample of my voice.";
 
 function statusText(status: VoiceStatus): string {
   switch (status.state) {
@@ -50,59 +31,75 @@ function statusText(status: VoiceStatus): string {
   }
 }
 
-const blocked = (status: VoiceStatus) => status.state === "failed" || status.state === "unavailable";
+/** Fired when the host picks a voice, so every reader of the choice updates. */
+const PICKED = "schmegettes:narrator-voice";
+
+export interface NarratorStatus {
+  id: PiperVoiceId;
+  name: string;
+  status: VoiceStatus;
+  /** Start may be pressed: the picked voice is on the device and loaded. */
+  ready: boolean;
+  /** This device can't run the Schmegettes voices, so it can't host. */
+  unavailable: boolean;
+}
 
 /**
- * The lobby's "🔊 Kristin" button and its picker: the Schmegettes voices first, then the
- * device's English voices, best first. Tapping a voice saves it on this device and says the
- * sample line on the TV (a Schmegettes voice once it has downloaded). Rules:
+ * The picked voice and how far along it is. The lobby's Start waits for `ready`. Rules:
+ * docs/product-docs/features/lobby/feature-brief.md, "The lobby".
+ */
+export function useNarratorStatus(): NarratorStatus {
+  const [, setTick] = useState(0);
+  const { id } = narratorChoice();
+  const status = useVoiceStatus(id);
+  // Re-read the choice when the picker saves a new one.
+  useEffect(() => {
+    const onPick = () => setTick((n) => n + 1);
+    window.addEventListener(PICKED, onPick);
+    return () => window.removeEventListener(PICKED, onPick);
+  }, []);
+  const name = PIPER_VOICES.find((v) => v.id === id)?.name ?? "";
+  const noAudio = typeof AudioContext === "undefined";
+  return {
+    id,
+    name,
+    status,
+    ready: status.state === "ready" && !noAudio,
+    unavailable: status.state === "unavailable" || noAudio,
+  };
+}
+
+/**
+ * The lobby's "🔊 Kristin" button and its picker: the three Schmegettes voices. Tapping one
+ * saves it on this device, downloads it if needed, and says the sample line on the TV once
+ * it's ready. Hidden on a device that can't run them. Rules:
  * docs/product-docs/features/lobby/interaction-design.md.
  */
 export function NarratorVoicePicker() {
-  const { voices, supported } = useNarratorVoices();
-  const [, setSaved] = useState(getSavedVoice); // re-render after a pick
+  const narrator = useNarratorStatus();
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
-  const choice = narratorChoice();
-  const piperId: PiperVoiceId = choice.kind === "piper" ? choice.id : DEFAULT_PIPER_VOICE;
-  const piperStatus = useVoiceStatus(piperId);
 
-  // The chosen Schmegettes voice downloads in the background as soon as the lobby opens.
-  const toPrepare = choice.kind === "piper" ? choice.id : null;
+  // The picked voice downloads in the background as soon as the lobby opens.
   useEffect(() => {
-    if (toPrepare) void prepareVoice(toPrepare);
-  }, [toPrepare]);
+    void prepareVoice(narrator.id);
+  }, [narrator.id]);
 
-  if (!supported && typeof AudioContext === "undefined") return null;
+  if (narrator.unavailable) return null;
 
-  const device = choice.kind === "device" ? chooseVoice(voices, choice.uri) : null;
-  let label: string;
-  if (choice.kind === "piper" && !blocked(piperStatus)) {
-    const name = PIPER_VOICES.find((v) => v.id === choice.id)?.name ?? "";
-    label = piperStatus.state === "downloading" ? `${name} · ${Math.floor(piperStatus.fraction * 100)}%` : name;
-  } else {
-    const best = device ?? chooseVoice(voices, null);
-    label = best ? voiceLabel(best) : "Default voice";
-  }
-  const ranked = rankVoices(voices);
-  const platform = tipPlatform();
-  const tip =
-    voices.length > 0 && blocked(piperStatus) && !hasNaturalVoice(voices) && platform ? VOICE_TIPS[platform] : null;
+  const label =
+    narrator.status.state === "downloading"
+      ? `${narrator.name} · ${Math.floor(narrator.status.fraction * 100)}%`
+      : narrator.name;
 
-  function pickPiper(id: PiperVoiceId) {
+  function pick(id: PiperVoiceId) {
     const value = piperChoiceValue(id);
     saveVoice(value);
-    setSaved(value);
+    window.dispatchEvent(new Event(PICKED));
     void prepareVoice(id).then((ready) => {
       // Skip the sample if the host picked something else meanwhile.
       if (ready && getSavedVoice() === value) void narrate(VOICE_SAMPLE);
     });
-  }
-
-  function pickDevice(voice: SpeechSynthesisVoice) {
-    saveVoice(voice.voiceURI);
-    setSaved(voice.voiceURI);
-    void speak(VOICE_SAMPLE, voice); // the tap also unlocks speech on iOS
   }
 
   return (
@@ -122,37 +119,11 @@ export function NarratorVoicePicker() {
         <Text fw={700} mb="xs">
           Narrator voice
         </Text>
-        <Stack gap={2} style={{ maxHeight: "calc(100dvh - 190px)", minHeight: 40, overflowY: "auto" }}>
-          <GroupLabel>Schmegettes voices</GroupLabel>
+        <Stack gap={2}>
           {PIPER_VOICES.map((v) => (
-            <PiperRow
-              key={v.id}
-              voice={v}
-              selected={choice.kind === "piper" && choice.id === v.id}
-              onPick={() => pickPiper(v.id)}
-            />
+            <VoiceRow key={v.id} voice={v} selected={narrator.id === v.id} onPick={() => pick(v.id)} />
           ))}
-          <GroupLabel>Voices on this device</GroupLabel>
-          {voices.length === 0 ? (
-            <Text c={SOFT}>Loading voices…</Text>
-          ) : ranked.length === 0 ? (
-            <Text c={SOFT}>No English voices on this device.</Text>
-          ) : (
-            ranked.map((voice) => (
-              <Row
-                key={voice.voiceURI}
-                label={voiceLabel(voice)}
-                selected={voice.voiceURI === device?.voiceURI}
-                onPick={() => pickDevice(voice)}
-              />
-            ))
-          )}
         </Stack>
-        {tip && (
-          <Text size="sm" c={SOFT} mt="sm">
-            {tip}
-          </Text>
-        )}
         <Group justify="flex-end" mt="sm">
           <Button onClick={close}>Done</Button>
         </Group>
@@ -161,20 +132,29 @@ export function NarratorVoicePicker() {
   );
 }
 
-function GroupLabel({ children }: { children: string }) {
-  return (
-    <Text size="xs" fw={700} c={SOFT} tt="uppercase" mt={6}>
-      {children}
-    </Text>
-  );
-}
-
-function PiperRow({ voice, selected, onPick }: { voice: PiperVoice; selected: boolean; onPick: () => void }) {
+function VoiceRow({ voice, selected, onPick }: { voice: PiperVoice; selected: boolean; onPick: () => void }) {
   const status = useVoiceStatus(voice.id);
   const text = statusText(status);
   return (
     <Group gap={6} wrap="nowrap">
-      <Row label={voice.name} selected={selected} onPick={onPick} disabled={status.state === "unavailable"} />
+      <UnstyledButton
+        aria-pressed={selected}
+        onClick={onPick}
+        style={{
+          flex: 1,
+          display: "flex",
+          gap: 8,
+          padding: "6px 8px",
+          borderRadius: 8,
+          color: "#fff",
+          background: selected ? "rgba(255,255,255,.1)" : "transparent",
+        }}
+      >
+        <span aria-hidden style={{ width: 14 }}>
+          {selected ? "✓" : ""}
+        </span>
+        <span>{voice.name}</span>
+      </UnstyledButton>
       {text && (
         <Text size="xs" c={SOFT} style={{ whiteSpace: "nowrap" }}>
           {text}
@@ -186,40 +166,5 @@ function PiperRow({ voice, selected, onPick }: { voice: PiperVoice; selected: bo
         </Button>
       )}
     </Group>
-  );
-}
-
-function Row({
-  label,
-  selected,
-  onPick,
-  disabled = false,
-}: {
-  label: string;
-  selected: boolean;
-  onPick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <UnstyledButton
-      aria-pressed={selected}
-      disabled={disabled}
-      onClick={onPick}
-      style={{
-        flex: 1,
-        display: "flex",
-        gap: 8,
-        padding: "6px 8px",
-        borderRadius: 8,
-        color: "#fff",
-        opacity: disabled ? 0.45 : 1,
-        background: selected ? "rgba(255,255,255,.1)" : "transparent",
-      }}
-    >
-      <span aria-hidden style={{ width: 14 }}>
-        {selected ? "✓" : ""}
-      </span>
-      <span>{label}</span>
-    </UnstyledButton>
   );
 }

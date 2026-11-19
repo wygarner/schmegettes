@@ -134,8 +134,8 @@ func (rt routes) PostV1MeMerge(w http.ResponseWriter, r *http.Request) {
 func (routes) GetV1RoomsRoomId(w http.ResponseWriter, _ *http.Request, _ openapi_types.UUID) {
 	notImplemented(w)
 }
-func (routes) PatchV1RoomsRoomId(w http.ResponseWriter, _ *http.Request, _ openapi_types.UUID) {
-	notImplemented(w)
+func (rt routes) PatchV1RoomsRoomId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	rt.rooms.Patch(w, r, id.String())
 }
 
 // handler wires the routes behind logging, CORS, and authentication.

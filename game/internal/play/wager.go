@@ -141,7 +141,8 @@ func (g *Game) startDailyDouble(now time.Time, e *Effects) {
 	g.answering = ""
 	g.ddWager, g.ddLocked = 0, false
 	g.ddMax = g.ddRange()
-	g.deadline = now.Add(DDReveal + WagerWindow)
+	// After the picked cell's blink (PickBlink), the 2 s reveal, then the wager window.
+	g.deadline = later(now, g.revealUntil).Add(DDReveal + WagerWindow)
 	g.emitPhase(e)
 }
 
@@ -199,7 +200,7 @@ func (g *Game) startDDAnswer(now time.Time, e *Effects) {
 	g.phase = contracts.GamePhaseAnswering
 	g.step = stepAnswering
 	g.lastProg = time.Time{}
-	g.deadline = now.Add(AnswerWindow + AnswerGrace)
+	g.deadline = now.Add(g.answerWindow + AnswerGrace)
 	g.emitPhase(e)
 }
 

@@ -27,6 +27,11 @@
       "type": "string",
       "enum": ["voice", "typed"]
     },
+    "TimerPace": {
+      "description": "The game's pace, chosen in the lobby: how long buzzing stays open and how long a player has to answer. relaxed 15 s / 12 s, standard 9 s / 9 s, fast 5 s / 7 s. Mirrors public.timer_pace.",
+      "type": "string",
+      "enum": ["relaxed", "standard", "fast"]
+    },
     "MatchRule": {
       "description": "Which judging rule decided an answer. Mirrors public.match_rule.",
       "type": "string",

@@ -132,6 +132,8 @@ test("creating a room opens the host screen", async () => {
         hostPlays: false,
         maxPlayers: 6,
         seasons: null,
+        timers: "standard",
+        doubleRound: true,
       },
     },
   });

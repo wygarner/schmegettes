@@ -1,5 +1,10 @@
 // Mirrors the server's timings in game/internal/play/game.go; keep the two in sync.
 
+/** The pick reveal: the picked cell blinks, then grows into the category card. The server
+ * opens buzzing only after it (play.PickReveal, play.PickBlink). */
+export const PICK_REVEAL_MS = 1500;
+export const PICK_BLINK_MS = 600;
+
 /** How long buzzing stays open (and each reopen). */
 export const BUZZ_WINDOW_MS = 9000;
 /** How long a phone listens for an answer. */
@@ -8,6 +13,14 @@ export const ANSWER_MS = 9000;
 export const ANSWER_GRACE_MS = 1500;
 /** The answering countdown: the server's whole answer deadline. */
 export const ANSWER_TOTAL_MS = ANSWER_MS + ANSWER_GRACE_MS;
+
+/** This game's windows (the lobby's timer pace, from the snapshot); Standard when unknown. */
+export function buzzWindowMs(s: { buzzWindowMs?: number }): number {
+  return s.buzzWindowMs ?? BUZZ_WINDOW_MS;
+}
+export function answerMs(s: { answerWindowMs?: number }): number {
+  return s.answerWindowMs ?? ANSWER_MS;
+}
 
 // Wagers (docs/product-docs/features/wagers/interaction-design.md, "Timing").
 

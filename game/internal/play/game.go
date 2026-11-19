@@ -6,7 +6,6 @@ package play
 
 import (
 	"errors"
-	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -15,25 +14,40 @@ import (
 	"schmegettes/game/internal/judge"
 )
 
-// Timings from the gameplay interaction design.
+// Timings from the gameplay interaction design. BuzzWindow and AnswerWindow are the Standard
+// pace; a game's own come from its timer option (Windows).
 const (
 	Lockout      = 250 * time.Millisecond
 	BuzzWindow   = 9 * time.Second
 	AnswerWindow = 9 * time.Second
 	// AnswerGrace lets the final transcript arrive after the phone stops listening.
-	AnswerGrace   = 1500 * time.Millisecond
-	ClueEndPause  = 6 * time.Second
-	Interstitial  = 3 * time.Second
+	AnswerGrace  = 1500 * time.Millisecond
+	ClueEndPause = 6 * time.Second
+	Interstitial = 3 * time.Second
+	// PickReveal is the picked cell's blink and the category card before a clue is read;
+	// PickBlink is the blink alone, before a Daily Double's reveal. Buzzing never opens
+	// before the reveal ends.
+	PickReveal = 1500 * time.Millisecond
+	PickBlink  = 600 * time.Millisecond
+	// ResponseTail is how long the correct response stays up after the host device has
+	// read it. ClueEndPause is the cap when it never reports.
+	ResponseTail  = 1 * time.Second
 	MaxReading    = 14 * time.Second
 	ProgressEvery = 250 * time.Millisecond
 	// ControlGrace is how long a disconnected controller keeps control on the board.
 	ControlGrace = 10 * time.Second
 )
 
-// Announcement is what the host device says before reading a clue. Keep it in sync with
-// announcement() in web/src/lib/speech.ts, which speaks it.
-func Announcement(category string, value int) string {
-	return fmt.Sprintf("Here's %s for %d.", category, value)
+// Windows is a timer pace's buzz window (each reopen too) and answer time: the lobby's
+// Timers option. An unknown or empty pace is Standard.
+func Windows(pace contracts.TimerPace) (buzz, answer time.Duration) {
+	switch pace {
+	case contracts.TimerPaceRelaxed:
+		return 15 * time.Second, 12 * time.Second
+	case contracts.TimerPaceFast:
+		return 5 * time.Second, 7 * time.Second
+	}
+	return BuzzWindow, AnswerWindow
 }
 
 // ReadingTime estimates how long text-to-speech takes: about 2.5 words a second plus a
@@ -82,6 +96,10 @@ type Setup struct {
 
 	// Final is the Final Schmegettes clue. Nil means the game ends after Double.
 	Final *Clue
+	// The game's options (lobby): its timer pace ("" is Standard), and NoDouble when
+	// Double Schmegettes is off, so Final follows the Single board.
+	Pace     contracts.TimerPace
+	NoDouble bool
 	// Recovery of wagers: the active Daily Double's wager, if locked; Final wagers and
 	// submitted answers (from the wagers table); and the score change of each Final answer
 	// already revealed (answers rows on the Final clue).
@@ -189,14 +207,16 @@ const (
 
 // Game is one game's state.
 type Game struct {
-	s       Setup
-	round   contracts.Round
-	phase   contracts.GamePhase
-	step    step
-	clues   map[string]*Clue
-	order   []string // clue ids in board order
-	scores  map[string]int
-	control string
+	s Setup
+	// The game's buzz window and answer time (Setup.Pace).
+	buzzWindow, answerWindow time.Duration
+	round                    contracts.Round
+	phase                    contracts.GamePhase
+	step                     step
+	clues                    map[string]*Clue
+	order                    []string // clue ids in board order
+	scores                   map[string]int
+	control                  string
 
 	active    *Clue
 	attempted map[string]bool
@@ -205,6 +225,10 @@ type Game struct {
 	lastProg  time.Time
 
 	deadline time.Time
+	// revealUntil is when the pick reveal ends; buzzing waits for it. sendReveal puts it on
+	// the next phase_changed only (the pick's), so a re-read never replays the reveal.
+	revealUntil time.Time
+	sendReveal  bool
 	// handoffAt is when control passes from a disconnected controller (board only).
 	handoffAt time.Time
 	paused    bool
@@ -264,6 +288,7 @@ func New(s Setup) *Game {
 		submitted:     map[string]bool{},
 		finalRevealed: map[string]bool{},
 	}
+	g.buzzWindow, g.answerWindow = Windows(s.Pace)
 	if s.Final != nil {
 		f := *s.Final
 		g.final = &f
@@ -278,7 +303,7 @@ func New(s Setup) *Game {
 	}
 
 	g.round = contracts.RoundSingle
-	if g.roundDone(contracts.RoundSingle) {
+	if g.roundDone(contracts.RoundSingle) && !s.NoDouble {
 		g.round = contracts.RoundDouble
 	}
 	switch {
@@ -302,7 +327,8 @@ func New(s Setup) *Game {
 			g.recoverDailyDouble(s.DDWager)
 		}
 	}
-	if g.roundDone(contracts.RoundDouble) {
+	// The boards are done: Final (with Double Schmegettes off, after the Single board).
+	if g.roundDone(contracts.RoundDouble) || (s.NoDouble && g.roundDone(contracts.RoundSingle)) {
 		g.recoverFinal(s)
 	}
 	return g
@@ -437,6 +463,9 @@ func (g *Game) phaseChanged(host bool) contracts.PhaseChanged {
 		bc := g.boardClue(g.active, host)
 		m.ActiveClue = &bc
 	}
+	if g.sendReveal {
+		m.RevealUntil = ms(g.revealUntil)
+	}
 	w := g.wagerFields()
 	m.WagerMin, m.WagerMax, m.Wager = w.min, w.max, w.wager
 	m.FinalistUserIds, m.LockedUserIds, m.RevealOrder = w.finalists, w.locked, w.order
@@ -449,6 +478,7 @@ func (g *Game) emitPhase(e *Effects) {
 	seq := g.s.NextSeq()
 	all, host := g.phaseChanged(false), g.phaseChanged(true)
 	all.Seq, host.Seq = seq, seq
+	g.sendReveal = false
 	e.sendSplit(all, host)
 }
 
@@ -459,6 +489,8 @@ func (g *Game) SnapshotFields(m *contracts.RoomSnapshot, host bool) {
 	m.Board = g.Board(host)
 	m.ControllingUserId = uid(g.control)
 	m.DeadlineAt = ms(g.deadline)
+	buzz, answer := int(g.buzzWindow.Milliseconds()), int(g.answerWindow.Milliseconds())
+	m.BuzzWindowMs, m.AnswerWindowMs = &buzz, &answer
 	m.AnsweringUserId = uid(g.answering)
 	m.AttemptedUserIds = g.attemptedList()
 	paused := g.paused
@@ -500,28 +532,40 @@ func (g *Game) Pick(now time.Time, user, clueID string) (Effects, error) {
 	g.clueAnswers = nil
 	g.controlAtPick = g.control
 	e.record(Record{Kind: RevealClue, ClueID: c.ID})
+	g.sendReveal = true
 	if c.DailyDouble {
+		g.revealUntil = now.Add(PickBlink)
 		g.startDailyDouble(now, &e)
 		return e, nil
 	}
+	g.revealUntil = now.Add(PickReveal)
 	g.startReading(now, &e)
 	return e, nil
 }
 
+// startReading shows the clue for the host device to read. Right after a pick the reading
+// starts when the reveal ends; a re-read (after a pause) starts at once.
 func (g *Game) startReading(now time.Time, e *Effects) {
 	g.phase = contracts.GamePhaseClueReading
 	g.step = stepReading
 	g.answering = ""
-	g.deadline = now.Add(ReadingTime(g.readingText()))
+	g.deadline = later(now, g.revealUntil).Add(ReadingTime(g.readingText()))
 	g.emitPhase(e)
 }
 
-// readingText is what the host device reads: the announcement, then the clue.
+func later(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+	return a
+}
+
+// readingText is what the host device reads: the clue (a Daily Double says its wager first).
 func (g *Game) readingText() string {
 	if g.ddActive() {
 		return DailyDoubleAnnouncement(g.ddWager) + " " + g.active.Text
 	}
-	return Announcement(g.active.Category, g.active.Value) + " " + g.active.Text
+	return g.active.Text
 }
 
 // ReadingDone opens buzzing when the host device finishes reading the clue aloud.
@@ -535,7 +579,22 @@ func (g *Game) ReadingDone(now time.Time, user, clueID string) (Effects, error) 
 	}
 	switch g.step {
 	case stepReading:
+		// Never during the pick reveal, whatever the speech does.
+		if now.Before(g.revealUntil) {
+			g.deadline = g.revealUntil
+			return e, nil
+		}
 		g.afterReading(now, &e)
+	case stepClueEnd:
+		// The correct response has been read: back to the board shortly, never later
+		// than the cap. During an override review, the review keeps the time instead.
+		if g.reviewing {
+			g.reviewLeft = min(g.reviewLeft, ResponseTail)
+			return e, nil
+		}
+		if tail := now.Add(ResponseTail); tail.Before(g.deadline) {
+			g.deadline = tail
+		}
 	case stepFinalCategory:
 		// The title stays up at least FinalTitle, whatever the speech does.
 		if gate := g.phaseStart.Add(FinalTitle); now.Before(gate) {
@@ -564,7 +623,7 @@ func (g *Game) openBuzzing(now time.Time, e *Effects) {
 	g.phase = contracts.GamePhaseBuzzingOpen
 	g.step = stepBuzzing
 	g.answering = ""
-	g.deadline = now.Add(BuzzWindow)
+	g.deadline = now.Add(g.buzzWindow)
 	g.emitPhase(e)
 }
 
@@ -594,7 +653,7 @@ func (g *Game) Buzz(now time.Time, user, clueID string) (Effects, error) {
 		g.phase = contracts.GamePhaseAnswering
 		g.step = stepAnswering
 		g.lastProg = time.Time{}
-		g.deadline = now.Add(AnswerWindow + AnswerGrace)
+		g.deadline = now.Add(g.answerWindow + AnswerGrace)
 		e.send(contracts.BuzzResult{
 			Type: "buzz_result", RoomId: contracts.Uuid(g.s.RoomID), Seq: g.s.NextSeq(),
 			UserId: contracts.Uuid(user), Outcome: contracts.BuzzResultOutcomeWon,
@@ -806,7 +865,8 @@ func (g *Game) nextAfterClue(now time.Time, e *Effects) {
 		g.checkControl(now)
 		return
 	}
-	if g.round == contracts.RoundSingle && !g.roundDone(contracts.RoundDouble) {
+	// With Double Schmegettes off there is no Double board: Final follows Single.
+	if g.round == contracts.RoundSingle && !g.s.NoDouble && !g.roundDone(contracts.RoundDouble) {
 		g.round = contracts.RoundDouble
 		g.control = g.lowestScore()
 		g.step = stepInterstitial
@@ -912,6 +972,8 @@ func (g *Game) pause(now time.Time) Effects {
 	g.remaining = left
 	g.deadline = time.Time{}
 	g.handoffAt = time.Time{}
+	// The clue is read again on resume, without the reveal.
+	g.revealUntil, g.sendReveal = time.Time{}, false
 	// A player cut off mid-answer may try again when the clue is re-read.
 	if g.step == stepAnswering {
 		g.answering = ""

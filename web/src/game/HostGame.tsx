@@ -2,7 +2,7 @@ import { Box, Loader, Text, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { money } from "../lib/money";
-import { narrate, stopNarration } from "../lib/narrator";
+import { narrate, prepareNarration, stopNarration } from "../lib/narrator";
 import { narratorChoice } from "../lib/narratorVoice";
 import { prepareVoice } from "../lib/piper/engine";
 import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
@@ -46,6 +46,14 @@ interface Speech {
   sound?: () => Promise<void>;
 }
 
+function clueReadingText(state: RoomState): string | null {
+  const clue = state.activeClue;
+  if (!clue?.clueText) return null;
+  return clue.dailyDouble && state.wager !== undefined
+    ? `${dailyDoubleAnnouncement(state.wager)} ${clue.clueText}`
+    : clue.clueText;
+}
+
 /**
  * What the TV should be saying in this phase, if anything. Nothing during the pick reveal:
  * the narrator starts the clue when the reveal ends (it has been preparing it meanwhile).
@@ -71,12 +79,8 @@ function currentSpeech(state: RoomState, revealing: boolean): Speech | null {
   if (revealing) return null;
   switch (state.phase) {
     case "clue_reading": {
-      if (!clue.clueText) return null;
-      // Only the clue: the reveal showed the category and value. A Daily Double says its wager.
-      const text =
-        clue.dailyDouble && state.wager !== undefined
-          ? `${dailyDoubleAnnouncement(state.wager)} ${clue.clueText}`
-          : clue.clueText;
+      const text = clueReadingText(state);
+      if (!text) return null;
       // A resume re-reads with a new deadline.
       return {
         key: `read:${clue.clueId}:${state.deadlineAt}`,
@@ -161,6 +165,20 @@ export function HostGame({
   const revealStage = usePickReveal(state.reveal);
   const speech = currentSpeech(state, revealStage !== null);
   const speechKey = speech?.key ?? "";
+  // Start silent synthesis as soon as the complete line is available. During an ordinary pick
+  // this is the 1.5 s reveal; a Daily Double gets its wager prefix before clue_reading. Final's
+  // clue remains secret until final_answer, so it uses the same bounded chunks on demand.
+  const leadInText =
+    revealStage !== null || (state.phase === "daily_double_wager" && state.wager !== undefined)
+      ? clueReadingText(state)
+      : null;
+  const preparationText = state.paused ? null : (speech?.text ?? leadInText);
+  // Stop the line from the screen that just went away before preparing silent work for the
+  // next one. This ordering matters when a Daily Double intro gives way to its wagered clue.
+  useEffect(() => {
+    if (!speechKey) stopNarration();
+    if (preparationText) prepareNarration(preparationText);
+  }, [speechKey, preparationText]);
   // speech is rebuilt every render; its key says when it changed.
   const speechRef = useRef(speech);
   speechRef.current = speech;
@@ -168,6 +186,7 @@ export function HostGame({
   useEffect(() => {
     if (state.paused) {
       spokenRef.current = ""; // the server reads again on resume
+      stopNarration();
       stopEffects();
       return;
     }
@@ -183,10 +202,6 @@ export function HostGame({
     if (speech) say(speech);
     else void narrate("Sound on");
   };
-
-  useEffect(() => {
-    if (!speechKey) stopNarration();
-  }, [speechKey]);
 
   // "Double Schmegettes!" gets its fanfare, once per round, inside the 3 s interstitial.
   const doubleIntro = state.roundIntro === "double" && state.phase !== "clue_reading" && !state.paused;

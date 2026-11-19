@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { narrate, PIPER_START_TIMEOUT_MS, stopNarration } from "./narrator";
+import { type NarrateResult, narrate, PIPER_START_TIMEOUT_MS, prepareNarration, stopNarration } from "./narrator";
 import { saveVoice } from "./narratorVoice";
 import { setAudioContextForTest } from "./piper/audio";
 import { type Audio, type PiperEngine, readyEngine } from "./piper/engine";
@@ -59,6 +59,7 @@ beforeEach(() => {
   vi.mocked(readyEngine).mockClear();
 });
 afterEach(() => {
+  stopNarration();
   vi.useRealTimers();
   setAudioContextForTest(null);
   window.localStorage.clear();
@@ -71,6 +72,52 @@ test("a Schmegettes voice reads each sentence in order and ends after the last",
   expect(engine.synthesize.mock.calls.map((c) => c[0])).toEqual(["Here's OPERA for 200.", "Verdi wrote it."]);
   expect(sources).toHaveLength(2);
   for (const s of sources) s.onended?.();
+  await expect(done).resolves.toBe("ended");
+});
+
+test("preparation is silent and its first bounded chunk is reused", async () => {
+  const sources = fakeAudio();
+  const line = "One two three four five six seven eight nine ten";
+  prepareNarration(line);
+  await flush();
+  expect(engine.synthesize.mock.calls.map((c) => c[0])).toEqual(["One two three four five six seven"]);
+  expect(sources).toHaveLength(0);
+
+  const done = narrate(line);
+  await flush();
+  expect(engine.synthesize.mock.calls.map((c) => c[0])).toEqual([
+    "One two three four five six seven",
+    "eight nine ten",
+  ]);
+  expect(sources).toHaveLength(2);
+  for (const source of sources) source.onended?.();
+  await expect(done).resolves.toBe("ended");
+});
+
+test("a prepared line gets the full timeout from the playback request", async () => {
+  fakeAudio();
+  engine.synthesize.mockReturnValue(new Promise(() => {}));
+  prepareNarration("One two three");
+  await vi.advanceTimersByTimeAsync(PIPER_START_TIMEOUT_MS * 2);
+
+  const done = narrate("One two three");
+  let result: NarrateResult | undefined;
+  void done.then((value) => (result = value));
+  await vi.advanceTimersByTimeAsync(PIPER_START_TIMEOUT_MS - 1);
+  expect(result).toBeUndefined();
+  await vi.advanceTimersByTimeAsync(1);
+  await expect(done).resolves.toBe("skipped");
+});
+
+test("preparation for another line is never reused", async () => {
+  const sources = fakeAudio();
+  prepareNarration("Old line");
+  await flush();
+  const done = narrate("New line");
+  await flush();
+  expect(engine.synthesize.mock.calls.map((c) => c[0])).toEqual(["Old line", "New line"]);
+  expect(sources).toHaveLength(1);
+  sources[0]?.onended?.();
   await expect(done).resolves.toBe("ended");
 });
 
@@ -158,5 +205,17 @@ test("stopNarration cuts the line off", async () => {
   const done = narrate("Here's OPERA for 200. Verdi wrote it.");
   await flush();
   stopNarration();
+  await expect(done).resolves.toBe("stopped");
+});
+
+test("stopped synthesis cannot start stale audio later", async () => {
+  const sources = fakeAudio();
+  let deliver: (audio: Audio) => void = () => {};
+  engine.synthesize.mockReturnValue(new Promise<Audio>((resolve) => (deliver = resolve)));
+  const done = narrate("A line still being generated");
+  stopNarration();
+  deliver(CLIP);
+  await flush();
+  expect(sources).toHaveLength(0);
   await expect(done).resolves.toBe("stopped");
 });

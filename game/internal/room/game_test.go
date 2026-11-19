@@ -93,7 +93,7 @@ func TestAFullGameEndToEnd(t *testing.T) {
 	if !strings.Contains(tvBytes, "78 percent") {
 		t.Error("the TV didn't get the clue text")
 	}
-	host.send(map[string]any{"type": "reading_done", "clueId": "clue-s"})
+	f.readingDone(host, "clue-s")
 	other.until("phase_changed") // clue_reading
 	if m := other.until("phase_changed"); m.Phase != "buzzing_open" {
 		t.Fatalf("phase %q", m.Phase)
@@ -115,7 +115,7 @@ func TestAFullGameEndToEnd(t *testing.T) {
 
 	// Double: the lowest scorer picks (the host device can't pick for them); nobody buzzes.
 	map[string]*conn{alice: a, bob: b}[controller(f)].send(map[string]any{"type": "select_clue", "clueId": "clue-d"})
-	host.send(map[string]any{"type": "reading_done", "clueId": "clue-d"})
+	f.readingDone(host, "clue-d")
 	host.raw("phase_changed")
 	f.timers.fireAfter(host) // 9 s with no buzz
 	if m, _ := host.raw("clue_ended"); m.State != "unanswered" {
@@ -142,7 +142,7 @@ func TestPhonesNeverReceiveClueTextOrResponse(t *testing.T) {
 	f, host, a, b := startedGame(t)
 	picker := map[string]*conn{alice: a, bob: b}[controller(f)]
 	picker.send(map[string]any{"type": "select_clue", "clueId": "clue-s"})
-	host.send(map[string]any{"type": "reading_done", "clueId": "clue-s"})
+	f.readingDone(host, "clue-s")
 	picker.until("phase_changed")
 	picker.until("phase_changed")
 	picker.send(map[string]any{"type": "buzz", "clueId": "clue-s"})
@@ -236,7 +236,7 @@ func submitOnce(t *testing.T, msg map[string]any, before func(*fixture)) (*fixtu
 		other = b
 	}
 	picker.send(map[string]any{"type": "select_clue", "clueId": "clue-s"})
-	host.send(map[string]any{"type": "reading_done", "clueId": "clue-s"})
+	f.readingDone(host, "clue-s")
 	other.until("phase_changed")
 	other.until("phase_changed")
 	other.send(map[string]any{"type": "buzz", "clueId": "clue-s"})

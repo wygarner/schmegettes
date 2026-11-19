@@ -319,3 +319,26 @@ body {
     transform: none;
   }
 }
+
+/* The pick reveal: the picked cell's value flashes three times in 0.6 s. */
+@keyframes sg-pick-blink {
+  0%,
+  34%,
+  67% {
+    color: var(--mantine-color-green-4);
+  }
+  17%,
+  50%,
+  84%,
+  100% {
+    color: #fff;
+  }
+}
+.sg-pick-blink {
+  animation: sg-pick-blink 600ms steps(1, end) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sg-pick-blink {
+    animation: none;
+  }
+}

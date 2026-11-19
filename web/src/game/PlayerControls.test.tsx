@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { initialRoom, type RoomState } from "../lib/room";
 import { type Recognizer, setRecognizerFactory } from "../lib/speech";
 import { PlayerControls } from "./PlayerControls";
-import { ANSWER_MS } from "./timing";
+import { ANSWER_MS, PICK_REVEAL_MS } from "./timing";
 
 const me = "me";
 const clue = { clueId: "c1", category: "SCIENCE", value: 400, state: "active" as const };
@@ -414,4 +414,17 @@ test("the host's column never shows a wager pad or a Final answer field (they're
   );
   expect(screen.queryByLabelText("Your answer")).toBeNull();
   expect(document.querySelector("input")).toBeNull();
+});
+
+test("during the pick reveal the phone names the pick, then says Listen", () => {
+  vi.useFakeTimers();
+  try {
+    const pick = { clueId: "v4", category: "VOLCANOES", value: 400, state: "active" as const };
+    setup({ ...base, phase: "clue_reading", activeClue: pick, reveal: { clueId: "v4", kind: "card" } });
+    expect(screen.getByText("VOLCANOES for $400")).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(PICK_REVEAL_MS));
+    expect(screen.getByText("Listen…")).toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
 });

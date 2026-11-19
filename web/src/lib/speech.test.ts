@@ -1,10 +1,5 @@
 import { expect, test } from "vitest";
-import { announcement, type RecognitionResultList, transcripts } from "./speech";
-
-test("the pick announcement speaks the value as a plain number", () => {
-  expect(announcement("VOLCANOES", 400)).toBe("Here's VOLCANOES for 400.");
-  expect(announcement("OPERA", 1200)).toBe("Here's OPERA for 1200.");
-});
+import { type RecognitionResultList, transcripts } from "./speech";
 
 // One recognition result per inner array, its guesses most likely first.
 function results(...rs: string[][]): RecognitionResultList {

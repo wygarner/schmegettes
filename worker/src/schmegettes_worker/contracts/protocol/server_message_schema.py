@@ -97,6 +97,10 @@ class RoomSnapshot(BaseModel):
         None,
         description="How long this game's players have to say an answer, from its timer pace. Absent before a game starts.",
     )
+    quickPicks: Optional[bool] = Field(
+        None,
+        description="This game's Quick picks option: a spoken pick of just a category picks the lowest clue left in it. Absent before a game starts.",
+    )
     answeringUserId: Optional[domain_schema.Uuid] = None
     attemptedUserIds: Optional[List[domain_schema.Uuid]] = None
     paused: Optional[bool] = None

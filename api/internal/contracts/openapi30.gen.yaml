@@ -533,6 +533,10 @@ paths:
                 doubleRound:
                   type: boolean
                   description: "false: Final follows the Single board"
+                quickPicks:
+                  type: boolean
+                  description: "Quick picks: a spoken pick of just a category picks the lowest
+                    clue left in it"
               additionalProperties: false
       responses:
         "200":
@@ -795,6 +799,10 @@ components:
         doubleRound:
           type: boolean
           description: "Play the Double Schmegettes board; false: Final follows Single"
+        quickPicks:
+          type: boolean
+          description: "Quick picks: a spoken pick of just a category picks the lowest
+            clue left in it"
       required:
         - roomId
         - code
@@ -806,6 +814,7 @@ components:
         - seasons
         - timers
         - doubleRound
+        - quickPicks
     DisplayName:
       type: string
       minLength: 1

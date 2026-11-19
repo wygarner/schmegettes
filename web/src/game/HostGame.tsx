@@ -166,7 +166,7 @@ export function HostGame({
   const speech = currentSpeech(state, revealStage !== null);
   const speechKey = speech?.key ?? "";
   // Start silent synthesis as soon as the complete line is available. During an ordinary pick
-  // this is the 1.5 s reveal; a Daily Double gets its wager prefix before clue_reading. Final's
+  // this is the 2.25 s reveal; a Daily Double gets its wager prefix before clue_reading. Final's
   // clue remains secret until final_answer, so it uses the same bounded chunks on demand.
   const leadInText =
     revealStage !== null || (state.phase === "daily_double_wager" && state.wager !== undefined)

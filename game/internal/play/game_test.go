@@ -585,6 +585,25 @@ func TestPickReveal(t *testing.T) {
 			t.Error("a later phase_changed repeats the reveal")
 		}
 	})
+	t.Run("the reveal is 2.25 s: a reading_done at 2 s still waits, and a buzz then is early", func(t *testing.T) {
+		if PickReveal != 2250*time.Millisecond {
+			t.Fatalf("PickReveal %v", PickReveal)
+		}
+		f := setup(t, nil)
+		f.must(f.g.Pick(f.now, alice, "s1"))
+		during := f.now.Add(2 * time.Second) // the card is holding
+		f.must(f.g.Buzz(during, bob, "s1"))
+		f.must(f.g.ReadingDone(during, host, "s1"))
+		if f.g.Phase() != contracts.GamePhaseClueReading || !f.g.Deadline().Equal(f.now.Add(2250*time.Millisecond)) {
+			t.Fatalf("phase %s deadline %v", f.g.Phase(), f.g.Deadline())
+		}
+		if f.g.answering != "" {
+			t.Errorf("a buzz during the reveal was taken: %q", f.g.answering)
+		}
+		if !f.g.lockouts[bob].After(during) {
+			t.Error("a buzz during the reveal isn't locked out")
+		}
+	})
 	t.Run("a snapshot never carries it", func(t *testing.T) {
 		f := setup(t, nil)
 		f.must(f.g.Pick(f.now, alice, "s1"))

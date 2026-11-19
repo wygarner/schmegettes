@@ -24,10 +24,11 @@ const (
 	AnswerGrace  = 1500 * time.Millisecond
 	ClueEndPause = 6 * time.Second
 	Interstitial = 3 * time.Second
-	// PickReveal is the picked cell's blink and the category card before a clue is read;
-	// PickBlink is the blink alone, before a Daily Double's reveal. Buzzing never opens
-	// before the reveal ends.
-	PickReveal = 1500 * time.Millisecond
+	// PickReveal is the picked cell's blink (0.6 s), the category card growing (0.6 s) and
+	// holding still (1.05 s, so the room can read it) before a clue is read; PickBlink is
+	// the blink alone, before a Daily Double's reveal. Buzzing never opens before the
+	// reveal ends.
+	PickReveal = 2250 * time.Millisecond
 	PickBlink  = 600 * time.Millisecond
 	// ResponseTail is how long the correct response stays up after the host device has
 	// read it. ClueEndPause is the cap when it never reports.

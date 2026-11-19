@@ -35,6 +35,7 @@ const room: RoomJoin = {
     seasons: null,
     timers: "standard",
     doubleRound: true,
+    quickPicks: false,
   },
 };
 

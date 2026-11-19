@@ -62,6 +62,7 @@ export type Room = ApiComponents["schemas"]["Room"];
 export type RoomOptionsPatch = {
   seasons?: number[] | null;
   doubleRound?: boolean;
+  quickPicks?: boolean;
 };
 
 /** Changes the room's game options (host only, before Start). The updated room, or null. */

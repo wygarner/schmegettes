@@ -701,6 +701,17 @@ func TestTimerPace(t *testing.T) {
 	})
 }
 
+func TestSnapshotCarriesQuickPicks(t *testing.T) {
+	for _, on := range []bool{false, true} {
+		f := setup(t, func(s *Setup) { s.QuickPicks = on })
+		var m contracts.RoomSnapshot
+		f.g.SnapshotFields(&m, false)
+		if m.QuickPicks == nil || *m.QuickPicks != on {
+			t.Errorf("QuickPicks %v: snapshot has %v", on, m.QuickPicks)
+		}
+	}
+}
+
 func TestNoDoubleGoesFromSingleToFinal(t *testing.T) {
 	f := setup(t, func(s *Setup) {
 		s.NoDouble = true

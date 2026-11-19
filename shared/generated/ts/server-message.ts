@@ -68,6 +68,10 @@ export interface RoomSnapshot {
    * How long this game's players have to say an answer, from its timer pace. Absent before a game starts.
    */
   answerWindowMs?: number;
+  /**
+   * This game's Quick picks option: a spoken pick of just a category picks the lowest clue left in it. Absent before a game starts.
+   */
+  quickPicks?: boolean;
   answeringUserId?: string;
   attemptedUserIds?: string[];
   paused?: boolean;

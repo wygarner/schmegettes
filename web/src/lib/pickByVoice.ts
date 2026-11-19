@@ -113,7 +113,7 @@ function categoryScore(spoken: string[], category: string): number {
 export type VoicePick = { clueId: string } | { problem: "no-category" | "no-value" | "taken" };
 
 /** Matches what a player said to an open clue on the board. */
-export function matchPick(text: string, board: BoardClue[]): VoicePick {
+export function matchPick(text: string, board: BoardClue[], opts: { quickPicks?: boolean } = {}): VoicePick {
   const spoken = words(text);
   const categories = [...new Set(board.map((c) => c.category))];
   let best = "";
@@ -130,8 +130,13 @@ export function matchPick(text: string, board: BoardClue[]): VoicePick {
   const inCategory = board.filter((c) => c.category === best);
   const value = spokenValue(text);
   if (value === null) {
-    // "Science" alone is fine when only one clue is left in it.
     const open = inCategory.filter((c) => c.state === "unplayed");
+    // Quick picks (a game option): "Science" alone picks its lowest clue left.
+    if (opts.quickPicks) {
+      const lowest = open.reduce<BoardClue | undefined>((low, c) => (!low || c.value < low.value ? c : low), undefined);
+      return lowest ? { clueId: lowest.clueId } : { problem: "taken" };
+    }
+    // Otherwise "Science" alone is fine only when one clue is left in it.
     return open.length === 1 && open[0] ? { clueId: open[0].clueId } : { problem: "no-value" };
   }
   const clue = inCategory.find((c) => c.value === value);

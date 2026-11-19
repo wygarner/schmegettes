@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import { matchPick, spokenValue } from "./pickByVoice";
 import type { BoardClue } from "./room";
 
@@ -38,6 +38,42 @@ test("problems", () => {
   expect(matchPick("world capitals", board)).toEqual({ problem: "no-value" });
   expect(matchPick("science for 800", board)).toEqual({ problem: "no-value" });
   expect(matchPick("science for 400", board)).toEqual({ problem: "taken" });
+});
+
+describe("Quick picks: just the category picks the lowest clue left", () => {
+  const quick = { quickPicks: true };
+  const opera = [
+    clue("op2", "OPERA", 200, "answered"),
+    clue("op4", "OPERA", 400),
+    clue("op6", "OPERA", 600),
+    clue("op8", "OPERA", 800),
+  ];
+  test("the lowest one left", () => {
+    expect(matchPick("opera", opera, quick)).toEqual({ clueId: "op4" });
+    expect(matchPick("world capitals", board, quick)).toEqual({ clueId: "o2" });
+  });
+  test("on a Double board, whatever its values", () => {
+    const double = [clue("d8", "OPERA", 800), clue("d16", "OPERA", 1600), clue("d12", "OPERA", 1200)];
+    expect(matchPick("I'll take opera", double, quick)).toEqual({ clueId: "d8" });
+  });
+  test("the lowest left may be the Daily Double: it's picked like any other", () => {
+    // Phones can't tell a Daily Double from the board; it's just the lowest unplayed clue.
+    expect(matchPick("opera", [clue("dd4", "OPERA", 400), clue("op6", "OPERA", 600)], quick)).toEqual({
+      clueId: "dd4",
+    });
+  });
+  test("nothing left in the category: already played", () => {
+    expect(matchPick("science", [clue("s2", "SCIENCE", 200, "answered")], quick)).toEqual({ problem: "taken" });
+  });
+  test("an amount that was heard always wins, and never falls back", () => {
+    expect(matchPick("opera for 600", opera, quick)).toEqual({ clueId: "op6" });
+    expect(matchPick("opera for 200", opera, quick)).toEqual({ problem: "taken" });
+    expect(matchPick("opera for 1000", opera, quick)).toEqual({ problem: "no-value" });
+  });
+  test("off: unchanged", () => {
+    expect(matchPick("opera", opera)).toEqual({ problem: "no-value" });
+    expect(matchPick("opera", opera, { quickPicks: false })).toEqual({ problem: "no-value" });
+  });
 });
 
 test("spoken values", () => {

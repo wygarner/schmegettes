@@ -35,9 +35,11 @@ type GameData struct {
 	FinalAnswers map[string]string
 	FinalDeltas  map[string]int
 
-	// The game's options (games.timers, games.double_round). Zero values: Standard, with Double.
-	Pace     contracts.TimerPace
-	NoDouble bool
+	// The game's options (games.timers, games.double_round, games.quick_picks). Zero values:
+	// Standard, with Double, no Quick picks.
+	Pace       contracts.TimerPace
+	NoDouble   bool
+	QuickPicks bool
 }
 
 // loadGame builds the play.Game for the room's game in progress, fresh or after a restart.
@@ -54,6 +56,7 @@ func (r *Room) loadGame(ctx context.Context) bool {
 		Scores: data.Scores, LastCorrect: data.LastCorrect,
 		ActiveClueID: data.ActiveClueID, AttemptedByID: data.Attempted,
 		Final: data.Final, DDWager: data.DDWager, Pace: data.Pace, NoDouble: data.NoDouble,
+		QuickPicks:  data.QuickPicks,
 		FinalWagers: data.FinalWagers, FinalAnswers: data.FinalAnswers, FinalDeltas: data.FinalDeltas,
 		NextSeq: func() int { r.seq++; return r.seq },
 		NewID:   uuid.NewString,
@@ -61,7 +64,7 @@ func (r *Room) loadGame(ctx context.Context) bool {
 	})
 	r.phase = r.game.Phase()
 	r.log.Info("game loaded", "game_id", data.GameID, "recovered", data.ActiveClueID != "" || len(data.Scores) > 0,
-		"timers", string(data.Pace), "double_round", !data.NoDouble)
+		"timers", string(data.Pace), "double_round", !data.NoDouble, "quick_picks", data.QuickPicks)
 	return true
 }
 

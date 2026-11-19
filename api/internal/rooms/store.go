@@ -52,6 +52,7 @@ type Room struct {
 	Seasons         []int  // nil means every season
 	Timers          string // relaxed, standard, or fast
 	DoubleRound     bool
+	QuickPicks      bool
 }
 
 // Options is a change to a room's game options. A nil field is left as it is; SetSeasons
@@ -62,6 +63,7 @@ type Options struct {
 	Timers      *string
 	DoubleRound *bool
 	MaxPlayers  *int
+	QuickPicks  *bool
 }
 
 // Store is the data access the handlers need.
@@ -82,7 +84,7 @@ type PGStore struct {
 const selectRoom = `
 select r.id::text, r.code, r.status::text, r.host_id::text,
        coalesce(m.display_name, p.display_name), r.host_plays, r.max_players, r.seasons,
-       r.timers::text, r.double_round
+       r.timers::text, r.double_round, r.quick_picks
 from public.rooms r
 join public.room_members m on m.room_id = r.id and m.user_id = r.host_id
 join public.profiles p on p.user_id = r.host_id
@@ -91,7 +93,7 @@ join public.profiles p on p.user_id = r.host_id
 func scanRoom(row pgx.Row) (Room, error) {
 	var r Room
 	err := row.Scan(&r.ID, &r.Code, &r.Status, &r.HostUserID, &r.HostDisplayName, &r.HostPlays, &r.MaxPlayers, &r.Seasons,
-		&r.Timers, &r.DoubleRound)
+		&r.Timers, &r.DoubleRound, &r.QuickPicks)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Room{}, ErrNotFound
 	}
@@ -144,8 +146,8 @@ func (s PGStore) SetOptions(ctx context.Context, c auth.Claims, roomID string, o
 	var room Room
 	err := s.DB.AsUser(ctx, c, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx,
-			"select public.set_room_options($1::uuid, $2, $3::integer[], $4::public.timer_pace, $5, $6)",
-			roomID, o.SetSeasons, o.Seasons, o.Timers, o.DoubleRound, o.MaxPlayers)
+			"select public.set_room_options($1::uuid, $2, $3::integer[], $4::public.timer_pace, $5, $6, $7)",
+			roomID, o.SetSeasons, o.Seasons, o.Timers, o.DoubleRound, o.MaxPlayers, o.QuickPicks)
 		if err != nil {
 			return mapOptionsError(err)
 		}

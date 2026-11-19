@@ -673,6 +673,10 @@ type RoomSnapshot struct {
 	// Players corresponds to the JSON schema field "players".
 	Players []Player `json:"players" yaml:"players" mapstructure:"players"`
 
+	// This game's Quick picks option: a spoken pick of just a category picks the
+	// lowest clue left in it. Absent before a game starts.
+	QuickPicks *bool `json:"quickPicks,omitempty" yaml:"quickPicks,omitempty" mapstructure:"quickPicks,omitempty"`
+
 	// Resume corresponds to the JSON schema field "resume".
 	Resume *ResumeLobby `json:"resume,omitempty" yaml:"resume,omitempty" mapstructure:"resume,omitempty"`
 

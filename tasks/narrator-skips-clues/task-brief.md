@@ -114,3 +114,7 @@ No new production log is required. If a caught web failure needs a diagnostic, u
 ## Docs to update
 
 No durable product or system doc behavior changes: the existing gameplay, stack, and realtime-server docs already describe the intended result. Update inaccurate code comments in the touched files, especially the claim that the clue is already prepared during the reveal. If implementation requires changing any documented timing or failure behavior, stop and return to Product rather than silently editing the contract.
+
+## Branch
+
+`bug-fix/narrator-skips-clues-impl`, from and into `develop`. No Jira key: Jira is not configured yet (`.github/jira.json` has no `bug-fix` issue-type ID and the Jira secrets are unset), so the create-ticket workflow failed on this PR as expected.

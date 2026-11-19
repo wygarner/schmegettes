@@ -10,15 +10,15 @@ board ──pick──▶ clue_reading ──speech ends / timer──▶ buzzin
   └──── response read + 1 s (at most 6 s) ◀───────── clue ends ◀──────────────┘ nobody left
 ```
 
-Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `clue_reading`, `buzzing_open`, `answering`. The 1.5 s pick reveal is the start of `clue_reading`. The "correct response" screen is the end of `answering` or `buzzing_open`, before `board`.
+Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `clue_reading`, `buzzing_open`, `answering`. The 2.25 s pick reveal is the start of `clue_reading`. The "correct response" screen is the end of `answering` or `buzzing_open`, before `board`.
 
 ## Timing
 
 | Step | Time |
 |---|---|
 | Pick a clue | No limit while the controller is connected. Controller disconnected for 10 s: control passes to the next connected contestant in join order. |
-| Pick reveal | 1.5 s: the cell blinks (0.6 s), then grows into the category card (0.9 s) |
-| Reading | The clue only, until speech ends. Fallback: 1.5 s + about 2.5 words per second + 1 s, at most 14 s for the reading part |
+| Pick reveal | 2.25 s: the cell blinks (0.6 s), grows into the category card (0.6 s), and the card holds (1.05 s) |
+| Reading | The clue only, until speech ends. Fallback: 2.25 s + about 2.5 words per second + 1 s, at most 14 s for the reading part |
 | Early-buzz lockout | 250 ms |
 | Buzz window (and each reopen) | 9 s |
 | Answer | Until the player goes quiet, at most 9 s |
@@ -61,25 +61,26 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 - At most 6 contestants. Up to 4: two-line tiles (name, then score). 5 or 6: one-line tiles (name, PICKING, score). Tiles share the column's height (one-line tiles up to 48 px), so 6 tiles and the host's buzzer fit at 667 × 320 (about 35 px each there).
 - When the host plays, their buzzer sits at the bottom of the column, at least 64 px tall, and the tiles share the space above it.
 
-**Pick reveal (first 1.5 s of `clue_reading`):**
+**Pick reveal (first 2.25 s of `clue_reading`):**
 
 ```text
-0.0 s                      0.6 s                         1.5 s
+0.0 s                      0.6 s → 2.25 s                2.25 s
 ┌──────────────────────┐   ┌──────────────────────┐      ┌──────────────────────┐
 │ ▓▓ ░░ ▓▓ ░░ ▓▓       │   │   ┌──────────────┐   │      │  VOLCANOES · $400    │
 │ cell blinks 3× in    │──▶│   │  VOLCANOES   │   │─────▶│                      │
 │ yellow.4 / white     │   │   │     $400     │   │      │  THIS HAWAIIAN …     │
 │ (the rest of the     │   │   └──────────────┘   │      │                      │
-│  board stays put)    │   │ cell lifts and grows │      │  clue screen; the    │
-└──────────────────────┘   │ to a centered card   │      │  narrator reads      │
+│  board stays put)    │   │ grows (0.6 s), holds │      │  clue screen; the    │
+└──────────────────────┘   │ (1.05 s)             │      │  narrator reads      │
                            └──────────────────────┘      └──────────────────────┘
 ```
 
 - **0–0.6 s:** the picked cell blinks three times (its value flashes `yellow.4` ↔ white). The rest of the board stays still.
-- **0.6–1.5 s:** the cell lifts out of the board and grows, with an ease-out, into a card centered on the stage: about 60% of the stage's width, `boardBlue.9` with the board bevel, the category in white uppercase (Oswald) and the value in `yellow.4` below it ("$400"). The board dims behind it. The card holds for the last 0.3 s.
-- **At 1.5 s:** the card shrinks into the clue screen's header ("VOLCANOES · $400") and the clue text appears. The narrator starts reading.
+- **0.6–1.2 s:** the cell lifts out of the board and grows, with an ease-out, into a card centered on the stage: about 60% of the stage's width, `boardBlue.9` with the board bevel, the category in white uppercase (Oswald) and the value in `yellow.4` below it ("$400"). The board dims behind it.
+- **1.2–2.25 s:** the card holds, still, so the room can read the category and value. (It held 0.3 s before prod QA, 2026-11-19, asked for 0.75 s more.)
+- **At 2.25 s:** the card shrinks into the clue screen's header ("VOLCANOES · $400") and the clue text appears. The narrator starts reading.
 - No sound and no speech during the reveal. On a Daily Double, the blink is followed by the Daily Double reveal instead of the card ([wagers](../wagers/interaction-design.md)).
-- With reduced motion turned on, the cell doesn't blink or fly: the card fades in for the same 1.5 s.
+- With reduced motion turned on, the cell doesn't blink or fly: the card fades in and holds for the same 2.25 s.
 - Phones: the buzzer goes `dim` at the pick, and the screen above it says "Volcanoes for $400" during the reveal, then "Listen…".
 
 **Clue (`clue_reading`, `buzzing_open`, `answering`):** the stage shows the category and value small at the top ("VOLCANOES · $400"), and the clue text uppercase, white on `boardBlue.9`, as large as fits. The narrator reads the clue (no announcement first).
@@ -172,7 +173,7 @@ The same states as the phone, in the player column, minus what the stage already
 ### A clue, start to finish
 
 1. Alice has control; her tile on the TV is highlighted. She taps "VOLCANOES 400" on her phone and confirms **Pick**.
-2. On the TV her cell blinks and grows into a "VOLCANOES / $400" card. 1.5 s after the pick the clue appears and the narrator reads it.
+2. On the TV her cell blinks and grows into a "VOLCANOES / $400" card. 2.25 s after the pick the clue appears and the narrator reads it.
 3. Speech ends, buzzing opens, and every buzzer lights.
 4. Bob buzzes 180 ms later and wins. His buzzer turns green and his phone says "Say your answer".
 5. Bob says "Kilauea" and is judged incorrect: −$400. Buzzing reopens for everyone except Bob.

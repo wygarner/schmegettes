@@ -186,7 +186,7 @@ test("a built-in voice saved before is read as the default Schmegettes voice", a
   saveVoice("com.apple.voice.premium.en-US.Ava");
   const done = narrate("x.");
   await flush();
-  expect(readyEngine).toHaveBeenCalledWith("kristin");
+  expect(readyEngine).toHaveBeenCalledWith("norman");
   expect(engine.synthesize).toHaveBeenCalledWith("x.");
   for (const s of sources) s.onended?.();
   await done;

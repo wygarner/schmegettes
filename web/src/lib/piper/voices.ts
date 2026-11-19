@@ -28,12 +28,14 @@ function voice(id: PiperVoiceId, name: string, sha256: string): PiperVoice {
 }
 
 export const PIPER_VOICES: readonly PiperVoice[] = [
-  voice("kristin", "Kristin", "5849957f929cbf720c258f8458692d6103fff2f0e3d3b19c8259474bb06a18d4"),
   voice("norman", "Norman", "b9739443232a80a59c7d18810dd856899bf16a7964725f5ab81ea49b1351cb71"),
+  voice("kristin", "Kristin", "5849957f929cbf720c258f8458692d6103fff2f0e3d3b19c8259474bb06a18d4"),
   voice("john", "John", "789c6c875726e627ddee93d51d8727859abe9c091c3d141591f4b83c2072e988"),
 ];
 
-export const DEFAULT_PIPER_VOICE: PiperVoiceId = "kristin";
+// Norman (prod QA, 2026-11-19). A device where the host never picked a voice gets him; a pick
+// is saved only when the host taps a voice, so an explicit Kristin or John is kept.
+export const DEFAULT_PIPER_VOICE: PiperVoiceId = "norman";
 
 export function isPiperVoiceId(id: string): id is PiperVoiceId {
   return PIPER_VOICES.some((v) => v.id === id);

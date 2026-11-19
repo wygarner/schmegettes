@@ -531,12 +531,12 @@ test("the host device gets the Schmegettes voice ready in the background (after 
       <HostGame state={state} send={vi.fn()} hostUserId="host" />
     </MantineProvider>,
   );
-  expect(prepareVoice).toHaveBeenCalledWith("kristin");
+  expect(prepareVoice).toHaveBeenCalledWith("norman");
   // The line didn't wait for it: the narrator was asked at once (and skips it if not ready).
   expect(spoken.map((u) => u.text)).toEqual(["THIS GAS"]);
 });
 
-test("a host who picked a built-in voice before gets Kristin", () => {
+test("a host who picked a built-in voice before gets Norman", () => {
   vi.mocked(prepareVoice).mockClear();
   saveVoice("com.apple.voice.premium.en-US.Ava");
   render(
@@ -544,7 +544,7 @@ test("a host who picked a built-in voice before gets Kristin", () => {
       <HostGame state={state} send={vi.fn()} hostUserId="host" />
     </MantineProvider>,
   );
-  expect(prepareVoice).toHaveBeenCalledWith("kristin");
+  expect(prepareVoice).toHaveBeenCalledWith("norman");
   window.localStorage.clear();
 });
 

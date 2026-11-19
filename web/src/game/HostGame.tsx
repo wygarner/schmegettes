@@ -6,7 +6,7 @@ import { narrate, prepareNarration, stopNarration } from "../lib/narrator";
 import { narratorChoice } from "../lib/narratorVoice";
 import { prepareVoice } from "../lib/piper/engine";
 import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
-import { playCorrect, playDailyDouble, playDoubleRound, playTimesUp, stopEffects } from "../lib/sfx";
+import { playBuzzIn, playCorrect, playDailyDouble, playDoubleRound, playTimesUp, stopEffects } from "../lib/sfx";
 import {
   correctResponseAnnouncement,
   DAILY_DOUBLE_INTRO,
@@ -215,6 +215,17 @@ export function HostGame({
     fanfareRef.current = true;
     void playDoubleRound();
   }, [doubleIntro]);
+
+  // A winning buzz gets the buzz-in, once: buzzing_open → answering, seen live. A mount (or a
+  // reload) straight into answering, and a Daily Double (never buzzing_open), play nothing.
+  const phaseRef = useRef(state.phase);
+  useEffect(() => {
+    const was = phaseRef.current;
+    phaseRef.current = state.phase;
+    if (was === "buzzing_open" && state.phase === "answering" && state.answeringUserId && !state.paused) {
+      void playBuzzIn();
+    }
+  }, [state.phase, state.answeringUserId, state.paused]);
 
   const skipSince = useSince(state.finalSkipped ? "skipped" : "", FINAL_SKIPPED_MS);
 

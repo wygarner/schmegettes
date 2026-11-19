@@ -1,5 +1,5 @@
 import { MantineProvider } from "@mantine/core";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { VOICE_SAMPLE } from "../game/NarratorVoicePicker";
@@ -9,10 +9,17 @@ import { getSavedVoice, piperChoiceValue, saveVoice } from "../lib/narratorVoice
 import { prepareVoice } from "../lib/piper/engine";
 import { markDeviceUnavailable, resetVoicesForTest, setVoiceStatus } from "../lib/piper/voices";
 import { initialRoom, type Player, type RoomState } from "../lib/room";
+import { requestAnswerPermissions } from "../lib/speech";
 import { HostLobbyView } from "./HostLobby";
 
 // The Schmegettes voices download from the network; tests drive their status by hand.
 vi.mock("../lib/piper/engine", () => ({ prepareVoice: vi.fn(async () => false), readyEngine: vi.fn(() => null) }));
+vi.mock("../lib/speech", async (original) => ({
+  ...(await original<typeof import("../lib/speech")>()),
+  micPermission: vi.fn(async () => "ask"),
+  recognitionSupported: vi.fn(() => true),
+  requestAnswerPermissions: vi.fn(),
+}));
 vi.mock("../lib/narrator", () => ({ narrate: vi.fn(async () => "ended"), stopNarration: vi.fn() }));
 
 // Every lobby test starts with the default voice ready, as on a device that has used it before.
@@ -105,10 +112,23 @@ test("the host's buzzer appears once the host joins the game", () => {
   expect(screen.getByRole("button", { name: "Buzz" })).toHaveAttribute("data-state", "idle");
 });
 
-test("Join the game and Leave the game", () => {
+test("Join the game asks for the microphone first, then joins", async () => {
+  vi.mocked(requestAnswerPermissions).mockResolvedValue("granted");
   const send = renderView(lobby());
   fireEvent.click(screen.getByRole("button", { name: "Join the game" }));
-  expect(send).toHaveBeenCalledWith({ type: "set_host_plays", plays: true });
+  expect(send).not.toHaveBeenCalled();
+  fireEvent.click(await screen.findByRole("button", { name: "Allow microphone" }));
+  await waitFor(() => expect(send).toHaveBeenCalledWith({ type: "set_host_plays", plays: true }));
+});
+
+test("a host who blocks the microphone stays a non-playing host; Cancel joins nothing", async () => {
+  vi.mocked(requestAnswerPermissions).mockResolvedValue("denied");
+  const send = renderView(lobby());
+  fireEvent.click(screen.getByRole("button", { name: "Join the game" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Allow microphone" }));
+  expect(await screen.findByText("Your microphone is blocked.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(send).not.toHaveBeenCalled();
 });
 
 test("Leave the game while playing", () => {

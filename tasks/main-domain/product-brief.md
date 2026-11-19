@@ -16,11 +16,9 @@ jira-title: "Make schmegettes.app the main address"
 **Outcomes:** Every player-facing link and every line on the TV uses `schmegettes.app`. Old links still work. A full game plays end to end on the new address.
 
 **Player flow:**
-- **Canonical address: `https://schmegettes.app`** (no `www`). `www.schmegettes.app` and `schmegettes-web-prod.vercel.app` redirect to it permanently, keeping the path and query: `…/join` lands on `schmegettes.app/join`.
+- **Canonical address: `https://schmegettes.app`** (no `www`; decided by Wyatt, 2026-11-19). `www.schmegettes.app` and `schmegettes-web-prod.vercel.app` redirect to it permanently, keeping the path and query: `…/join` lands on `schmegettes.app/join`.
 - **TV lobby** reads "Join at **schmegettes.app/join**", with no `https://`, matching the design. It is still built from the page's own host, so staging and local show their own address.
-- **Guests on the old address:** browser storage belongs to one origin, so a guest who played on `vercel.app` arrives at `schmegettes.app` as a new guest. Their old guest history and stats stay behind, and a game they were in can't be rejoined across the switch. People with accounts just sign in again. We accept this because production is a small private group; tell them once ("we moved to schmegettes.app, sign in again"). A session handoff between origins is out of scope.
-- **Home-screen installs** (iOS "Add to Home Screen") made from the old address keep opening the old origin, and the redirect then sends them on. Remove the icon and add it again from `schmegettes.app`.
-- **Timing:** switch production when no game is running. In-progress games resume from Postgres, but a player whose page moves to the new origin loses their seat (see guests).
+- **Guests, home-screen installs and games in progress:** not a concern for this switch (Wyatt, 2026-11-19). Nothing is migrated between the old and new origin.
 - **Still private:** the `noindex` headers and meta tag and the `robots.txt` disallow stay as they are.
 
 **Staging:** `staging.schmegettes.app` on the staging Vercel project, with its `vercel.app` address redirecting to it. Same steps, done first, as the rehearsal.

@@ -1,15 +1,15 @@
 import { MantineProvider } from "@mantine/core";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
-import { beforeEach, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { currentAccount } from "../lib/account";
 import { markGamePlayed, setSignedOutNotice, shouldShowSavePrompt, signedOutNotice } from "../lib/accountFlags";
 import { lastGame } from "../lib/games";
 import { getHostAccess, redeemHostCode } from "../lib/hostAccess";
-import { createRoom } from "../lib/rooms";
+import { type CurrentRoom, createRoom, currentRoom } from "../lib/rooms";
 import { Home, normalizeRoomCode } from "./Home";
 
-vi.mock("../lib/rooms", () => ({ createRoom: vi.fn() }));
+vi.mock("../lib/rooms", () => ({ createRoom: vi.fn(), currentRoom: vi.fn() }));
 vi.mock("../lib/games", () => ({ lastGame: vi.fn() }));
 vi.mock("../lib/account", async (original) => ({
   ...(await original<typeof import("../lib/account")>()),
@@ -42,6 +42,7 @@ beforeEach(() => {
   vi.mocked(redeemHostCode).mockReset();
   vi.mocked(currentAccount).mockReset().mockResolvedValue({ kind: "guest" });
   vi.mocked(lastGame).mockReset().mockResolvedValue(null);
+  vi.mocked(currentRoom).mockReset().mockResolvedValue(null);
   window.localStorage.clear();
 });
 
@@ -206,4 +207,55 @@ test("links to My games, with the last game under it", async () => {
   renderHome();
   expect(await screen.findByText(/Last: .* · 4th ·/)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "My games" })).toHaveTextContent("−$400");
+});
+
+describe("rejoin from Home", () => {
+  const game: CurrentRoom = {
+    kind: "game",
+    roomId: "r1",
+    code: "K7RXM",
+    role: "contestant",
+    hostDisplayName: "Wyatt",
+    playerNames: ["Alice", "Bob"],
+  };
+
+  test("a game in progress: Rejoin takes the player back to their seat", async () => {
+    vi.mocked(currentRoom).mockResolvedValue(game);
+    renderHome();
+    expect(await screen.findByText("Game in progress · K7RXM")).toBeInTheDocument();
+    expect(screen.getByText("Alice, Bob")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Rejoin" }));
+    expect(await screen.findByText("join screen")).toBeInTheDocument();
+  });
+
+  test("the host goes back to the TV view", async () => {
+    vi.mocked(currentRoom).mockResolvedValue({ ...game, role: "host" });
+    renderHome();
+    fireEvent.click(await screen.findByRole("button", { name: "Rejoin" }));
+    expect(await screen.findByText("host screen")).toBeInTheDocument();
+  });
+
+  test("a resume invite says who is resuming, and Join", async () => {
+    vi.mocked(currentRoom).mockResolvedValue({ ...game, kind: "resume_invite", code: "M4QTP" });
+    renderHome();
+    expect(await screen.findByText("Wyatt is resuming your game · M4QTP")).toBeInTheDocument();
+    // The card's Join comes first; the other is Home's code field.
+    const [cardJoin] = screen.getAllByRole("button", { name: "Join" });
+    if (cardJoin) fireEvent.click(cardJoin);
+    expect(await screen.findByText("join screen")).toBeInTheDocument();
+  });
+
+  test("a game that ended meanwhile says so", async () => {
+    vi.mocked(currentRoom).mockResolvedValueOnce(game).mockResolvedValue(null);
+    renderHome();
+    fireEvent.click(await screen.findByRole("button", { name: "Rejoin" }));
+    expect(await screen.findByText("That game has ended.")).toBeInTheDocument();
+    expect(screen.queryByText("Game in progress · K7RXM")).toBeNull();
+  });
+
+  test("no card when the account is in no room", async () => {
+    renderHome();
+    await screen.findByRole("button", { name: "Host a game" });
+    expect(screen.queryByRole("button", { name: "Rejoin" })).toBeNull();
+  });
 });

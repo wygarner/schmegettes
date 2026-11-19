@@ -21,8 +21,9 @@ import { MicPrompt } from "../game/MicPrompt";
 import { NarratorVoicePicker } from "../game/NarratorVoicePicker";
 import { PlayerControls } from "../game/PlayerControls";
 import { isValidName, MAX_NAME, setLastName } from "../lib/displayName";
+import { money } from "../lib/money";
 import { stopNarration } from "../lib/narrator";
-import { contestantCount, type RoomState, useRoom } from "../lib/room";
+import { contestantCount, type ResumeLobby, type RoomState, useRoom } from "../lib/room";
 import { type RoomJoin, roomByCode } from "../lib/rooms";
 import { getUserId } from "../lib/supabase";
 import { GoldButton } from "../ui/GoldButton";
@@ -212,6 +213,16 @@ export function HostLobbyView({
           Join at {joinUrl}
         </Text>
         <CodeTiles code={code} />
+        {state.resume && (
+          <Text c={SOFT} style={{ fontSize: "clamp(10px, 4.5cqh, 18px)" }}>
+            Resuming the game from{" "}
+            {new Date(state.resume.startedAt).toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            })}
+          </Text>
+        )}
         {state.rematch && (
           <Text c={SOFT} style={{ fontSize: "clamp(10px, 4.5cqh, 18px)" }}>
             Fresh board: none of tonight's clues come back.
@@ -231,7 +242,7 @@ export function HostLobbyView({
       )}
 
       <Group justify="space-between" align="end" wrap="nowrap">
-        <Stack gap={4}>
+        <Stack gap={4} display={state.resume ? "none" : undefined}>
           <Button
             variant="outline"
             color="mauve.1"
@@ -263,7 +274,7 @@ export function HostLobbyView({
               send({ type: "start_game" });
             }}
           >
-            Start
+            {state.resume ? "Resume" : "Start"}
           </GoldButton>
         </Group>
       </Group>
@@ -272,7 +283,7 @@ export function HostLobbyView({
 
   const column = (
     <>
-      <LobbyPlayers state={state} count={count} />
+      {state.resume ? <ResumePlayers resume={state.resume} /> : <LobbyPlayers state={state} count={count} />}
       {state.hostPlays && (
         <PlayerControls state={state} userId={state.hostUserId} send={send} compact spaceToBuzz buzzerHeight={64} />
       )}
@@ -406,5 +417,48 @@ function CodeTiles({ code }: { code: string }) {
         </div>
       ))}
     </section>
+  );
+}
+
+/** A resume lobby's players: the game's contestants with their scores, dimmed until back. */
+function ResumePlayers({ resume }: { resume: ResumeLobby }) {
+  const back = resume.players.filter((p) => p.back).length;
+  return (
+    <>
+      <Text fw={700} px={2}>
+        Players {back} / {resume.players.length}
+      </Text>
+      <ol
+        aria-label="Players"
+        style={{ display: "flex", flexDirection: "column", gap: 4, listStyle: "none", margin: 0, padding: 0 }}
+      >
+        {resume.players.map((p) => (
+          <li
+            key={p.userId}
+            aria-label={`${p.displayName}, ${money(p.score)}${p.back ? "" : ", not back yet"}`}
+            style={{
+              minHeight: 28,
+              borderRadius: 8,
+              background: TILE_BG,
+              boxShadow: BEVEL,
+              padding: "0 10px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              opacity: p.back ? 1 : 0.45,
+              color: "#fff",
+            }}
+          >
+            <Text truncate="end" fw={600}>
+              {p.displayName}
+            </Text>
+            <Text fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
+              {money(p.score)}
+            </Text>
+          </li>
+        ))}
+      </ol>
+    </>
   );
 }

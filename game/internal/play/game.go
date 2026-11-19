@@ -308,6 +308,9 @@ func New(s Setup) *Game {
 	return g
 }
 
+// Players are the game's contestants, in join order (a resumed game's absent ones too).
+func (g *Game) Players() []Player { return g.s.Players }
+
 // Phase is the current phase.
 func (g *Game) Phase() contracts.GamePhase { return g.phase }
 

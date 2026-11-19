@@ -363,3 +363,25 @@ describe("narrator voice", () => {
     expect(send).toHaveBeenCalledWith({ type: "start_game" });
   });
 });
+
+test("a resume lobby: the game's players with scores, dimmed until back; Resume", () => {
+  const send = renderView(
+    lobby({
+      players: [player("a", "Alice")],
+      resume: {
+        gameId: "g",
+        startedAt: Date.UTC(2026, 10, 14, 20),
+        players: [
+          { userId: "a", displayName: "Alice", score: 1200, back: true },
+          { userId: "b", displayName: "Bob", score: 400, back: false },
+        ],
+      },
+    }),
+  );
+  expect(screen.getByText("Players 1 / 2")).toBeInTheDocument();
+  expect(screen.getByLabelText("Bob, $400, not back yet")).toBeInTheDocument();
+  expect(screen.getByText(/Resuming the game from/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Join the game" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Resume" }));
+  expect(send).toHaveBeenCalledWith({ type: "start_game" });
+});

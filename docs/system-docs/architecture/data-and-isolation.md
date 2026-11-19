@@ -60,7 +60,11 @@ Lobby changes go through `security definer` functions so names, capacity, and th
 | Function | Caller | Does |
 |---|---|---|
 | `create_room(name)` | `authenticated` (api) | Closes the caller's other open lobbies, picks a code without look-alikes, adds the host's membership with their name |
-| `join_room(code, name, role)` | `authenticated` (api) | Locks the room; refuses contestants unless `status = 'open'` and there is room (a playing host counts); suffixes a taken name ("Alice 2"); a member joining again keeps their name |
+| `my_current_room()` | `authenticated` (api) | Security definer, filtered on `auth.uid()` only: the caller's room in a game, else a resume lobby for a game they played, else their lobby |
+| `resume_game(game)` | `authenticated` (api) | Security definer. The game's host (`42501`) with host access (`SCH02`), an abandoned game within 30 days (`55000`); reuses the game's open resume lobby, else closes the host's open lobbies and creates one (`rooms.resume_game_id`) |
+| `start_resumed_game(room)` | `game_engine` | Moves the game to the room, back `in_progress`; a non-Final clue left `active` becomes `unanswered`; Final not yet being revealed loses its wagers and goes back to `unplayed`; clears `resume_game_id` |
+| `join_room(code, name, role)` | `authenticated` (api) | Also: in a resume lobby only that game's contestants (`SCH01` otherwise), and in a game in progress a contestant of that game takes their seat back, with the game's name |
+| `join_room(code, name, role)` (lobby) | `authenticated` (api) | Locks the room; refuses contestants unless `status = 'open'` and there is room (a playing host counts); suffixes a taken name ("Alice 2"); a member joining again keeps their name |
 | `set_member_name(room, user, name)` | `game_engine` | Lobby only; same suffix rule |
 | `set_host_plays(room, plays)` | `game_engine` | Lobby only; the host joins or leaves the game on the host device |
 | `leave_room(room, user)` | `game_engine` | Removes a non-host member |

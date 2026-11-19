@@ -110,10 +110,37 @@
       "required": ["clueId", "category", "value", "state"],
       "additionalProperties": false
     },
+    "ResumeLobby": {
+      "description": "A resume lobby: the abandoned game being resumed, and its contestants with their scores. back: they're in the room again.",
+      "type": "object",
+      "properties": {
+        "gameId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
+        "startedAt": { "type": "integer", "description": "Server ms when the game first started." },
+        "players": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "userId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
+              "displayName": { "type": "string" },
+              "score": { "type": "integer" },
+              "back": { "type": "boolean" }
+            },
+            "required": ["userId", "displayName", "score", "back"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["gameId", "startedAt", "players"],
+      "additionalProperties": false
+    },
     "RoomSnapshot": {
       "description": "Full state, sent on connect and reconnect. In the lobby, round is single, board is empty, and the lobby fields are present.",
       "type": "object",
       "properties": {
+        "resume": {
+          "$ref": "#/$defs/ResumeLobby"
+        },
         "type": {
           "const": "room_snapshot"
         },
@@ -296,6 +323,9 @@
           "items": {
             "$ref": "#/$defs/Player"
           }
+        },
+        "resume": {
+          "$ref": "#/$defs/ResumeLobby"
         }
       },
       "required": ["type", "roomId", "seq", "hostUserId", "hostDisplayName", "hostPlays", "maxPlayers", "players"],

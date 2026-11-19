@@ -52,6 +52,7 @@ func (store) SetName(context.Context, string, string, string) error { return nil
 func (store) SetHostPlays(context.Context, string, bool) error      { return nil }
 func (store) Leave(context.Context, string, string) error           { return nil }
 func (store) StartGame(context.Context, string) (string, error)     { return "", nil }
+func (store) StartResumed(context.Context, string) (string, error)  { return "", nil }
 func (store) HostCanHost(context.Context, string) (bool, error)     { return true, nil }
 func (store) Close(context.Context, string) error                   { return nil }
 func (store) LoadGame(context.Context, string) (room.GameData, error) {

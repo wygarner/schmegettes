@@ -1,11 +1,12 @@
 import { Alert, Anchor, Button, Center, Container, Group, Loader, Stack, Text, TextInput, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { MicPrompt } from "../game/MicPrompt";
 import { PlayerGame } from "../game/PlayerGame";
 import { markGamePlayed } from "../lib/accountFlags";
 import { getPrefillName, isValidName, MAX_NAME, setLastName } from "../lib/displayName";
+import { money } from "../lib/money";
 import { type RoomState, useRoom } from "../lib/room";
 import { joinRoom, type RoomJoin, type RoomProblem, roomByCode } from "../lib/rooms";
 import { getUserId } from "../lib/supabase";
@@ -19,6 +20,9 @@ export const JOIN_ERRORS: Record<RoomProblem, string> = {
   "invalid-name": "Names are 1 to 20 characters.",
   "not-a-host": "Hosting is invite-only.",
   "rate-limited": "Too many tries. Wait a minute and try again.",
+  "not-in-game": "This game is being resumed. Only its players can join.",
+  "not-the-host": "Couldn't join. Try again.",
+  "not-resumable": "Couldn't join. Try again.",
   error: "Couldn't join. Try again.",
 };
 
@@ -27,6 +31,9 @@ type Stage = { kind: "checking" } | { kind: "name" } | { kind: "joined"; room: R
 /** /join/:code: a phone joins a room. A member who reloads goes straight back in. */
 export function JoinRoom() {
   const { code = "" } = useParams();
+  // From Home's "resuming your game" card: the seat and name come from the game, so no prompt.
+  const [params] = useSearchParams();
+  const resuming = params.get("resume") === "1";
   const [stage, setStage] = useState<Stage>({ kind: "checking" });
   const [name, setName] = useState(getPrefillName);
   const [joining, setJoining] = useState(false);
@@ -37,12 +44,25 @@ export function JoinRoom() {
     void (async () => {
       const [result, userId] = await Promise.all([roomByCode(code), getUserId().catch(() => "")]);
       if (!live) return;
-      setStage(result.ok ? { kind: "joined", room: result.data, userId } : { kind: "name" });
+      if (result.ok) {
+        setStage({ kind: "joined", room: result.data, userId });
+        return;
+      }
+      if (resuming) {
+        const joined = await joinRoom(code, getPrefillName() || "Player");
+        if (!live) return;
+        if (joined.ok) {
+          setStage({ kind: "joined", room: joined.data, userId });
+          return;
+        }
+        setProblem(joined.problem);
+      }
+      setStage({ kind: "name" });
     })();
     return () => {
       live = false;
     };
-  }, [code]);
+  }, [code, resuming]);
 
   async function join(event: { preventDefault(): void }) {
     event.preventDefault();
@@ -168,7 +188,7 @@ export function PlayerView({
     return (
       <Centered>
         <Title order={2} ff={DISPLAY} fw={600}>
-          This room has closed.
+          {state.replaced ? "You're playing on another device." : "This room has closed."}
         </Title>
         <Anchor component={Link} to="/">
           Back to home
@@ -216,7 +236,9 @@ export function PlayerView({
           </Text>
         )}
         <Title order={2} ff={DISPLAY} fw={500} fz={32} lh={1.1}>
-          You're in, {me?.displayName ?? "…"}.
+          {state.resume
+            ? `You're back, ${me?.displayName ?? "…"}. ${money(state.resume.players.find((p) => p.userId === userId)?.score ?? 0)}`
+            : `You're in, ${me?.displayName ?? "…"}.`}
         </Title>
         <Text size="sm" c={SOFT} mt={6}>
           {state.rematch

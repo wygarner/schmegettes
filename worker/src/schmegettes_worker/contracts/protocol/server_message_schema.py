@@ -37,6 +37,25 @@ class BoardClue(BaseModel):
     )
 
 
+class Player1(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    userId: domain_schema.Uuid
+    displayName: str
+    score: int
+    back: bool
+
+
+class ResumeLobby(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    gameId: domain_schema.Uuid
+    startedAt: int = Field(..., description='Server ms when the game first started.')
+    players: List[Player1]
+
+
 class ClueAnswer(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -52,6 +71,7 @@ class RoomSnapshot(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
+    resume: Optional[ResumeLobby] = None
     type: Literal['room_snapshot']
     roomId: domain_schema.Uuid
     seq: conint(ge=0)
@@ -130,6 +150,7 @@ class LobbyUpdated(BaseModel):
     hostPlays: bool
     maxPlayers: conint(ge=2)
     players: List[Player]
+    resume: Optional[ResumeLobby] = None
 
 
 class Reason(Enum):

@@ -102,12 +102,15 @@ Rules: [lobby feature brief](./feature-brief.md#game-options).
 │                                                         │
 │  Double         [■■ On ]  Two boards, then Final        │
 │  Schmegettes                                            │
+│                                                         │
+│  Quick picks    [ Off□□]  Say the category and amount   │
 │                                             [ Done ]    │
 └─────────────────────────────────────────────────────────┘
 ```
 
 - **Seasons:** a two-handle range slider, ticks per season, labeled with years at the ends and the range as text below ("Seasons 20–40 · 2003–2024"). The handles can meet (one season) but not cross.
 - **Double Schmegettes:** a switch. The line beside it says "Two boards, then Final" or "One board, then Final".
+- **Quick picks:** a switch, off by default. The line beside it says "Say the category and amount" (off) or "Just the category picks its lowest clue" (on).
 - Changes apply as they're made; **Done** or a tap outside closes the sheet. The line under the code updates live.
 - Laid out for 844 × 390 without scrolling, like every host screen.
 
@@ -183,6 +186,7 @@ When the host joined, their controls live in the **player column** on the right 
 | A player joins or leaves while the player list is folded | The tab's count updates; a join flashes the tab once |
 | A player reconnects or drops while the list is folded | Nothing on the tab changes; open the list to see "(reconnecting)" |
 | The host taps 🔊 or ⚙ with a screen reader | The buttons are announced as "Narrator voice: Norman" and "Game options" |
+| Quick picks on, and the controller says "Opera" with Opera 200 done and 400, 600, 800 left | Opera 400 is picked at once, with no confirmation |
 | A device saved Relaxed or Fast timers from before | Ignored: every game uses the standard times ([game options](./feature-brief.md#game-options)) |
 | Host reloads the TV | Returns to the same lobby with the same players and host name |
 | Host opens `/host/{code}` on a second device | That device is the same account only if it's the same browser session. Otherwise "Only the host can open this screen" and a link to join |

@@ -12,6 +12,7 @@ import { buzzerState, canBuzz, canPick } from "./buzzerState";
 import { Countdown } from "./Countdown";
 import { FinalAnswerField } from "./FinalAnswerField";
 import { usePickConfirm } from "./PickConfirm";
+import { usePickReveal } from "./PickReveal";
 import { ANSWER_GRACE_MS, answerMs, buzzWindowMs, WAGER_MS } from "./timing";
 import { useAnswerCapture } from "./useAnswerCapture";
 import { useVoicePick, type VoicePick } from "./VoicePick";
@@ -208,6 +209,7 @@ function PlayerStatus({
   onTapPick: (clueId: string) => void;
   onLeave?: () => void;
 }) {
+  const revealStage = usePickReveal(state.reveal);
   if (state.phase === "lobby" || state.phase === "building_board") return <>{lobby}</>;
   // On the host device the stage already says what's happening, and the host's wager pads
   // and Final keypad are on the stage; the column keeps only voice-pick problems and the
@@ -302,6 +304,14 @@ function PlayerStatus({
         return (
           <Status sub="Look at the TV.">
             {nameOf(state, state.controllingUserId) || "Someone"} is answering a Daily Double.
+          </Status>
+        );
+      }
+      if (revealStage && state.activeClue) {
+        // The pick reveal on the TV: the phone names the pick until the clue is read.
+        return (
+          <Status sub="Look at the TV.">
+            {state.activeClue.category} for {money(state.activeClue.value)}
           </Status>
         );
       }

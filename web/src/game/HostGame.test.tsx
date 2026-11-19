@@ -1,39 +1,40 @@
 import { MantineProvider } from "@mantine/core";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { narrationState } from "../lib/narrator";
+import { type NarrateResult, narrate } from "../lib/narrator";
 import { saveVoice } from "../lib/narratorVoice";
 import { prepareVoice } from "../lib/piper/engine";
 import { initialRoom, type RoomState } from "../lib/room";
 import { type Recognizer, setRecognizerFactory } from "../lib/speech";
 import { HostGame } from "./HostGame";
+import { PICK_BLINK_MS, PICK_REVEAL_MS } from "./timing";
 
-// The Schmegettes voices download from the network; here they're never ready, so every line
-// is read with the built-in voice (the fakes below).
+// The Schmegettes voices download from the network; here the narrator is a fake whose lines
+// the tests end by hand: onend (the room heard it), onerror (sound blocked), skip (not ready).
 vi.mock("../lib/piper/engine", () => ({ prepareVoice: vi.fn(async () => false), readyEngine: vi.fn(() => null) }));
+vi.mock("../lib/narrator", () => ({ narrate: vi.fn(), stopNarration: vi.fn() }));
 
-class FakeUtterance {
-  onstart?: () => void;
-  onend?: () => void;
-  onerror?: () => void;
-  constructor(public text: string) {}
+interface Line {
+  text: string;
+  onend: () => void;
+  onerror: () => void;
+  skip: () => void;
 }
 
-let spoken: FakeUtterance[];
+let spoken: Line[];
 beforeEach(() => {
   spoken = [];
-  vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
-  Object.defineProperty(window, "speechSynthesis", {
-    configurable: true,
-    // A browser that starts speaking at once. The silent unlock utterance isn't narration.
-    value: {
-      cancel: vi.fn(),
-      speak: (u: FakeUtterance) => {
-        u.onstart?.();
-        if (u.text.trim()) spoken.push(u);
-      },
-    },
-  });
+  vi.mocked(narrate).mockImplementation(
+    (text: string) =>
+      new Promise<NarrateResult>((resolve) => {
+        spoken.push({
+          text,
+          onend: () => resolve("ended"),
+          onerror: () => resolve("failed"),
+          skip: () => resolve("skipped"),
+        });
+      }),
+  );
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -57,7 +58,7 @@ test("reads the clue aloud once, then reports reading done", async () => {
     </MantineProvider>,
   );
   expect(screen.getByLabelText("Clue")).toHaveTextContent("THIS GAS");
-  expect(spoken.map((u) => u.text)).toEqual(["Here's SCIENCE for 400. THIS GAS"]);
+  expect(spoken.map((u) => u.text)).toEqual(["THIS GAS"]);
   rerender(
     <MantineProvider>
       <HostGame state={{ ...state }} send={send} hostUserId="host" />
@@ -142,22 +143,23 @@ test("when the browser blocks speech, buzzing is left to the server timer and th
   expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "reading_done" }));
 
   tap.click();
-  const read = "Here's SCIENCE for 400. THIS GAS";
+  const read = "THIS GAS";
   expect(spoken.map((u) => u.text)).toEqual([read, read]); // read again from the tap
   spoken[1]?.onend?.();
   await waitFor(() => expect(send).toHaveBeenCalledWith({ type: "reading_done", clueId: "c1" }));
 });
 
-test("without speech synthesis, the TV never reports reading done", async () => {
-  Object.defineProperty(window, "speechSynthesis", { configurable: true, value: undefined });
+test("a skipped line (voice not ready in time) reports nothing and asks for no tap", async () => {
   const send = vi.fn();
   render(
     <MantineProvider>
       <HostGame state={state} send={send} hostUserId="host" />
     </MantineProvider>,
   );
+  spoken[0]?.skip();
   await new Promise((r) => setTimeout(r, 20));
   expect(send).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "Tap to turn on sound" })).toBeNull();
 });
 
 const board = [{ clueId: "c2", category: "OPERA", value: 200, state: "unplayed" as const }];
@@ -505,7 +507,7 @@ test("phones never get the correct response, so a host without it reads nothing"
   expect(spoken.map((u) => u.text)).not.toContainEqual(expect.stringContaining("looking for"));
 });
 
-test("a game starts with the Schmegettes voice getting ready in the background", () => {
+test("the host device gets the Schmegettes voice ready in the background (after a reload)", () => {
   vi.mocked(prepareVoice).mockClear();
   render(
     <MantineProvider>
@@ -513,12 +515,11 @@ test("a game starts with the Schmegettes voice getting ready in the background",
     </MantineProvider>,
   );
   expect(prepareVoice).toHaveBeenCalledWith("kristin");
-  expect(narrationState()).toEqual({ misses: 0, degraded: false });
-  // The line didn't wait for it: the built-in voice is already reading.
-  expect(spoken.map((u) => u.text)).toEqual(["Here's SCIENCE for 400. THIS GAS"]);
+  // The line didn't wait for it: the narrator was asked at once (and skips it if not ready).
+  expect(spoken.map((u) => u.text)).toEqual(["THIS GAS"]);
 });
 
-test("a host who picked a built-in voice doesn't download a Schmegettes voice", () => {
+test("a host who picked a built-in voice before gets Kristin", () => {
   vi.mocked(prepareVoice).mockClear();
   saveVoice("com.apple.voice.premium.en-US.Ava");
   render(
@@ -526,6 +527,62 @@ test("a host who picked a built-in voice doesn't download a Schmegettes voice", 
       <HostGame state={state} send={vi.fn()} hostUserId="host" />
     </MantineProvider>,
   );
-  expect(prepareVoice).not.toHaveBeenCalled();
+  expect(prepareVoice).toHaveBeenCalledWith("kristin");
   window.localStorage.clear();
+});
+
+test("the pick reveal: blink, then the card, then the clue is read (no announcement)", async () => {
+  vi.useFakeTimers();
+  try {
+    const picked: RoomState = {
+      ...state,
+      board: [{ ...clue, state: "active" }],
+      reveal: { clueId: "c1", kind: "card" },
+    };
+    showHost(picked);
+    expect(screen.getByRole("button", { name: "SCIENCE 400, done" })).toHaveTextContent("400");
+    expect(screen.queryByLabelText("Clue")).toBeNull();
+    expect(spoken).toHaveLength(0);
+
+    act(() => vi.advanceTimersByTime(PICK_BLINK_MS));
+    expect(screen.getByRole("img", { name: "SCIENCE for $400" })).toBeInTheDocument();
+    expect(spoken).toHaveLength(0);
+
+    act(() => vi.advanceTimersByTime(PICK_REVEAL_MS - PICK_BLINK_MS));
+    expect(screen.getByLabelText("Clue")).toHaveTextContent("THIS GAS");
+    expect(spoken.map((u) => u.text)).toEqual(["THIS GAS"]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("a Daily Double blinks, then shows its reveal", () => {
+  vi.useFakeTimers();
+  try {
+    const dd: RoomState = {
+      ...state,
+      phase: "daily_double_wager",
+      activeClue: ddClue,
+      board: [{ ...ddClue, state: "active" }],
+      controllingUserId: "a",
+      reveal: { clueId: ddClue.clueId, kind: "blink" },
+    };
+    showHost(dd);
+    expect(screen.queryByText("DAILY DOUBLE")).toBeNull();
+    act(() => vi.advanceTimersByTime(PICK_BLINK_MS));
+    expect(screen.getByText("DAILY DOUBLE")).toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("the correct response reports when it has been read", async () => {
+  const { send } = showHost({
+    ...state,
+    phase: "buzzing_open",
+    clueEnd: { state: "unanswered", correctResponse: "Nitrogen" },
+  });
+  expect(spoken.at(-1)?.text).toBe("Sorry, we were looking for Nitrogen.");
+  spoken.at(-1)?.onend?.();
+  await waitFor(() => expect(send).toHaveBeenCalledWith({ type: "reading_done", clueId: "c1" }));
 });

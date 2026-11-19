@@ -95,7 +95,7 @@ func TestDailyDoubleWagerAndAnswer(t *testing.T) {
 	if *pc.WagerMin != 5 || *pc.WagerMax != 400 {
 		t.Errorf("range %d–%d, want 5–400 (Alice has $0; the Single top value is $400)", *pc.WagerMin, *pc.WagerMax)
 	}
-	if !f.g.Deadline().Equal(f.now.Add(DDReveal + WagerWindow)) {
+	if !f.g.Deadline().Equal(f.now.Add(PickBlink + DDReveal + WagerWindow)) {
 		t.Errorf("deadline %v", f.g.Deadline())
 	}
 
@@ -194,7 +194,7 @@ func TestDailyDoublePauseKeepsWagerTime(t *testing.T) {
 	}
 	f.now = f.now.Add(time.Minute)
 	f.take(f.g.Connect(f.now, host))
-	if want := f.now.Add(DDReveal + WagerWindow - 10*time.Second); !f.g.Deadline().Equal(want) {
+	if want := f.now.Add(PickBlink + DDReveal + WagerWindow - 10*time.Second); !f.g.Deadline().Equal(want) {
 		t.Errorf("deadline %v, want %v", f.g.Deadline(), want)
 	}
 	f.must(f.g.Wager(f.now, alice, 50))
@@ -470,5 +470,14 @@ func TestDailyDoubleRecovery(t *testing.T) {
 	f.toDeadline()
 	if f.g.answering != alice {
 		t.Error("the picker answers after the re-read")
+	}
+}
+
+func TestDailyDoubleBlink(t *testing.T) {
+	f := setup(t, ddBoard)
+	f.must(f.g.Pick(f.now, alice, "s1"))
+	pc := last[contracts.PhaseChanged](t, f)
+	if pc.Phase != contracts.GamePhaseDailyDoubleWager || pc.RevealUntil == nil || *pc.RevealUntil != *ms(f.now.Add(PickBlink)) {
+		t.Fatalf("phase %s revealUntil %v", pc.Phase, pc.RevealUntil)
 	}
 }

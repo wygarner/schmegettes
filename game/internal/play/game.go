@@ -6,7 +6,6 @@ package play
 
 import (
 	"errors"
-	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -21,20 +20,22 @@ const (
 	BuzzWindow   = 9 * time.Second
 	AnswerWindow = 9 * time.Second
 	// AnswerGrace lets the final transcript arrive after the phone stops listening.
-	AnswerGrace   = 1500 * time.Millisecond
-	ClueEndPause  = 6 * time.Second
-	Interstitial  = 3 * time.Second
+	AnswerGrace  = 1500 * time.Millisecond
+	ClueEndPause = 6 * time.Second
+	Interstitial = 3 * time.Second
+	// PickReveal is the picked cell's blink and the category card before a clue is read;
+	// PickBlink is the blink alone, before a Daily Double's reveal. Buzzing never opens
+	// before the reveal ends.
+	PickReveal = 1500 * time.Millisecond
+	PickBlink  = 600 * time.Millisecond
+	// ResponseTail is how long the correct response stays up after the host device has
+	// read it. ClueEndPause is the cap when it never reports.
+	ResponseTail  = 1 * time.Second
 	MaxReading    = 14 * time.Second
 	ProgressEvery = 250 * time.Millisecond
 	// ControlGrace is how long a disconnected controller keeps control on the board.
 	ControlGrace = 10 * time.Second
 )
-
-// Announcement is what the host device says before reading a clue. Keep it in sync with
-// announcement() in web/src/lib/speech.ts, which speaks it.
-func Announcement(category string, value int) string {
-	return fmt.Sprintf("Here's %s for %d.", category, value)
-}
 
 // ReadingTime estimates how long text-to-speech takes: about 2.5 words a second plus a
 // second, at most MaxReading. Buzzing opens then if the host device never reports.
@@ -205,6 +206,10 @@ type Game struct {
 	lastProg  time.Time
 
 	deadline time.Time
+	// revealUntil is when the pick reveal ends; buzzing waits for it. sendReveal puts it on
+	// the next phase_changed only (the pick's), so a re-read never replays the reveal.
+	revealUntil time.Time
+	sendReveal  bool
 	// handoffAt is when control passes from a disconnected controller (board only).
 	handoffAt time.Time
 	paused    bool
@@ -434,6 +439,9 @@ func (g *Game) phaseChanged(host bool) contracts.PhaseChanged {
 		bc := g.boardClue(g.active, host)
 		m.ActiveClue = &bc
 	}
+	if g.sendReveal {
+		m.RevealUntil = ms(g.revealUntil)
+	}
 	w := g.wagerFields()
 	m.WagerMin, m.WagerMax, m.Wager = w.min, w.max, w.wager
 	m.FinalistUserIds, m.LockedUserIds, m.RevealOrder = w.finalists, w.locked, w.order
@@ -446,6 +454,7 @@ func (g *Game) emitPhase(e *Effects) {
 	seq := g.s.NextSeq()
 	all, host := g.phaseChanged(false), g.phaseChanged(true)
 	all.Seq, host.Seq = seq, seq
+	g.sendReveal = false
 	e.sendSplit(all, host)
 }
 
@@ -497,28 +506,40 @@ func (g *Game) Pick(now time.Time, user, clueID string) (Effects, error) {
 	g.clueAnswers = nil
 	g.controlAtPick = g.control
 	e.record(Record{Kind: RevealClue, ClueID: c.ID})
+	g.sendReveal = true
 	if c.DailyDouble {
+		g.revealUntil = now.Add(PickBlink)
 		g.startDailyDouble(now, &e)
 		return e, nil
 	}
+	g.revealUntil = now.Add(PickReveal)
 	g.startReading(now, &e)
 	return e, nil
 }
 
+// startReading shows the clue for the host device to read. Right after a pick the reading
+// starts when the reveal ends; a re-read (after a pause) starts at once.
 func (g *Game) startReading(now time.Time, e *Effects) {
 	g.phase = contracts.GamePhaseClueReading
 	g.step = stepReading
 	g.answering = ""
-	g.deadline = now.Add(ReadingTime(g.readingText()))
+	g.deadline = later(now, g.revealUntil).Add(ReadingTime(g.readingText()))
 	g.emitPhase(e)
 }
 
-// readingText is what the host device reads: the announcement, then the clue.
+func later(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+	return a
+}
+
+// readingText is what the host device reads: the clue (a Daily Double says its wager first).
 func (g *Game) readingText() string {
 	if g.ddActive() {
 		return DailyDoubleAnnouncement(g.ddWager) + " " + g.active.Text
 	}
-	return Announcement(g.active.Category, g.active.Value) + " " + g.active.Text
+	return g.active.Text
 }
 
 // ReadingDone opens buzzing when the host device finishes reading the clue aloud.
@@ -532,7 +553,22 @@ func (g *Game) ReadingDone(now time.Time, user, clueID string) (Effects, error) 
 	}
 	switch g.step {
 	case stepReading:
+		// Never during the pick reveal, whatever the speech does.
+		if now.Before(g.revealUntil) {
+			g.deadline = g.revealUntil
+			return e, nil
+		}
 		g.afterReading(now, &e)
+	case stepClueEnd:
+		// The correct response has been read: back to the board shortly, never later
+		// than the cap. During an override review, the review keeps the time instead.
+		if g.reviewing {
+			g.reviewLeft = min(g.reviewLeft, ResponseTail)
+			return e, nil
+		}
+		if tail := now.Add(ResponseTail); tail.Before(g.deadline) {
+			g.deadline = tail
+		}
 	case stepFinalCategory:
 		// The title stays up at least FinalTitle, whatever the speech does.
 		if gate := g.phaseStart.Add(FinalTitle); now.Before(gate) {
@@ -909,6 +945,8 @@ func (g *Game) pause(now time.Time) Effects {
 	g.remaining = left
 	g.deadline = time.Time{}
 	g.handoffAt = time.Time{}
+	// The clue is read again on resume, without the reveal.
+	g.revealUntil, g.sendReveal = time.Time{}, false
 	// A player cut off mid-answer may try again when the clue is re-read.
 	if g.step == stepAnswering {
 		g.answering = ""

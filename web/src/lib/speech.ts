@@ -4,13 +4,6 @@
 
 import { restorePlaybackSession } from "./piper/audio";
 
-/** What the host device says before a clue: "Here's VOLCANOES for 400." The value is a
- * plain number so it isn't read as dollars. Keep in sync with play.Announcement in
- * game/internal/play/game.go, which estimates how long it takes. */
-export function announcement(category: string, value: number): string {
-  return `Here's ${category} for ${value}.`;
-}
-
 /**
  * Said on the correct-response screen. After a clue someone got right: "Correct, …"; after
  * one nobody got: "Sorry, we were looking for …". Final is neutral, because finalists can

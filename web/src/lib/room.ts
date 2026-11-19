@@ -48,6 +48,11 @@ export interface RoomState {
   /** The current round's clues, column by column. Phones never get clue text. */
   board: BoardClue[];
   activeClue?: BoardClue;
+  /**
+   * The pick reveal to play, set only by the pick's phase_changed (never by a re-read or a
+   * snapshot): "card" for a clue (blink, then the category card), "blink" for a Daily Double.
+   */
+  reveal?: { clueId: string; kind: "card" | "blink" };
   /** Server clock, ms, when the current step times out. */
   deadlineAt?: number;
   controllingUserId?: string;
@@ -245,6 +250,10 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         paused: event.paused ?? state.paused,
         activeClue: event.activeClue,
         board: withClue(state.board, event.activeClue),
+        reveal:
+          event.revealUntil !== undefined && event.activeClue
+            ? { clueId: event.activeClue.clueId, kind: event.phase === "daily_double_wager" ? "blink" : "card" }
+            : undefined,
         ...wagerFields(event),
       };
       if (event.phase === "daily_double_wager" && state.phase !== "daily_double_wager") {

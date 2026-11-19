@@ -1,17 +1,11 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
-  announcement,
   type RecognitionResultList,
   type Recognizer,
   requestAnswerPermissions,
   setRecognizerFactory,
   transcripts,
 } from "./speech";
-
-test("the pick announcement speaks the value as a plain number", () => {
-  expect(announcement("VOLCANOES", 400)).toBe("Here's VOLCANOES for 400.");
-  expect(announcement("OPERA", 1200)).toBe("Here's OPERA for 1200.");
-});
 
 // One recognition result per inner array, its guesses most likely first.
 function results(...rs: string[][]): RecognitionResultList {

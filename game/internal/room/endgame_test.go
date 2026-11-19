@@ -16,7 +16,7 @@ func wrongAnswer(t *testing.T, f *fixture, host, a, b *conn) (answerer *conn, an
 		answerer = b
 	}
 	picker.send(map[string]any{"type": "select_clue", "clueId": "clue-s"})
-	host.send(map[string]any{"type": "reading_done", "clueId": "clue-s"})
+	f.readingDone(host, "clue-s")
 	for {
 		if m := answerer.until("phase_changed"); m.Phase == "buzzing_open" {
 			break
@@ -79,7 +79,7 @@ func finishedGame(t *testing.T) (*fixture, *conn, *conn, *conn) {
 	f, host, a, b := startedGame(t)
 	players := map[string]*conn{alice: a, bob: b}
 	players[controller(f)].send(map[string]any{"type": "select_clue", "clueId": "clue-s"})
-	host.send(map[string]any{"type": "reading_done", "clueId": "clue-s"})
+	f.readingDone(host, "clue-s")
 	host.raw("phase_changed")
 	f.timers.fireAfter(host) // no buzz
 	host.raw("clue_ended")
@@ -88,7 +88,7 @@ func finishedGame(t *testing.T) (*fixture, *conn, *conn, *conn) {
 	f.timers.fireAfter(host) // interstitial
 	host.until("phase_changed")
 	players[controller(f)].send(map[string]any{"type": "select_clue", "clueId": "clue-d"})
-	host.send(map[string]any{"type": "reading_done", "clueId": "clue-d"})
+	f.readingDone(host, "clue-d")
 	host.raw("phase_changed")
 	f.timers.fireAfter(host)
 	host.raw("clue_ended")

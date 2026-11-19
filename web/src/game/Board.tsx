@@ -33,10 +33,13 @@ export function Board({
   board,
   onPick,
   size = "tv",
+  blinkClueId,
 }: {
   board: BoardClue[];
   onPick?: (clueId: string) => void;
   size?: "tv" | "phone";
+  /** The picked cell during the pick reveal: its value shows and flashes. */
+  blinkClueId?: string;
 }) {
   const cols = columns(board);
   const tv = size === "tv";
@@ -89,7 +92,14 @@ export function Board({
             </span>
           </div>
           {col.clues.map((clue) => (
-            <Cell key={clue.clueId} clue={clue} category={col.category} tv={tv} onPick={onPick} />
+            <Cell
+              key={clue.clueId}
+              clue={clue}
+              category={col.category}
+              tv={tv}
+              onPick={onPick}
+              blink={clue.clueId === blinkClueId}
+            />
           ))}
         </div>
       ))}
@@ -102,14 +112,17 @@ function Cell({
   category,
   tv,
   onPick,
+  blink = false,
 }: {
   clue: BoardClue;
   category: string;
   tv: boolean;
   onPick?: (clueId: string) => void;
+  blink?: boolean;
 }) {
   const [down, setDown] = useState(false);
   const open = clue.state === "unplayed";
+  const shown = open || blink;
   const live = Boolean(onPick) && open;
   return (
     <UnstyledButton
@@ -119,9 +132,10 @@ function Cell({
       onPointerUp={() => setDown(false)}
       onPointerLeave={() => setDown(false)}
       aria-label={open ? `${category} for ${clue.value}` : `${category} ${clue.value}, done`}
+      data-clue-id={clue.clueId}
       style={{
         ...cell,
-        boxShadow: open ? BEVEL : "none",
+        boxShadow: shown ? BEVEL : "none",
         minHeight: 0,
         padding: 2,
         display: "flex",
@@ -132,8 +146,9 @@ function Cell({
         transition: "transform 80ms",
       }}
     >
-      {open && (
+      {shown && (
         <span
+          className={blink ? "sg-pick-blink" : undefined}
           style={{
             fontFamily: DISPLAY,
             fontWeight: 700,

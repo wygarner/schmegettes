@@ -7,6 +7,7 @@ import { prepareVoice } from "../lib/piper/engine";
 import { initialRoom, type RoomState } from "../lib/room";
 import { type Recognizer, setRecognizerFactory } from "../lib/speech";
 import { HostGame } from "./HostGame";
+import { PICK_BLINK_MS, PICK_REVEAL_MS } from "./timing";
 
 // The Schmegettes voices download from the network; here the narrator is a fake whose lines
 // the tests end by hand: onend (the room heard it), onerror (sound blocked), skip (not ready).
@@ -57,7 +58,7 @@ test("reads the clue aloud once, then reports reading done", async () => {
     </MantineProvider>,
   );
   expect(screen.getByLabelText("Clue")).toHaveTextContent("THIS GAS");
-  expect(spoken.map((u) => u.text)).toEqual(["Here's SCIENCE for 400. THIS GAS"]);
+  expect(spoken.map((u) => u.text)).toEqual(["THIS GAS"]);
   rerender(
     <MantineProvider>
       <HostGame state={{ ...state }} send={send} hostUserId="host" />
@@ -142,7 +143,7 @@ test("when the browser blocks speech, buzzing is left to the server timer and th
   expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "reading_done" }));
 
   tap.click();
-  const read = "Here's SCIENCE for 400. THIS GAS";
+  const read = "THIS GAS";
   expect(spoken.map((u) => u.text)).toEqual([read, read]); // read again from the tap
   spoken[1]?.onend?.();
   await waitFor(() => expect(send).toHaveBeenCalledWith({ type: "reading_done", clueId: "c1" }));
@@ -515,7 +516,7 @@ test("the host device gets the Schmegettes voice ready in the background (after 
   );
   expect(prepareVoice).toHaveBeenCalledWith("kristin");
   // The line didn't wait for it: the narrator was asked at once (and skips it if not ready).
-  expect(spoken.map((u) => u.text)).toEqual(["Here's SCIENCE for 400. THIS GAS"]);
+  expect(spoken.map((u) => u.text)).toEqual(["THIS GAS"]);
 });
 
 test("a host who picked a built-in voice before gets Kristin", () => {
@@ -528,4 +529,60 @@ test("a host who picked a built-in voice before gets Kristin", () => {
   );
   expect(prepareVoice).toHaveBeenCalledWith("kristin");
   window.localStorage.clear();
+});
+
+test("the pick reveal: blink, then the card, then the clue is read (no announcement)", async () => {
+  vi.useFakeTimers();
+  try {
+    const picked: RoomState = {
+      ...state,
+      board: [{ ...clue, state: "active" }],
+      reveal: { clueId: "c1", kind: "card" },
+    };
+    showHost(picked);
+    expect(screen.getByRole("button", { name: "SCIENCE 400, done" })).toHaveTextContent("400");
+    expect(screen.queryByLabelText("Clue")).toBeNull();
+    expect(spoken).toHaveLength(0);
+
+    act(() => vi.advanceTimersByTime(PICK_BLINK_MS));
+    expect(screen.getByRole("img", { name: "SCIENCE for $400" })).toBeInTheDocument();
+    expect(spoken).toHaveLength(0);
+
+    act(() => vi.advanceTimersByTime(PICK_REVEAL_MS - PICK_BLINK_MS));
+    expect(screen.getByLabelText("Clue")).toHaveTextContent("THIS GAS");
+    expect(spoken.map((u) => u.text)).toEqual(["THIS GAS"]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("a Daily Double blinks, then shows its reveal", () => {
+  vi.useFakeTimers();
+  try {
+    const dd: RoomState = {
+      ...state,
+      phase: "daily_double_wager",
+      activeClue: ddClue,
+      board: [{ ...ddClue, state: "active" }],
+      controllingUserId: "a",
+      reveal: { clueId: ddClue.clueId, kind: "blink" },
+    };
+    showHost(dd);
+    expect(screen.queryByText("DAILY DOUBLE")).toBeNull();
+    act(() => vi.advanceTimersByTime(PICK_BLINK_MS));
+    expect(screen.getByText("DAILY DOUBLE")).toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("the correct response reports when it has been read", async () => {
+  const { send } = showHost({
+    ...state,
+    phase: "buzzing_open",
+    clueEnd: { state: "unanswered", correctResponse: "Nitrogen" },
+  });
+  expect(spoken.at(-1)?.text).toBe("Sorry, we were looking for Nitrogen.");
+  spoken.at(-1)?.onend?.();
+  await waitFor(() => expect(send).toHaveBeenCalledWith({ type: "reading_done", clueId: "c1" }));
 });

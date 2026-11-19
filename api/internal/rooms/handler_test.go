@@ -77,8 +77,8 @@ func (routes) GetV1RoomsRoomId(http.ResponseWriter, *http.Request, openapi_types
 func (r routes) PatchV1RoomsRoomId(w http.ResponseWriter, req *http.Request, id openapi_types.UUID) {
 	r.Patch(w, req, id.String())
 }
-func (r routes) PostV1Rooms(w http.ResponseWriter, req *http.Request)                    { r.Create(w, req) }
-func (r routes) PostV1RoomsJoin(w http.ResponseWriter, req *http.Request)                { r.Join(w, req) }
+func (r routes) PostV1Rooms(w http.ResponseWriter, req *http.Request)     { r.Create(w, req) }
+func (r routes) PostV1RoomsJoin(w http.ResponseWriter, req *http.Request) { r.Join(w, req) }
 func (r routes) GetV1RoomsByCodeCode(w http.ResponseWriter, req *http.Request, c string) {
 	r.ByCode(w, req, c)
 }

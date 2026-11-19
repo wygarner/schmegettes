@@ -237,6 +237,27 @@ func TestPatchOptions(t *testing.T) {
 			t.Errorf("body %s", rec.Body)
 		}
 	})
+	t.Run("quickPicks alone is a change; the room carries it", func(t *testing.T) {
+		room := sample
+		room.QuickPicks = true
+		s := &fakeStore{room: room}
+		rec := call(t, s, "PATCH", path, `{"quickPicks":true}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body)
+		}
+		if s.opts.QuickPicks == nil || !*s.opts.QuickPicks || s.opts.SetSeasons || s.opts.DoubleRound != nil {
+			t.Errorf("options %+v", s.opts)
+		}
+		if !bytes.Contains(rec.Body.Bytes(), []byte(`"quickPicks":true`)) {
+			t.Errorf("body %s", rec.Body)
+		}
+	})
+	t.Run("a room without quickPicks still says false", func(t *testing.T) {
+		rec := call(t, &fakeStore{room: sample}, "PATCH", path, `{"doubleRound":true}`)
+		if !bytes.Contains(rec.Body.Bytes(), []byte(`"quickPicks":false`)) {
+			t.Errorf("body %s", rec.Body)
+		}
+	})
 	t.Run("null seasons means every season; absent leaves them", func(t *testing.T) {
 		s := &fakeStore{room: sample}
 		call(t, s, "PATCH", path, `{"seasons":null}`)

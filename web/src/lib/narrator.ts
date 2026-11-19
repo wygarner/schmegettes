@@ -9,7 +9,7 @@
 // - A voice that becomes ready mid-game is used from the next line on, never mid-line.
 
 import { narratorChoice } from "./narratorVoice";
-import { audioContext } from "./piper/audio";
+import { audioContext, narratorOutput } from "./piper/audio";
 import { type Audio, type PiperEngine, readyEngine } from "./piper/engine";
 import { splitSentences } from "./piper/sentences";
 import { type SpeakResult, speak, spokenText, stopSpeaking } from "./speech";
@@ -68,7 +68,7 @@ async function narratePiper(engine: PiperEngine, text: string, startedAt: number
     buffer.getChannelData(0).set(audio.samples);
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    source.connect(ctx.destination);
+    source.connect(narratorOutput(ctx));
     const start = Math.max(at, ctx.currentTime);
     source.start(start);
     at = start + buffer.duration;

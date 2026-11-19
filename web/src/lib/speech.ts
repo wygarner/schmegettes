@@ -2,7 +2,7 @@
 // (SpeechRecognition). Recognition runs on the device; only text is sent to the server.
 
 import { chooseVoice, currentVoices, getSavedVoice } from "./narratorVoice";
-import { unlockAudio } from "./piper/audio";
+import { restorePlaybackSession, unlockAudio } from "./piper/audio";
 
 /** How a reading went. Only "ended" means the room heard the clue. */
 export type SpeakResult = "ended" | "failed" | "unavailable";
@@ -206,6 +206,7 @@ function createBrowserRecognizer(): Recognizer | null {
     abort: () => {
       done = true;
       rec.abort();
+      restorePlaybackSession();
     },
   };
   rec.onresult = (e) => {
@@ -215,6 +216,8 @@ function createBrowserRecognizer(): Recognizer | null {
   const finish = () => {
     if (done) return;
     done = true;
+    // Listening switched iOS to play-and-record; the narrator needs playback again.
+    restorePlaybackSession();
     recognizer.onFinal?.(transcript, alternatives);
   };
   rec.onend = finish;

@@ -1,6 +1,6 @@
-import { Button, Group, RangeSlider, SegmentedControl, Stack, Switch, Text } from "@mantine/core";
+import { Button, Group, RangeSlider, Stack, Switch, Text } from "@mantine/core";
 import { useState } from "react";
-import { FIRST_SEASON, type GameOptions, LAST_SEASON, PACES, type TimerPace } from "../lib/gameOptions";
+import { FIRST_SEASON, type GameOptions, LAST_SEASON } from "../lib/gameOptions";
 import { Sheet } from "../ui/Sheet";
 import { SOFT } from "../ui/tokens";
 
@@ -13,7 +13,7 @@ export function seasonsText(range: [number, number] | null): string {
 }
 
 /**
- * The lobby's game options: seasons, timers, Double Schmegettes. Each change applies at once
+ * The lobby's game options: seasons, Double Schmegettes. Each change applies at once
  * (onChange); Done or a tap outside closes it. Rules:
  * docs/product-docs/features/lobby/interaction-design.md, "Game options".
  */
@@ -32,7 +32,6 @@ export function GameOptionsSheet({
   const range = options.seasons ?? [FIRST_SEASON, LAST_SEASON];
   const [dragging, setDragging] = useState<[number, number] | null>(null);
   const shown = dragging ?? range;
-  const pace = PACES[options.timers];
 
   const setSeasons = (r: [number, number]) => {
     setDragging(null);
@@ -70,21 +69,6 @@ export function GameOptionsSheet({
             color="green.4"
             mb="lg"
           />
-        </div>
-        <div>
-          <Text fw={600} mb={4}>
-            Timers
-          </Text>
-          <SegmentedControl
-            aria-label="Timers"
-            fullWidth
-            value={options.timers}
-            onChange={(v) => onChange({ ...options, timers: v as TimerPace })}
-            data={(Object.keys(PACES) as TimerPace[]).map((p) => ({ value: p, label: PACES[p].label }))}
-          />
-          <Text size="sm" c={SOFT} mt={4}>
-            {pace.buzz} s to buzz in, {pace.answer} s to answer
-          </Text>
         </div>
         <Switch
           label="Double Schmegettes"

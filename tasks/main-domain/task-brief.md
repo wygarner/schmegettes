@@ -76,3 +76,6 @@ No change. A rejected origin is already logged by the api/game. Don't add the al
 ## Docs to update
 
 Listed in subtask 2.
+
+## Branch
+`technical-improvement/main-domain-impl`, from and into `develop`. No Jira key: Jira is not configured yet (`.github/jira.json` issue types are `REPLACE_ME`), so `create-ticket` fails on this PR as expected.

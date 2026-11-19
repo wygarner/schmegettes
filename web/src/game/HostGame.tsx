@@ -2,7 +2,7 @@ import { Box, Loader, Text, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { money } from "../lib/money";
-import { narrate, resetNarrationForGame, stopNarration } from "../lib/narrator";
+import { narrate, stopNarration } from "../lib/narrator";
 import { narratorChoice } from "../lib/narratorVoice";
 import { prepareVoice } from "../lib/piper/engine";
 import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
@@ -116,17 +116,15 @@ export function HostGame({
   const [soundBlocked, setSoundBlocked] = useState(false);
   const confirm = usePickConfirm(state, hostUserId, send);
 
-  // A game starts with the Schmegettes voice again. After a reload mid-game, the chosen voice
-  // loads from the device in the background; the built-in voice reads until it's ready.
+  // After a reload mid-game, the chosen voice loads from the device in the background; lines
+  // before it's ready are skipped.
   useEffect(() => {
-    resetNarrationForGame();
-    const choice = narratorChoice();
-    if (choice.kind === "piper") void prepareVoice(choice.id);
+    void prepareVoice(narratorChoice().id);
   }, []);
 
   // Say each announcement and clue once per showing. Only a reading that really ended
-  // reports reading_done; otherwise the server's timer moves on, so nobody can buzz (or
-  // the Final can't start) before the room has heard it.
+  // reports reading_done; a skipped or blocked line leaves it to the server's timer, so
+  // nobody can buzz (or the Final can't start) before the room could have heard it.
   const say = useCallback(
     (speech: Speech) => {
       void narrate(speech.text).then((result) => {

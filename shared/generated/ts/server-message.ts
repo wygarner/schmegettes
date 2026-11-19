@@ -27,6 +27,7 @@ export type ServerMessage =
  * Full state, sent on connect and reconnect. In the lobby, round is single, board is empty, and the lobby fields are present.
  */
 export interface RoomSnapshot {
+  resume?: ResumeLobby;
   type: "room_snapshot";
   roomId: string;
   seq: number;
@@ -130,6 +131,22 @@ export interface RoomSnapshot {
     [k: string]: number;
   };
 }
+/**
+ * A resume lobby: the abandoned game being resumed, and its contestants with their scores. back: they're in the room again.
+ */
+export interface ResumeLobby {
+  gameId: string;
+  /**
+   * Server ms when the game first started.
+   */
+  startedAt: number;
+  players: {
+    userId: string;
+    displayName: string;
+    score: number;
+    back: boolean;
+  }[];
+}
 export interface Player {
   userId: string;
   displayName: string;
@@ -166,6 +183,7 @@ export interface LobbyUpdated {
   hostPlays: boolean;
   maxPlayers: number;
   players: Player[];
+  resume?: ResumeLobby;
 }
 /**
  * The room closed. host_absent: no host device for 30 minutes in the lobby. replaced: the host created a new room. closed: it had already closed when this socket connected. Clients stop reconnecting on any room_closed, whatever its seq.

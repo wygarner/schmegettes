@@ -368,6 +368,9 @@ type LobbyUpdated struct {
 	// Players corresponds to the JSON schema field "players".
 	Players []Player `json:"players" yaml:"players" mapstructure:"players"`
 
+	// Resume corresponds to the JSON schema field "resume".
+	Resume *ResumeLobby `json:"resume,omitempty" yaml:"resume,omitempty" mapstructure:"resume,omitempty"`
+
 	// RoomId corresponds to the JSON schema field "roomId".
 	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
 
@@ -541,6 +544,33 @@ type Rematch struct {
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
 }
 
+// A resume lobby: the abandoned game being resumed, and its contestants with their
+// scores. back: they're in the room again.
+type ResumeLobby struct {
+	// GameId corresponds to the JSON schema field "gameId".
+	GameId Uuid `json:"gameId" yaml:"gameId" mapstructure:"gameId"`
+
+	// Players corresponds to the JSON schema field "players".
+	Players []ResumeLobbyPlayersElem `json:"players" yaml:"players" mapstructure:"players"`
+
+	// Server ms when the game first started.
+	StartedAt int `json:"startedAt" yaml:"startedAt" mapstructure:"startedAt"`
+}
+
+type ResumeLobbyPlayersElem struct {
+	// Back corresponds to the JSON schema field "back".
+	Back bool `json:"back" yaml:"back" mapstructure:"back"`
+
+	// DisplayName corresponds to the JSON schema field "displayName".
+	DisplayName string `json:"displayName" yaml:"displayName" mapstructure:"displayName"`
+
+	// Score corresponds to the JSON schema field "score".
+	Score int `json:"score" yaml:"score" mapstructure:"score"`
+
+	// UserId corresponds to the JSON schema field "userId".
+	UserId Uuid `json:"userId" yaml:"userId" mapstructure:"userId"`
+}
+
 // The room closed. host_absent: no host device for 30 minutes in the lobby.
 // replaced: the host created a new room. closed: it had already closed when this
 // socket connected. Clients stop reconnecting on any room_closed, whatever its
@@ -642,6 +672,9 @@ type RoomSnapshot struct {
 
 	// Players corresponds to the JSON schema field "players".
 	Players []Player `json:"players" yaml:"players" mapstructure:"players"`
+
+	// Resume corresponds to the JSON schema field "resume".
+	Resume *ResumeLobby `json:"resume,omitempty" yaml:"resume,omitempty" mapstructure:"resume,omitempty"`
 
 	// final_reveal: finalists in reveal order, lowest pre-Final score first.
 	RevealOrder []Uuid `json:"revealOrder,omitempty" yaml:"revealOrder,omitempty" mapstructure:"revealOrder,omitempty"`

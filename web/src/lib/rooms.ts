@@ -11,6 +11,9 @@ export type RoomProblem =
   | "invalid-name"
   | "not-a-host"
   | "rate-limited"
+  | "not-resumable"
+  | "not-the-host"
+  | "not-in-game"
   | "error";
 
 export type RoomResult = { ok: true; data: RoomJoin } | { ok: false; problem: RoomProblem };
@@ -22,6 +25,9 @@ const KNOWN: RoomProblem[] = [
   "invalid-name",
   "not-a-host",
   "rate-limited",
+  "not-resumable",
+  "not-the-host",
+  "not-in-game",
 ];
 
 function problemOf(error: unknown): RoomProblem {
@@ -67,4 +73,21 @@ export async function updateRoomOptions(roomId: string, options: RoomOptionsPatc
   } catch {
     return null;
   }
+}
+
+export type CurrentRoom = ApiComponents["schemas"]["CurrentRoom"];
+
+/** The room this account is in (a game first), for Home's Rejoin card; null when none. */
+export async function currentRoom(): Promise<CurrentRoom | null> {
+  try {
+    const { data, response } = await api.GET("/v1/me/current-room");
+    return response.status === 200 && data ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Opens (or returns) the resume lobby for an abandoned game this account hosted. */
+export function resumeGame(gameId: string): Promise<RoomResult> {
+  return settle(api.POST("/v1/games/{gameId}/resume", { params: { path: { gameId } } }));
 }

@@ -40,6 +40,22 @@ type Lobby struct {
 	HostPlays  bool
 	MaxPlayers int
 	Members    []Member
+	// Resume is set in a resume lobby: the abandoned game being resumed.
+	Resume *Resume
+}
+
+// Resume is the game a resume lobby resumes, with its contestants and their scores.
+type Resume struct {
+	GameID    string
+	StartedAt time.Time
+	Players   []ResumePlayer
+}
+
+// ResumePlayer is one of the resumed game's contestants, in join order.
+type ResumePlayer struct {
+	UserID string
+	Name   string
+	Score  int
 }
 
 // Store is the database work a room needs. PGStore runs it as game_engine.
@@ -49,6 +65,8 @@ type Store interface {
 	SetHostPlays(ctx context.Context, roomID string, plays bool) error
 	Leave(ctx context.Context, roomID, userID string) error
 	StartGame(ctx context.Context, roomID string) (gameID string, err error)
+	// StartResumed starts a resume lobby's game where it stopped (start_resumed_game).
+	StartResumed(ctx context.Context, roomID string) (gameID string, err error)
 	// HostCanHost reports whether the room's host still has host access.
 	HostCanHost(ctx context.Context, roomID string) (bool, error)
 	Close(ctx context.Context, roomID string) error
@@ -90,7 +108,14 @@ type Client struct {
 	UserID string
 	Out    chan []byte
 	Done   chan struct{}
+	// CloseCode, when set before Done closes, is the WebSocket close code to send (for
+	// example CloseOtherDevice). Zero is a normal closure.
+	CloseCode int
 }
+
+// CloseOtherDevice closes a player's older socket when they open the game on another
+// device: the old page says so and doesn't reconnect.
+const CloseOtherDevice = 4001
 
 // NewClient makes a client with a send buffer.
 func NewClient(userID string) *Client {
@@ -303,6 +328,21 @@ func (r *Room) hostConnected() bool {
 }
 
 func (r *Room) attach(ctx context.Context, c *Client) {
+	// A player on a new device takes their seat over: the older socket closes with
+	// CloseOtherDevice. The host's TV view has its own rule (only the host's session).
+	if c.UserID != r.lobby.HostID {
+		for old := range r.clients {
+			if old.UserID != c.UserID {
+				continue
+			}
+			old.CloseCode = CloseOtherDevice
+			r.release(old)
+			r.log.Info("socket replaced", "user_id", c.UserID)
+			if r.game != nil {
+				r.applyGame(ctx, r.game.Disconnect(r.cfg.Now(), old.UserID))
+			}
+		}
+	}
 	r.clients[c] = true
 	if c.UserID == r.lobby.HostID {
 		r.hostGoneAt = time.Time{}
@@ -365,6 +405,44 @@ func (r *Room) players() []contracts.Player {
 			UserId: contracts.Uuid(m.UserID), DisplayName: m.Name, Role: m.Role, Connected: online[m.UserID], Score: score,
 		})
 	}
+	// A resumed game's contestants who aren't back keep their seat and score, shown as away.
+	if r.game != nil {
+		member := map[string]bool{}
+		for _, m := range r.lobby.Members {
+			member[m.UserID] = true
+		}
+		for _, p := range r.game.Players() {
+			if member[p.UserID] {
+				continue
+			}
+			out = append(out, contracts.Player{
+				UserId: contracts.Uuid(p.UserID), DisplayName: p.Name, Role: contracts.PlayerRoleContestant,
+				Connected: false, Score: r.game.Scores()[p.UserID],
+			})
+		}
+	}
+	return out
+}
+
+// resumeLobby is the resume payload: the game's contestants, and who is back.
+func (r *Room) resumeLobby() *contracts.ResumeLobby {
+	res := r.lobby.Resume
+	if res == nil {
+		return nil
+	}
+	member := map[string]bool{}
+	for _, m := range r.lobby.Members {
+		member[m.UserID] = true
+	}
+	out := &contracts.ResumeLobby{
+		GameId: contracts.Uuid(res.GameID), StartedAt: int(res.StartedAt.UnixMilli()),
+		Players: []contracts.ResumeLobbyPlayersElem{},
+	}
+	for _, p := range res.Players {
+		out.Players = append(out.Players, contracts.ResumeLobbyPlayersElem{
+			UserId: contracts.Uuid(p.UserID), DisplayName: p.Name, Score: p.Score, Back: member[p.UserID],
+		})
+	}
 	return out
 }
 
@@ -392,7 +470,7 @@ func (r *Room) snapshot() contracts.RoomSnapshot {
 	return contracts.RoomSnapshot{
 		Type: "room_snapshot", RoomId: contracts.Uuid(r.id), Seq: r.seq, Phase: r.phase,
 		Round: contracts.RoundSingle, Players: r.players(), Board: []contracts.BoardClue{},
-		HostDisplayName: &name, HostPlays: &plays, MaxPlayers: &maxPlayers,
+		HostDisplayName: &name, HostPlays: &plays, MaxPlayers: &maxPlayers, Resume: r.resumeLobby(),
 	}
 }
 
@@ -413,7 +491,7 @@ func (r *Room) lobbyUpdated() contracts.LobbyUpdated {
 	return contracts.LobbyUpdated{
 		Type: "lobby_updated", RoomId: contracts.Uuid(r.id),
 		HostUserId: contracts.Uuid(r.lobby.HostID), HostDisplayName: r.hostName(),
-		HostPlays: r.lobby.HostPlays, MaxPlayers: r.lobby.MaxPlayers, Players: r.players(),
+		HostPlays: r.lobby.HostPlays, MaxPlayers: r.lobby.MaxPlayers, Players: r.players(), Resume: r.resumeLobby(),
 	}
 }
 
@@ -629,8 +707,13 @@ func (r *Room) apply(ctx context.Context, c *Client, err error) {
 
 func (r *Room) start(ctx context.Context, host *Client) {
 	r.log.Info("game start requested", "user_id", host.UserID)
+	resuming := r.lobby.Resume != nil
 	r.setPhase(contracts.GamePhaseBuildingBoard)
-	gameID, err := r.store.StartGame(ctx, r.id)
+	start := r.store.StartGame
+	if resuming {
+		start = r.store.StartResumed
+	}
+	gameID, err := start(ctx, r.id)
 	if errors.Is(err, ErrNotAHost) {
 		r.log.Info("start refused: not a host", "room_id", r.id)
 		r.setPhase(contracts.GamePhaseLobby)
@@ -647,8 +730,9 @@ func (r *Room) start(ctx context.Context, host *Client) {
 		}
 		return
 	}
-	r.log.Info("game started", "game_id", gameID)
+	r.log.Info("game started", "game_id", gameID, "resumed", resuming)
 	r.lobby.Status = contracts.RoomStatusInGame
+	r.lobby.Resume = nil
 	if !r.loadGame(ctx) {
 		r.setPhase(contracts.GamePhaseLobby)
 		msg := "Couldn't load the board. Try again."
@@ -656,6 +740,15 @@ func (r *Room) start(ctx context.Context, host *Client) {
 		for c := range r.clients {
 			r.deliver(c, data)
 		}
+		return
+	}
+	if resuming {
+		// The game picks up where it stopped: everyone gets the whole state, as after a restart.
+		r.log.Info("game resumed", "game_id", gameID, "players_back", r.contestants())
+		for c := range r.clients {
+			r.sendTo(c, r.snapshotFor(c))
+		}
+		r.connectAll(ctx)
 		return
 	}
 	r.startRound(ctx)

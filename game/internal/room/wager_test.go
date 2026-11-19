@@ -119,6 +119,12 @@ func TestFinalAnswersStaySecretUntilTheReveal(t *testing.T) {
 	if !strings.Contains(snap, `"myFinalAnswer":"krakatoa"`) || !strings.Contains(snap, `"myWager":100`) {
 		t.Errorf("Alice's snapshot lacks her own draft or wager: %s", snap)
 	}
+	// The new socket took Alice's seat over (another device); the test follows it from here.
+	var first struct {
+		Seq int `json:"seq"`
+	}
+	_ = json.Unmarshal([]byte(snap), &first)
+	a = &conn{t: t, client: a2, room: a.room, seq: first.Seq}
 	host2 := NewClient(hostID)
 	f.hub.Attach(roomID, host2)
 	if snap := string(<-host2.Out); strings.Contains(snap, "myWager") || strings.Contains(snap, "myFinalAnswer") ||

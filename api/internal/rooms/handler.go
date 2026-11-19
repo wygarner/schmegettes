@@ -64,7 +64,11 @@ func (h Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, ErrNotAHost):
 		server.Problem(w, http.StatusForbidden, "not-a-host", "Hosting is invite-only")
 	case errors.Is(err, ErrNotTheHost):
-		server.Problem(w, http.StatusForbidden, "not-the-host", "Only the host can change the game options")
+		server.Problem(w, http.StatusForbidden, "not-the-host", "Only the host can do that")
+	case errors.Is(err, ErrNotResumable):
+		server.Problem(w, http.StatusConflict, "not-resumable", "This game can't be resumed")
+	case errors.Is(err, ErrNotInGame):
+		server.Problem(w, http.StatusForbidden, "not-in-game", "This game is being resumed. Only its players can join.")
 	case errors.Is(err, ErrInvalidSettings):
 		server.Problem(w, http.StatusBadRequest, "invalid-settings", "Pick at least one season, from 1 to 40")
 	default:
@@ -103,11 +107,11 @@ func (h Handler) Join(w http.ResponseWriter, r *http.Request) {
 	if !server.DecodeJSON(w, r, &body) {
 		return
 	}
-	role := contracts.Contestant
+	role := contracts.PostV1RoomsJoinJSONBodyRoleContestant
 	if body.Role != nil {
 		role = *body.Role
 	}
-	if role != contracts.Contestant && role != contracts.Spectator {
+	if role != contracts.PostV1RoomsJoinJSONBodyRoleContestant && role != contracts.PostV1RoomsJoinJSONBodyRoleSpectator {
 		server.Problem(w, http.StatusBadRequest, "invalid-request", "Unknown role")
 		return
 	}
@@ -180,4 +184,37 @@ func (h Handler) Patch(w http.ResponseWriter, r *http.Request, roomID string) {
 	slog.InfoContext(r.Context(), "room options changed", "room_id", room.ID, "timers", room.Timers,
 		"double_round", room.DoubleRound, "request_id", server.RequestID(r.Context()))
 	server.JSON(w, http.StatusOK, contractRoom(room))
+}
+
+// Current handles GET /v1/me/current-room: the room Home offers to rejoin, or 204.
+func (h Handler) Current(w http.ResponseWriter, r *http.Request) {
+	cur, err := h.Store.Current(r.Context(), server.Claims(r.Context()))
+	if errors.Is(err, ErrNoCurrentRoom) {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	names := cur.PlayerNames
+	if names == nil {
+		names = []string{}
+	}
+	server.JSON(w, http.StatusOK, contracts.CurrentRoom{
+		Kind: contracts.CurrentRoomKind(cur.Kind), RoomId: uuid.MustParse(cur.RoomID), Code: cur.Code,
+		Role: contracts.CurrentRoomRole(cur.Role), HostDisplayName: cur.HostDisplayName, PlayerNames: names,
+	})
+}
+
+// Resume handles POST /v1/games/{gameId}/resume: the host opens a resume lobby.
+func (h Handler) Resume(w http.ResponseWriter, r *http.Request, gameID string) {
+	room, err := h.Store.Resume(r.Context(), server.Claims(r.Context()), gameID)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	slog.InfoContext(r.Context(), "game resume opened", "game_id", gameID, "room_id", room.ID,
+		"request_id", server.RequestID(r.Context()))
+	h.respond(w, http.StatusCreated, room)
 }

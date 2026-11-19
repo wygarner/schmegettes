@@ -22,9 +22,23 @@ var (
 	ErrInvalidName = errors.New("invalid name")
 	ErrNotAHost    = errors.New("not a host") // the caller has no host access (private access)
 	// Game options (set_room_options).
-	ErrNotTheHost      = errors.New("not the room's host")
+	ErrNotTheHost      = errors.New("not the host")
 	ErrInvalidSettings = errors.New("invalid settings")
+	// Rejoin and resume (rejoin_games migration).
+	ErrNotResumable  = errors.New("not resumable")
+	ErrNotInGame     = errors.New("not in this game")
+	ErrNoCurrentRoom = errors.New("no current room")
 )
+
+// CurrentRoom is the room Home offers to rejoin.
+type CurrentRoom struct {
+	Kind            string // game, lobby, or resume_invite
+	RoomID          string
+	Code            string
+	Role            string // host or contestant
+	HostDisplayName string
+	PlayerNames     []string
+}
 
 // Room is a room as its members see it.
 type Room struct {
@@ -56,6 +70,8 @@ type Store interface {
 	Join(ctx context.Context, c auth.Claims, code, name, role string) (Room, error)
 	ByCode(ctx context.Context, c auth.Claims, code string) (Room, error)
 	SetOptions(ctx context.Context, c auth.Claims, roomID string, o Options) (Room, error)
+	Current(ctx context.Context, c auth.Claims) (CurrentRoom, error)
+	Resume(ctx context.Context, c auth.Claims, gameID string) (Room, error)
 }
 
 // PGStore is the Postgres Store.
@@ -139,6 +155,48 @@ func (s PGStore) SetOptions(ctx context.Context, c auth.Claims, roomID string, o
 	return room, err
 }
 
+// Current is the room the caller is in (a game first), or ErrNoCurrentRoom.
+func (s PGStore) Current(ctx context.Context, c auth.Claims) (CurrentRoom, error) {
+	var cur CurrentRoom
+	err := s.DB.AsUser(ctx, c, func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx, `
+			select kind, room_id::text, code, role, coalesce(host_display_name, ''), player_names
+			from public.my_current_room()`).
+			Scan(&cur.Kind, &cur.RoomID, &cur.Code, &cur.Role, &cur.HostDisplayName, &cur.PlayerNames)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNoCurrentRoom
+		}
+		return err
+	})
+	return cur, err
+}
+
+// Resume opens (or returns) the resume lobby for an abandoned game the caller hosted.
+func (s PGStore) Resume(ctx context.Context, c auth.Claims, gameID string) (Room, error) {
+	var room Room
+	err := s.DB.AsUser(ctx, c, func(tx pgx.Tx) error {
+		var id string
+		if err := tx.QueryRow(ctx, "select public.resume_game($1::uuid)::text", gameID).Scan(&id); err != nil {
+			var pg *pgconn.PgError
+			if errors.As(err, &pg) {
+				switch pg.Code {
+				case "42501":
+					return ErrNotTheHost
+				case "SCH02":
+					return ErrNotAHost
+				case "55000":
+					return ErrNotResumable
+				}
+			}
+			return err
+		}
+		var err error
+		room, err = scanRoom(tx.QueryRow(ctx, selectRoom+"where r.id = $1", id))
+		return err
+	})
+	return room, err
+}
+
 func mapOptionsError(err error) error {
 	var pg *pgconn.PgError
 	if errors.As(err, &pg) {
@@ -169,6 +227,8 @@ func mapError(err error) error {
 		return ErrInvalidName
 	case "42501":
 		return ErrNotAHost
+	case "SCH01":
+		return ErrNotInGame
 	}
 	return err
 }

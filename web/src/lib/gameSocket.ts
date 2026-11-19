@@ -3,6 +3,9 @@ import { getAccessToken } from "./supabase";
 
 type Listener = (message: ServerMessage) => void;
 
+/** The server closed this socket because the player opened the game on another device. */
+export const CLOSE_OTHER_DEVICE = 4001;
+
 /**
  * One connection to a room on game/. The server owns all state: the client sends
  * intents and renders what comes back. On a seq gap it reconnects, and the server
@@ -13,7 +16,7 @@ export class GameSocket {
   private socket?: WebSocket;
   private lastSeq = -1;
   private listeners = new Set<Listener>();
-  private dropListeners = new Set<() => void>();
+  private dropListeners = new Set<(code?: number) => void>();
 
   constructor(private readonly url: string) {}
 
@@ -23,11 +26,11 @@ export class GameSocket {
     const socket = new WebSocket(this.url, ["schmegettes.v1", `bearer.${token}`]);
     this.socket = socket;
     socket.onmessage = (event) => this.receive(JSON.parse(String(event.data)));
-    socket.onclose = () => {
+    socket.onclose = (event) => {
       // Ignore sockets this client replaced or closed on purpose.
       if (this.socket !== socket) return;
       this.socket = undefined;
-      for (const listener of this.dropListeners) listener();
+      for (const listener of this.dropListeners) listener(event.code);
     };
   }
 
@@ -40,7 +43,8 @@ export class GameSocket {
     return () => this.listeners.delete(listener);
   }
 
-  onDrop(listener: () => void) {
+  /** code: the WebSocket close code, e.g. CLOSE_OTHER_DEVICE. */
+  onDrop(listener: (code?: number) => void) {
     this.dropListeners.add(listener);
     return () => this.dropListeners.delete(listener);
   }

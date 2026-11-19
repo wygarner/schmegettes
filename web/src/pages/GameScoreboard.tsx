@@ -1,9 +1,11 @@
 import { Anchor, Container, Group, Loader, Stack, Text, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { type GameDetail, gameDetail } from "../lib/games";
 import { money } from "../lib/money";
 import { detailWhen, ordinal, PLACE_COLOR } from "../lib/placement";
+import { resumeGame } from "../lib/rooms";
+import { GoldButton } from "../ui/GoldButton";
 import { DISPLAY, PHONE_BG, RED, SOFT } from "../ui/tokens";
 
 type Load = { kind: "loading" } | { kind: "missing" } | { kind: "error" } | { kind: "ready"; game: GameDetail };
@@ -62,6 +64,7 @@ function Board({ game }: { game: GameDetail }) {
           Unfinished: these are the scores when the room closed.
         </Text>
       )}
+      {game.resumableUntil && <ResumeButton gameId={game.gameId} until={game.resumableUntil} />}
       {game.watched && (
         <Text size="sm" c={SOFT}>
           You watched this game.
@@ -125,5 +128,36 @@ function Board({ game }: { game: GameDetail }) {
           })}
       </ol>
     </Stack>
+  );
+}
+
+/**
+ * Resume an Unfinished game this account hosted: opens a resume lobby with a new code on this
+ * device, which becomes the host device. Rules: rejoin-games feature brief.
+ */
+function ResumeButton({ gameId, until }: { gameId: string; until: string }) {
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const day = new Date(until).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return (
+    <Group gap="sm" wrap="nowrap">
+      <GoldButton
+        loading={busy}
+        onClick={async () => {
+          setBusy(true);
+          setFailed(false);
+          const result = await resumeGame(gameId);
+          setBusy(false);
+          if (result.ok) navigate(`/host/${result.data.room.code}`);
+          else setFailed(true);
+        }}
+      >
+        Resume game
+      </GoldButton>
+      <Text size="sm" c={failed ? "red.3" : SOFT}>
+        {failed ? "Couldn't resume this game." : `You can resume until ${day}.`}
+      </Text>
+    </Group>
   );
 }

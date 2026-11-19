@@ -78,6 +78,9 @@ type Detail struct {
 	HostName   *string
 	Watched    bool
 	Results    []Result
+	// ResumableUntil is set for the game's host on an abandoned game that can still be
+	// resumed (30 days after it was abandoned).
+	ResumableUntil *time.Time
 }
 
 // Store is the data access the handlers need.
@@ -179,12 +182,15 @@ func (s PGStore) Detail(ctx context.Context, c auth.Claims, gameID string) (Deta
 	err := s.DB.AsUser(ctx, c, func(tx pgx.Tx) error {
 		err := tx.QueryRow(ctx, `
 			select g.id::text, g.status::text, g.started_at, g.finished_at,
-			       coalesce(me.role <> 'contestant', true), h.display_name
+			       coalesce(me.role <> 'contestant', true), h.display_name,
+			       case when g.host_user_id = $2::uuid and g.status = 'abandoned'
+			                 and g.finished_at >= now() - interval '30 days'
+			            then g.finished_at + interval '30 days' end
 			from public.games g
 			left join public.game_players me on me.game_id = g.id and me.user_id = $2::uuid
 			left join public.game_results h on h.game_id = g.id and h.user_id = g.host_user_id
 			where g.id = $1::uuid`, gameID, c.UserID).
-			Scan(&d.GameID, &d.Status, &d.StartedAt, &d.FinishedAt, &d.Watched, &d.HostName)
+			Scan(&d.GameID, &d.Status, &d.StartedAt, &d.FinishedAt, &d.Watched, &d.HostName, &d.ResumableUntil)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}

@@ -28,6 +28,7 @@ type fakeStore struct {
 	notAHost bool  // the host's access was removed
 	hostErr  error // HostCanHost fails
 	started  int
+	resumed  int
 	closed   bool
 
 	game    GameData
@@ -106,6 +107,15 @@ func (s *fakeStore) Leave(_ context.Context, _, userID string) error {
 	}
 	s.lobby.Members = kept
 	return nil
+}
+
+func (s *fakeStore) StartResumed(context.Context, string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.resumed++
+	s.lobby.Status = contracts.RoomStatusInGame
+	s.lobby.Resume = nil
+	return s.game.GameID, nil
 }
 
 func (s *fakeStore) StartGame(context.Context, string) (string, error) {
@@ -279,6 +289,13 @@ type message struct {
 	Players []contracts.Player `json:"players"`
 	Host    string             `json:"hostDisplayName"`
 	Plays   bool               `json:"hostPlays"`
+	Resume  *struct {
+		Players []struct {
+			UserID string `json:"userId"`
+			Score  int    `json:"score"`
+			Back   bool   `json:"back"`
+		} `json:"players"`
+	} `json:"resume"`
 }
 
 type conn struct {
@@ -385,12 +402,12 @@ func TestPresenceAcrossTwoSockets(t *testing.T) {
 	f.store.add(alice, "Alice")
 	a1 := f.connect(alice)
 	host.until("lobby_updated")
-	a2 := f.connect(alice)
-	host.until("lobby_updated")
-
-	a1.room.Detach(a1.client)
+	a2 := f.connect(alice) // another device: it takes the seat over
 	if m := host.until("lobby_updated"); !names(m.Players)["Alice"] {
-		t.Error("Alice offline with one socket still open")
+		t.Error("Alice offline while her new socket is open")
+	}
+	if !a1.closed() {
+		t.Fatal("the first socket should be closed")
 	}
 	a2.room.Detach(a2.client)
 	m := host.until("lobby_updated")
@@ -598,5 +615,65 @@ func TestClosedElsewhere(t *testing.T) {
 		}
 	default:
 		t.Error("late socket was dropped without room_closed")
+	}
+}
+
+func TestAnotherDeviceTakesTheSeatOver(t *testing.T) {
+	f := setup(t)
+	f.store.add(alice, "Alice")
+	f.connect(hostID)
+	first := f.connect(alice)
+	f.connect(alice) // the same account on another device
+	if !first.closed() {
+		t.Fatal("the older socket is still open")
+	}
+	if first.client.CloseCode != CloseOtherDevice {
+		t.Errorf("close code %d, want %d", first.client.CloseCode, CloseOtherDevice)
+	}
+}
+
+func TestTheHostsSecondTabIsNotTakenOver(t *testing.T) {
+	f := setup(t)
+	first := f.connect(hostID)
+	f.connect(hostID)
+	if first.closed() {
+		t.Error("the host's first socket was closed")
+	}
+}
+
+func TestResumeLobbyThenStart(t *testing.T) {
+	f := setup(t)
+	f.store.mu.Lock()
+	f.store.lobby.Resume = &Resume{GameID: "game-1", StartedAt: time.Unix(1_700_000_000, 0), Players: []ResumePlayer{
+		{UserID: alice, Name: "Alice", Score: 1200}, {UserID: bob, Name: "Bob", Score: 400},
+	}}
+	f.store.game.Scores = map[string]int{alice: 1200, bob: 400}
+	f.store.mu.Unlock()
+	f.store.add(alice, "Alice")
+
+	host := f.connect(hostID)
+	a := f.connect(alice)
+	m := host.until("lobby_updated")
+	if m.Resume == nil || len(m.Resume.Players) != 2 || !m.Resume.Players[0].Back || m.Resume.Players[1].Back {
+		t.Fatalf("resume payload %+v", m.Resume)
+	}
+
+	host.send(map[string]any{"type": "start_game"})
+	snap := a.until("room_snapshot")
+	if snap.Phase != "board" {
+		t.Fatalf("phase %q after resuming", snap.Phase)
+	}
+	if f.store.resumed != 1 || f.store.started != 0 {
+		t.Errorf("resumed %d, started %d", f.store.resumed, f.store.started)
+	}
+	// Bob isn't back: he keeps his seat and score, shown away.
+	var bobSeat *contracts.Player
+	for i := range snap.Players {
+		if string(snap.Players[i].UserId) == bob {
+			bobSeat = &snap.Players[i]
+		}
+	}
+	if bobSeat == nil || bobSeat.Connected || bobSeat.Score != 400 {
+		t.Errorf("Bob's seat %+v", bobSeat)
 	}
 }

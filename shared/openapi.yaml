@@ -106,6 +106,16 @@ paths:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problem" }
         "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/me/current-room:
+    get:
+      summary: The room the caller is in, to rejoin from Home (a game first, then a resume invite, then a lobby)
+      responses:
+        "200":
+          description: The room
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CurrentRoom" }
+        "204": { description: Not in any room }
   /v1/me/merge:
     post:
       summary: Move a guest's games, seen clues, and host access into the caller's account
@@ -199,6 +209,11 @@ paths:
               schema: { $ref: "#/components/schemas/Problem" }
         "409":
           description: The room is full (`room-full`) or its game has started (`game-started`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "403":
+          description: A resume lobby, and the caller didn't play that game (`not-in-game`)
           content:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problem" }
@@ -444,6 +459,28 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/GameDetail" }
         "404": { $ref: "#/components/responses/Problem" }
+  /v1/games/{gameId}/resume:
+    post:
+      summary: Resume an abandoned game (its host, within 30 days); opens a resume lobby with a new code
+      parameters:
+        - { name: gameId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "201":
+          description: The resume lobby; pressing again returns the one already open
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoomJoin" }
+        "403":
+          description: Not this game's host (`not-the-host`), or no host access any more (`not-a-host`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "409":
+          description: Finished, in progress, or abandoned more than 30 days ago (`not-resumable`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
 components:
   securitySchemes:
     supabaseJwt:
@@ -551,7 +588,24 @@ components:
           type: [string, "null"]
           description: The host's name in that game; null when the host's account was deleted
         watched: { type: boolean, description: The caller hosted without playing, or was a spectator }
+        resumableUntil:
+          type: string
+          format: date-time
+          description: Only for the game's host, on an abandoned game that can still be resumed
       required: [gameId, status, startedAt, finishedAt, results]
+    CurrentRoom:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [game, lobby, resume_invite]
+          description: "game: a game in progress; lobby: a lobby; resume_invite: the host is resuming a game the caller played"
+        roomId: { type: string, format: uuid }
+        code: { $ref: "./schemas/domain.schema.json#/$defs/RoomCode" }
+        role: { type: string, enum: [host, contestant] }
+        hostDisplayName: { type: string }
+        playerNames: { type: array, items: { type: string } }
+      required: [kind, roomId, code, role, hostDisplayName, playerNames]
     GameResult:
       type: object
       properties:

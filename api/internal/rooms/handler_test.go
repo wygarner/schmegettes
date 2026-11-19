@@ -21,10 +21,11 @@ import (
 )
 
 type fakeStore struct {
-	room Room
-	err  error
-	got  []string
-	opts *Options
+	room    Room
+	current CurrentRoom
+	err     error
+	got     []string
+	opts    *Options
 }
 
 func (f *fakeStore) Create(_ context.Context, _ auth.Claims, name string) (Room, error) {
@@ -37,6 +38,13 @@ func (f *fakeStore) Join(_ context.Context, _ auth.Claims, code, name, role stri
 }
 func (f *fakeStore) ByCode(_ context.Context, _ auth.Claims, code string) (Room, error) {
 	f.got = []string{code}
+	return f.room, f.err
+}
+func (f *fakeStore) Current(context.Context, auth.Claims) (CurrentRoom, error) {
+	return f.current, f.err
+}
+func (f *fakeStore) Resume(_ context.Context, _ auth.Claims, gameID string) (Room, error) {
+	f.got = []string{gameID}
 	return f.room, f.err
 }
 func (f *fakeStore) SetOptions(_ context.Context, _ auth.Claims, roomID string, o Options) (Room, error) {
@@ -77,7 +85,11 @@ func (routes) GetV1RoomsRoomId(http.ResponseWriter, *http.Request, openapi_types
 func (r routes) PatchV1RoomsRoomId(w http.ResponseWriter, req *http.Request, id openapi_types.UUID) {
 	r.Patch(w, req, id.String())
 }
-func (r routes) PostV1Rooms(w http.ResponseWriter, req *http.Request)     { r.Create(w, req) }
+func (r routes) PostV1Rooms(w http.ResponseWriter, req *http.Request)        { r.Create(w, req) }
+func (r routes) GetV1MeCurrentRoom(w http.ResponseWriter, req *http.Request) { r.Current(w, req) }
+func (r routes) PostV1GamesGameIdResume(w http.ResponseWriter, req *http.Request, id openapi_types.UUID) {
+	r.Resume(w, req, id.String())
+}
 func (r routes) PostV1RoomsJoin(w http.ResponseWriter, req *http.Request) { r.Join(w, req) }
 func (r routes) GetV1RoomsByCodeCode(w http.ResponseWriter, req *http.Request, c string) {
 	r.ByCode(w, req, c)
@@ -264,4 +276,46 @@ func TestPatchOptions(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestCurrentRoom(t *testing.T) {
+	s := &fakeStore{current: CurrentRoom{Kind: "game", RoomID: sample.ID, Code: "K7RXM", Role: "contestant",
+		HostDisplayName: "Wyatt", PlayerNames: []string{"Alice", "Bob"}}}
+	rec := call(t, s, "GET", "/v1/me/current-room", "")
+	if rec.Code != http.StatusOK || !bytes.Contains(rec.Body.Bytes(), []byte(`"kind":"game"`)) {
+		t.Errorf("%d %s", rec.Code, rec.Body)
+	}
+	if rec := call(t, &fakeStore{err: ErrNoCurrentRoom}, "GET", "/v1/me/current-room", ""); rec.Code != http.StatusNoContent {
+		t.Errorf("none: %d", rec.Code)
+	}
+}
+
+func TestResume(t *testing.T) {
+	game := "3c0d7a1e-1a2b-4c3d-8e4f-5a6b7c8d9e0f"
+	s := &fakeStore{room: sample}
+	rec := call(t, s, "POST", "/v1/games/"+game+"/resume", "")
+	if rec.Code != http.StatusCreated || s.got[0] != game {
+		t.Fatalf("%d %s %v", rec.Code, rec.Body, s.got)
+	}
+	for _, c := range []struct {
+		err    error
+		status int
+		kind   string
+	}{
+		{ErrNotTheHost, http.StatusForbidden, "not-the-host"},
+		{ErrNotAHost, http.StatusForbidden, "not-a-host"},
+		{ErrNotResumable, http.StatusConflict, "not-resumable"},
+	} {
+		rec := call(t, &fakeStore{err: c.err}, "POST", "/v1/games/"+game+"/resume", "")
+		if rec.Code != c.status || !bytes.Contains(rec.Body.Bytes(), []byte("/problems/"+c.kind)) {
+			t.Errorf("%v: %d %s", c.err, rec.Code, rec.Body)
+		}
+	}
+}
+
+func TestJoinRefusedForAResumeOfAnotherGame(t *testing.T) {
+	rec := call(t, &fakeStore{err: ErrNotInGame}, "POST", "/v1/rooms/join", `{"code":"K7RXM","displayName":"Dave"}`)
+	if rec.Code != http.StatusForbidden || !bytes.Contains(rec.Body.Bytes(), []byte("/problems/not-in-game")) {
+		t.Errorf("%d %s", rec.Code, rec.Body)
+	}
 }

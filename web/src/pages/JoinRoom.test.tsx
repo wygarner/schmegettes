@@ -205,3 +205,39 @@ describe("the microphone comes first", () => {
     expect(useRoom).toHaveBeenLastCalledWith(null, "host");
   });
 });
+
+test("from a resume invite, the player joins at once with their game name", async () => {
+  vi.mocked(roomByCode).mockResolvedValue({ ok: false, problem: "room-not-found" });
+  vi.mocked(joinRoom).mockResolvedValue({ ok: true, data: room });
+  render(
+    <MantineProvider>
+      <MemoryRouter initialEntries={["/join/K7RXM?resume=1"]}>
+        <Routes>
+          <Route path="/join/:code" element={<JoinRoom />} />
+        </Routes>
+      </MemoryRouter>
+    </MantineProvider>,
+  );
+  expect(await screen.findByText("You're in, Alice.")).toBeInTheDocument();
+  expect(screen.queryByLabelText("What's your name?")).toBeNull();
+});
+
+test("someone who didn't play can't join a resume lobby", async () => {
+  vi.mocked(roomByCode).mockResolvedValue({ ok: false, problem: "room-not-found" });
+  vi.mocked(joinRoom).mockResolvedValue({ ok: false, problem: "not-in-game" });
+  window.localStorage.setItem("schmegettes.displayName", "Dave");
+  renderJoin();
+  fireEvent.click(await screen.findByRole("button", { name: "Join" }));
+  expect(await screen.findByText("This game is being resumed. Only its players can join.")).toBeInTheDocument();
+});
+
+test("another device took the seat: this page says so", async () => {
+  vi.mocked(roomByCode).mockResolvedValue({ ok: true, data: room });
+  vi.mocked(useRoom).mockReturnValue({
+    state: { ...inLobby, connection: "closed", replaced: true },
+    send: vi.fn(),
+    leave: vi.fn(),
+  });
+  renderJoin();
+  expect(await screen.findByText("You're playing on another device.")).toBeInTheDocument();
+});

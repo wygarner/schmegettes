@@ -27,6 +27,19 @@ const (
 	Guest   AdminHostKind = "guest"
 )
 
+// Defines values for CurrentRoomKind.
+const (
+	Game         CurrentRoomKind = "game"
+	Lobby        CurrentRoomKind = "lobby"
+	ResumeInvite CurrentRoomKind = "resume_invite"
+)
+
+// Defines values for CurrentRoomRole.
+const (
+	CurrentRoomRoleContestant CurrentRoomRole = "contestant"
+	CurrentRoomRoleHost       CurrentRoomRole = "host"
+)
+
 // Defines values for GameDetailStatus.
 const (
 	GameDetailStatusAbandoned  GameDetailStatus = "abandoned"
@@ -69,8 +82,8 @@ const (
 
 // Defines values for PostV1RoomsJoinJSONBodyRole.
 const (
-	Contestant PostV1RoomsJoinJSONBodyRole = "contestant"
-	Spectator  PostV1RoomsJoinJSONBodyRole = "spectator"
+	PostV1RoomsJoinJSONBodyRoleContestant PostV1RoomsJoinJSONBodyRole = "contestant"
+	PostV1RoomsJoinJSONBodyRoleSpectator  PostV1RoomsJoinJSONBodyRole = "spectator"
 )
 
 // Defines values for PatchV1RoomsRoomIdJSONBodyTimers.
@@ -102,6 +115,25 @@ type AdminHostCode struct {
 	ServerTime         time.Time  `json:"serverTime"`
 }
 
+// CurrentRoom defines model for CurrentRoom.
+type CurrentRoom struct {
+	// Code Short code players type to join a room.
+	Code            string `json:"code"`
+	HostDisplayName string `json:"hostDisplayName"`
+
+	// Kind game: a game in progress; lobby: a lobby; resume_invite: the host is resuming a game the caller played
+	Kind        CurrentRoomKind    `json:"kind"`
+	PlayerNames []string           `json:"playerNames"`
+	Role        CurrentRoomRole    `json:"role"`
+	RoomId      openapi_types.UUID `json:"roomId"`
+}
+
+// CurrentRoomKind game: a game in progress; lobby: a lobby; resume_invite: the host is resuming a game the caller played
+type CurrentRoomKind string
+
+// CurrentRoomRole defines model for CurrentRoom.Role.
+type CurrentRoomRole string
+
 // DisplayName Trimmed by the server; must not be blank
 type DisplayName = string
 
@@ -114,8 +146,11 @@ type GameDetail struct {
 	HostDisplayName *string `json:"hostDisplayName"`
 
 	// Results Contestants ordered by placement; the host (the TV) and spectators are not listed
-	Results   []GameResult `json:"results"`
-	StartedAt time.Time    `json:"startedAt"`
+	Results []GameResult `json:"results"`
+
+	// ResumableUntil Only for the game's host, on an abandoned game that can still be resumed
+	ResumableUntil *time.Time `json:"resumableUntil,omitempty"`
+	StartedAt      time.Time  `json:"startedAt"`
 
 	// Status A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).
 	Status GameDetailStatus `json:"status"`
@@ -389,6 +424,9 @@ type ServerInterface interface {
 	// A game's scoreboard (anyone who played or watched it)
 	// (GET /v1/games/{gameId})
 	GetV1GamesGameId(w http.ResponseWriter, r *http.Request, gameId openapi_types.UUID)
+	// Resume an abandoned game (its host, within 30 days); opens a resume lobby with a new code
+	// (POST /v1/games/{gameId}/resume)
+	PostV1GamesGameIdResume(w http.ResponseWriter, r *http.Request, gameId openapi_types.UUID)
 	// Whether the caller's device can host
 	// (GET /v1/host-access)
 	GetV1HostAccess(w http.ResponseWriter, r *http.Request)
@@ -404,6 +442,9 @@ type ServerInterface interface {
 	// Set the account's name
 	// (PATCH /v1/me)
 	PatchV1Me(w http.ResponseWriter, r *http.Request)
+	// The room the caller is in, to rejoin from Home (a game first, then a resume invite, then a lobby)
+	// (GET /v1/me/current-room)
+	GetV1MeCurrentRoom(w http.ResponseWriter, r *http.Request)
 	// Move a guest's games, seen clues, and host access into the caller's account
 	// (POST /v1/me/merge)
 	PostV1MeMerge(w http.ResponseWriter, r *http.Request)
@@ -647,6 +688,37 @@ func (siw *ServerInterfaceWrapper) GetV1GamesGameId(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// PostV1GamesGameIdResume operation middleware
+func (siw *ServerInterfaceWrapper) PostV1GamesGameIdResume(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "gameId" -------------
+	var gameId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "gameId", r.PathValue("gameId"), &gameId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "gameId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1GamesGameIdResume(w, r, gameId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetV1HostAccess operation middleware
 func (siw *ServerInterfaceWrapper) GetV1HostAccess(w http.ResponseWriter, r *http.Request) {
 
@@ -738,6 +810,26 @@ func (siw *ServerInterfaceWrapper) PatchV1Me(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchV1Me(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetV1MeCurrentRoom operation middleware
+func (siw *ServerInterfaceWrapper) GetV1MeCurrentRoom(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1MeCurrentRoom(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1062,11 +1154,13 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("PATCH "+options.BaseURL+"/v1/admin/hosts/{userId}", wrapper.PatchV1AdminHostsUserId)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/games", wrapper.GetV1Games)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/games/{gameId}", wrapper.GetV1GamesGameId)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/games/{gameId}/resume", wrapper.PostV1GamesGameIdResume)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/host-access", wrapper.GetV1HostAccess)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/host-access/redeem", wrapper.PostV1HostAccessRedeem)
 	m.HandleFunc("DELETE "+options.BaseURL+"/v1/me", wrapper.DeleteV1Me)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/me", wrapper.GetV1Me)
 	m.HandleFunc("PATCH "+options.BaseURL+"/v1/me", wrapper.PatchV1Me)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/me/current-room", wrapper.GetV1MeCurrentRoom)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/me/merge", wrapper.PostV1MeMerge)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/me/merge-tickets", wrapper.PostV1MeMergeTickets)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/rooms", wrapper.PostV1Rooms)

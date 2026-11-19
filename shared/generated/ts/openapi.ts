@@ -242,6 +242,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/current-room": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The room the caller is in, to rejoin from Home (a game first, then a resume invite, then a lobby) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The room */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CurrentRoom"];
+                    };
+                };
+                /** @description Not in any room */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/merge": {
         parameters: {
             query?: never;
@@ -412,6 +455,15 @@ export interface paths {
                     };
                 };
                 400: components["responses"]["Problem"];
+                /** @description A resume lobby, and the caller didn't play that game (`not-in-game`) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
                 /** @description No open room with that code (problem type `room-not-found`) */
                 404: {
                     headers: {
@@ -965,6 +1017,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/games/{gameId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume an abandoned game (its host, within 30 days); opens a resume lobby with a new code */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    gameId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The resume lobby; pressing again returns the one already open */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RoomJoin"];
+                    };
+                };
+                /** @description Not this game's host (`not-the-host`), or no host access any more (`not-a-host`) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description Finished, in progress, or abandoned more than 30 days ago (`not-resumable`) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1051,6 +1160,25 @@ export interface components {
             hostDisplayName?: string | null;
             /** @description The caller hosted without playing */
             watched?: boolean;
+            /**
+             * Format: date-time
+             * @description Only for the game's host, on an abandoned game that can still be resumed
+             */
+            resumableUntil?: string;
+        };
+        CurrentRoom: {
+            /**
+             * @description game: a game in progress; lobby: a lobby; resume_invite: the host is resuming a game the caller played
+             * @enum {string}
+             */
+            kind: "game" | "lobby" | "resume_invite";
+            /** Format: uuid */
+            roomId: string;
+            code: components["schemas"]["RoomCode"];
+            /** @enum {string} */
+            role: "host" | "contestant";
+            hostDisplayName: string;
+            playerNames: string[];
         };
         GameResult: {
             /** @description Name as it was in that game */

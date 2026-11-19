@@ -5,7 +5,7 @@
 // Every play*() resolves when its sound ends, or at once when sound isn't running (blocked
 // before a tap, no Web Audio): it never rejects, and no game timer waits on it.
 
-import { audioContext } from "./piper/audio";
+import { audioContext, narratorOutput } from "./piper/audio";
 
 /** Effects sit a little under the narrator, so the narrator stays the loudest thing. */
 const EFFECTS_GAIN = 0.55;
@@ -89,7 +89,7 @@ async function play(
   return new Promise<void>((resolve) => {
     const out = ctx.createGain();
     out.gain.value = EFFECTS_GAIN;
-    out.connect(ctx.destination);
+    out.connect(narratorOutput(ctx)); // the narrator's output: plays through the iPhone silent switch
     let nodes: AudioScheduledSourceNode[] = [];
     try {
       nodes = build(ctx, out, ctx.currentTime + 0.01);

@@ -21,7 +21,7 @@ const theme = {
   headings: { fontFamily: "Oswald, Impact, sans-serif" },
 };
 
-const CATEGORIES = ["POTENT POTABLES", "WORLD CAPITALS", "SCIENCE", "BEFORE & AFTER", "POP MUSIC", "3-LETTER WORDS"];
+const CATEGORIES = ["WORLD CAPITALS", "SCIENCE", "BEFORE & AFTER", "POP MUSIC", "3-LETTER WORDS"];
 const VALUES = [200, 400, 600, 800, 1000];
 
 export default function SampleBoard() {
@@ -33,7 +33,7 @@ export default function SampleBoard() {
       <Stack>
         <Alert color="yellow" title="PROTOTYPE — not production code" />
         <Title order={2}>Single round</Title>
-        <SimpleGrid cols={6} spacing={4}>
+        <SimpleGrid cols={5} spacing={4}>
           {CATEGORIES.map((c) => (
             <Box key={c} bg="boardBlue.9" p="sm" ta="center">
               <Text fw={700} c="white" size="sm">

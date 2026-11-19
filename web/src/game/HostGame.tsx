@@ -2,13 +2,12 @@ import { Box, Loader, Text, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { money } from "../lib/money";
-import { narrate, resetNarrationForGame, stopNarration } from "../lib/narrator";
+import { narrate, stopNarration } from "../lib/narrator";
 import { narratorChoice } from "../lib/narratorVoice";
 import { prepareVoice } from "../lib/piper/engine";
 import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
 import { playCorrect, playDailyDouble, playDoubleRound, playTimesUp, stopEffects } from "../lib/sfx";
 import {
-  announcement,
   correctResponseAnnouncement,
   DAILY_DOUBLE_INTRO,
   dailyDoubleAnnouncement,
@@ -27,6 +26,7 @@ import { FinalStage } from "./FinalStage";
 import { HostLayout } from "./HostLayout";
 import { useOverride, VerdictRow } from "./OverrideSheet";
 import { usePickConfirm } from "./PickConfirm";
+import { PickRevealStage, usePickReveal } from "./PickReveal";
 import { PlayerColumn } from "./PlayerColumn";
 import { PlayerControls } from "./PlayerControls";
 import { Scoreboard } from "./Scoreboard";
@@ -46,12 +46,15 @@ interface Speech {
   sound?: () => Promise<void>;
 }
 
-/** What the TV should be saying in this phase, if anything. */
-function currentSpeech(state: RoomState): Speech | null {
+/**
+ * What the TV should be saying in this phase, if anything. Nothing during the pick reveal:
+ * the narrator starts the clue when the reveal ends (it has been preparing it meanwhile).
+ */
+function currentSpeech(state: RoomState, revealing: boolean): Speech | null {
   const clue = state.activeClue;
   if (!clue) return null;
-  // The correct-response screen (after a clue, or after Final): read the response once. The
-  // server's timer moves on regardless, so nothing waits on it.
+  // The correct-response screen (after a clue, or after Final): read the response once, then
+  // tell the server, which returns to the board a second later (or at its cap regardless).
   const response = state.clueEnd?.correctResponse;
   if (response) {
     const right = state.clueEnd?.state === "answered" || state.answers.some((a) => isCorrect(a.verdict));
@@ -60,22 +63,24 @@ function currentSpeech(state: RoomState): Speech | null {
       key: `response:${clue.clueId}`,
       text: correctResponseAnnouncement(response, outcome),
       clueId: clue.clueId,
-      reportDone: false,
+      reportDone: !inFinal(state.phase),
       // A chime when someone got it, a time's-up tone when nobody did; Final is neutral.
       sound: outcome === "right" ? playCorrect : outcome === "missed" ? playTimesUp : undefined,
     };
   }
+  if (revealing) return null;
   switch (state.phase) {
     case "clue_reading": {
       if (!clue.clueText) return null;
-      const intro =
+      // Only the clue: the reveal showed the category and value. A Daily Double says its wager.
+      const text =
         clue.dailyDouble && state.wager !== undefined
-          ? dailyDoubleAnnouncement(state.wager)
-          : announcement(clue.category, clue.value);
+          ? `${dailyDoubleAnnouncement(state.wager)} ${clue.clueText}`
+          : clue.clueText;
       // A resume re-reads with a new deadline.
       return {
         key: `read:${clue.clueId}:${state.deadlineAt}`,
-        text: `${intro} ${clue.clueText}`,
+        text,
         clueId: clue.clueId,
         reportDone: true,
       };
@@ -107,8 +112,8 @@ function currentSpeech(state: RoomState): Speech | null {
 
 /**
  * The host device during a game, mirrored to the TV: the board or clue on the stage, every
- * score in the player column. Reads each pick aloud ("Here's SCIENCE for 400.") and then the
- * clue. The board is tappable only when the host plays and has control.
+ * score in the player column. Shows each pick (the pick reveal), then reads the clue. The board
+ * is tappable only when the host plays and has control.
  */
 export function HostGame({
   state,
@@ -124,17 +129,15 @@ export function HostGame({
   const [soundBlocked, setSoundBlocked] = useState(false);
   const confirm = usePickConfirm(state, hostUserId, send);
 
-  // A game starts with the Schmegettes voice again. After a reload mid-game, the chosen voice
-  // loads from the device in the background; the built-in voice reads until it's ready.
+  // After a reload mid-game, the chosen voice loads from the device in the background; lines
+  // before it's ready are skipped.
   useEffect(() => {
-    resetNarrationForGame();
-    const choice = narratorChoice();
-    if (choice.kind === "piper") void prepareVoice(choice.id);
+    void prepareVoice(narratorChoice().id);
   }, []);
 
   // Say each announcement and clue once per showing. Only a reading that really ended
-  // reports reading_done; otherwise the server's timer moves on, so nobody can buzz (or
-  // the Final can't start) before the room has heard it.
+  // reports reading_done; a skipped or blocked line leaves it to the server's timer, so
+  // nobody can buzz (or the Final can't start) before the room could have heard it.
   const say = useCallback(
     (speech: Speech) => {
       const read = () =>
@@ -155,7 +158,8 @@ export function HostGame({
     },
     [send],
   );
-  const speech = currentSpeech(state);
+  const revealStage = usePickReveal(state.reveal);
+  const speech = currentSpeech(state, revealStage !== null);
   const speechKey = speech?.key ?? "";
   // speech is rebuilt every render; its key says when it changed.
   const speechRef = useRef(speech);
@@ -218,6 +222,8 @@ export function HostGame({
     );
   } else if (state.results) {
     main = <Scoreboard state={state} onRematch={() => send({ type: "rematch" })} />;
+  } else if (revealStage && clue) {
+    main = <PickRevealStage board={state.board} clue={clue} stage={revealStage} />;
   } else if (state.phase === "daily_double_wager") {
     main = <DailyDoubleStage state={state} hostWager={hostInputs.ddWager} />;
   } else if (inFinal(state.phase)) {

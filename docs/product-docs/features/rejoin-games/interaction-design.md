@@ -45,7 +45,7 @@ On the page of an Unfinished game the viewer hosted (`/games/{id}`), under "Unfi
 
 ### Resume lobby (host device / TV)
 
-The same layout as the lobby ([lobby](../lobby/interaction-design.md)), with:
+The same layout as the lobby ([lobby](../lobby/interaction-design.md)), with the player list folded into its tab by default. Opened, it shows:
 
 ```text
 ┌───────────────────────────────────────────────────┬───────────────────┐
@@ -55,13 +55,13 @@ The same layout as the lobby ([lobby](../lobby/interaction-design.md)), with:
 │                                                   │  ◌ Wyatt  −$200   │
 │                  M 4 Q T P                        │                   │
 │                                                   │                   │
-│  [ Leave the game ]   🔊 Kristin       [ Resume ] │                   │
+│  [ Leave ]                     🔊       [ Resume ] │                   │
 └───────────────────────────────────────────────────┴───────────────────┘
 ```
 
 - Contestants who aren't back are dimmed (◌). The count is "back / total".
 - **Resume** is enabled once one contestant is back (the host counts if they played) and the narrator's voice is ready. No **Options** button: options are the game's.
-- **Join the game / Leave the game** appear only if the host played in the original game; the host's seat and score are theirs.
+- **Join / Leave** appear only if the host played in the original game; the host's seat and score are theirs.
 
 ### Phone
 

@@ -5,7 +5,7 @@
 | Route | Device | Shows |
 |---|---|---|
 | `/` | any | **Host a game**, code field + **Join** (exists today) |
-| `/host/{code}` | host device (TV) | Lobby: code, join URL, host name, contestants, **Join the game**, **Start** |
+| `/host/{code}` | host device (TV) | Lobby: code, join URL, host name, contestants (folded away until opened), **Join**, **Start** |
 | `/join/{code}` | phone | Name entry, then "You're in" |
 
 ## States of a room (lobby part)
@@ -28,28 +28,48 @@ Host a game ─▶ name ─▶ creating ─▶ lobby ──Start──▶ buildi
 
 ### Lobby (TV view)
 
-Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667 × 320), the same two columns as the game screens ([gameplay](../gameplay/interaction-design.md)):
+Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667 × 320). Unlike the game screens, the lobby gives the stage the full width: the player list is **folded away** into a slim tab on the right edge.
+
+**Folded (every time the lobby opens):**
+
+```text
+┌──────────────────────────────────────────────────────────────────┬───┐
+│  SCHMEGETTES                               Hosted by Wyatt  ✎    │ P │
+│                                                                  │ l │
+│                     Join at {site}/join                          │ a │
+│                                                                  │ y │
+│                         K 7 R X M                                │ e │
+│               Seasons 20–40 · No Double Schmegettes              │ r │
+│  [ Join ]                                    🔊  ⚙   [ Start ]  │ s │
+│                                                                  │3/6│
+└──────────────────────────────────────────────────────────────────┴───┘
+```
+
+**Open (after a tap on the tab):**
 
 ```text
 ┌───────────────────────────────────────────────────┬───────────────────┐
-│  SCHMEGETTES                  Hosted by Wyatt  ✎  │  Players  3 / 6   │
+│  SCHMEGETTES                  Hosted by Wyatt  ✎  │  Players  3 / 6 › │
 │                                                   │  ● Wyatt HOST     │
 │              Join at {site}/join                  │  ● Alice          │
 │                                                   │  ◌ Bob (reconn…)  │
-│                  K 7 R X M                        │ ┌───────────────┐ │
-│        Seasons 20–40 · Fast timers                │ │ (red buzzer)  │ │ ◀ once the host
-│  [ Leave the game ] 🔊 Kristin ⚙ Options [ Start ]│ └───────────────┘ │   joined
+│                  K 7 R X M                        │                   │
+│      Seasons 20–40 · No Double Schmegettes        │                   │
+│  [ Leave ]                     🔊  ⚙   [ Start ]  │                   │
 └───────────────────────────────────────────────────┴───────────────────┘
 ```
 
-- The code is the biggest thing on screen (Oswald, readable at 3 m): each letter in gold on its own board-blue tile.
+- The code is the biggest thing on screen (Oswald, readable at 3 m): each letter in gold on its own board-blue tile. Folded, the code has the stage's full width.
+- **Players tab.** Folded, the right edge shows a tab about 40 px wide with "Players" and the count ("3/6"). A tap anywhere on it opens the column (about 28% of the width, as in the game) with the list. **›** in the column's header, or a tap on the header, folds it again. The lobby always opens folded: on Home → Host a game, on a reload, and on a rematch. The choice isn't remembered.
+- **A new player** animates into the list when it's open, without a sound. Folded, the count changes and the tab flashes gold once (0.6 s), so the host notices without opening it. With reduced motion turned on, the count just changes.
+- **No buzzer in the lobby on the host device.** The host's buzzer appears in the player column at Start, when the column comes back for the game. Phones keep their dim lobby buzzer.
 - **✎** next to the host name edits it until Start.
-- A new player animates into the list, without a sound.
-- **Start**: primary button. While there are no contestants it is disabled, with the hint "Need at least 1 player". A playing host counts.
-- **Join the game** (secondary) adds the host to the list at once, under their host name, tagged HOST, and the button becomes **Leave the game**. Editing the host name with ✎ updates both places.
-- **🔊 {voice name}** (subtle button) opens the narrator voice picker (below). While the chosen voice downloads it reads "🔊 Norman · 40%", and **Start** reads "Getting Norman ready… 40%" and is disabled.
+- **Start**: primary button. It is disabled while nobody has joined, with no hint text. A playing host counts.
+- **Join** (secondary) adds the host to the list at once, under their host name, tagged HOST, and the button becomes **Leave**. Editing the host name with ✎ updates both places. Joining doesn't open the column.
+- **🔊** (icon button, no text) opens the narrator voice picker (below). Its accessible name and hover tooltip are "Narrator voice: Norman". While the chosen voice downloads, a progress ring fills around the icon, and **Start** reads "Getting Kristin ready… 40%" and is disabled.
 - On a device that can't run the voices, the 🔊 button is hidden and a notice replaces the join URL line: "This device can't run the Schmegettes narrator. Host from a recent iPhone, iPad or computer." Start stays disabled.
-- **⚙ Options** (subtle button) opens the game options sheet (below). The line under the code lists the options that aren't the default; it's empty with the defaults.
+- **⚙** (icon button, no text; accessible name and tooltip "Game options") opens the game options sheet (below). The line under the code lists the options that aren't the default; it's empty with the defaults.
+- Both icon buttons are at least 44 × 44 px to tap.
 
 ### Narrator voice picker (host device)
 
@@ -57,17 +77,17 @@ Rules: [gameplay](../gameplay/feature-brief.md#the-narrators-voice).
 
 ```text
 ┌──────────────────── Narrator voice ────────────────────┐
-│  ✓ Kristin                                             │
-│    Norman                           Downloading… 40%   │
+│  ✓ Norman                                              │
+│    Kristin                          Downloading… 40%   │
 │    John                                                │
 │                                                        │
 │                                             [ Done ]   │
 └────────────────────────────────────────────────────────┘
 ```
 
-1. The host taps **🔊 Kristin**. A modal lists the three Schmegettes voices, with the current one checked. The device's built-in voices aren't listed.
+1. The host taps **🔊**. A modal lists the three Schmegettes voices (Norman, the default, first), with the current one checked. The device's built-in voices aren't listed.
 2. Tapping a row selects it at once and says "Here's a sample of my voice." on the TV once it's ready.
-3. **Done** (or tapping outside the modal) closes it. The button shows the new name. The choice is saved on this device.
+3. **Done** (or tapping outside the modal) closes it. The button's accessible name and tooltip give the new voice. The choice is saved on this device.
 
 - Each row shows its state on the right: "Downloading… 40%", nothing once it's ready or before it's picked, or "Couldn't download" with **Try again**. Tapping a voice that isn't on the device selects it and starts its download (about 63 MB); its sample plays once it's ready, and Start waits for it.
 
@@ -80,18 +100,17 @@ Rules: [lobby feature brief](./feature-brief.md#game-options).
 │  Seasons        1984 ●━━━━━━━━━━━━━━━━━━━━━━━● 2024      │
 │                 Seasons 1–40 (all)                      │
 │                                                         │
-│  Timers         ( Relaxed | Standard | Fast )           │
-│                 9 s to buzz in, 9 s to answer           │
-│                                                         │
 │  Double         [■■ On ]  Two boards, then Final        │
 │  Schmegettes                                            │
+│                                                         │
+│  Quick picks    [ Off□□]  Say the category and amount   │
 │                                             [ Done ]    │
 └─────────────────────────────────────────────────────────┘
 ```
 
 - **Seasons:** a two-handle range slider, ticks per season, labeled with years at the ends and the range as text below ("Seasons 20–40 · 2003–2024"). The handles can meet (one season) but not cross.
-- **Timers:** a three-way segmented control. The line below spells out the choice ("15 s to buzz in, 12 s to answer").
 - **Double Schmegettes:** a switch. The line beside it says "Two boards, then Final" or "One board, then Final".
+- **Quick picks:** a switch, off by default. The line beside it says "Say the category and amount" (off) or "Just the category picks its lowest clue" (on).
 - Changes apply as they're made; **Done** or a tap outside closes the sheet. The line under the code updates live.
 - Laid out for 844 × 390 without scrolling, like every host screen.
 
@@ -116,7 +135,7 @@ A slim banner across the top of the host lobby's stage, above the title. ✕ hid
 
 ### Start (host device)
 
-1. Host presses **Start** (2 or more contestants). The button shows a spinner, and joining closes immediately.
+1. Host presses **Start** (1 or more contestants). The button shows a spinner, and joining closes immediately.
 2. TV and phones go to `building_board`.
 
 ### Playing on the host device (in game)
@@ -136,7 +155,7 @@ When the host joined, their controls live in the **player column** on the right 
 
 | Phase | Player column |
 |---|---|
-| Lobby, after **Join the game** | Buzzer `idle` (a tap only animates it) |
+| Lobby, after **Join** | No buzzer: the host's buzzer appears in the column at Start |
 | `board`, host has control | Host's tile highlighted, buzzer in `pick`. Tap the board and confirm, or press the buzzer and say it |
 | `board`, someone else has control | Board taps do nothing |
 | `clue_reading` | **Buzz** dimmed. Pressing it early gives the same lockout as on a phone. |
@@ -158,12 +177,17 @@ When the host joined, their controls live in the **player column** on the right 
 | Room closed | Phone: "This room has closed." with a link Home |
 | Duplicate contestant name | Shown as "Alice 2" |
 | Host joins and a contestant has the same name | The later of the two gets the suffix ("Wyatt 2") |
-| Host presses Join the game and blocks the microphone | Not added. The microphone screen shows the steps and **Try again**; **Cancel** returns to the lobby as a non-playing host |
-| Host joins when the room is full | **Join the game** is disabled: "Room is full" |
-| Host leaves the game so the count drops below 2 | Start disables again |
+| Host presses Join and blocks the microphone | Not added. The microphone screen shows the steps and **Try again**; **Cancel** returns to the lobby as a non-playing host |
+| Host joins when the room is full | **Join** is disabled: "Room is full" |
+| Host leaves the game and nobody else has joined | Start disables again |
 | Host device disconnects mid-game while playing | Same as any contestant dropping: their buzzer is gone until reconnect. The game pauses only per the room rules. |
 | Host overrides a verdict on their own answer | Allowed. The TV labels it "Host override". |
 | A player edits their name in the lobby | The TV list updates live |
+| A player joins or leaves while the player list is folded | The tab's count updates; a join flashes the tab once |
+| A player reconnects or drops while the list is folded | Nothing on the tab changes; open the list to see "(reconnecting)" |
+| The host taps 🔊 or ⚙ with a screen reader | The buttons are announced as "Narrator voice: Norman" and "Game options" |
+| Quick picks on, and the controller says "Opera" with Opera 200 done and 400, 600, 800 left | Opera 400 is picked at once, with no confirmation |
+| A device saved Relaxed or Fast timers from before | Ignored: every game uses the standard times ([game options](./feature-brief.md#game-options)) |
 | Host reloads the TV | Returns to the same lobby with the same players and host name |
 | Host opens `/host/{code}` on a second device | That device is the same account only if it's the same browser session. Otherwise "Only the host can open this screen" and a link to join |
 | Player reloads | Rejoins as the same player, with no name prompt |
@@ -184,6 +208,6 @@ When the host joined, their controls live in the **player column** on the right 
 | Host picks a one-season range | Allowed. The board falls back to least-recently-seen categories if fresh ones run out |
 | Rematch | The room's options carry over; the host can change them before Start |
 | Host presses Start while a player is mid-join | Whoever has finished joining when the server handles Start is in. The rest see "This game has already started." |
-| A player leaves so the count drops below 2 | Start disables again |
+| The last player leaves | Start disables again |
 | Host presses Host a game again on Home while their lobby is open | The old lobby closes ("This room has closed" on its phones) and a new code appears |
 | Room creation fails | Back to Home with "Couldn't create a room. Try again." |

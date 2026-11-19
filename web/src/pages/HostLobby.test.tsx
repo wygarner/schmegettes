@@ -2,8 +2,9 @@ import { MantineProvider } from "@mantine/core";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { VOICE_SAMPLE, VOICE_TIPS } from "../game/NarratorVoicePicker";
-import { getSavedVoice, piperChoiceValue, saveVoice, type Voice } from "../lib/narratorVoice";
+import { VOICE_SAMPLE } from "../game/NarratorVoicePicker";
+import { narrate, stopNarration } from "../lib/narrator";
+import { getSavedVoice, piperChoiceValue, saveVoice } from "../lib/narratorVoice";
 import { prepareVoice } from "../lib/piper/engine";
 import { markDeviceUnavailable, resetVoicesForTest, setVoiceStatus } from "../lib/piper/voices";
 import { initialRoom, type Player, type RoomState } from "../lib/room";
@@ -11,6 +12,27 @@ import { HostLobbyView } from "./HostLobby";
 
 // The Schmegettes voices download from the network; tests drive their status by hand.
 vi.mock("../lib/piper/engine", () => ({ prepareVoice: vi.fn(async () => false), readyEngine: vi.fn(() => null) }));
+vi.mock("../lib/narrator", () => ({ narrate: vi.fn(async () => "ended"), stopNarration: vi.fn() }));
+
+// Every lobby test starts with the default voice ready, as on a device that has used it before.
+beforeEach(() => {
+  resetVoicesForTest();
+  vi.mocked(prepareVoice).mockReset().mockResolvedValue(false);
+  vi.mocked(narrate).mockClear();
+  vi.mocked(stopNarration).mockClear();
+  vi.stubGlobal(
+    "AudioContext",
+    class {
+      state = "running";
+      resume = async () => undefined;
+    },
+  );
+  setVoiceStatus("kristin", { state: "ready" });
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+  window.localStorage.clear();
+});
 
 const player = (userId: string, displayName: string, extra: Partial<Player> = {}): Player => ({
   userId,
@@ -141,63 +163,6 @@ test("the host device (on the TV) never shows sign-in", () => {
 });
 
 describe("narrator voice", () => {
-  class FakeUtterance {
-    voice: Voice | null = null;
-    lang = "";
-    rate = 1;
-    volume = 1;
-    onstart?: () => void;
-    onboundary?: () => void;
-    onend?: () => void;
-    onerror?: () => void;
-    constructor(public text: string) {}
-  }
-  class FakeSynth extends EventTarget {
-    voices: Voice[] = [];
-    spoken: FakeUtterance[] = [];
-    speaking = false;
-    pending = false;
-    cancel = vi.fn(() => {
-      this.speaking = false;
-    });
-    getVoices() {
-      return this.voices;
-    }
-    speak(u: FakeUtterance) {
-      this.spoken.push(u);
-      this.speaking = true;
-    }
-  }
-
-  const v = (name: string, lang: string, quality = "compact", isDefault = false): Voice => ({
-    name,
-    lang,
-    voiceURI: `com.apple.voice.${quality}.${lang}.${name}`,
-    default: isDefault,
-  });
-  const ava = v("Ava", "en-US", "premium");
-  const samantha = v("Samantha", "en-US", "compact", true);
-  const daniel = v("Daniel", "en-GB");
-  const bells = v("Bells", "en-US");
-  const thomas = v("Thomas", "fr-FR");
-
-  let synth: FakeSynth;
-  beforeEach(() => {
-    resetVoicesForTest();
-    vi.mocked(prepareVoice).mockReset().mockResolvedValue(false);
-    synth = new FakeSynth();
-    vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
-    Object.defineProperty(window, "speechSynthesis", { configurable: true, value: synth });
-  });
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-    Reflect.deleteProperty(window, "speechSynthesis");
-    window.localStorage.clear();
-  });
-
-  const asIPhone = () =>
-    vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X)");
   const voiceButton = () => screen.getByRole("button", { name: /^Narrator voice:/ });
   const openPicker = () => {
     fireEvent.click(voiceButton());
@@ -207,18 +172,11 @@ describe("narrator voice", () => {
     within(dialog)
       .getAllByRole("button")
       .filter((b) => b.hasAttribute("aria-pressed"));
-
-  /** Makes the Schmegettes voice unusable, so the built-in voices (and the tip) apply. */
-  const piperBlocked = () => setVoiceStatus("kristin", { state: "failed" });
   const label = (b: HTMLElement) => b.textContent?.replace("✓", "");
-
-  test("hidden when the device can't speak", () => {
-    Reflect.deleteProperty(window, "speechSynthesis");
-    renderView(lobby());
-    expect(screen.queryByRole("button", { name: /^Narrator voice:/ })).toBeNull();
-  });
+  const twoPlayers = () => lobby({ players: [player("a", "Alice"), player("b", "Bob")] });
 
   test("the default is Kristin, downloading in the background as soon as the lobby opens", () => {
+    resetVoicesForTest();
     renderView(lobby());
     expect(voiceButton()).toHaveAccessibleName("Narrator voice: Kristin");
     expect(prepareVoice).toHaveBeenCalledWith("kristin");
@@ -226,37 +184,16 @@ describe("narrator voice", () => {
     expect(voiceButton()).toHaveAccessibleName("Narrator voice: Kristin · 40%");
   });
 
-  test("a built-in voice saved earlier shows its name, or Default voice until the list loads", () => {
-    saveVoice(samantha.voiceURI);
+  test("the picker lists only the three Schmegettes voices", () => {
     renderView(lobby());
-    expect(voiceButton()).toHaveAccessibleName("Narrator voice: Default voice");
-    expect(prepareVoice).not.toHaveBeenCalled();
-    synth.voices = [samantha, ava];
-    act(() => {
-      synth.dispatchEvent(new Event("voiceschanged"));
-    });
-    expect(voiceButton()).toHaveAccessibleName("Narrator voice: Samantha");
+    expect(rows(openPicker()).map(label)).toEqual(["Kristin", "Norman", "John"]);
   });
 
-  test("the picker lists the Schmegettes voices, then English device voices best first", () => {
-    synth.voices = [thomas, daniel, bells, samantha, ava];
+  test("a built-in voice saved earlier is shown as Kristin", () => {
+    saveVoice("com.apple.voice.premium.en-US.Ava");
     renderView(lobby());
-    const dialog = openPicker();
-    expect(dialog).toHaveTextContent("Schmegettes voices");
-    expect(dialog).toHaveTextContent("Voices on this device");
-    const list = rows(dialog);
-    expect(list.map(label)).toEqual(["Kristin", "Norman", "John", "Ava (Premium)", "Samantha", "Daniel (UK)"]);
-    expect(list[0]).toHaveAttribute("aria-pressed", "true");
-
-    fireEvent.click(within(dialog).getByRole("button", { name: "Daniel (UK)" }));
-    expect(getSavedVoice()).toBe(daniel.voiceURI);
-    expect(synth.spoken.at(-1)?.text).toBe(VOICE_SAMPLE);
-    expect(synth.spoken.at(-1)?.voice).toBe(daniel);
-    expect(within(dialog).getByRole("button", { name: "Daniel (UK)" })).toHaveAttribute("aria-pressed", "true");
-    expect(voiceButton()).toHaveAccessibleName("Narrator voice: Daniel (UK)");
-
-    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(voiceButton()).toHaveAccessibleName("Narrator voice: Kristin");
+    expect(prepareVoice).toHaveBeenCalledWith("kristin");
   });
 
   test("picking Norman saves it, downloads it, and plays the sample once it's ready", async () => {
@@ -267,9 +204,9 @@ describe("narrator voice", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Norman" }));
     expect(getSavedVoice()).toBe(piperChoiceValue("norman"));
     expect(prepareVoice).toHaveBeenLastCalledWith("norman");
-    expect(synth.spoken).toHaveLength(0);
+    expect(narrate).not.toHaveBeenCalled();
     await act(async () => ready(true));
-    expect(synth.spoken.at(-1)?.text).toBe(VOICE_SAMPLE);
+    expect(narrate).toHaveBeenLastCalledWith(VOICE_SAMPLE);
   });
 
   test("no sample for a voice the host already moved on from", async () => {
@@ -283,10 +220,10 @@ describe("narrator voice", () => {
     await act(async () => {
       for (const p of pending) if (p.id === "norman") p.ready(true);
     });
-    expect(synth.spoken).toHaveLength(0);
+    expect(narrate).not.toHaveBeenCalled();
   });
 
-  test("each Schmegettes voice shows its state; a failed one can be tried again", () => {
+  test("each voice shows its state; a failed one can be tried again", () => {
     renderView(lobby());
     act(() => {
       setVoiceStatus("kristin", { state: "downloading", fraction: 0.4 });
@@ -302,64 +239,47 @@ describe("narrator voice", () => {
     expect(prepareVoice).toHaveBeenCalledWith("norman");
   });
 
-  test("a device too slow for the Schmegettes voices can't pick them, and falls back to the best built-in voice", () => {
-    synth.voices = [samantha, ava];
-    renderView(lobby());
+  test("Start waits for the voice, showing its progress", () => {
+    act(() => setVoiceStatus("kristin", { state: "downloading", fraction: 0.4 }));
+    renderView(twoPlayers());
+    const start = screen.getByRole("button", { name: "Getting Kristin ready… 40%" });
+    expect(start).toBeDisabled();
+    act(() => setVoiceStatus("kristin", { state: "preparing" }));
+    expect(screen.getByRole("button", { name: "Getting Kristin ready…" })).toBeDisabled();
+    act(() => setVoiceStatus("kristin", { state: "ready" }));
+    expect(screen.getByRole("button", { name: "Start" })).toBeEnabled();
+  });
+
+  test("a failed download keeps Start disabled, with Try again", () => {
+    act(() => setVoiceStatus("kristin", { state: "failed" }));
+    renderView(twoPlayers());
+    expect(screen.getByRole("button", { name: "Start" })).toBeDisabled();
+    expect(screen.getByText("Couldn't download the voice")).toBeInTheDocument();
+    vi.mocked(prepareVoice).mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(prepareVoice).toHaveBeenCalledWith("kristin");
+  });
+
+  test("a device that can't run the voices can't host", () => {
     act(() => markDeviceUnavailable());
-    const dialog = openPicker();
-    expect(within(dialog).getAllByText("Not available on this device")).toHaveLength(3);
-    expect(within(dialog).getByRole("button", { name: "Norman" })).toBeDisabled();
-    expect(voiceButton()).toHaveAccessibleName("Narrator voice: Ava (Premium)");
+    renderView(twoPlayers());
+    expect(screen.getByText(/This device can't run the Schmegettes narrator/)).toBeInTheDocument();
+    expect(screen.queryByText("Join at https://example.test/join")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Narrator voice:/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Start" })).toBeDisabled();
   });
 
-  test("the download tip shows on Apple devices when the Schmegettes voice can't be used and only standard voices are installed", () => {
-    asIPhone();
-    piperBlocked();
-    synth.voices = [samantha, daniel];
-    renderView(lobby());
-    expect(openPicker()).toHaveTextContent(VOICE_TIPS.ios);
-  });
-
-  test("no tip while the Schmegettes voice works", () => {
-    asIPhone();
-    synth.voices = [samantha, daniel];
-    renderView(lobby());
-    expect(openPicker()).not.toHaveTextContent("Want a more natural voice?");
-  });
-
-  test("no tip when a Premium voice is installed", () => {
-    asIPhone();
-    piperBlocked();
-    synth.voices = [samantha, ava];
-    renderView(lobby());
-    expect(openPicker()).not.toHaveTextContent("Want a more natural voice?");
-  });
-
-  test("no tip on other devices", () => {
-    vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
-    piperBlocked();
-    synth.voices = [samantha];
-    renderView(lobby());
-    expect(openPicker()).not.toHaveTextContent("Want a more natural voice?");
-  });
-
-  test("a device with no English voice says so", () => {
-    asIPhone();
-    piperBlocked();
-    synth.voices = [thomas];
-    renderView(lobby());
-    const dialog = openPicker();
-    expect(dialog).toHaveTextContent("No English voices on this device.");
-    expect(dialog).toHaveTextContent(VOICE_TIPS.ios);
+  test("a browser without Web Audio can't host either", () => {
+    vi.stubGlobal("AudioContext", undefined);
+    renderView(twoPlayers());
+    expect(screen.getByText(/This device can't run the Schmegettes narrator/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start" })).toBeDisabled();
   });
 
   test("Start stops a sample that's still playing", () => {
-    synth.voices = [samantha, ava];
-    const send = renderView(lobby({ players: [player("a", "Alice"), player("b", "Bob")] }));
-    fireEvent.click(within(openPicker()).getByRole("button", { name: "Samantha" }));
-    expect(synth.cancel).not.toHaveBeenCalled();
+    const send = renderView(twoPlayers());
     fireEvent.click(screen.getByRole("button", { name: "Start" }));
-    expect(synth.cancel).toHaveBeenCalled();
+    expect(stopNarration).toHaveBeenCalled();
     expect(send).toHaveBeenCalledWith({ type: "start_game" });
   });
 });

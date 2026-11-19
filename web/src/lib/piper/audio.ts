@@ -1,5 +1,5 @@
 // One AudioContext for the narrator. iOS starts it suspended until a tap resumes it, so the
-// host screen's first tap (unlockSpeech) resumes it along with speech synthesis.
+// host screen's taps (HostLayout) call unlockAudio.
 //
 // The silent switch: iOS plays Web Audio as "ambient" sound, which the ring/silent switch
 // mutes. The narrator must be heard anyway (gameplay feature brief, "Plays through the

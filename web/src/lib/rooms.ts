@@ -61,7 +61,6 @@ export function roomByCode(code: string): Promise<RoomResult> {
 export type Room = ApiComponents["schemas"]["Room"];
 export type RoomOptionsPatch = {
   seasons?: number[] | null;
-  timers?: Room["timers"];
   doubleRound?: boolean;
 };
 

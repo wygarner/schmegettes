@@ -1,4 +1,4 @@
--- Game options in the lobby: seasons, timers, Double Schmegettes. Run with `mise run db:test`.
+-- Game options in the lobby: seasons and Double Schmegettes (timers are always Standard). Run with `mise run db:test`.
 -- Rules: docs/product-docs/features/lobby/feature-brief.md, "Game options". Users act as
 -- authenticated with request.jwt.claims; Start runs as game_engine, as game/ calls it.
 begin;
@@ -67,7 +67,7 @@ select lives_ok(
 );
 select is(
   (select array[timers::text, double_round::text, seasons::text, max_players::text] from public.rooms where id = tests.room()),
-  array['fast', 'false', '{38}', '6'], 'options saved; max players untouched'
+  array['standard', 'false', '{38}', '6'], 'options saved; a timer pace is ignored (always Standard); max players untouched'
 );
 select lives_ok(
   $$ select public.set_room_options(tests.room(), false, null, null, null, null) $$,
@@ -106,7 +106,7 @@ select set_config('tests.game', public.start_game(tests.room())::text, true);
 reset role;
 select is(
   (select array[timers::text, double_round::text] from public.games where id = current_setting('tests.game')::uuid),
-  array['fast', 'false'], 'the game keeps the options it started with'
+  array['standard', 'false'], 'the game keeps the options it started with'
 );
 select is(
   (select count(*)::integer from public.board_clues where game_id = current_setting('tests.game')::uuid and round = 'double'),

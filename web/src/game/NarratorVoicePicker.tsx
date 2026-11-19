@@ -1,4 +1,4 @@
-import { Button, Group, Stack, Text, UnstyledButton } from "@mantine/core";
+import { ActionIcon, Button, Group, RingProgress, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useCallback, useEffect, useState } from "react";
 import { narrate } from "../lib/narrator";
 import { getSavedVoice, narratorChoice, piperChoiceValue, saveVoice } from "../lib/narratorVoice";
@@ -70,7 +70,7 @@ export function useNarratorStatus(): NarratorStatus {
 }
 
 /**
- * The lobby's "🔊 Kristin" button and its picker: the three Schmegettes voices. Tapping one
+ * The lobby's 🔊 button and its picker: the three Schmegettes voices. Tapping one
  * saves it on this device, downloads it if needed, and says the sample line on the TV once
  * it's ready. Hidden on a device that can't run them. Rules:
  * docs/product-docs/features/lobby/interaction-design.md.
@@ -87,10 +87,10 @@ export function NarratorVoicePicker() {
 
   if (narrator.unavailable) return null;
 
-  const label =
-    narrator.status.state === "downloading"
-      ? `${narrator.name} · ${Math.floor(narrator.status.fraction * 100)}%`
-      : narrator.name;
+  // An icon only (lobby interaction design): the voice's name is in the accessible name and
+  // the tooltip, and a download shows as a ring filling around the icon.
+  const percent = narrator.status.state === "downloading" ? Math.floor(narrator.status.fraction * 100) : null;
+  const label = `Narrator voice: ${narrator.name}${percent === null ? "" : ` · ${percent}%`}`;
 
   function pick(id: PiperVoiceId) {
     const value = piperChoiceValue(id);
@@ -104,17 +104,29 @@ export function NarratorVoicePicker() {
 
   return (
     <>
-      <Button
-        variant="subtle"
-        color="mauve.1"
-        size="compact-sm"
-        aria-label={`Narrator voice: ${label}`}
-        onClick={() => setOpen(true)}
-        style={{ minWidth: 0, maxWidth: "26cqw" }}
-        styles={{ label: { minWidth: 0, overflow: "hidden" } }}
-      >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🔊 {label}</span>
-      </Button>
+      <Tooltip label={label}>
+        <ActionIcon
+          variant="subtle"
+          color="mauve.1"
+          size={44}
+          aria-label={label}
+          onClick={() => setOpen(true)}
+          style={{ fontSize: 20 }}
+        >
+          {percent === null ? (
+            "🔊"
+          ) : (
+            <RingProgress
+              size={44}
+              thickness={3}
+              roundCaps
+              sections={[{ value: percent, color: "green.4" }]}
+              label={<span style={{ display: "block", textAlign: "center", fontSize: 18 }}>🔊</span>}
+              aria-hidden
+            />
+          )}
+        </ActionIcon>
+      </Tooltip>
       <Sheet opened={open} onClose={close} label="Narrator voice">
         <Text fw={700} mb="xs">
           Narrator voice

@@ -2,6 +2,8 @@
 // says. Recognition runs on the device; only text is sent to the server. The narrator itself
 // is in narrator.ts (Schmegettes voices only; the device's speech synthesis is never used).
 
+import { restorePlaybackSession } from "./piper/audio";
+
 /** What the host device says before a clue: "Here's VOLCANOES for 400." The value is a
  * plain number so it isn't read as dollars. Keep in sync with play.Announcement in
  * game/internal/play/game.go, which estimates how long it takes. */
@@ -115,6 +117,7 @@ function createBrowserRecognizer(): Recognizer | null {
     abort: () => {
       done = true;
       rec.abort();
+      restorePlaybackSession();
     },
   };
   rec.onresult = (e) => {
@@ -124,6 +127,8 @@ function createBrowserRecognizer(): Recognizer | null {
   const finish = () => {
     if (done) return;
     done = true;
+    // Listening switched iOS to play-and-record; the narrator needs playback again.
+    restorePlaybackSession();
     recognizer.onFinal?.(transcript, alternatives);
   };
   rec.onend = finish;

@@ -582,6 +582,41 @@ test("nobody got it: the time's-up tone; Final gets no sound", async () => {
   correct.mockRestore();
 });
 
+describe("the buzz-in sound", () => {
+  const open: RoomState = { ...state, phase: "buzzing_open" };
+  const won: RoomState = { ...state, phase: "answering", answeringUserId: "a" };
+
+  test("plays once when a player wins the buzz, and again for the next winner", () => {
+    const buzzIn = vi.spyOn(sfx, "playBuzzIn");
+    const { update } = showHost(open);
+    expect(buzzIn).not.toHaveBeenCalled();
+    update(won);
+    expect(buzzIn).toHaveBeenCalledTimes(1);
+    update({ ...won, liveText: "nitro" });
+    expect(buzzIn).toHaveBeenCalledTimes(1);
+    // Wrong: buzzing reopens silently; the next winner gets it again.
+    update({ ...open, attemptedUserIds: ["a"] });
+    expect(buzzIn).toHaveBeenCalledTimes(1);
+    update({ ...won, answeringUserId: "b", attemptedUserIds: ["a"] });
+    expect(buzzIn).toHaveBeenCalledTimes(2);
+    buzzIn.mockRestore();
+  });
+
+  test("not on a reload straight into answering, a Daily Double, or while paused", () => {
+    const buzzIn = vi.spyOn(sfx, "playBuzzIn");
+    const reload = showHost(won);
+    reload.update({ ...won, liveText: "nitro" });
+    cleanup();
+    const dd = showHost({ ...state, phase: "clue_reading", wager: 500 });
+    dd.update({ ...won, wager: 500 });
+    cleanup();
+    const paused = showHost(open);
+    paused.update({ ...won, paused: true });
+    expect(buzzIn).not.toHaveBeenCalled();
+    buzzIn.mockRestore();
+  });
+});
+
 test("Double Schmegettes! gets its fanfare once", () => {
   const fanfare = vi.spyOn(sfx, "playDoubleRound");
   const intro: RoomState = { ...state, phase: "board", activeClue: undefined, roundIntro: "double" };

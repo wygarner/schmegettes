@@ -20,8 +20,8 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 | Pick reveal | 1.5 s: the cell blinks (0.6 s), then grows into the category card (0.9 s) |
 | Reading | The clue only, until speech ends. Fallback: 1.5 s + about 2.5 words per second + 1 s, at most 14 s for the reading part |
 | Early-buzz lockout | 250 ms |
-| Buzz window (and each reopen) | 9 s Standard · 15 s Relaxed · 5 s Fast ([game options](../lobby/feature-brief.md#game-options)) |
-| Answer | Until the player goes quiet, at most 9 s Standard · 12 s Relaxed · 7 s Fast |
+| Buzz window (and each reopen) | 9 s |
+| Answer | Until the player goes quiet, at most 9 s |
 | Correct response on screen | Sound (under 1 s), the narrator's line, then 1 s. At most 6 s from the clue's end if the host device never reports the line's end |
 | "Double Schmegettes!" interstitial | 3 s |
 
@@ -196,7 +196,7 @@ The same states as the phone, in the player column, minus what the stage already
 └──────────────────────────────┘
 ```
 
-- **When:** on a phone, right after the room code is accepted, before the name. On the host device, when the host presses **Join the game**. A host who only hosts is never asked.
+- **When:** on a phone, right after the room code is accepted, before the name. On the host device, when the host presses **Join**. A host who only hosts is never asked.
 - **Allow microphone** starts the same listening that answering uses, so the browser asks for everything it needs (on iPhone, the microphone and speech recognition) now and never mid-game.
 - **Not added until allowed.** The player isn't in the room (not on the TV, not counted) until they allow it and enter their name. A host isn't added as a contestant until they allow it.
 - **Blocked or "Don't Allow":** the screen says "Your microphone is blocked." with steps for that browser (iPhone Safari: **aA** → **Website Settings** → **Microphone** → **Allow**; Chrome: the icon left of the address → **Microphone** → **Allow**) and **Try again**. Only **Leave** gets out.

@@ -40,8 +40,8 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
 - **Early buzz:** a buzz before buzzing opens locks that player out for **250 ms**, as on the show. The buzz is not queued.
 - **First valid buzz wins.** The order is the order the server receives buzzes. Phone clocks are never trusted.
-- **Buzz window: 9 s** with Standard timers (15 s Relaxed, 5 s Fast; the host picks in the lobby's [game options](../lobby/feature-brief.md#game-options)). If nobody buzzes, the clue goes unanswered and the TV shows the correct response. Control doesn't change.
-- **The buzzer is always on screen** for every contestant, from the moment they join the lobby to the end of the game. Every view (phone, and the host device when the host plays) uses the same buzzer component. Its state changes at the same moment everywhere: **dim** when buzzing is closed or the clue is being read, **lit** when buzzing opens, **locked** after an early buzz or once that player has answered this clue. A tap on a dim buzzer outside `clue_reading` does nothing and costs nothing, except for the player in control on the board, whose buzzer starts listening for their pick.
+- **Buzz window: 9 s**, the same in every game. If nobody buzzes, the clue goes unanswered and the TV shows the correct response. Control doesn't change.
+- **The buzzer is always on screen** for every contestant, from the moment they join the lobby to the end of the game. The host device is the exception: a playing host's buzzer appears at Start ([lobby](../lobby/feature-brief.md#the-host-who-also-plays)). Every view (phone, and the host device when the host plays) uses the same buzzer component. Its state changes at the same moment everywhere: **dim** when buzzing is closed or the clue is being read, **lit** when buzzing opens, **locked** after an early buzz or once that player has answered this clue. A tap on a dim buzzer outside `clue_reading` does nothing and costs nothing, except for the player in control on the board, whose buzzer starts listening for their pick.
 
 ### The narrator's voice
 
@@ -49,11 +49,11 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
   | Voice | Sounds | License |
   |---|---|---|
-  | **Kristin** (default) | US English, female | Public domain |
-  | **Norman** | US English, male | Public domain |
+  | **Norman** (default) | US English, male | Public domain |
+  | **Kristin** | US English, female | Public domain |
   | **John** | US English, male | Public domain |
 
-- **Downloaded before the game, one kept.** Each voice is about **63 MB**. Kristin starts downloading in the background as soon as the host lobby opens; Norman or John downloads when the host picks it. The browser keeps the voice in use for next time, and only that one: when the host switches, the old voice is removed once the new one is ready.
+- **Downloaded before the game, one kept.** Each voice is about **63 MB**. Norman starts downloading in the background as soon as the host lobby opens; Kristin or John downloads when the host picks it. The browser keeps the voice in use for next time, and only that one: when the host switches, the old voice is removed once the new one is ready.
 - **Start waits for the voice.** Until the picked voice is ready on the host device, **Start** is disabled and shows the progress ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). A failed download says so, with **Try again**. Once a voice has downloaded, later games start at once.
 - **A device that can't run the voices can't host.** The lobby says "This device can't run the Schmegettes narrator. Host from a recent iPhone, iPad or computer." and Start stays disabled.
 - **Reading starts quickly.** The narrator prepares the clue during the 1.5 s pick reveal, so the first word is heard within **1 s** of the clue appearing on the TV.
@@ -61,7 +61,7 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 - **Plays through the silent switch.** On an iPhone or iPad, the narrator is heard with the ring/silent switch on, at media volume, like a video. The volume buttons control it.
 - **It never slows the host's buzzer.** Generating speech must not make the host device's screen or buzzer lag: a host who plays buzzes as quickly as anyone.
 - The host can **change the voice in the lobby** and hear a sample first ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). The same voice speaks every line: clues, Daily Double and Final lines, and the correct response.
-- The choice is **kept on that host device** for every room it hosts until the host changes it. It isn't tied to the host's account and never reaches the server. A device that had picked a built-in voice before this change gets Kristin, without a message.
+- The choice is **kept on that host device** for every room it hosts until the host changes it. It isn't tied to the host's account and never reaches the server. A device where the host never picked a voice gets Norman, including one that has been using Kristin only because she was the default before; it downloads Norman once (Start waits, as for any new voice). A device where the host picked Kristin or John keeps it. A device that had picked a built-in voice before gets Norman, without a message.
 - **Every voice speaks at its normal pace, and buzzing never opens before the reading ends.** There's no speed setting. The server's fallback estimate starts when the clue is picked, so the reveal and the time spent generating speech count against it.
 
 ### Answering and judging
@@ -69,7 +69,7 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 - The winning player's phone (or the host device, when the host buzzed) **starts listening on its own**. The player speaks their answer, with no button to hold. It stops when the player goes quiet or after **9 s**.
 - "What is…" is optional. Judging is generous: small mishearings and transcription slips don't cost points ([product overview](../../architecture/product-overview.md), Principles).
 - **Correct:** the player gains the clue's value and takes control. The TV shows the correct response, and the clue is done.
-- **Answer time: 9 s** with Standard timers (12 s Relaxed, 7 s Fast; [game options](../lobby/feature-brief.md#game-options)). Every "9 s" for answering below means the room's answer time.
+- **Answer time: 9 s**, the same in every game.
 - **Incorrect:** the player loses the clue's value. Buzzing **reopens** for players who haven't tried this clue, with a fresh 9 s window. Each player gets one attempt per clue.
 - **No answer heard** within 9 s counts as incorrect, as on the show, with one exception for disconnects (Fairness below).
 - A clue ends when someone answers correctly, everyone has tried, or a buzz window closes with no buzz. Then the TV shows the correct response: a short sound plays ([sound effects](../sound-effects/feature-brief.md)), the narrator says the line ("Correct, Mauna Loa is the right answer." / "Sorry, we were looking for Mauna Loa."), and **1 s after the line ends** the TV returns to the board. If the host device never reports the end of the line, the board returns **6 s** after the clue ended at the latest. The correct-response screen does not show the clue text.

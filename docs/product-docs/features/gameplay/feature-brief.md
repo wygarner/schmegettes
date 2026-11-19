@@ -32,9 +32,9 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
 ### Reading and buzzing
 
-- **The pick reveal (1.5 s).** When a clue is picked, its cell **blinks** on the TV board (three quick flashes, 0.6 s), then **lifts out of the board and grows into a card** in the middle of the stage showing the category and the value ("VOLCANOES", "$400"), 0.9 s. The card then becomes the clue screen. Nothing is spoken during the reveal, and it never waits on the narrator or the network: it always takes 1.5 s.
+- **The pick reveal (2.25 s).** When a clue is picked, its cell **blinks** on the TV board (three quick flashes, 0.6 s), then **lifts out of the board and grows into a card** in the middle of the stage showing the category and the value ("VOLCANOES", "$400"), 0.6 s, and **holds** there for 1.05 s so the room can read it. The card then becomes the clue screen. Nothing is spoken during the reveal, and it never waits on the narrator or the network: it always takes 2.25 s.
 - The TV then shows the clue full screen and **reads it aloud** in the narrator's voice. There is no spoken announcement ("Here's Volcanoes for 400." is gone): the reveal shows the pick, and the narrator reads only the clue.
-- Buzzing opens when the reading ends. The host device reports the end of speech. If speech fails or stalls, the server opens buzzing anyway after the 1.5 s reveal plus an estimate from the clue's length (about 2.5 words per second plus 1 s, at most 14 s).
+- Buzzing opens when the reading ends. The host device reports the end of speech. If speech fails or stalls, the server opens buzzing anyway after the 2.25 s reveal plus an estimate from the clue's length (about 2.5 words per second plus 1 s, at most 14 s).
 - The buzzer is **dim from the moment of the pick**: a buzz during the reveal is an early buzz, like one during the reading.
 - A **Daily Double** blinks the same way, then shows the Daily Double reveal instead of the card ([wagers](../wagers/feature-brief.md#daily-doubles)).
 
@@ -56,7 +56,7 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 - **Downloaded before the game, one kept.** Each voice is about **63 MB**. Norman starts downloading in the background as soon as the host lobby opens; Kristin or John downloads when the host picks it. The browser keeps the voice in use for next time, and only that one: when the host switches, the old voice is removed once the new one is ready.
 - **Start waits for the voice.** Until the picked voice is ready on the host device, **Start** is disabled and shows the progress ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). A failed download says so, with **Try again**. Once a voice has downloaded, later games start at once.
 - **A device that can't run the voices can't host.** The lobby says "This device can't run the Schmegettes narrator. Host from a recent iPhone, iPad or computer." and Start stays disabled.
-- **Reading starts quickly.** The narrator prepares the clue during the 1.5 s pick reveal, so the first word is heard within **1 s** of the clue appearing on the TV.
+- **Reading starts quickly.** The narrator prepares the clue during the 2.25 s pick reveal, so the first word is heard within **1 s** of the clue appearing on the TV.
 - **A line that isn't ready in time** (not started **1.5 s** after it should have, or an error) is **skipped**: the text stays on screen and the game goes on (for a clue, buzzing opens on the server's estimate). The next line tries the voice again. No other voice stands in.
 - **Plays through the silent switch.** On an iPhone or iPad, the narrator is heard with the ring/silent switch on, at media volume, like a video. The volume buttons control it.
 - **It never slows the host's buzzer.** Generating speech must not make the host device's screen or buzzer lag: a host who plays buzzes as quickly as anyone.

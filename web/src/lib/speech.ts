@@ -40,6 +40,10 @@ export interface Recognizer {
    * other guesses, most likely first (at most MAX_ALTERNATIVES, none equal to text).
    */
   onFinal?: (text: string, alternatives?: string[]) => void;
+  /** The browser started listening: every permission it needed was granted. */
+  onStart?: () => void;
+  /** The browser refused: the microphone or speech recognition is blocked for this site. */
+  onDenied?: () => void;
 }
 
 /** How many other guesses an answer carries (SubmitAnswer.alternatives). */
@@ -77,6 +81,7 @@ interface BrowserRecognition {
   stop(): void;
   abort(): void;
   onresult: ((e: { results: RecognitionResultList }) => void) | null;
+  onstart: (() => void) | null;
   onend: (() => void) | null;
   onerror: ((e: { error: string }) => void) | null;
 }
@@ -124,8 +129,12 @@ function createBrowserRecognizer(): Recognizer | null {
     restorePlaybackSession();
     recognizer.onFinal?.(transcript, alternatives);
   };
+  rec.onstart = () => recognizer.onStart?.();
   rec.onend = finish;
-  rec.onerror = finish;
+  rec.onerror = (e) => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") recognizer.onDenied?.();
+    finish();
+  };
   return recognizer;
 }
 
@@ -145,18 +154,76 @@ export function setRecognizerFactory(make: (() => Recognizer | null) | null) {
   factory = make ?? createBrowserRecognizer;
 }
 
-export type MicState = "unknown" | "granted" | "denied" | "unsupported";
+export type MicState = "granted" | "denied" | "unsupported";
 
-/** Asks for the microphone. Call from a tap: iOS only prompts from a user gesture. */
-export async function requestMicrophone(): Promise<MicState> {
-  if (!navigator.mediaDevices?.getUserMedia) return "unsupported";
+/** How long to wait for the browser's answer before taking the microphone as allowed. */
+const PERMISSION_WAIT_MS = 15_000;
+
+/**
+ * Asks for everything answering needs, from one tap (iOS only prompts from a user gesture):
+ * starting a recognizer makes the browser ask for the microphone and, on iPhone, for speech
+ * recognition too, so neither prompt can appear mid-game. Listening stops at once.
+ */
+export function requestAnswerPermissions(): Promise<MicState> {
+  const rec = createRecognizer();
+  if (!rec) return Promise.resolve("unsupported");
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (state: MicState) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      rec.onStart = rec.onDenied = rec.onFinal = undefined;
+      try {
+        rec.abort();
+      } catch {
+        // already stopped
+      }
+      resolve(state);
+    };
+    const timer = setTimeout(() => done("granted"), PERMISSION_WAIT_MS);
+    rec.onStart = () => done("granted");
+    rec.onDenied = () => done("denied");
+    // Ended without a refusal (nothing heard, a network hiccup): the permissions are there.
+    rec.onFinal = () => done("granted");
+    try {
+      rec.start();
+    } catch {
+      done("denied");
+    }
+  });
+}
+
+/** What the browser says about the microphone without asking: "ask" when it can't tell. */
+export async function micPermission(): Promise<"granted" | "denied" | "ask"> {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    for (const track of stream.getTracks()) track.stop();
-    return "granted";
+    const status = await navigator.permissions?.query({ name: "microphone" as PermissionName });
+    if (status?.state === "granted" || status?.state === "denied") return status.state;
   } catch {
-    return "denied";
+    // Not supported for the microphone here.
   }
+  return "ask";
+}
+
+/** Calls back when the microphone permission changes (turned off in settings mid-game). */
+export function onMicPermissionChange(cb: (state: "granted" | "denied" | "ask") => void): () => void {
+  let status: PermissionStatus | undefined;
+  let stopped = false;
+  const handler = () => {
+    if (status) cb(status.state === "prompt" ? "ask" : status.state);
+  };
+  void navigator.permissions
+    ?.query({ name: "microphone" as PermissionName })
+    .then((s) => {
+      if (stopped) return;
+      status = s;
+      s.addEventListener("change", handler);
+    })
+    .catch(() => undefined);
+  return () => {
+    stopped = true;
+    status?.removeEventListener("change", handler);
+  };
 }
 
 /** Clue text as it should sound: "&" is read as "and" (the dataset writes "Lewis & Clark"). */

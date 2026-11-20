@@ -385,6 +385,11 @@ paths:
                     type: boolean,
                     description: "Quick picks: a spoken pick of just a category picks the lowest clue left in it",
                   }
+                difficulty:
+                  oneOf:
+                    - { $ref: "./schemas/domain.schema.json#/$defs/Difficulty" }
+                    - { type: "null" }
+                  description: Keep boards to one difficulty; null means Any (every category)
               additionalProperties: false
       responses:
         "200":
@@ -549,6 +554,11 @@ components:
             type: boolean,
             description: "Quick picks: a spoken pick of just a category picks the lowest clue left in it",
           }
+        difficulty:
+          oneOf:
+            - { $ref: "./schemas/domain.schema.json#/$defs/Difficulty" }
+            - { type: "null" }
+          description: The difficulty boards are kept to; null means Any (every category)
       required:
         [
           roomId,
@@ -562,6 +572,7 @@ components:
           timers,
           doubleRound,
           quickPicks,
+          difficulty,
         ]
     DisplayName:
       type: string

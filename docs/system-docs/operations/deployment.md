@@ -74,6 +74,21 @@ A new environment has no clues: Start fails until the catalog is loaded. Run **L
 - It takes about a minute for all 40 seasons (about 413,000 clues, 160 MB). The run's summary shows one row per season. Running it again inserts nothing; it retries seasons that failed.
 - **Production**: run it on the `production` branch, and only after private access is live. The loader refuses a database without `public.hosts` ([clue catalog](../../product-docs/features/clue-catalog/feature-brief.md#source)).
 
+## Rating the clue catalog
+
+Every category gets a difficulty (Easy, Medium or Hard) so a host can keep a game to one level ([clue catalog](../../product-docs/features/clue-catalog/feature-brief.md#difficulty)). Until an environment is rated, every category plays as Medium, and Any (the default) works as before. Run **Rate Clues** (`.github/workflows/rate-clues.yml`) from the Actions tab, or with `gh workflow run rate-clues.yml -f environment=staging -f action=rate`:
+
+- It reads that GitHub Environment's owner URL and its own Anthropic key: `STAGING_ANTHROPIC_API_KEY` or `PROD_ANTHROPIC_API_KEY`. The model is `claude-haiku-5-5` unless the variable `DIFFICULTY_MODEL` says otherwise.
+- **Pilot first:** `action=rate`, `limit=500`. The summary ends with the tokens used and an estimated cost. A full catalog (about 90,000 categories) is about 180 pilots.
+- **Full run:** `action=rate` with no limit. Batches usually finish within an hour, and can take up to 24. If the job times out first, run it again: it collects the batches it left and submits only what's still unrated. Run it again after loading new seasons, too. Categories that failed are retried on the next run.
+- **Quality gate, before anyone picks a level:**
+  1. `action=check-order` (100 categories): Claude scores each board clue on its own; scores must climb from row 1 to row 4. The summary says PASS or FAIL.
+  2. `action=handcheck-export`: download the `handcheck-{environment}` artifact, a sheet of 60 categories (20 per level) without Claude's labels. Fill in `my_label` (easy, medium or hard) for each.
+  3. `action=handcheck-score` with the filled-in sheet: `gh workflow run rate-clues.yml -f environment=staging -f action=handcheck-score -f sheet="$(cat handcheck.csv)"`. At least 45 of 60 must agree.
+
+  If either fails, rerating with another model means emptying `public.category_difficulty` and `public.difficulty_scale` in that environment's SQL editor, setting `DIFFICULTY_MODEL`, and running the full rating again.
+- **Production**: run it on the `production` branch, after the catalog is loaded there.
+
 ## Supabase Auth settings
 
 Set once per Supabase project (Authentication settings), matching `supabase/config.toml`:

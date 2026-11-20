@@ -167,3 +167,20 @@ def test_samples_and_labels_for_the_quality_gate(conn: psycopg.Connection[TupleR
     hard = store.sample(1000, "hard")
     assert all(store.labels([c.key])[c.key] == "hard" for c in hard)
     assert store.decades()  # every rated category falls in some decade
+
+
+def test_recut_keeps_scores_and_cuts_again(conn: psycopg.Connection[TupleRow]) -> None:
+    store = PgStore(conn)
+    rate(store, FakeBatches(), model="m", sleep=lambda _: None)
+    scores = conn.execute("select category_key, score from public.category_difficulty order by 1").fetchall()
+    conn.execute("update public.difficulty_scale set easy_max = 1, medium_max = 2")
+    conn.execute("update public.category_difficulty set difficulty = 'hard'")
+    from schmegettes_worker.clue_rate import recut
+
+    report = recut(store, FakeBatches(), model="m")
+    assert report.submitted == 0
+    assert conn.execute("select category_key, score from public.category_difficulty order by 1").fetchall() == scores
+    assert conn.execute(
+        "select count(*) from public.difficulty_scale where easy_max = 1 and medium_max = 2"
+    ).fetchone() == (0,)
+    assert report.counts["easy"] > 0 and report.counts["medium"] > 0

@@ -84,14 +84,15 @@ Every category gets a difficulty (Easy, Medium or Hard) so a host can keep a gam
 
 - It reads that GitHub Environment's owner URL and its own Anthropic key: `STAGING_ANTHROPIC_API_KEY` or `PROD_ANTHROPIC_API_KEY`. The model is `claude-haiku-5-5` unless the variable `DIFFICULTY_MODEL` says otherwise.
 - **Pilot first:** `action=rate`, `limit=500`. The summary ends with the tokens used and an estimated cost. A full catalog (about 90,000 categories) is about 180 pilots.
+- **Recut:** `action=recut` clears every label and both scales, then cuts them again from the stored scores. It's free (nothing is sent to Claude) and is the one deliberate exception to "labels never change": use it only after the cut rule changes.
 - **Full run:** `action=rate` with no limit. Batches usually finish within an hour, and can take up to 24. If the job times out first, run it again: it collects the batches it left and submits only what's still unrated. Run it again after loading new seasons, too. Categories that failed are retried on the next run, and the summary names them with the reason. One that has failed twice (one Claude keeps refusing, say) no longer holds back the cut points: it plays as Medium and is still retried on every run.
-- **Quality gate, before anyone picks a level:**
+- **Quality checks.** Run them after any new rating. Labels that fail them ship only with the product owner's decision, recorded in the [clue catalog brief](../../product-docs/features/clue-catalog/feature-brief.md#difficulty). The current Haiku labels shipped that way on 2026-11-20, after failing the hand check (26 of 60):
   1. `action=check-order` (100 categories): Claude scores each board clue on its own; scores must climb from row 1 to row 4. The summary says PASS or FAIL.
   2. `action=handcheck-export`: download the `handcheck-{environment}` artifact, a sheet of 60 categories (20 per level) without Claude's labels. Fill in `my_label` (easy, medium or hard) for each.
   3. `action=handcheck-score` with the filled-in sheet: `gh workflow run rate-clues.yml -f environment=staging -f action=handcheck-score -f sheet="$(cat handcheck.csv)"`. At least 45 of 60 must agree.
 
-  If either fails, rerating with another model means emptying `public.category_difficulty` and `public.difficulty_scale` in that environment's SQL editor, setting `DIFFICULTY_MODEL`, and running the full rating again.
-- **Production**: run it on the `production` branch, after the catalog is loaded there.
+  To rerate with another model: emptying `public.category_difficulty` and `public.difficulty_scale` in that environment's SQL editor, setting `DIFFICULTY_MODEL`, and running the full rating again.
+- **Production**: run it on the `production` branch, after the catalog is loaded there and `PROD_ANTHROPIC_API_KEY` is set. The checks can be skipped there: the decision above covers the same model and prompt. Production's thirds are cut from its own scores, so its labels won't match staging's exactly.
 
 ## Domains
 

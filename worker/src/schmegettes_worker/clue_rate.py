@@ -142,6 +142,10 @@ class Store(Protocol):
 
     def decades(self) -> dict[str, Counter[str]]: ...
 
+    def clear_labels(self) -> None:
+        """Forget every label and both scales, keeping the scores (a deliberate recut)."""
+        ...
+
 
 # ---------------------------------------------------------------------------
 # Requests and results
@@ -247,13 +251,29 @@ class RunReport:
 
 
 def cut_points(scores: list[int]) -> tuple[int, int]:
-    """The scores at the 1/3 and 2/3 marks: score <= easy_max is easy, <= medium_max is medium.
-    A score equal to a cut point goes to the lower level."""
+    """The cut points: score <= easy_max is easy, <= medium_max is medium, above is hard.
+
+    Scores bunch up, so many categories can share the score at a third. Labels come from the score
+    alone, so a tied score can't be split: each cut goes just above the tied score or just below
+    it, whichever brings that level's share nearer a third (on an exact tie, the lower cut).
+    """
     if not scores:
         raise ValueError("no scores to cut")
-    s = sorted(scores)
-    n = len(s)
-    return s[math.ceil(n / 3) - 1], s[math.ceil(2 * n / 3) - 1]
+    counts = Counter(scores)
+    n = len(scores)
+    # (score, how many categories score at or below it), lowest score first.
+    at_or_below: list[tuple[int, int]] = []
+    running = 0
+    for score in sorted(counts):
+        running += counts[score]
+        at_or_below.append((score, running))
+
+    def nearest(target: float, floor: int) -> int:
+        candidates = [(abs(k - target), score) for score, k in at_or_below if score >= floor]
+        return min(candidates)[1]
+
+    easy_max = nearest(n / 3, at_or_below[0][0])
+    return easy_max, nearest(2 * n / 3, easy_max)
 
 
 def level(score: int, easy_max: int, medium_max: int) -> Level:
@@ -361,6 +381,15 @@ def rate(
     report.failure_names = store.names([k for k, _ in report.failures[:SHOWN_FAILURES]])
     log.info("difficulty run finished", run_id=run_id, model=model, submitted=report.submitted, **report.counts)
     return report
+
+
+def recut(store: Store, client: BatchClient, *, model: str) -> RunReport:
+    """Labels are meant never to change; this is the deliberate exception, after the cut rule
+    changes. It clears the scales and labels, then sets them again from the stored scores. Nothing
+    is sent to Claude, beyond collecting a batch an earlier run left pending."""
+    store.clear_labels()
+    log.info("difficulty labels cleared for a recut")
+    return rate(store, client, model=model, limit=0)
 
 
 def estimated_cost(model: str, input_tokens: int, output_tokens: int) -> float | None:
@@ -707,6 +736,11 @@ class PgStore:
         ).fetchall():
             out.setdefault(f"{decade}-{decade + 9}", Counter())[difficulty] = n
         return out
+
+    def clear_labels(self) -> None:
+        with self._conn.transaction():
+            self._conn.execute("delete from public.difficulty_scale")
+            self._conn.execute("update public.category_difficulty set difficulty = null where difficulty is not null")
 
     def sample(self, n: int, only: Level | None = None) -> list[Category]:
         """Random labelled board categories (a level, or any), for the quality gate."""

@@ -47,6 +47,9 @@ def main(argv: list[str] | None = None) -> int:
     mode = rates.add_mutually_exclusive_group()
     mode.add_argument("--limit", type=_positive, help="Rate at most this many categories (a pilot)")
     mode.add_argument(
+        "--recut", action="store_true", help="Clear every label and both scales, then cut again from stored scores"
+    )
+    mode.add_argument(
         "--check-order", type=_positive, metavar="N", help="Quality gate: score the clues of N categories"
     )
     mode.add_argument("--handcheck-export", type=Path, metavar="PATH", help="Quality gate: write the 60-category sheet")
@@ -110,7 +113,10 @@ def rate_clues(args: argparse.Namespace) -> int:
             print(clue_rate.render_order_check(order))
             return 0 if order.passed else 1
 
-        report = clue_rate.rate(store, client, model=model, limit=args.limit)
+        if args.recut:
+            report = clue_rate.recut(store, client, model=model)
+        else:
+            report = clue_rate.rate(store, client, model=model, limit=args.limit)
     print(clue_rate.render_report(report, model))
     # Failures are listed in the report and retried next run; they don't fail the run.
     return 0

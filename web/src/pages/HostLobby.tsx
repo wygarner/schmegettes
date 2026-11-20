@@ -476,7 +476,6 @@ function PlayersTab({
         fontWeight: 700,
       }}
     >
-      <span style={{ writingMode: "vertical-rl", letterSpacing: ".08em", fontSize: 13 }}>Players</span>
       <span style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
         {count}/{total}
       </span>

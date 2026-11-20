@@ -10,7 +10,7 @@ A multiplayer quiz-show party game. Packages: `shared/` (contracts), `web/` (Rea
 
 ## Constraint
 
-Operate only inside this repository (`~/schmegettes/`) and its worktrees (`~/schmegettes-SCH-{N}/`) unless the human explicitly says otherwise.
+Operate only inside this repository (`~/schmegettes/`) and its worktrees (`~/schmegettes-GH-{N}/`) unless the human explicitly says otherwise.
 
 ## Change discipline
 
@@ -18,5 +18,5 @@ Operate only inside this repository (`~/schmegettes/`) and its worktrees (`~/sch
 - Contracts in `shared/` change only when the task says so; run `mise run gen` and commit the output.
 - Every new table gets RLS, explicit grants, and a test in `supabase/tests/`.
 - Run targeted tests for what you touched. Never run a full suite locally; CI does that on every PR into `develop`.
-- Never call the Jira API. GitHub Actions own every Jira write.
+- Never create, edit, label, or close task issues. GitHub Actions own every issue write; reading issues with `gh` is fine.
 - Never put secrets in `.claude/settings*.json`, commits, or logs. Approvals for commands that carry a token go in `.claude/settings.local.json` (git-ignored); better, the token comes from the environment.

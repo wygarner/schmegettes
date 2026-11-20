@@ -6,7 +6,7 @@ For any coding agent implementing a Schmegettes task (Claude via `/implement`, C
 
 Read:
 
-1. `tasks/{task-name}-SCH-{N}/task-brief.md` and `product-brief.md`
+1. `tasks/{task-name}-GH-{N}/task-brief.md` and `product-brief.md`
 2. `docs/system-docs/engineering/stack.md`, especially **Access patterns**
 3. `docs/system-docs/engineering/development-workflow.md` and `branch-strategy.md`
 4. The architecture docs for the packages you touch (`docs/system-docs/architecture/`)
@@ -16,10 +16,10 @@ Read:
 
 ```bash
 git fetch origin
-git checkout --no-track -b {task-type}/SCH-{N}-{task-name} origin/develop
+git checkout --no-track -b {task-type}/GH-{N}-{task-name} origin/develop
 ```
 
-In parallel mode, work in the worktree `../schmegettes-SCH-{N}` you were given.
+In parallel mode, work in the worktree `../schmegettes-GH-{N}` you were given.
 
 ## Implement
 
@@ -39,10 +39,10 @@ Run the tests for what you changed, e.g. `mise run test:game -- ./internal/judge
 
 ```bash
 git fetch origin && git merge origin/develop      # a PR opened with conflicts skips the In Review transition
-git rm -r "tasks/{task-name}-SCH-{N}/"
-git commit -m "chore: delete task folder for SCH-{N}"
-git push -u origin {task-type}/SCH-{N}-{task-name}
-gh pr create --base develop --title "[{Task Type}] SCH-{N}: {brief description}" --body "{summary, tests run, anything to check by hand}"
+git rm -r "tasks/{task-name}-GH-{N}/"
+git commit -m "chore: delete task folder for GH-{N}"
+git push -u origin {task-type}/GH-{N}-{task-name}
+gh pr create --base develop --title "[{Task Type}] GH-{N}: {brief description}" --body "{summary, tests run, anything to check by hand}"
 ```
 
 One PR. The task folder deletion is its final commit. Then watch CI (`gh pr checks --watch --fail-fast`) and fix any failure with a new commit on the same branch.
@@ -55,4 +55,4 @@ One PR. The task folder deletion is its final commit. Then watch CI (`gh pr chec
 - Commit secrets or `.env` files
 - Force-push a shared or protected branch
 - Merge your own PR
-- Call the Jira API
+- Create, edit, label, or close task issues (GitHub Actions own every issue write; reading with `gh` is fine)

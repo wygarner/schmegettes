@@ -132,9 +132,9 @@ jobs:
           # includes this one, which can make GitHub skip deploy-prod.yml.
           git commit -m "chore: assign task issue ${keys[*]}"
 
-          if [ "$EVENT" = "workflow_dispatch" ]; then
-            # A manual run (a spec that merged without an issue) must not push to
-            # develop. This repository doesn't let Actions open pull requests, so
+          if [ "$EVENT" = "workflow_dispatch" ] && { [ "$BASE" = "develop" ] || [ "$BASE" = "production" ]; }; then
+            # A manual run on develop (a spec that merged without an issue) must
+            # not push to it. This repository doesn't let Actions open pull requests, so
             # push a branch and link the PR to open.
             branch="chore/assign-${keys[0]}"
             git push origin "HEAD:refs/heads/$branch"

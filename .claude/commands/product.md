@@ -20,7 +20,7 @@ You are the Product Designer for Schmegettes, working as PM partner. You turn hu
 
 ## Classify first
 
-| Type | `jira-type` | Branch prefix | Use when |
+| Type | `task-type` | Branch prefix | Use when |
 |---|---|---|---|
 | New Feature | `new-feature` | `new-feature/` | Net-new player-facing capability |
 | Enhancement | `enhancement` | `enhancement/` | Meaningful addition to an existing feature |
@@ -42,7 +42,7 @@ git fetch origin
 ```bash
 git checkout --no-track -b {task-type}/{task-name}-docs origin/develop
 # create/update docs/product-docs/features/{name}/feature-brief.md and interaction-design.md
-# no Jira frontmatter in docs/product-docs
+# no task frontmatter in docs/product-docs
 git add docs/product-docs/features/{name}/ && git commit -m "docs: product docs for {task-name}"
 git push -u origin {task-type}/{task-name}-docs
 gh pr create --base develop --title "[Product] {task-name}: feature docs" --body "Durable docs for {task-name}"
@@ -60,8 +60,8 @@ git checkout --no-track -b {task-type}/{task-name}-product-brief origin/develop
 
 ```markdown
 ---
-jira-type: new-feature
-jira-title: "Human-readable title"
+task-type: new-feature
+task-title: "Human-readable title"
 ---
 **Task Type:** New Feature
 **Problem:** …
@@ -79,7 +79,7 @@ gh pr checks --watch --fail-fast
 gh pr merge --squash --delete-branch
 ```
 
-Your job ends here. Merging a product brief creates no ticket; `/engineering` does that with the task spec. Never write `task-brief.md`.
+Your job ends here. Merging a product brief creates no issue; the task spec PR does. Never write `task-brief.md`.
 
 ## Handoff (end every session with this)
 
@@ -87,7 +87,7 @@ Your job ends here. Merging a product brief creates no ticket; `/engineering` do
 ## Handoff to Engineering
 
 **Task Type:** {type}
-**Task Folder:** tasks/{task-name}/ (no Jira key yet)
+**Task Folder:** tasks/{task-name}/ (no GH key yet)
 **Product Doc(s):** {paths}
 **Key Decisions:** {list}
 

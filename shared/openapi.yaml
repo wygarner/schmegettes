@@ -380,7 +380,11 @@ paths:
                 maxPlayers: { type: integer, minimum: 2, maximum: 6 }
                 timers: { $ref: "./schemas/domain.schema.json#/$defs/TimerPace" }
                 doubleRound: { type: boolean, description: "false: Final follows the Single board" }
-                quickPicks: { type: boolean, description: "Quick picks: a spoken pick of just a category picks the lowest clue left in it" }
+                quickPicks:
+                  {
+                    type: boolean,
+                    description: "Quick picks: a spoken pick of just a category picks the lowest clue left in it",
+                  }
               additionalProperties: false
       responses:
         "200":
@@ -540,8 +544,25 @@ components:
           description: Seasons boards are built from; null means every season
         timers: { $ref: "./schemas/domain.schema.json#/$defs/TimerPace" }
         doubleRound: { type: boolean, description: "Play the Double Schmegettes board; false: Final follows Single" }
-        quickPicks: { type: boolean, description: "Quick picks: a spoken pick of just a category picks the lowest clue left in it" }
-      required: [roomId, code, status, hostUserId, hostDisplayName, hostPlays, maxPlayers, seasons, timers, doubleRound, quickPicks]
+        quickPicks:
+          {
+            type: boolean,
+            description: "Quick picks: a spoken pick of just a category picks the lowest clue left in it",
+          }
+      required:
+        [
+          roomId,
+          code,
+          status,
+          hostUserId,
+          hostDisplayName,
+          hostPlays,
+          maxPlayers,
+          seasons,
+          timers,
+          doubleRound,
+          quickPicks,
+        ]
     DisplayName:
       type: string
       minLength: 1

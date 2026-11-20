@@ -60,6 +60,13 @@ const (
 	Ok       HealthStatus = "ok"
 )
 
+// Defines values for RoomDifficulty.
+const (
+	RoomDifficultyEasy   RoomDifficulty = "easy"
+	RoomDifficultyHard   RoomDifficulty = "hard"
+	RoomDifficultyMedium RoomDifficulty = "medium"
+)
+
 // Defines values for RoomStatus.
 const (
 	Closed RoomStatus = "closed"
@@ -84,6 +91,13 @@ const (
 const (
 	PostV1RoomsJoinJSONBodyRoleContestant PostV1RoomsJoinJSONBodyRole = "contestant"
 	PostV1RoomsJoinJSONBodyRoleSpectator  PostV1RoomsJoinJSONBodyRole = "spectator"
+)
+
+// Defines values for PatchV1RoomsRoomIdJSONBodyDifficulty.
+const (
+	PatchV1RoomsRoomIdJSONBodyDifficultyEasy   PatchV1RoomsRoomIdJSONBodyDifficulty = "easy"
+	PatchV1RoomsRoomIdJSONBodyDifficultyHard   PatchV1RoomsRoomIdJSONBodyDifficulty = "hard"
+	PatchV1RoomsRoomIdJSONBodyDifficultyMedium PatchV1RoomsRoomIdJSONBodyDifficulty = "medium"
 )
 
 // Defines values for PatchV1RoomsRoomIdJSONBodyTimers.
@@ -260,6 +274,9 @@ type Room struct {
 	// Code Short code players type to join a room.
 	Code string `json:"code"`
 
+	// Difficulty A clue category's difficulty, and the level a host can keep a game to. Mirrors public.difficulty. A room or game without one (null) uses every category: Any.
+	Difficulty *RoomDifficulty `json:"difficulty"`
+
 	// DoubleRound Play the Double Schmegettes board; false: Final follows Single
 	DoubleRound     bool   `json:"doubleRound"`
 	HostDisplayName string `json:"hostDisplayName"`
@@ -280,6 +297,9 @@ type Room struct {
 	// Timers The game's pace, chosen in the lobby: how long buzzing stays open and how long a player has to answer. relaxed 15 s / 12 s, standard 9 s / 9 s, fast 5 s / 7 s. Mirrors public.timer_pace.
 	Timers RoomTimers `json:"timers"`
 }
+
+// RoomDifficulty A clue category's difficulty, and the level a host can keep a game to. Mirrors public.difficulty. A room or game without one (null) uses every category: Any.
+type RoomDifficulty string
 
 // RoomStatus defines model for Room.Status.
 type RoomStatus string
@@ -363,6 +383,9 @@ type PostV1RoomsJoinJSONBodyRole string
 
 // PatchV1RoomsRoomIdJSONBody defines parameters for PatchV1RoomsRoomId.
 type PatchV1RoomsRoomIdJSONBody struct {
+	// Difficulty A clue category's difficulty, and the level a host can keep a game to. Mirrors public.difficulty. A room or game without one (null) uses every category: Any.
+	Difficulty *PatchV1RoomsRoomIdJSONBodyDifficulty `json:"difficulty"`
+
 	// DoubleRound false: Final follows the Single board
 	DoubleRound *bool `json:"doubleRound,omitempty"`
 	MaxPlayers  *int  `json:"maxPlayers,omitempty"`
@@ -376,6 +399,9 @@ type PatchV1RoomsRoomIdJSONBody struct {
 	// Timers The game's pace, chosen in the lobby: how long buzzing stays open and how long a player has to answer. relaxed 15 s / 12 s, standard 9 s / 9 s, fast 5 s / 7 s. Mirrors public.timer_pace.
 	Timers *PatchV1RoomsRoomIdJSONBodyTimers `json:"timers,omitempty"`
 }
+
+// PatchV1RoomsRoomIdJSONBodyDifficulty defines parameters for PatchV1RoomsRoomId.
+type PatchV1RoomsRoomIdJSONBodyDifficulty string
 
 // PatchV1RoomsRoomIdJSONBodyTimers defines parameters for PatchV1RoomsRoomId.
 type PatchV1RoomsRoomIdJSONBodyTimers string

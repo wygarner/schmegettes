@@ -42,6 +42,10 @@ func contractRoom(room Room) contracts.Room {
 	if room.Seasons != nil {
 		out.Seasons = &room.Seasons
 	}
+	if room.Difficulty != nil {
+		d := contracts.RoomDifficulty(*room.Difficulty)
+		out.Difficulty = &d
+	}
 	return out
 }
 
@@ -138,14 +142,15 @@ func (h Handler) ByCode(w http.ResponseWriter, r *http.Request, code string) {
 	h.respond(w, http.StatusOK, room)
 }
 
-// optionsBody is PATCH /v1/rooms/{roomId}'s body. Seasons stays raw so an absent key (leave
-// it) and null (every season) differ.
+// optionsBody is PATCH /v1/rooms/{roomId}'s body. Seasons and difficulty stay raw so an absent
+// key (leave it) and null (every season; Any) differ.
 type optionsBody struct {
 	Seasons     json.RawMessage                             `json:"seasons"`
 	MaxPlayers  *int                                        `json:"maxPlayers"`
 	Timers      *contracts.PatchV1RoomsRoomIdJSONBodyTimers `json:"timers"`
 	DoubleRound *bool                                       `json:"doubleRound"`
 	QuickPicks  *bool                                       `json:"quickPicks"`
+	Difficulty  json.RawMessage                             `json:"difficulty"`
 }
 
 // Patch handles PATCH /v1/rooms/{roomId}: the host's game options, before Start.
@@ -173,8 +178,25 @@ func (h Handler) Patch(w http.ResponseWriter, r *http.Request, roomID string) {
 			return
 		}
 	}
+	if len(body.Difficulty) > 0 {
+		o.SetDifficulty = true
+		if err := json.Unmarshal(body.Difficulty, &o.Difficulty); err != nil {
+			server.Problem(w, http.StatusBadRequest, "invalid-request", "Invalid request body")
+			return
+		}
+		if o.Difficulty != nil {
+			switch contracts.PatchV1RoomsRoomIdJSONBodyDifficulty(*o.Difficulty) {
+			case contracts.PatchV1RoomsRoomIdJSONBodyDifficultyEasy, contracts.PatchV1RoomsRoomIdJSONBodyDifficultyMedium,
+				contracts.PatchV1RoomsRoomIdJSONBodyDifficultyHard:
+			default:
+				server.Problem(w, http.StatusBadRequest, "invalid-request", "Unknown difficulty")
+				return
+			}
+		}
+	}
 	o.DoubleRound, o.MaxPlayers, o.QuickPicks = body.DoubleRound, body.MaxPlayers, body.QuickPicks
-	if !o.SetSeasons && o.Timers == nil && o.DoubleRound == nil && o.MaxPlayers == nil && o.QuickPicks == nil {
+	if !o.SetSeasons && !o.SetDifficulty && o.Timers == nil && o.DoubleRound == nil && o.MaxPlayers == nil &&
+		o.QuickPicks == nil {
 		server.Problem(w, http.StatusBadRequest, "invalid-request", "Nothing to change")
 		return
 	}
@@ -184,7 +206,8 @@ func (h Handler) Patch(w http.ResponseWriter, r *http.Request, roomID string) {
 		return
 	}
 	slog.InfoContext(r.Context(), "room options changed", "room_id", room.ID, "timers", room.Timers,
-		"double_round", room.DoubleRound, "quick_picks", room.QuickPicks, "request_id", server.RequestID(r.Context()))
+		"double_round", room.DoubleRound, "quick_picks", room.QuickPicks, "difficulty", difficultyName(room.Difficulty),
+		"request_id", server.RequestID(r.Context()))
 	server.JSON(w, http.StatusOK, contractRoom(room))
 }
 
@@ -219,4 +242,12 @@ func (h Handler) Resume(w http.ResponseWriter, r *http.Request, gameID string) {
 	slog.InfoContext(r.Context(), "game resume opened", "game_id", gameID, "room_id", room.ID,
 		"request_id", server.RequestID(r.Context()))
 	h.respond(w, http.StatusCreated, room)
+}
+
+// difficultyName is a room's difficulty for logs: "any" when it has none.
+func difficultyName(d *string) string {
+	if d == nil {
+		return "any"
+	}
+	return *d
 }

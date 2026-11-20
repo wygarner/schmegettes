@@ -53,6 +53,13 @@ export type Round = "single" | "double" | "final";
  */
 export type PlayerRole = "host" | "contestant" | "spectator";
 /**
+ * A clue category's difficulty, and the level a host can keep a game to. Mirrors public.difficulty. A room or game without one (null) uses every category: Any.
+ *
+ * This interface was referenced by `Domain`'s JSON-Schema
+ * via the `definition` "Difficulty".
+ */
+export type Difficulty = "easy" | "medium" | "hard";
+/**
  * This interface was referenced by `Domain`'s JSON-Schema
  * via the `definition` "RoomStatus".
  */

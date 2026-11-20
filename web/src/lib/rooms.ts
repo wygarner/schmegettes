@@ -63,6 +63,7 @@ export type RoomOptionsPatch = {
   seasons?: number[] | null;
   doubleRound?: boolean;
   quickPicks?: boolean;
+  difficulty?: Room["difficulty"];
 };
 
 /** Changes the room's game options (host only, before Start). The updated room, or null. */

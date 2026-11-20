@@ -15,9 +15,9 @@ Each category that can reach a board gets a numeric **score (1–100)** from Cla
 
 The host's choice lives on the room and is copied onto the game at Start, like `quick_picks`. `null` means **Any**. Board building happens entirely in SQL (`start_game` → `build_board_round`): with Any, the ranking is identical to today's. **`game/` doesn't change**: it calls `start_game` with the same signature, and resume and rematch need nothing new.
 
-**Model and API (worker).** Use `claude-opus-5-5` through the **Message Batches API** (50% price, asynchronous). Use structured output (`output_config.format`, a JSON schema `{score: integer 1–100}`), `output_config.effort: "low"`, `max_tokens` 2048. Omit `thinking`: it's always on for this model and can't be disabled. Batch requests can't carry `fallbacks`, so a `refusal` counts as **failed** and the category stays unrated. The model comes from an env var `DIFFICULTY_MODEL` (default `claude-opus-5-5`), so a cheaper model can be tried without a code change.
-- **Estimated cost:** about 550 input and 300 output tokens per category. At batch rates ($2 / $10 per million tokens) the full catalog (about 90k categories) comes to roughly **$250–500**.
-- **The pilot comes first:** 500 categories, at about $2–3. Its measured cost is reported to Wyatt and approved before the full run (Subtask 6).
+**Model and API (worker).** Use `claude-haiku-5-5` (decided by Wyatt, 2026-11-19) through the **Message Batches API** (50% price, asynchronous). Use structured output (`output_config.format`, a JSON schema `{score: integer 1–100}`), `output_config.effort: "low"` (Haiku 5.5's default is `medium`, so set it explicitly), and `max_tokens` 2048. Leave `thinking` unset: it's on by default, and `low` effort keeps it short. A `refusal` (batch requests can't carry `fallbacks`) counts as **failed**, and the category stays unrated. The model comes from an env var `DIFFICULTY_MODEL` (default `claude-haiku-5-5`), so switching to `claude-opus-5-5` needs no code change if Haiku fails the quality gate.
+- **Estimated cost:** about 550 input and 300 output tokens per category. At Haiku 5.5 batch rates ($0.05 / $0.25 per million tokens) the full catalog (about 90k categories) comes to roughly **$10**.
+- **The pilot comes first:** 500 categories, at a few cents. Its measured cost is reported before the full run (Subtask 6). Opus 5.5 would cost about $250–500 for the full catalog; it's only the fallback, and needs Wyatt's approval.
 
 ## Subtasks
 
@@ -143,11 +143,11 @@ The host's choice lives on the room and is copied onto the game at Start, like `
   - `timeout-minutes: 360`. If a batch is still running at the timeout, the next run collects it.
   - The summary goes to `$GITHUB_STEP_SUMMARY`.
 - **Order:**
-  1. Staging pilot (`limit: 500`): report the measured cost.
-  2. Wyatt approves the full-run cost.
-  3. Full staging run.
-  4. `--check-order 100` and the hand check (Wyatt) on staging.
-  5. Both pass, then production (once private access is live there, as with the catalog).
+  1. Staging pilot on Haiku 5.5 (`limit: 500`): report the measured cost.
+  2. Full staging run on Haiku 5.5 (about $10).
+  3. `--check-order 100`, then `--handcheck-export`: Wyatt labels the 60 categories, and `--handcheck-score` compares them with **Haiku's** labels.
+  4. **If both pass:** production, with Haiku 5.5, once private access is live there (as with the catalog).
+  5. **If either fails:** report the confusion table to Wyatt. With his approval of the cost, reset staging's `category_difficulty` and `difficulty_scale` and rerun with `DIFFICULTY_MODEL=claude-opus-5-5`, then repeat step 3 with a fresh set of 60 categories.
 - **Until an environment has been rated**, Easy and Hard fall back to Medium-rated (that is, unrated) categories. Games always start, as designed.
 
 ## Key files

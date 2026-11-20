@@ -258,6 +258,45 @@ func TestPatchOptions(t *testing.T) {
 			t.Errorf("body %s", rec.Body)
 		}
 	})
+	t.Run("difficulty: a level sets it, null is Any, absent leaves it", func(t *testing.T) {
+		hard := "hard"
+		room := sample
+		room.Difficulty = &hard
+		s := &fakeStore{room: room}
+		rec := call(t, s, "PATCH", path, `{"difficulty":"hard"}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body)
+		}
+		if !s.opts.SetDifficulty || s.opts.Difficulty == nil || *s.opts.Difficulty != "hard" || s.opts.SetSeasons {
+			t.Errorf("level: %+v", s.opts)
+		}
+		if !bytes.Contains(rec.Body.Bytes(), []byte(`"difficulty":"hard"`)) {
+			t.Errorf("body %s", rec.Body)
+		}
+
+		s = &fakeStore{room: sample}
+		rec = call(t, s, "PATCH", path, `{"difficulty":null}`)
+		if rec.Code != http.StatusOK || !s.opts.SetDifficulty || s.opts.Difficulty != nil {
+			t.Errorf("null: %d %+v", rec.Code, s.opts)
+		}
+		if !bytes.Contains(rec.Body.Bytes(), []byte(`"difficulty":null`)) {
+			t.Errorf("a room with Any says null: %s", rec.Body)
+		}
+
+		call(t, s, "PATCH", path, `{"doubleRound":true}`)
+		if s.opts.SetDifficulty {
+			t.Errorf("absent: %+v", s.opts)
+		}
+	})
+	t.Run("an unknown difficulty is refused", func(t *testing.T) {
+		for _, body := range []string{`{"difficulty":"extreme"}`, `{"difficulty":3}`} {
+			s := &fakeStore{room: sample}
+			rec := call(t, s, "PATCH", path, body)
+			if rec.Code != http.StatusBadRequest || s.opts != nil { // never reaches the store
+				t.Errorf("%s: %d %s", body, rec.Code, rec.Body)
+			}
+		}
+	})
 	t.Run("null seasons means every season; absent leaves them", func(t *testing.T) {
 		s := &fakeStore{room: sample}
 		call(t, s, "PATCH", path, `{"seasons":null}`)

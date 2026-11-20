@@ -156,8 +156,16 @@ jobs:
           VITE_SUPABASE_URL: http://127.0.0.1:54321
           VITE_SUPABASE_ANON_KEY: ci-placeholder
           VITE_API_URL: http://localhost:3001
+          VITE_ENV: production
           GIT_SHA: ${{ github.sha }}
         run: bun run --cwd web build
+      # E2E mode (web/src/lib/e2e.ts) must be compiled out of production builds.
+      - name: No E2E mode in a production build
+        run: |
+          if grep -rlE '__e2e|schmegettes\.e2e' web/dist; then
+            echo "::error::E2E mode is in the production bundle (files above)"
+            exit 1
+          fi
       - run: bun run --cwd web test:coverage
 
   devtools:

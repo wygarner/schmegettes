@@ -1,13 +1,13 @@
 # Toolchain versions for every package, used by local machines and CI (jdx/mise-action).
-# After the first `mise install`, run `mise use --pin <tool>` to replace any prefix
-# below with the exact patch version, and commit the change.
+# Every runtime is pinned to an exact patch (last bumped 2026-11-20). The monthly bump
+# routine is in docs/system-docs/engineering/stack.md, "Runtime pins".
 # Changing a version here is a stack change: update docs/system-docs/engineering/stack.md too.
 
 [tools]
-node = "24"          # web, devtools, shared codegen, repo scripts
+node = "24.22.3"     # web, devtools, shared codegen, repo scripts
 bun = "1.3.14"       # package manager + workspace for the TypeScript packages
-go = "1.25"          # game/, api/
-python = "3.13"      # worker/, evals/, .github/scripts
+go = "1.25.14"       # game/, api/
+python = "3.13.18"   # worker/, evals/, .github/scripts
 uv = "0.13.5"        # Python package manager
 "aqua:supabase/cli" = "2.122.0" # database migrations, local Supabase
 flyctl = "0.4.123"   # api/ and game/ deploys and rollback (Fly.io)

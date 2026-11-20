@@ -125,6 +125,8 @@ Rows and sheets follow the [menu screens](../../architecture/design-system.md#me
 | Someone already registered my email | "That email already has an account." The player asks the admin, who deletes that account; then they can create theirs. |
 | Signed in on two phones, one signs out or changes the password | Only that phone is signed out; the other stays signed in. |
 | Deleted on one phone while signed in on another | The other phone is signed out at its next request and shows the signed-out banner. Signing in fails ("That email and password don't match."); the email can be used to create a new, empty account. |
+| A guest comes back more than 90 days after last playing | Their guest was deleted, so the device starts as a new guest with no history. No banner: there's nothing to sign in to. Their old games show them as "Former player" |
+| A guest in an open room or a game in progress reaches 90 days | Not deleted: being in a room counts as use |
 | Admin resets the password | Devices already signed in stay signed in; the new password is needed for the next sign-in. |
 | Admin removes host access | Removed for the account on every device; a game in progress plays to the end ([private access](../private-access/feature-brief.md)). |
 | An in-app browser (Instagram, Messages) | Works the same; its password autofill may be missing. |

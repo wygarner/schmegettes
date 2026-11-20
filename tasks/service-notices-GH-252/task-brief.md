@@ -132,3 +132,6 @@ The product brief's criteria:
 ## Docs to update
 
 As in subtask 6.
+
+## Branch
+`new-feature/GH-252-service-notices`, from and into `develop`

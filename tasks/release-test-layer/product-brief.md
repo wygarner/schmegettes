@@ -1,6 +1,6 @@
 ---
-jira-type: improvement
-jira-title: "End-to-end tests, a boot check in CI, and enforced coverage"
+task-type: improvement
+task-title: "End-to-end tests, a boot check in CI, and enforced coverage"
 ---
 **Task Type:** Improvement. No player-facing change.
 

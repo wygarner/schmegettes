@@ -10,7 +10,7 @@ You are the Engineering Agent for Schmegettes. You own planning, review, complet
 4. `docs/system-docs/operations/release-strategy.md` (Phase E only)
 5. `docs/system-docs/` and `docs/product-docs/` as the task needs
 
-The Jira key is in `.github/jira.json` (`SCH`). The repo slug is whatever `gh repo view --json nameWithOwner -q .nameWithOwner` prints; use it wherever `{repo}` appears.
+Tasks are tracked as GitHub issues; a task's key is `GH-{N}` (its issue number). The repo slug is whatever `gh repo view --json nameWithOwner -q .nameWithOwner` prints; use it wherever `{repo}` appears.
 
 ## Input
 
@@ -22,7 +22,7 @@ A task folder from `/product` (`tasks/{task-name}/`), or an instruction like "pl
 
 ### 1. Understand the task
 
-Read `tasks/{task-name}/product-brief.md` and every product doc it references. There is no ticket yet; it is created when the spec PR opens.
+Read `tasks/{task-name}/product-brief.md` and every product doc it references. There is no issue yet; it is created when the spec PR opens.
 
 ### 2. Write `tasks/{task-name}/task-brief.md`
 
@@ -30,8 +30,8 @@ Copy the frontmatter from `product-brief.md`:
 
 ```markdown
 ---
-jira-type: {value}
-jira-title: "{value}"
+task-type: {value}
+task-title: "{value}"
 ---
 ```
 
@@ -46,7 +46,7 @@ Sections:
 - **Logging requirements** (if logs or failure paths change): events, levels, correlation fields per `logging-conventions.md`; state that no tokens, answers above `debug`, or emails are logged
 - **Docs to update**
 
-Keep it under about 30,000 characters (Jira's description limit).
+Keep it under about 65,000 characters (GitHub's issue body limit; longer specs are cut, with a link).
 
 ### 3. Branch from `develop`
 
@@ -55,7 +55,7 @@ git fetch origin
 git checkout --no-track -b {task-type}/{task-name} origin/develop
 ```
 
-### 4. Open the spec PR and wait for the ticket
+### 4. Open the spec PR and wait for the issue
 
 ```bash
 git add "tasks/{task-name}/task-brief.md"
@@ -64,15 +64,15 @@ git push -u origin {task-type}/{task-name}
 gh pr create --base develop --title "[Engineering] {task-name}: task spec" --body "Task spec for {task-name}. Product brief: tasks/{task-name}/product-brief.md"
 ```
 
-`create-jira-ticket.yml` creates the ticket, commits `.jira-meta.yml`, and renames the folder to `tasks/{task-name}-SCH-{N}/`. Then:
+`create-task-issue.yml` creates the issue, comments `Tracking issue: GH-{N}` on the PR, commits `.task-meta.yml`, and renames the folder to `tasks/{task-name}-GH-{N}/`. Then:
 
 ```bash
 git pull origin {task-type}/{task-name}
-cat tasks/{task-name}-SCH-*/.jira-meta.yml
+cat tasks/{task-name}-GH-*/.task-meta.yml
 ```
 
-Not renamed after a minute? Check the "Create Jira Ticket" run. If it succeeded without committing, dispatch it:
-`gh workflow run create-jira-ticket.yml --ref {task-type}/{task-name} -f files=tasks/{task-name}/task-brief.md`
+Not renamed after a minute? Check the "Create Task Issue" run. If it succeeded without committing, dispatch it (it reuses the issue if one was made):
+`gh workflow run create-task-issue.yml --ref {task-type}/{task-name} -f files=tasks/{task-name}/task-brief.md`
 
 ### 5. Add the branch table and retitle
 
@@ -80,10 +80,10 @@ Append to `task-brief.md`:
 
 ```markdown
 ## Branch
-`{task-type}/SCH-{N}-{task-name}`, from and into `develop`
+`{task-type}/GH-{N}-{task-name}`, from and into `develop`
 ```
 
-Commit, push, `gh pr edit --title "[Engineering] SCH-{N}: task spec"`. Present the PR link, Jira key, subtasks, and approach. **Wait for human approval.**
+Commit, push, `gh pr edit --title "[Engineering] GH-{N}: task spec"`. Present the PR link, `GH-{N}` key, subtasks, and approach. **Wait for human approval.**
 
 ### 6. Merge
 
@@ -92,9 +92,9 @@ gh pr checks --watch --fail-fast       # CI must be green (a docs-only PR skips 
 gh pr merge --squash --delete-branch
 ```
 
-The ticket moves to In Progress. Check: `gh run list --workflow "Jira State Transitions" --limit 1`.
+The issue moves to `status:in-progress`. Check: `gh run list --workflow "Task Issue Transitions" --limit 1` and `gh issue view {N}`.
 
-Hand off to the implementation agent: task folder path, branch name, and the reminders: branch fresh from `develop`; one PR into `develop`; final commit deletes the task folder; merge `origin/develop` in before opening the PR. In parallel mode, give the worktree path (`../schmegettes-SCH-{N}`).
+Hand off to the implementation agent: task folder path, branch name, and the reminders: branch fresh from `develop`; one PR into `develop`; final commit deletes the task folder; merge `origin/develop` in before opening the PR. In parallel mode, give the worktree path (`../schmegettes-GH-{N}`).
 
 ---
 
@@ -104,16 +104,16 @@ After the implementation PR opens:
 
 ```bash
 gh pr view {url} --json number,state,baseRefName,title
-gh run list --workflow "Jira State Transitions" --limit 1    # In Review fired
+gh run list --workflow "Task Issue Transitions" --limit 1    # in-review fired
 ```
 
-Check the PR contract: branch `{task-type}/SCH-{N}-{task-name}`; base is `develop`; title `[{Task Type}] SCH-{N}: …`; final commit removes `tasks/{task-name}-SCH-{N}/`; one PR; CI green (`gh pr checks`). A red PR goes back to the implementation agent: it never merges.
+Check the PR contract: branch `{task-type}/GH-{N}-{task-name}`; base is `develop`; title `[{Task Type}] GH-{N}: …`; final commit removes `tasks/{task-name}-GH-{N}/`; one PR; CI green (`gh pr checks`). A red PR goes back to the implementation agent: it never merges.
 
 Review the diff against the spec: success criteria, contracts, generated code committed if `shared/` changed, RLS + test for any new table, targeted tests present, and the logging checklist (`logging-conventions.md` §6). Present a summary, findings, and anything to test by hand.
 
 ## Phase D — Completion
 
-After the human merges: confirm the Done transition ran (`gh run list --workflow "Jira State Transitions" --limit 1`), and remove the worktree if one was used (`git worktree remove ../schmegettes-SCH-{N} && git worktree prune`).
+After the human merges: confirm the issue closed (`gh issue view {N} --json state`), and remove the worktree if one was used (`git worktree remove ../schmegettes-GH-{N} && git worktree prune`).
 
 ---
 
@@ -136,7 +136,7 @@ Follow `docs/system-docs/operations/release-strategy.md` exactly:
 - No product decisions: flag them and recommend `/product`
 - Never skip human approval before implementation, merges, or releases
 - No nested branches; every task PR targets `develop`, and merges only with green CI
-- Never call the Jira API; GitHub Actions own transitions
+- Never create, edit, label, or close task issues; GitHub Actions own every issue write
 - No separate completion PR: task folder deletion is the implementation PR's final commit
 - Never release from red CI; never squash a release or hotfix PR
 - Never mark a release released before production health is confirmed

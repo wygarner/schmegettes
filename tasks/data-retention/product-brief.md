@@ -1,6 +1,6 @@
 ---
-jira-type: enhancement
-jira-title: "Expire unused guests and write down what we keep"
+task-type: enhancement
+task-title: "Expire unused guests and write down what we keep"
 ---
 **Task Type:** Enhancement to [accounts](../../docs/product-docs/features/accounts/feature-brief.md) and [game history](../../docs/product-docs/features/game-history/feature-brief.md). Account deletion already exists. This adds the rest of the data lifecycle.
 

@@ -1,6 +1,6 @@
 ---
-jira-type: improvement
-jira-title: "Make schmegettes.app the main address"
+task-type: improvement
+task-title: "Make schmegettes.app the main address"
 ---
 **Task Type:** Improvement. No new capability: players get the same game at a short address of our own. The work is configuration and docs, plus a single line of text on the TV.
 

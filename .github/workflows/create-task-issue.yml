@@ -1,4 +1,4 @@
-name: Create Jira Ticket
+name: Create Task Issue
 
 on:
   pull_request:
@@ -15,17 +15,17 @@ on:
         type: string
 
 jobs:
-  # Holds the Jira secrets and a read-only token. Its scripts (and .github/jira.json)
-  # come from the PR's base branch, so a PR that edits .github/ does not get its own
-  # version run with the secrets. The PR head is checked out only as data.
-  create-ticket:
+  # Holds a token that can write issues. Its scripts come from the PR's base
+  # branch, so a PR that edits .github/ does not get its own version run with
+  # that token. The PR head is checked out only as data.
+  create-issue:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      issues: write
+      pull-requests: write
     outputs:
       tickets: ${{ steps.create.outputs.tickets }}
-      project_key: ${{ steps.key.outputs.project_key }}
 
     steps:
       - name: Check out the scripts from the base branch
@@ -34,7 +34,6 @@ jobs:
           # A manual run has no base branch; it uses the ref it was started on.
           ref: ${{ github.event.pull_request.base.sha || github.sha }}
           path: trusted
-          # Cone mode also includes files directly under .github/, i.e. jira.json.
           sparse-checkout: .github/scripts
           persist-credentials: false
 
@@ -50,10 +49,6 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Read the project key
-        id: key
-        run: echo "project_key=$(jq -r .projectKey trusted/.github/jira.json)" >> "$GITHUB_OUTPUT"
-
       - name: Get task-brief files
         id: changed
         env:
@@ -63,8 +58,11 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             FILES="$INPUT_FILES"
           else
+            # Only briefs the PR adds (or renames into place): a spec PR. A PR that
+            # edits or deletes an existing brief is not asking for an issue.
             FILES=$(gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
-              --jq '.[].filename' 2>/dev/null | grep -E '^tasks/.+/task-brief\.md$' || true)
+              --jq '.[] | select(.status == "added" or .status == "renamed") | .filename' 2>/dev/null \
+              | grep -E '^tasks/.+/task-brief\.md$' || true)
           fi
           {
             echo "files<<EOF"
@@ -72,23 +70,24 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Create Jira ticket
+      - name: Create task issue
         id: create
         if: steps.changed.outputs.files != ''
         # The working directory is the pull request's content; the script is not.
         working-directory: pr
         env:
-          JIRA_URL: ${{ secrets.JIRA_URL }}
-          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           CHANGED_FILES: ${{ steps.changed.outputs.files }}
-        run: python3 "$GITHUB_WORKSPACE/trusted/.github/scripts/create-jira-task-docs.py"
+          SPEC_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 "$GITHUB_WORKSPACE/trusted/.github/scripts/create-task-issue.py"
 
-  # Holds the write token and no Jira secrets. It runs no code from the repository:
-  # it writes .jira-meta.yml and renames the task folder from the values above.
+  # Holds the write token and no issue rights. It runs no code from the
+  # repository: it writes .task-meta.yml and renames the task folder from the
+  # values above.
   commit-key:
-    needs: create-ticket
-    if: needs.create-ticket.outputs.tickets != '' && needs.create-ticket.outputs.tickets != '[]'
+    needs: create-issue
+    if: needs.create-issue.outputs.tickets != '' && needs.create-issue.outputs.tickets != '[]'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -99,31 +98,34 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref || github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Commit assigned Jira key
+      - name: Commit assigned key
         env:
-          TICKETS: ${{ needs.create-ticket.outputs.tickets }}
-          PROJECT_KEY: ${{ needs.create-ticket.outputs.project_key }}
+          TICKETS: ${{ needs.create-issue.outputs.tickets }}
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.ref_name }}
         run: |
+          keys=()
           while IFS= read -r ticket; do
             dir="$(jq -r '.dir' <<<"$ticket")"
             key="$(jq -r '.key' <<<"$ticket")"
             # Both values go into a path and a commit, so check them first.
-            if [[ ! "$dir" =~ ^[a-z0-9-]+$ ]] || [[ ! "$key" =~ ^${PROJECT_KEY}-[0-9]+$ ]]; then
-              echo "::error::Unexpected task folder name or Jira key; nothing committed"
+            if [[ ! "$dir" =~ ^[a-z0-9-]+$ ]] || [[ ! "$key" =~ ^GH-[0-9]+$ ]]; then
+              echo "::error::Unexpected task folder name or key; nothing committed"
               exit 1
             fi
-            meta="tasks/$dir/.jira-meta.yml"
+            meta="tasks/$dir/.task-meta.yml"
             if [ ! -d "tasks/$dir" ] || [ -L "tasks/$dir" ] || [ -e "$meta" ] || [ -L "$meta" ] || [ -e "tasks/$dir-$key" ]; then
-              echo "::error::tasks/$dir is not a task folder waiting for a Jira key; nothing committed"
+              echo "::error::tasks/$dir is not a task folder waiting for a key; nothing committed"
               exit 1
             fi
             jq -j '.meta' <<<"$ticket" > "$meta"
             git mv "tasks/$dir" "tasks/$dir-$key"
+            keys+=("$key")
           done < <(jq -c '.[]' <<<"$TICKETS")
 
           git add -A tasks
           if [ -z "$(git status --porcelain)" ]; then
-            echo "No Jira metadata changes to commit"
+            echo "No task metadata changes to commit"
             exit 0
           fi
           git config user.name "github-actions[bot]"
@@ -131,5 +133,17 @@ jobs:
           # No "[skip ci]" marker. A push made with GITHUB_TOKEN starts no workflow
           # anyway, and the marker would be copied into every squash commit that
           # includes this one, which can make GitHub skip deploy-prod.yml.
-          git commit -m "chore: assign jira key"
-          git push
+          git commit -m "chore: assign task issue ${keys[*]}"
+
+          if [ "$EVENT" = "workflow_dispatch" ] && { [ "$BASE" = "develop" ] || [ "$BASE" = "production" ]; }; then
+            # A manual run on develop (a spec that merged without an issue) must
+            # not push to it. This repository doesn't let Actions open pull requests, so
+            # push a branch and link the PR to open.
+            branch="chore/assign-${keys[0]}"
+            git push origin "HEAD:refs/heads/$branch"
+            url="${{ github.server_url }}/${{ github.repository }}/compare/$BASE...$branch?expand=1"
+            echo "::notice::Open a PR for the rename: $url"
+            echo "Open a PR for the rename: $url" >> "$GITHUB_STEP_SUMMARY"
+          else
+            git push
+          fi

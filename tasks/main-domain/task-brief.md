@@ -1,6 +1,6 @@
 ---
-jira-type: improvement
-jira-title: "Make schmegettes.app the main address"
+task-type: improvement
+task-title: "Make schmegettes.app the main address"
 ---
 # Task spec: main-domain
 
@@ -78,4 +78,4 @@ No change. A rejected origin is already logged by the api/game. Don't add the al
 Listed in subtask 2.
 
 ## Branch
-`technical-improvement/main-domain-impl`, from and into `develop`. No Jira key: Jira is not configured yet (`.github/jira.json` issue types are `REPLACE_ME`), so `create-ticket` fails on this PR as expected.
+`technical-improvement/main-domain-impl`, from and into `develop`. No key: this spec merged before task issues existed. Its issue is created by hand once github-issues-tracker merges ([development-workflow.md](../../docs/system-docs/engineering/development-workflow.md#issue-labels)); the branch name stays as written.

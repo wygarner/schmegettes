@@ -43,7 +43,6 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL` | variables (public) | GitHub Environments | `deploy.yml` web build |
 | `GAME_SOCKET_ORIGIN` | variable (public) | GitHub Environments: `wss://schmegettes-game-{staging,prod}.fly.dev` | `deploy.yml`, the web CSP's `connect-src` |
 | `STAGING_VERSION_URLS`, `PROD_VERSION_URLS` | variables (not secret) | GitHub Environment `staging` / `production`: the web `/version.json` and the api and game `/version` URLs, space-separated | `deploy.yml` deployed-commit check |
-| `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` | secrets | repo secrets (**not set yet**: Jira is not configured) | `create-jira-ticket.yml`, `jira-transitions.yml` |
 | `STAGING_ANTHROPIC_API_KEY` | secret | GitHub Environment `staging` (**not set yet**) | `rate-clues.yml` |
 | `PROD_ANTHROPIC_API_KEY` | secret | GitHub Environment `production` (**not set yet**) | `rate-clues.yml` |
 | `ANTHROPIC_API_KEY` | secret | repo secret (**not set yet**) | `ci.yml` evals job |
@@ -61,7 +60,6 @@ Owner of every secret: **Wyatt Garner**.
 | Supabase JWT signing keys | Rotate in Supabase (asymmetric signing keys). No redeploy: `golib/auth` caches the JWKS and refetches it when a token names a key it hasn't seen. Revoke the old key once tokens signed with it have expired. |
 | `REDIS_URL` credentials | Rotate in the Redis provider, then update the game's secret and restart it. |
 | `ANTHROPIC_API_KEY`, `STAGING_ANTHROPIC_API_KEY`, `PROD_ANTHROPIC_API_KEY` | Create a new key in the Anthropic console, update the secret where that key is kept (`worker/.env`, the GitHub Environment, or the repo secret), then revoke the old key. |
-| `JIRA_API_TOKEN` | Create a new Atlassian API token, update the repo secret, then revoke the old token. |
 
 Rotate a secret:
 

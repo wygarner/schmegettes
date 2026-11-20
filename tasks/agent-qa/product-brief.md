@@ -1,6 +1,6 @@
 ---
-jira-type: improvement
-jira-title: "Agent QA: dedicated accounts, production rules, and recorded evidence"
+task-type: improvement
+task-title: "Agent QA: dedicated accounts, production rules, and recorded evidence"
 ---
 **Task Type:** Improvement. Workflow and test-data change; no player-facing UI.
 

@@ -1,6 +1,6 @@
 ---
-jira-type: new-feature
-jira-title: "Stats and leaderboard for signed-in players"
+task-type: new-feature
+task-title: "Stats and leaderboard for signed-in players"
 ---
 **Task Type:** New Feature. Net-new player-facing capability (a Stats page and a leaderboard); previously listed as out of scope in game history.
 

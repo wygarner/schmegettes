@@ -58,8 +58,11 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             FILES="$INPUT_FILES"
           else
+            # Only briefs the PR adds (or renames into place): a spec PR. A PR that
+            # edits or deletes an existing brief is not asking for an issue.
             FILES=$(gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
-              --jq '.[].filename' 2>/dev/null | grep -E '^tasks/.+/task-brief\.md$' || true)
+              --jq '.[] | select(.status == "added" or .status == "renamed") | .filename' 2>/dev/null \
+              | grep -E '^tasks/.+/task-brief\.md$' || true)
           fi
           {
             echo "files<<EOF"

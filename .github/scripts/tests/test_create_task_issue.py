@@ -67,6 +67,9 @@ class CreateTaskIssueTest(unittest.TestCase):
         (self.root / "tasks/has-meta/.task-meta.yml").write_text("issue: 9\n")
         self.assertEqual(find_briefs([keyed, meta, "README.md", ""], self.root), [])
 
+    def test_skips_a_deleted_brief(self):
+        self.assertEqual(find_briefs(["tasks/gone/task-brief.md"], self.root), [])
+
     def test_refuses_bad_paths(self):
         for bad in ["tasks/Bad_Name/task-brief.md", "tasks/a/b/task-brief.md", "other/x/task-brief.md"]:
             with self.subTest(bad=bad), self.assertRaises(BriefError):

@@ -55,6 +55,9 @@ def find_briefs(changed_files, root=None):
         # A symlink could point the brief at a file outside the repository.
         if full.is_symlink() or full.parent.is_symlink() or root not in full.resolve().parents:
             raise BriefError(f"Refusing {filepath!r}: not a regular file inside the repository")
+        if not full.exists():
+            print(f"Skipping {filepath}: not in this checkout (deleted)")
+            continue
         meta = full.parent / ".task-meta.yml"
         if meta.exists() or meta.is_symlink():
             print(f"Skipping {filepath}: .task-meta.yml already exists")

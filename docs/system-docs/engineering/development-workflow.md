@@ -118,7 +118,7 @@ See [release-strategy.md](../operations/release-strategy.md).
 
 | Workflow | Trigger | Result |
 |---|---|---|
-| `create-task-issue.yml` | PR opened into `develop` touching `tasks/**/task-brief.md`; manual (`files`) | Creates the issue, commits `.task-meta.yml`, renames the folder. Task names must match `^[a-z0-9-]+$`. One issue per spec PR. A manual run on a spec branch pushes the rename to it; on `develop` it pushes `chore/assign-GH-{N}` instead and links the PR to open (Actions can't open PRs in this repo). |
+| `create-task-issue.yml` | PR opened into `develop` that adds a `tasks/**/task-brief.md` (edits and deletions are ignored); manual (`files`) | Creates the issue, commits `.task-meta.yml`, renames the folder. Task names must match `^[a-z0-9-]+$`. One issue per spec PR. A manual run on a spec branch pushes the rename to it; on `develop` it pushes `chore/assign-GH-{N}` instead and links the PR to open (Actions can't open PRs in this repo). |
 | `task-issue-transitions.yml` | PR opened / closed; manual (`issue`, `step`) | Spec merged → `status:in-progress`; spec closed unmerged → comment; implementation opened → `status:in-review`; merged → closed. |
 | `ci.yml` | PR into `develop` or `production`; weekly; manual | Path-filtered checks per package; `CI Complete` must pass before a PR merges. Docs/task-only PRs skip the package jobs. |
 | `deploy-staging.yml` | Push to `develop` (every merged PR, except docs-only: only `docs/`, `tasks/`, `releases/` or `.md` files); manual | Calls `deploy.yml` for staging: migrations (the release rehearsal), deploy, deployed-commit verification. |

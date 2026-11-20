@@ -52,7 +52,11 @@ Every category that can reach a board carries a **difficulty**: **Easy**, **Medi
 - **Who decides.** Claude rates each category from its text alone: how likely a typical adult group is to know the responses. Nothing about our players' results, or the original contestants', goes into it.
 - **About a third each.** The labels split the catalog into roughly equal thirds, separately for board categories and for Finals, so every level has tens of thousands of categories (about 27,000 board categories and 2,900 Finals each on the full load).
 - **Labels don't change.** Once a category has a label, it keeps it, so a level means the same thing from one game to the next. A later rating run labels only new categories, on the same scale.
-- **Checked against the show's own order.** Within a category, the show's values climb from the easiest clue to the hardest. Before the labels go live, a sample of clues rated one by one has to show the same climb, and a hand check of 60 categories (20 per level) has to agree with Claude on at least 45. If it doesn't, the rating is redone before any host can pick a level.
+- **Checked, and accepted below the bar.** Two checks measure the labels: clues rated one by one must climb with the show's own row values, and a hand check of 60 categories (20 per level) should agree with Claude on at least 45.
+  - **The 2026-11-20 staging rating (Claude Haiku 5.5):** the clue-order check passed (72 of 100 categories climb). The hand check **failed**: 26 of 60 agreed, a little better than chance (about 20).
+  - Rewording the prompt didn't help: four variants, tested on the same 60 categories, agreed on 16 to 25.
+  - **Decision (2026-11-20, Wyatt): the labels ship as they are.** A level still means "harder on average", with many misses. Improving them (a stronger model, or a different signal) is later work.
+  - A future rating is checked the same way, on a fresh set of 60 categories.
 - **Not yet rated** (a category loaded after the last rating run, or every category before the first one) counts as **Medium**, so a game always starts.
 - Nobody sees a category's label: not on the board, the TV, or phones. Players only see the level the host picked, in the lobby.
 

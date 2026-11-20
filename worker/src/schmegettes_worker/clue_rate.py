@@ -9,7 +9,9 @@ A run, safe to run again:
 2. submit: every rateable category without a score, in batches, recording the batch id *before*
    waiting, so an interrupted run picks the same batch up and nothing is paid for twice;
 3. scale: once every rateable category of a kind has a score, the cut points that split the scores
-   into thirds are written, once (difficulty_scale);
+   into thirds are written, once (difficulty_scale). A category that has failed GIVE_UP_AFTER times
+   (one Claude keeps refusing, say) doesn't hold that back: it plays as Medium, as every unrated
+   category does, and is still retried on every run;
 4. label: every scored, unlabelled category gets its label from its kind's cut points. Labels are
    never changed.
 
@@ -49,6 +51,8 @@ BATCH_SIZE = 10_000  # requests per batch; the API allows 100,000 or 256 MB, whi
 POLL_S = 60
 MAX_TOKENS = 2048
 BOARD_ROWS = 4  # the clues that reach a board; the 5th (hardest) is never sent
+GIVE_UP_AFTER = 2  # failures after which a category no longer holds back its kind's scale
+SHOWN_FAILURES = 20  # failed categories named in a run's report and log
 
 PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "category_difficulty.md"
 
@@ -118,7 +122,12 @@ class Store(Protocol):
     def scale(self, kind: Kind) -> tuple[int, int] | None: ...
 
     def unscored(self, kind: Kind) -> int:
-        """Rateable categories of this kind with no score."""
+        """Rateable categories of this kind with no score that would still hold back its scale:
+        those that have failed fewer than GIVE_UP_AFTER times."""
+        ...
+
+    def names(self, keys: list[str]) -> dict[str, str]:
+        """category_key -> "NAME (season N, round)", for the report."""
         ...
 
     def scores(self, kind: Kind) -> list[int]: ...
@@ -233,6 +242,8 @@ class RunReport:
     waiting: dict[str, int] = field(default_factory=dict)  # kind -> unscored, when no scale yet
     counts: dict[str, int] = field(default_factory=dict)
     decades: dict[str, Counter[str]] = field(default_factory=dict)
+    failures: list[tuple[str, str]] = field(default_factory=list)  # (category_key, why) this run
+    failure_names: dict[str, str] = field(default_factory=dict)
 
 
 def cut_points(scores: list[int]) -> tuple[int, int]:
@@ -280,9 +291,16 @@ def wait_and_collect(
         input_tokens=tokens_in,
         output_tokens=tokens_out,
     )
-    for r in results:
-        if r.failure:
-            log.debug("difficulty rating failed", run_id=run_id, category_key=r.custom_id, result=r.failure)
+    failures = [(r.custom_id, r.failure) for r in results if r.failure]
+    report.failures += failures
+    if failures:
+        # One summary line per batch, not one per category (logging-conventions.md).
+        log.info(
+            "difficulty ratings failed",
+            run_id=run_id,
+            batch_id=batch_id,
+            failures=[{"category_key": k, "result": why} for k, why in failures[:SHOWN_FAILURES]],
+        )
 
 
 def rate(
@@ -340,6 +358,7 @@ def rate(
 
     report.counts = store.counts()
     report.decades = store.decades()
+    report.failure_names = store.names([k for k, _ in report.failures[:SHOWN_FAILURES]])
     log.info("difficulty run finished", run_id=run_id, model=model, submitted=report.submitted, **report.counts)
     return report
 
@@ -378,6 +397,16 @@ def render_report(report: RunReport, model: str) -> str:
             lines.append(f"{kind} scale waits for {report.waiting[kind]:,} unrated")
     if c.get("unlabelled"):
         lines.append(f"scored, waiting for a scale: {c['unlabelled']:,}")
+    if report.failures:
+        lines.append("")
+        lines.append(
+            f"failed this run (retried next run; after {GIVE_UP_AFTER} failures one no longer holds back"
+            " a scale and plays as Medium):"
+        )
+        for key, why in report.failures[:SHOWN_FAILURES]:
+            lines.append(f"  {report.failure_names.get(key, key)}: {why}")
+        if len(report.failures) > SHOWN_FAILURES:
+            lines.append(f"  ... and {len(report.failures) - SHOWN_FAILURES:,} more")
     if report.decades:
         lines.append("")
         lines.append("labels by season          easy  medium    hard")
@@ -612,11 +641,19 @@ class PgStore:
                 "with rateable as ({})"
                 " select count(*) from rateable r"
                 " left join public.category_difficulty d on d.category_key = r.category_key"
-                " where r.kind = %s and d.score is null"
+                " where r.kind = %s and d.score is null and coalesce(d.failures, 0) < %s"
             ).format(_RATEABLE),
-            (kind,),
+            (kind, GIVE_UP_AFTER),
         ).fetchone()
         return int(row[0]) if row else 0
+
+    def names(self, keys: list[str]) -> dict[str, str]:
+        rows = self._conn.execute(
+            "select category_key, min(category), min(season), min(round::text) from public.clues"
+            " where category_key = any(%s) group by category_key",
+            (keys,),
+        ).fetchall()
+        return {k: f"{name} (season {season}, {round_})" for k, name, season, round_ in rows}
 
     def scores(self, kind: Kind) -> list[int]:
         rows = self._conn.execute(

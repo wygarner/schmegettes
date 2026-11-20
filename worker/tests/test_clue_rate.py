@@ -108,8 +108,15 @@ class MemoryStore:
 
     def unscored(self, kind: Kind) -> int:
         return sum(
-            1 for k, c in self.categories.items() if c.kind == kind and self.rows.get(k, {}).get("score") is None
+            1
+            for k, c in self.categories.items()
+            if c.kind == kind
+            and self.rows.get(k, {}).get("score") is None
+            and int(str(self.rows.get(k, {}).get("failures", 0))) < clue_rate.GIVE_UP_AFTER
         )
+
+    def names(self, keys: list[str]) -> dict[str, str]:
+        return {k: f"NAME {k} (season 1, single)" for k in keys if k in self.categories}
 
     def scores(self, kind: Kind) -> list[int]:
         return [int(str(r["score"])) for k, r in self.rows.items() if self.categories[k].kind == kind and r["score"]]
@@ -264,6 +271,34 @@ def test_the_scale_waits_while_a_category_of_its_kind_is_unscored() -> None:
     rate(store, FakeBatches(by_number), model="m", sleep=lambda _: None)  # the next run retries b05
     assert store.scales["board"] == (3, 6)
     assert store.rows["b05"]["difficulty"] == "medium" and store.rows["b05"]["failures"] == 1
+
+
+def test_a_category_that_keeps_failing_stops_holding_back_the_scale() -> None:
+    store = MemoryStore(catalog())
+    refuses_b05 = FakeBatches(lambda key: "refusal" if key == "b05" else by_number(key))
+    rate(store, refuses_b05, model="m", sleep=lambda _: None)
+    assert "board" not in store.scales  # one failure: still waits
+
+    second = rate(store, refuses_b05, model="m", sleep=lambda _: None)  # retried, fails again
+    assert second.submitted == 1 and store.rows["b05"]["failures"] == 2
+    assert store.scales["board"] == (3, 7)  # cut from the 8 that have scores: 1-4 and 6-9
+    assert store.rows["b05"]["difficulty"] is None  # unrated: plays as Medium
+    assert second.counts["still_unrated"] == 1 and second.counts["easy"] == 3 + 1  # b01-b03 + f01
+
+    third = rate(store, FakeBatches(by_number), model="m", sleep=lambda _: None)  # still retried
+    assert third.submitted == 1
+    assert store.rows["b05"]["difficulty"] == "medium"  # labelled on the scale already set
+    assert store.scales["board"] == (3, 7)
+
+
+def test_the_report_names_what_failed_and_why() -> None:
+    store = MemoryStore(catalog())
+    report = rate(
+        store, FakeBatches(lambda k: "refusal" if k == "b05" else by_number(k)), model="m", sleep=lambda _: None
+    )
+    assert report.failures == [("b05", "refusal")]
+    text = clue_rate.render_report(report, "m")
+    assert "failed this run" in text and "  NAME b05 (season 1, single): refusal" in text
 
 
 def test_an_interrupted_run_collects_its_batch_instead_of_resubmitting() -> None:

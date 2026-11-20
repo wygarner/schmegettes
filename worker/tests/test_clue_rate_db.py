@@ -147,6 +147,18 @@ def test_a_failure_is_counted_and_retried_next_run(conn: psycopg.Connection[Tupl
     assert scored is not None and scored[0] == hashed(b) and scored[1] is not None and scored[3] == 1
 
 
+def test_two_failures_stop_holding_back_the_scale(conn: psycopg.Connection[TupleRow]) -> None:
+    b = key_of(conn, "RATE DB B")
+    store = PgStore(conn)
+    rate(store, FakeBatches(fail={b}), model="m", sleep=lambda _: None)
+    second = rate(store, FakeBatches(fail={b}), model="m", sleep=lambda _: None)
+    assert "board" in second.scales and row(conn, b) == (None, None, None, 2, None)
+    assert second.failure_names[b] == "RATE DB B (season 9998, single)"
+    third = rate(store, FakeBatches(), model="m", sleep=lambda _: None)
+    labelled = row(conn, b)
+    assert third.submitted == 1 and labelled is not None and labelled[1] is not None
+
+
 def test_samples_and_labels_for_the_quality_gate(conn: psycopg.Connection[TupleRow]) -> None:
     store = PgStore(conn)
     rate(store, FakeBatches(), model="m", sleep=lambda _: None)

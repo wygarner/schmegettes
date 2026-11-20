@@ -158,7 +158,7 @@ jobs:
     environment: ${{ inputs.environment }}
     steps:
       # {PROD,STAGING}_VERSION_URLS (environment variable) lists each component's version
-      # endpoint, e.g. "https://schmegettes-web-prod.vercel.app/version.json
+      # endpoint, e.g. "https://schmegettes.app/version.json
       # https://schmegettes-api-prod.fly.dev/version https://schmegettes-game-prod.fly.dev/version"
       - name: Every component runs the pushed commit
         env:

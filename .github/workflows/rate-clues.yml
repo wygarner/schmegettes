@@ -1,0 +1,115 @@
+name: Rate Clues
+
+# Labels an environment's catalog Easy, Medium or Hard with Claude (worker `rate-clues`), and runs
+# the quality gate, so neither the owner database URL nor the API key sits on a laptop. Safe to run
+# again: categories already rated are skipped, and a batch an earlier run left behind is collected.
+# See docs/system-docs/operations/deployment.md, "Rating the clue catalog".
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to rate
+        required: true
+        type: choice
+        options: [staging, production]
+      action:
+        description: "rate: label the catalog. check-order, handcheck-export, handcheck-score: the quality gate"
+        required: true
+        default: rate
+        type: choice
+        options: [rate, check-order, handcheck-export, handcheck-score]
+      limit:
+        description: "rate: at most this many categories (a pilot; empty for all). check-order: categories to check (default 100)"
+        required: false
+        type: string
+      sheet:
+        description: "handcheck-score: the filled-in sheet's CSV text (gh workflow run ... -f sheet=\"$(cat handcheck.csv)\")"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rate-clues-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  rate:
+    name: ${{ inputs.action }} (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    # A batch can take hours. If one is still running at the timeout, the next run collects it.
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+        working-directory: worker
+    steps:
+      - name: Production rates only from the production branch
+        if: inputs.environment == 'production' && github.ref != 'refs/heads/production'
+        working-directory: .
+        run: |
+          echo "::error::Run this workflow on the production branch to rate production."
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: python uv
+      - run: uv sync --locked --no-dev
+      - name: Run
+        env:
+          APP_ENV: ${{ inputs.environment }}
+          ACTION: ${{ inputs.action }}
+          LIMIT: ${{ inputs.limit }}
+          SHEET: ${{ inputs.sheet }}
+          DIFFICULTY_MODEL: ${{ vars.DIFFICULTY_MODEL || 'claude-haiku-5-5' }}
+          # Each environment reads only its own secrets: no fallback from one to the other.
+          PROD_OWNER_URL: ${{ secrets.PROD_SUPABASE_DB_OWNER_URL }}
+          STAGING_OWNER_URL: ${{ secrets.STAGING_SUPABASE_DB_OWNER_URL }}
+          PROD_KEY: ${{ secrets.PROD_ANTHROPIC_API_KEY }}
+          STAGING_KEY: ${{ secrets.STAGING_ANTHROPIC_API_KEY }}
+        run: |
+          if [ "$APP_ENV" = production ]; then
+            DATABASE_OWNER_URL="$PROD_OWNER_URL"; ANTHROPIC_API_KEY="$PROD_KEY"
+          else
+            DATABASE_OWNER_URL="$STAGING_OWNER_URL"; ANTHROPIC_API_KEY="$STAGING_KEY"
+          fi
+          export DATABASE_OWNER_URL ANTHROPIC_API_KEY
+          unset PROD_OWNER_URL STAGING_OWNER_URL PROD_KEY STAGING_KEY
+          if [ -z "$DATABASE_OWNER_URL" ]; then
+            echo "::error::No owner database URL for $APP_ENV (STAGING_SUPABASE_DB_OWNER_URL or PROD_SUPABASE_DB_OWNER_URL in the GitHub Environment)."
+            exit 1
+          fi
+          if [ -z "$ANTHROPIC_API_KEY" ] && [ "$ACTION" != handcheck-export ] && [ "$ACTION" != handcheck-score ]; then
+            echo "::error::No Anthropic API key for $APP_ENV (STAGING_ANTHROPIC_API_KEY or PROD_ANTHROPIC_API_KEY in the GitHub Environment)."
+            exit 1
+          fi
+          case "$ACTION" in
+            rate) args=(${LIMIT:+--limit "$LIMIT"}) ;;
+            check-order) args=(--check-order "${LIMIT:-100}") ;;
+            handcheck-export) args=(--handcheck-export "$RUNNER_TEMP/handcheck.csv") ;;
+            handcheck-score)
+              if [ -z "$SHEET" ]; then echo "::error::Pass the filled-in sheet as the sheet input."; exit 1; fi
+              printf '%s\n' "$SHEET" > "$RUNNER_TEMP/filled.csv"
+              args=(--handcheck-score "$RUNNER_TEMP/filled.csv") ;;
+          esac
+          set -o pipefail
+          uv run --no-dev python -m schmegettes_worker rate-clues "${args[@]}" | tee "$RUNNER_TEMP/summary.txt"
+      - name: Summary
+        if: always()
+        working-directory: .
+        run: |
+          if [ -f "$RUNNER_TEMP/summary.txt" ]; then
+            { echo '```text'; grep -v '^{' "$RUNNER_TEMP/summary.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Hand-check sheet
+        if: inputs.action == 'handcheck-export'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: handcheck-${{ inputs.environment }}
+          path: ${{ runner.temp }}/handcheck.csv
+          if-no-files-found: error
+          retention-days: 7

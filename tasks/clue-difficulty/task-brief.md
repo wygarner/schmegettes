@@ -228,3 +228,7 @@ The api's existing "room options updated" line gains `"difficulty"`.
 - `docs/system-docs/security/configuration-and-secrets.md`: `ANTHROPIC_API_KEY` is now read by the worker for `rate-clues`, in the GitHub Environments `staging` and `production`. Add `DIFFICULTY_MODEL`.
 - `docs/system-docs/architecture/data-and-isolation.md`: `category_difficulty` and `difficulty_scale`, who reads and writes them.
 - `docs/product-docs/`: already updated (#208, #210). Fix them only if the implementation differs.
+
+## Branch
+
+`enhancement/clue-difficulty-impl`, from and into `develop`. No Jira key: Jira is not configured yet (`.github/jira.json` has no `enhancement` issue-type ID and the Jira secrets are unset), so the create-ticket workflow failed on this PR as expected.

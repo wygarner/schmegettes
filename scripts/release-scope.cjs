@@ -1,5 +1,5 @@
 "use strict";
-// Lists the Jira tickets between two refs. Task PRs squash into develop, one commit each.
+// Lists the tasks (GH-{N} keys, one per tracking issue) between two refs. Task PRs squash into develop, one commit each.
 // Before 2026-11-18 tasks went through daily branches, and three of those were squashed too.
 //
 // Ticket keys come from commit subjects. A daily PR that was squash-merged hides the day's tasks
@@ -11,15 +11,11 @@
 //        --no-gh   do not call gh; squashed dailies are read from the commit body only
 // Test:  node --test scripts/release-scope.test.cjs
 const { execFileSync } = require("node:child_process");
-const fs = require("node:fs");
-const path = require("node:path");
 
-// The Jira project key comes from .github/jira.json (JIRA_PROJECT_KEY overrides it, for tests).
-const PROJECT_KEY =
-  process.env.JIRA_PROJECT_KEY ||
-  JSON.parse(fs.readFileSync(path.join(__dirname, "..", ".github", "jira.json"), "utf8")).projectKey;
+// Task keys are GH-{issue number}. TASK_KEY_PREFIX overrides the prefix, for tests.
+const KEY_PREFIX = process.env.TASK_KEY_PREFIX || "GH";
 
-const KEY = new RegExp(`\\b${PROJECT_KEY}-\\d+\\b`, "g");
+const KEY = new RegExp(`\\b${KEY_PREFIX}-\\d+\\b`, "g");
 const TASK_TYPES = ["New Feature", "Enhancement", "Improvement", "Bug Fix"];
 // PR titles have not always used the four names above.
 const TYPE_ALIASES = {
@@ -49,7 +45,7 @@ const taskType = (bracket) => {
 
 // What one line says about the tickets it names.
 //   impl   - an implementation, with its task type
-//   done   - "delete task folder for KAN-N", the last commit of every implementation
+//   done   - "delete task folder for GH-N", the last commit of every implementation
 //   branch - a merge commit from a task branch: gives the type, does not prove an implementation
 //   spec   - a task spec, product brief or docs change
 //   revert - a revert
@@ -57,14 +53,14 @@ const taskType = (bracket) => {
 //
 // A "feat:" or "fix:" prefix counts as an implementation only in a commit subject. Inside a
 // squashed daily those lines are the individual commits of a task PR, listed under its
-// "[Type] KAN-N: title (#PR)" line, and say nothing about the task type.
+// "[Type] GH-N: title (#PR)" line, and say nothing about the task type.
 function classify(rawLine, { prefixIsType = true } = {}) {
   const line = rawLine.replace(BULLET, "").trim();
   const bracket = (line.match(/\[([^\]]+)\]/) || [])[1];
   const prefix = (line.match(CONVENTIONAL) || [])[1];
   const merge = line.match(
     new RegExp(
-      `^Merge pull request #(\\d+) from \\S*?\\/?(new-feature|enhancement|technical-improvement|bug-fix)\\/${PROJECT_KEY}-\\d+-?(\\S*)`,
+      `^Merge pull request #(\\d+) from \\S*?\\/?(new-feature|enhancement|technical-improvement|bug-fix)\\/${KEY_PREFIX}-\\d+-?(\\S*)`,
     ),
   );
 
@@ -155,7 +151,8 @@ function buildScope(mentions) {
       onBase: evidence.length > 0 && evidence.every((m) => m.from.onBase) ? evidence[0].from.onBase : null,
     };
   });
-  return tickets.sort((a, b) => Number(a.key.slice(4)) - Number(b.key.slice(4)));
+  const number = (key) => Number(key.slice(key.lastIndexOf("-") + 1));
+  return tickets.sort((a, b) => number(a.key) - number(b.key));
 }
 
 const sourceLabel = (from) => (isDaily(from.subject) ? `in ${from.subject}` : from.sha.slice(0, 8));

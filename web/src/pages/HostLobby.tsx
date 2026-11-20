@@ -126,6 +126,7 @@ function useGameOptions(room: RoomJoin): [GameOptions, (next: GameOptions) => vo
         seasons: seasonList(next.seasons),
         doubleRound: next.doubleRound,
         quickPicks: next.quickPicks,
+        difficulty: next.difficulty,
       }).then((updated) => setOptions(updated ? fromRoom(updated) : fromRoom(room.room)));
     },
     [roomId, room.room],

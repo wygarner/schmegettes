@@ -1,4 +1,6 @@
-// The lobby's game options: seasons, Double Schmegettes, Quick picks. The host device keeps the
+import type { Domain } from "@schmegettes/shared";
+
+// The lobby's game options: seasons, difficulty, Double Schmegettes, Quick picks. The host device keeps the
 // last ones for its next room. There's no timer option: every game is 9 s to buzz in, 9 s to
 // answer. Rules: docs/product-docs/features/lobby/feature-brief.md, "Game options".
 
@@ -8,22 +10,40 @@ export interface GameOptions {
   doubleRound: boolean;
   /** A spoken pick of just a category picks the lowest clue left in it. */
   quickPicks: boolean;
+  /** Keep boards to one difficulty; null is Any (every category). */
+  difficulty: Domain.Difficulty | null;
+}
+
+export const DIFFICULTIES: readonly Domain.Difficulty[] = ["easy", "medium", "hard"];
+
+function isDifficulty(value: unknown): value is Domain.Difficulty {
+  return typeof value === "string" && (DIFFICULTIES as readonly string[]).includes(value);
 }
 
 export const FIRST_SEASON = 1;
 export const LAST_SEASON = 40;
 
-export const DEFAULT_OPTIONS: GameOptions = { seasons: null, doubleRound: true, quickPicks: false };
+export const DEFAULT_OPTIONS: GameOptions = { seasons: null, doubleRound: true, quickPicks: false, difficulty: null };
 
 /** The room's options as the API returns them (seasons as a list). The room's timer pace is
  * always Standard now and isn't an option. */
-export function fromRoom(room: { seasons: number[] | null; doubleRound: boolean; quickPicks: boolean }): GameOptions {
+export function fromRoom(room: {
+  seasons: number[] | null;
+  doubleRound: boolean;
+  quickPicks: boolean;
+  difficulty?: Domain.Difficulty | null;
+}): GameOptions {
   const s = room.seasons;
   const seasons: [number, number] | null =
     s && s.length > 0 && !(Math.min(...s) === FIRST_SEASON && Math.max(...s) === LAST_SEASON)
       ? [Math.min(...s), Math.max(...s)]
       : null;
-  return { seasons, doubleRound: room.doubleRound, quickPicks: room.quickPicks };
+  return {
+    seasons,
+    doubleRound: room.doubleRound,
+    quickPicks: room.quickPicks,
+    difficulty: isDifficulty(room.difficulty) ? room.difficulty : null,
+  };
 }
 
 /** Every season in the range, as the API takes them; null for all. */
@@ -34,7 +54,12 @@ export function seasonList(range: [number, number] | null): number[] | null {
 }
 
 export function isDefault(o: GameOptions): boolean {
-  return o.seasons === null && o.doubleRound && !o.quickPicks;
+  return o.seasons === null && o.doubleRound && !o.quickPicks && o.difficulty === null;
+}
+
+/** "Easy", "Medium" or "Hard". */
+export function difficultyName(d: Domain.Difficulty): string {
+  return { easy: "Easy", medium: "Medium", hard: "Hard" }[d];
 }
 
 /** The line under the room code: only what isn't the default ("" with the defaults). */
@@ -42,6 +67,7 @@ export function summary(o: GameOptions): string {
   const parts: string[] = [];
   if (o.seasons)
     parts.push(o.seasons[0] === o.seasons[1] ? `Season ${o.seasons[0]}` : `Seasons ${o.seasons[0]}–${o.seasons[1]}`);
+  if (o.difficulty) parts.push(difficultyName(o.difficulty));
   if (!o.doubleRound) parts.push("No Double Schmegettes");
   if (o.quickPicks) parts.push("Quick picks");
   return parts.join(" · ");
@@ -62,8 +88,14 @@ export function savedOptions(): GameOptions {
       o.seasons[0] <= o.seasons[1]
         ? ([o.seasons[0], o.seasons[1]] as [number, number])
         : null;
-    // Options saved before the timer option was removed may still have "timers": ignored.
-    return { seasons, doubleRound: o.doubleRound !== false, quickPicks: o.quickPicks === true };
+    // Options saved before the timer option was removed may still have "timers": ignored. Options
+    // saved before Difficulty existed have none: Any.
+    return {
+      seasons,
+      doubleRound: o.doubleRound !== false,
+      quickPicks: o.quickPicks === true,
+      difficulty: isDifficulty(o.difficulty) ? o.difficulty : null,
+    };
   } catch {
     return DEFAULT_OPTIONS;
   }

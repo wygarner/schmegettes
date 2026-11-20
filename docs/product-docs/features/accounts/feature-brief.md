@@ -98,6 +98,21 @@ There are two cases. The player sees the same thing in both.
 - Account page → **Delete account** → confirm. Takes effect at once and can't be undone.
 - Follows the existing rule ([game history](../game-history/feature-brief.md#accounts-and-deletion)): their results stay on other players' scoreboards as "Former player", their seen clues and stats are deleted, they leave the leaderboard, and host access is removed. The email address is free to use again. The device becomes a new guest.
 - Refused while the player is in a game in progress: "Finish or leave your game first."
+- Copies in backups and logs aren't removed at once; they expire on the schedule below.
+
+### What we keep, and for how long
+
+| Data | Kept | Then |
+|---|---|---|
+| A signed-in account (email, password hash, history, seen clues, stats, host access) | Until the player deletes it, or the admin does | The deletion rule above |
+| A **guest** | Until **90 days** after it was last used (any sign-in, join, host, or game) | Deleted by the deletion rule above: its results stay on scoreboards as "Former player", and its seen clues and host access are deleted |
+| Games, scores, and scoreboards | Permanently, for everyone who played or watched ([game history](../game-history/feature-brief.md)) | — |
+| Server logs and error reports | At most 30 days | Deleted by the log service. They never contain emails, passwords, or answers |
+| Database backups | 30 days | Deleted, so a deleted account is fully gone from backups 30 days after deletion |
+
+- A guest that becomes an account, or is moved into one at sign-in, is no longer a guest: the 90 days stop applying.
+- Nothing is deleted from a game in progress. A guest that is in a game, or in an open room, counts as used.
+- Nobody is warned before a guest is deleted: a guest has no email, and a browser that hasn't opened Schmegettes in 90 days has usually lost the guest already (Safari drops it after about 7 days). A guest who comes back after that simply starts as a new guest, as if they'd cleared their browser.
 
 ### Admin
 
@@ -122,6 +137,14 @@ In the Supabase dashboard (no admin screen):
 | **Optional, prompted (chosen)** | Keeps "no account required to play" | Guests who never sign in still lose history |
 | Required for hosts only | Hosting survives a lost browser | Hosts must sign in to keep hosting at all |
 | Required for everyone | Simplest stats | Everyone at a party must sign in before joining |
+
+**Guests expire after 90 days unused** (2026-11-19). An unused guest is almost always one whose browser already lost it, so keeping it only holds personal data nobody can reach.
+
+| Option | For | Against |
+|---|---|---|
+| 30 days | Least data kept | A guest who plays monthly on Chrome or Android (which don't drop site data) loses their history between game nights |
+| **90 days (chosen)** | Covers a game night every few weeks with room to spare | A guest who plays only a few times a year starts fresh |
+| Never | Nothing is ever lost | Abandoned guests pile up forever, each holding history and seen clues |
 
 What hasn't changed: hosting still needs a host code, joining still needs only the room code, nothing is ever emailed, and the site stays unlisted.
 

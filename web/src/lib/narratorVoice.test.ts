@@ -24,19 +24,23 @@ describe("storage", () => {
 
 describe("narratorChoice", () => {
   afterEach(() => window.localStorage.clear());
-  test("nothing saved: the default Schmegettes voice", () => {
-    expect(narratorChoice()).toEqual({ kind: "piper", id: "kristin" });
+  test("nothing saved: the default Schmegettes voice, Norman", () => {
+    expect(narratorChoice()).toEqual({ kind: "piper", id: "norman" });
   });
   test("a saved Schmegettes voice", () => {
-    saveVoice(piperChoiceValue("norman"));
-    expect(narratorChoice()).toEqual({ kind: "piper", id: "norman" });
+    saveVoice(piperChoiceValue("john"));
+    expect(narratorChoice()).toEqual({ kind: "piper", id: "john" });
+  });
+  test("a host who picked Kristin keeps her", () => {
+    saveVoice(piperChoiceValue("kristin"));
+    expect(narratorChoice()).toEqual({ kind: "piper", id: "kristin" });
   });
   test("a built-in voice saved earlier becomes the default Schmegettes voice", () => {
     saveVoice(AVA);
-    expect(narratorChoice()).toEqual({ kind: "piper", id: "kristin" });
+    expect(narratorChoice()).toEqual({ kind: "piper", id: "norman" });
   });
   test("an unknown Schmegettes voice falls back to the default", () => {
     saveVoice("piper:zarvox");
-    expect(narratorChoice()).toEqual({ kind: "piper", id: "kristin" });
+    expect(narratorChoice()).toEqual({ kind: "piper", id: "norman" });
   });
 });

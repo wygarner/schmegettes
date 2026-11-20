@@ -37,6 +37,7 @@ func contractRoom(room Room) contracts.Room {
 		MaxPlayers:      room.MaxPlayers,
 		Timers:          contracts.RoomTimers(room.Timers),
 		DoubleRound:     room.DoubleRound,
+		QuickPicks:      room.QuickPicks,
 	}
 	if room.Seasons != nil {
 		out.Seasons = &room.Seasons
@@ -144,6 +145,7 @@ type optionsBody struct {
 	MaxPlayers  *int                                        `json:"maxPlayers"`
 	Timers      *contracts.PatchV1RoomsRoomIdJSONBodyTimers `json:"timers"`
 	DoubleRound *bool                                       `json:"doubleRound"`
+	QuickPicks  *bool                                       `json:"quickPicks"`
 }
 
 // Patch handles PATCH /v1/rooms/{roomId}: the host's game options, before Start.
@@ -171,8 +173,8 @@ func (h Handler) Patch(w http.ResponseWriter, r *http.Request, roomID string) {
 			return
 		}
 	}
-	o.DoubleRound, o.MaxPlayers = body.DoubleRound, body.MaxPlayers
-	if !o.SetSeasons && o.Timers == nil && o.DoubleRound == nil && o.MaxPlayers == nil {
+	o.DoubleRound, o.MaxPlayers, o.QuickPicks = body.DoubleRound, body.MaxPlayers, body.QuickPicks
+	if !o.SetSeasons && o.Timers == nil && o.DoubleRound == nil && o.MaxPlayers == nil && o.QuickPicks == nil {
 		server.Problem(w, http.StatusBadRequest, "invalid-request", "Nothing to change")
 		return
 	}
@@ -182,7 +184,7 @@ func (h Handler) Patch(w http.ResponseWriter, r *http.Request, roomID string) {
 		return
 	}
 	slog.InfoContext(r.Context(), "room options changed", "room_id", room.ID, "timers", room.Timers,
-		"double_round", room.DoubleRound, "request_id", server.RequestID(r.Context()))
+		"double_round", room.DoubleRound, "quick_picks", room.QuickPicks, "request_id", server.RequestID(r.Context()))
 	server.JSON(w, http.StatusOK, contractRoom(room))
 }
 

@@ -50,7 +50,7 @@ export function PlayerControls({
 }) {
   const capture = useAnswerCapture(state, userId, send);
   const confirm = usePickConfirm(state, userId, send, { bottom: !compact });
-  const voice = useVoicePick(state.board, (clueId) => send({ type: "select_clue", clueId }));
+  const voice = useVoicePick(state.board, (clueId) => send({ type: "select_clue", clueId }), state.quickPicks);
   const [early, setEarly] = useState(false);
   const clueId = state.activeClue?.clueId;
   const lockedUntil = state.lockouts[userId];
@@ -426,7 +426,11 @@ function VoiceFeedback({ voice }: { voice: VoicePick }) {
         <div style={{ flex: 1 }}>
           <Text fw={700}>Listening…</Text>
           <Text size="xs" c={SOFT} aria-label="What we heard">
-            {voice.heard ? `“${voice.heard}”` : "Say a category and value, like “Opera for 600”"}
+            {voice.heard
+              ? `“${voice.heard}”`
+              : voice.quickPicks
+                ? "Say a category, like “Opera”, or a category and value"
+                : "Say a category and value, like “Opera for 600”"}
           </Text>
         </div>
       </div>

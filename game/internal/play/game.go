@@ -24,10 +24,11 @@ const (
 	AnswerGrace  = 1500 * time.Millisecond
 	ClueEndPause = 6 * time.Second
 	Interstitial = 3 * time.Second
-	// PickReveal is the picked cell's blink and the category card before a clue is read;
-	// PickBlink is the blink alone, before a Daily Double's reveal. Buzzing never opens
-	// before the reveal ends.
-	PickReveal = 1500 * time.Millisecond
+	// PickReveal is the picked cell's blink (0.6 s), the category card growing (0.6 s) and
+	// holding still (1.05 s, so the room can read it) before a clue is read; PickBlink is
+	// the blink alone, before a Daily Double's reveal. Buzzing never opens before the
+	// reveal ends.
+	PickReveal = 2250 * time.Millisecond
 	PickBlink  = 600 * time.Millisecond
 	// ResponseTail is how long the correct response stays up after the host device has
 	// read it. ClueEndPause is the cap when it never reports.
@@ -100,6 +101,9 @@ type Setup struct {
 	// Double Schmegettes is off, so Final follows the Single board.
 	Pace     contracts.TimerPace
 	NoDouble bool
+	// QuickPicks: a spoken pick of just a category picks the lowest clue left in it. Spoken
+	// picks are matched on the phone, so the game only tells its players (room_snapshot).
+	QuickPicks bool
 	// Recovery of wagers: the active Daily Double's wager, if locked; Final wagers and
 	// submitted answers (from the wagers table); and the score change of each Final answer
 	// already revealed (answers rows on the Final clue).
@@ -491,6 +495,8 @@ func (g *Game) SnapshotFields(m *contracts.RoomSnapshot, host bool) {
 	m.DeadlineAt = ms(g.deadline)
 	buzz, answer := int(g.buzzWindow.Milliseconds()), int(g.answerWindow.Milliseconds())
 	m.BuzzWindowMs, m.AnswerWindowMs = &buzz, &answer
+	quick := g.s.QuickPicks
+	m.QuickPicks = &quick
 	m.AnsweringUserId = uid(g.answering)
 	m.AttemptedUserIds = g.attemptedList()
 	paused := g.paused

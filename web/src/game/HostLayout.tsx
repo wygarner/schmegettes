@@ -8,9 +8,18 @@ import { DISPLAY, NIGHT } from "../ui/tokens";
  * The host screen, designed for an iPhone in landscape (844 × 390; no scrolling from
  * 667 × 320) and mirrored to the TV: the stage on the left, the player column on the right,
  * inside the notch's safe areas. Held upright on a phone, it asks to be turned sideways;
- * the game keeps running underneath.
+ * the game keeps running underneath. `narrow`: the column is folded to a slim tab (the lobby's
+ * player list), so the stage gets nearly the full width.
  */
-export function HostLayout({ stage, column }: { stage: ReactNode; column: ReactNode }) {
+export function HostLayout({
+  stage,
+  column,
+  narrow = false,
+}: {
+  stage: ReactNode;
+  column: ReactNode;
+  narrow?: boolean;
+}) {
   const upright = useMediaQuery("(orientation: portrait) and (max-width: 600px)");
   // The host device reads clues aloud. iOS allows that only after speech started from a
   // tap, so the first tap anywhere on the host screen (Host a game, Start…) unlocks it.
@@ -28,7 +37,7 @@ export function HostLayout({ stage, column }: { stage: ReactNode; column: ReactN
       w="100%"
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) clamp(180px, 28vw, 280px)",
+        gridTemplateColumns: narrow ? "minmax(0, 1fr) 40px" : "minmax(0, 1fr) clamp(180px, 28vw, 280px)",
         gap: 8,
         overflow: "hidden",
         background: NIGHT,

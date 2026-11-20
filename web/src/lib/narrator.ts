@@ -2,15 +2,17 @@
 // built-in voices are never used. Rules: docs/product-docs/features/gameplay/feature-brief.md,
 // "The narrator's voice".
 //
-// - A line whose first audio hasn't started PIPER_START_TIMEOUT_MS after narrate() was called,
+// - prepareNarration() may generate the first bounded chunk during a silent lead-in. narrate()
+//   is the only function that can play it, and generates later chunks while earlier ones play.
+// - A line whose first audio hasn't started PIPER_START_TIMEOUT_MS after playback was requested,
 //   or that fails, is skipped: the text stays on screen and the server's timer moves on.
-//   The next line tries the voice again.
 // - A voice that becomes ready mid-game (after a reload) is used from the next line on.
 
 import { narratorChoice } from "./narratorVoice";
 import { audioContext, narratorOutput } from "./piper/audio";
 import { type Audio, type PiperEngine, readyEngine } from "./piper/engine";
-import { splitSentences } from "./piper/sentences";
+import { narrationChunks } from "./piper/sentences";
+import type { PiperVoiceId } from "./piper/voices";
 import { spokenText } from "./speech";
 
 /**
@@ -30,6 +32,15 @@ interface Run {
 }
 let current: Run | null = null;
 
+interface PreparedLine {
+  voiceId: PiperVoiceId;
+  engine: PiperEngine;
+  text: string;
+  chunks: string[];
+  first: Promise<Audio | null>;
+}
+let prepared: PreparedLine | null = null;
+
 const TIMEOUT = Symbol("timeout");
 function within<T>(promise: Promise<T>, ms: number): Promise<T | typeof TIMEOUT> {
   return new Promise((resolve, reject) => {
@@ -47,18 +58,46 @@ function within<T>(promise: Promise<T>, ms: number): Promise<T | typeof TIMEOUT>
   });
 }
 
-async function narratePiper(engine: PiperEngine, text: string, startedAt: number): Promise<NarrateResult> {
+const synthesize = (engine: PiperEngine, text: string): Promise<Audio | null> =>
+  engine.synthesize(text).catch(() => null);
+
+/** Starts generating a line's first chunk without touching the audio session or playing it. */
+export function prepareNarration(text: string): void {
+  const line = spokenText(text);
+  const chunks = narrationChunks(line);
+  const { id } = narratorChoice();
+  const engine = readyEngine(id);
+  if (!engine || chunks.length === 0) {
+    prepared = null;
+    return;
+  }
+  if (prepared?.voiceId === id && prepared.engine === engine && prepared.text === line) return;
+  prepared = { voiceId: id, engine, text: line, chunks, first: synthesize(engine, chunks[0] ?? line) };
+}
+
+async function narratePiper(
+  engine: PiperEngine,
+  chunks: string[],
+  startedAt: number,
+  firstPrepared: Promise<Audio | null> | null,
+): Promise<NarrateResult> {
+  const run: Run = { stopped: false, sources: [] };
+  current = run;
   const ctx = audioContext();
-  if (!ctx) return "skipped";
+  if (!ctx) {
+    if (current === run) current = null;
+    return "skipped";
+  }
   if (ctx.state !== "running") {
     const resumed = ctx.resume().catch(() => undefined); // inside the tap, when there is one
     await within(resumed, RESUME_TIMEOUT_MS);
-    if ((ctx.state as AudioContextState) !== "running") return "failed";
+    if (run.stopped) return "stopped";
+    if ((ctx.state as AudioContextState) !== "running") {
+      if (current === run) current = null;
+      return "failed";
+    }
   }
 
-  const run: Run = { stopped: false, sources: [] };
-  current = run;
-  const sentences = splitSentences(text);
   let at = 0;
   const play = (audio: Audio): Promise<void> => {
     const buffer = ctx.createBuffer(1, audio.samples.length, audio.sampleRate);
@@ -75,26 +114,29 @@ async function narratePiper(engine: PiperEngine, text: string, startedAt: number
     });
   };
 
-  let first: Audio | typeof TIMEOUT;
+  let first: Audio | typeof TIMEOUT | null;
   try {
     first = await within(
-      engine.synthesize(sentences[0] ?? text),
+      firstPrepared ?? synthesize(engine, chunks[0] ?? ""),
       PIPER_START_TIMEOUT_MS - (performance.now() - startedAt),
     );
   } catch {
+    if (current === run) current = null;
     return "skipped";
   }
   if (run.stopped) return "stopped";
-  if (first === TIMEOUT) return "skipped";
+  if (first === TIMEOUT || first === null) {
+    if (current === run) current = null;
+    return "skipped";
+  }
 
-  // Play each sentence while the next one is generated, back to back.
+  // Play each bounded chunk while the next one is generated, back to back.
   let ended = play(first);
-  for (let i = 1; i < sentences.length; i++) {
-    let next: Audio;
-    try {
-      next = await engine.synthesize(sentences[i] ?? "");
-    } catch {
+  for (let i = 1; i < chunks.length; i++) {
+    const next = await synthesize(engine, chunks[i] ?? "");
+    if (!next) {
       await ended;
+      if (current === run) current = null;
       return run.stopped ? "stopped" : "skipped";
     }
     if (run.stopped) return "stopped";
@@ -122,12 +164,18 @@ function stopPiper(): void {
 export async function narrate(text: string): Promise<NarrateResult> {
   const startedAt = performance.now();
   stopPiper();
-  const engine = readyEngine(narratorChoice().id);
-  if (!engine) return "skipped";
-  return narratePiper(engine, spokenText(text), startedAt);
+  const line = spokenText(text);
+  const chunks = narrationChunks(line);
+  const { id } = narratorChoice();
+  const engine = readyEngine(id);
+  if (!engine || chunks.length === 0) return "skipped";
+  const match = prepared?.voiceId === id && prepared.engine === engine && prepared.text === line ? prepared : null;
+  prepared = null;
+  return narratePiper(engine, match?.chunks ?? chunks, startedAt, match?.first ?? null);
 }
 
-/** Stops whatever the narrator is saying. */
+/** Stops whatever the narrator is saying and forgets silent work for a screen that went away. */
 export function stopNarration(): void {
+  prepared = null;
   stopPiper();
 }

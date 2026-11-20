@@ -61,8 +61,8 @@ export function roomByCode(code: string): Promise<RoomResult> {
 export type Room = ApiComponents["schemas"]["Room"];
 export type RoomOptionsPatch = {
   seasons?: number[] | null;
-  timers?: Room["timers"];
   doubleRound?: boolean;
+  quickPicks?: boolean;
 };
 
 /** Changes the room's game options (host only, before Start). The updated room, or null. */

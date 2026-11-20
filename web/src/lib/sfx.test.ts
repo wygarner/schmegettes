@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { setAudioContextForTest } from "./piper/audio";
-import { playBuzz, playCorrect, playDailyDouble, playDoubleRound, playTimesUp, stopEffects } from "./sfx";
+import { playBuzz, playBuzzIn, playCorrect, playDailyDouble, playDoubleRound, playTimesUp, stopEffects } from "./sfx";
 
 // Just enough of an AudioContext to schedule nodes and see what was started and stopped.
 function fakeContext(state: AudioContextState = "running") {
@@ -48,6 +48,7 @@ describe("each sound", () => {
     ["Daily Double", playDailyDouble, 1500],
     ["Double Schmegettes", playDoubleRound, 2500],
     ["buzzer", playBuzz, 200],
+    ["buzz-in", playBuzzIn, 400],
   ] as const)("%s schedules its notes and ends within %i ms", async (_name, play, limit) => {
     const { sources } = fakeContext();
     let done = false;

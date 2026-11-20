@@ -1,8 +1,9 @@
 // Mirrors the server's timings in game/internal/play/game.go; keep the two in sync.
 
-/** The pick reveal: the picked cell blinks, then grows into the category card. The server
- * opens buzzing only after it (play.PickReveal, play.PickBlink). */
-export const PICK_REVEAL_MS = 1500;
+/** The pick reveal: the picked cell blinks (0.6 s), grows into the category card (0.6 s), and
+ * the card holds (1.05 s) so the room can read it. The server opens buzzing only after it
+ * (play.PickReveal, play.PickBlink). */
+export const PICK_REVEAL_MS = 2250;
 export const PICK_BLINK_MS = 600;
 
 /** How long buzzing stays open (and each reopen). */

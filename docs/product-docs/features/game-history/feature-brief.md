@@ -29,7 +29,9 @@ A clue is **seen** by everyone in the game at the moment its text is **revealed*
 
 - The board is built when the host presses **Start**, not when the room is created, because only then do we know who is playing.
 - A board is made of **5 categories** per round. A category is one category from one aired game. A round uses its **first 4 clues** in aired order (the 5th, hardest, is left out), or its 1 clue for Final. A left-out clue is never revealed, so it is never seen. A category is **eligible** only if none of its clues has been seen by any contestant in this game. A host who joined the game is a contestant and counts; a host who only hosts does not.
-- If there are not enough eligible categories to fill a board (rare: the catalog has hundreds of thousands of clues), fill the rest with the categories whose clues were seen **longest ago** by the fewest contestants. The game always starts; we never block play.
+- When the host picked a **difficulty** (Easy, Medium or Hard, not the default Any), every category comes from that level ([clue catalog](../clue-catalog/feature-brief.md#difficulty)), for Single, Double and Final alike. A category not yet rated counts as Medium.
+- If there are not enough eligible categories at that difficulty, fill the rest with eligible categories from the next level over (Easy or Hard take Medium; Medium takes Easy and Hard, at random). A fresh category one level off beats a repeat.
+- If there are still not enough (rare: the catalog has hundreds of thousands of clues), fill the rest with the categories whose clues were seen **longest ago** by the fewest contestants, at any difficulty. The game always starts; we never block play.
 - A **rematch** in the same room builds a new board with the same rules. A room can hold many games.
 
 ### Game history
@@ -54,7 +56,7 @@ A clue is **seen** by everyone in the game at the moment its text is **revealed*
 - Closing or deleting a room never deletes its games.
 - When a player's account is deleted, their results stay on other players' scoreboards as **"Former player"**, and their seen-clue record is deleted.
 - Anonymous players keep their history and seen clues as long as their anonymous account exists. Creating an account or signing in keeps both ([accounts](../accounts/feature-brief.md)). If they clear their browser before signing in, a new anonymous account starts with no history (and may see repeats); this is the expected tradeoff of no-account play.
-- Any cleanup of old anonymous accounts follows the deletion rule above.
+- Anonymous accounts unused for 90 days are deleted by the deletion rule above ([accounts](../accounts/feature-brief.md#what-we-keep-and-for-how-long)). Their games stay; they show as "Former player".
 
 ## Out of scope
 

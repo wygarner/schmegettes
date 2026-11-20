@@ -24,7 +24,7 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 - Two rounds: **Single** (values 200–800) and **Double** (400–1,600). Each has **5 categories** × **4 clues**: the board fills the stage's width, so headers and values stay readable on the host's iPhone. Built at Start ([game history](../game-history/feature-brief.md)).
 - **Control** decides who picks. At the start of the game a random contestant has control. After that, whoever last answered correctly has it. When nobody answers correctly, control stays where it was.
 - Double Schmegettes starts with the contestant who has the **lowest score**. A tie goes to whoever comes first in join order.
-- The player in control picks on their phone, by **tapping** the clue or by **saying it**: they press their **buzzer** and say "Science for 400". On the board, the controller's buzzer is their microphone button; there is no separate one. The phone shows the board as category names and values, never clue text. A voice pick matches the category even with small slips ("sciense") and accepts "$400", "four hundred", or just the category when one clue is left in it. When it can't tell, it says what it missed, and the player can try again or tap.
+- The player in control picks on their phone, by **tapping** the clue or by **saying it**: they press their **buzzer** and say "Science for 400". On the board, the controller's buzzer is their microphone button; there is no separate one. The phone shows the board as category names and values, never clue text. A voice pick matches the category even with small slips ("sciense") and accepts "$400", "four hundred", or just the category when one clue is left in it. With **Quick picks** on ([game options](../lobby/feature-brief.md#game-options)), just the category always works: it picks the **lowest value left** in that category (a Daily Double included, if that's where it is). An amount that was heard always wins: "Opera for 600" with 600 done is "That one's already been played.", never the lowest. When it can't tell, it says what it missed, and the player can try again or tap.
 - **A tapped pick asks for confirmation** ("Volcanoes for $400?" **Pick** / **Cancel**), because a mis-tap on a small board is easy. A spoken pick does not: saying it is already deliberate.
 - **Only the player in control can pick.** The board on the TV is tappable only when the host joined the game and has control; otherwise taps on the TV do nothing. The server enforces this.
 - **Controller gone:** if the player in control is disconnected while the board is up, control passes after **10 s** to the next connected contestant in join order. If they reconnect first, they keep it. The game never picks a clue for anyone.
@@ -32,16 +32,16 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
 ### Reading and buzzing
 
-- **The pick reveal (1.5 s).** When a clue is picked, its cell **blinks** on the TV board (three quick flashes, 0.6 s), then **lifts out of the board and grows into a card** in the middle of the stage showing the category and the value ("VOLCANOES", "$400"), 0.9 s. The card then becomes the clue screen. Nothing is spoken during the reveal, and it never waits on the narrator or the network: it always takes 1.5 s.
+- **The pick reveal (2.25 s).** When a clue is picked, its cell **blinks** on the TV board (three quick flashes, 0.6 s), then **lifts out of the board and grows into a card** in the middle of the stage showing the category and the value ("VOLCANOES", "$400"), 0.6 s, and **holds** there for 1.05 s so the room can read it. The card then becomes the clue screen. Nothing is spoken during the reveal, and it never waits on the narrator or the network: it always takes 2.25 s.
 - The TV then shows the clue full screen and **reads it aloud** in the narrator's voice. There is no spoken announcement ("Here's Volcanoes for 400." is gone): the reveal shows the pick, and the narrator reads only the clue.
-- Buzzing opens when the reading ends. The host device reports the end of speech. If speech fails or stalls, the server opens buzzing anyway after the 1.5 s reveal plus an estimate from the clue's length (about 2.5 words per second plus 1 s, at most 14 s).
+- Buzzing opens when the reading ends. The host device reports the end of speech. If speech fails or stalls, the server opens buzzing anyway after the 2.25 s reveal plus an estimate from the clue's length (about 2.5 words per second plus 1 s, at most 14 s).
 - The buzzer is **dim from the moment of the pick**: a buzz during the reveal is an early buzz, like one during the reading.
 - A **Daily Double** blinks the same way, then shows the Daily Double reveal instead of the card ([wagers](../wagers/feature-brief.md#daily-doubles)).
 
 - **Early buzz:** a buzz before buzzing opens locks that player out for **250 ms**, as on the show. The buzz is not queued.
 - **First valid buzz wins.** The order is the order the server receives buzzes. Phone clocks are never trusted.
-- **Buzz window: 9 s** with Standard timers (15 s Relaxed, 5 s Fast; the host picks in the lobby's [game options](../lobby/feature-brief.md#game-options)). If nobody buzzes, the clue goes unanswered and the TV shows the correct response. Control doesn't change.
-- **The buzzer is always on screen** for every contestant, from the moment they join the lobby to the end of the game. Every view (phone, and the host device when the host plays) uses the same buzzer component. Its state changes at the same moment everywhere: **dim** when buzzing is closed or the clue is being read, **lit** when buzzing opens, **locked** after an early buzz or once that player has answered this clue. A tap on a dim buzzer outside `clue_reading` does nothing and costs nothing, except for the player in control on the board, whose buzzer starts listening for their pick.
+- **Buzz window: 9 s**, the same in every game. If nobody buzzes, the clue goes unanswered and the TV shows the correct response. Control doesn't change.
+- **The buzzer is always on screen** for every contestant, from the moment they join the lobby to the end of the game. The host device is the exception: a playing host's buzzer appears at Start ([lobby](../lobby/feature-brief.md#the-host-who-also-plays)). Every view (phone, and the host device when the host plays) uses the same buzzer component. Its state changes at the same moment everywhere: **dim** when buzzing is closed or the clue is being read, **lit** when buzzing opens, **locked** after an early buzz or once that player has answered this clue. A tap on a dim buzzer outside `clue_reading` does nothing and costs nothing, except for the player in control on the board, whose buzzer starts listening for their pick.
 
 ### The narrator's voice
 
@@ -49,19 +49,19 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
   | Voice | Sounds | License |
   |---|---|---|
-  | **Kristin** (default) | US English, female | Public domain |
-  | **Norman** | US English, male | Public domain |
+  | **Norman** (default) | US English, male | Public domain |
+  | **Kristin** | US English, female | Public domain |
   | **John** | US English, male | Public domain |
 
-- **Downloaded before the game, one kept.** Each voice is about **63 MB**. Kristin starts downloading in the background as soon as the host lobby opens; Norman or John downloads when the host picks it. The browser keeps the voice in use for next time, and only that one: when the host switches, the old voice is removed once the new one is ready.
+- **Downloaded before the game, one kept.** Each voice is about **63 MB**. Norman starts downloading in the background as soon as the host lobby opens; Kristin or John downloads when the host picks it. The browser keeps the voice in use for next time, and only that one: when the host switches, the old voice is removed once the new one is ready.
 - **Start waits for the voice.** Until the picked voice is ready on the host device, **Start** is disabled and shows the progress ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). A failed download says so, with **Try again**. Once a voice has downloaded, later games start at once.
 - **A device that can't run the voices can't host.** The lobby says "This device can't run the Schmegettes narrator. Host from a recent iPhone, iPad or computer." and Start stays disabled.
-- **Reading starts quickly.** The narrator prepares the clue during the 1.5 s pick reveal, so the first word is heard within **1 s** of the clue appearing on the TV.
+- **Reading starts quickly.** The narrator prepares the clue during the 2.25 s pick reveal, so the first word is heard within **1 s** of the clue appearing on the TV.
 - **A line that isn't ready in time** (not started **1.5 s** after it should have, or an error) is **skipped**: the text stays on screen and the game goes on (for a clue, buzzing opens on the server's estimate). The next line tries the voice again. No other voice stands in.
 - **Plays through the silent switch.** On an iPhone or iPad, the narrator is heard with the ring/silent switch on, at media volume, like a video. The volume buttons control it.
 - **It never slows the host's buzzer.** Generating speech must not make the host device's screen or buzzer lag: a host who plays buzzes as quickly as anyone.
 - The host can **change the voice in the lobby** and hear a sample first ([lobby](../lobby/feature-brief.md#the-lobby-host-device--tv)). The same voice speaks every line: clues, Daily Double and Final lines, and the correct response.
-- The choice is **kept on that host device** for every room it hosts until the host changes it. It isn't tied to the host's account and never reaches the server. A device that had picked a built-in voice before this change gets Kristin, without a message.
+- The choice is **kept on that host device** for every room it hosts until the host changes it. It isn't tied to the host's account and never reaches the server. A device where the host never picked a voice gets Norman, including one that has been using Kristin only because she was the default before; it downloads Norman once (Start waits, as for any new voice). A device where the host picked Kristin or John keeps it. A device that had picked a built-in voice before gets Norman, without a message.
 - **Every voice speaks at its normal pace, and buzzing never opens before the reading ends.** There's no speed setting. The server's fallback estimate starts when the clue is picked, so the reveal and the time spent generating speech count against it.
 
 ### Answering and judging
@@ -69,7 +69,7 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 - The winning player's phone (or the host device, when the host buzzed) **starts listening on its own**. The player speaks their answer, with no button to hold. It stops when the player goes quiet or after **9 s**.
 - "What is…" is optional. Judging is generous: small mishearings and transcription slips don't cost points ([product overview](../../architecture/product-overview.md), Principles).
 - **Correct:** the player gains the clue's value and takes control. The TV shows the correct response, and the clue is done.
-- **Answer time: 9 s** with Standard timers (12 s Relaxed, 7 s Fast; [game options](../lobby/feature-brief.md#game-options)). Every "9 s" for answering below means the room's answer time.
+- **Answer time: 9 s**, the same in every game.
 - **Incorrect:** the player loses the clue's value. Buzzing **reopens** for players who haven't tried this clue, with a fresh 9 s window. Each player gets one attempt per clue.
 - **No answer heard** within 9 s counts as incorrect, as on the show, with one exception for disconnects (Fairness below).
 - A clue ends when someone answers correctly, everyone has tried, or a buzz window closes with no buzz. Then the TV shows the correct response: a short sound plays ([sound effects](../sound-effects/feature-brief.md)), the narrator says the line ("Correct, Mauna Loa is the right answer." / "Sorry, we were looking for Mauna Loa."), and **1 s after the line ends** the TV returns to the board. If the host device never reports the end of the line, the board returns **6 s** after the clue ended at the latest. The correct-response screen does not show the clue text.

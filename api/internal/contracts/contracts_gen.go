@@ -268,6 +268,9 @@ type Room struct {
 	HostPlays  bool               `json:"hostPlays"`
 	HostUserId openapi_types.UUID `json:"hostUserId"`
 	MaxPlayers int                `json:"maxPlayers"`
+
+	// QuickPicks Quick picks: a spoken pick of just a category picks the lowest clue left in it
+	QuickPicks bool               `json:"quickPicks"`
 	RoomId     openapi_types.UUID `json:"roomId"`
 
 	// Seasons Seasons boards are built from; null means every season
@@ -363,6 +366,9 @@ type PatchV1RoomsRoomIdJSONBody struct {
 	// DoubleRound false: Final follows the Single board
 	DoubleRound *bool `json:"doubleRound,omitempty"`
 	MaxPlayers  *int  `json:"maxPlayers,omitempty"`
+
+	// QuickPicks Quick picks: a spoken pick of just a category picks the lowest clue left in it
+	QuickPicks *bool `json:"quickPicks,omitempty"`
 
 	// Seasons Seasons to build boards from; null means every season
 	Seasons *[]int `json:"seasons"`

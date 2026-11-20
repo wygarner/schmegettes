@@ -13,6 +13,7 @@ Every board is built from the catalog ([game history](../game-history/feature-br
 | Admin (us) | "I load every season into an environment with one command. Running it again changes nothing." |
 | Host and contestants | "Every clue on the board can be answered from what the TV shows and reads aloud. No missing pictures, no sound cues, no instructions we never saw." |
 | Everyone | "The game never names the show it resembles, not even inside a clue." |
+| Host | "I can pick Easy for a casual group or Hard for trivia regulars, and the board fits." |
 
 ## Rules
 
@@ -43,6 +44,26 @@ Boards are built from whole categories, so a problem with one clue keeps its **w
 - "Names the show" is checked on the word itself, in any form. Ordinary uses ("double jeopardy" in a law category) are dropped too. Losing a handful is cheaper than a miss.
 - Measured on the full load (2026-11-10): **80,835 board categories and 8,801 Finals** (412,976 clues, about 160 MB). That's about 8,800 games before a group runs out of Finals. Left out: 15,534 incomplete, 6,116 with a host note, 3,365 naming the show (mostly on-location video clues), 230 needing sound or a picture.
 
+### Difficulty
+
+Every category that can reach a board carries a **difficulty**: **Easy**, **Medium** or **Hard**. The host can keep a game to one level, and the board is then built from categories with that label; the default, **Any**, uses every category as before ([game options](../lobby/feature-brief.md#game-options), [game history](../game-history/feature-brief.md#building-a-fresh-board)).
+
+- **Whole categories, not clues.** Boards are built from whole categories, so the label belongs to the category. It's judged on what reaches the board: the category name and its first 4 clues with their responses (the Final's 1 clue). The left-out 5th clue doesn't count. Row values still climb within a category, as they always have.
+- **Who decides.** Claude rates each category from its text alone: how likely a typical adult group is to know the responses. Nothing about our players' results, or the original contestants', goes into it.
+- **About a third each.** The labels split the catalog into roughly equal thirds, separately for board categories and for Finals, so every level has tens of thousands of categories (about 27,000 board categories and 2,900 Finals each on the full load).
+- **Labels don't change.** Once a category has a label, it keeps it, so a level means the same thing from one game to the next. A later rating run labels only new categories, on the same scale.
+- **Checked against the show's own order.** Within a category, the show's values climb from the easiest clue to the hardest. Before the labels go live, a sample of clues rated one by one has to show the same climb, and a hand check of 60 categories (20 per level) has to agree with Claude on at least 45. If it doesn't, the rating is redone before any host can pick a level.
+- **Not yet rated** (a category loaded after the last rating run, or every category before the first one) counts as **Medium**, so a game always starts.
+- Nobody sees a category's label: not on the board, the TV, or phones. Players only see the level the host picked, in the lobby.
+
+### Rating (admin)
+
+- Its own run after a load, by an admin only: locally with a `mise` task, and with a **Rate Clues** workflow for staging and production, like **Load Clues** ([deployment](../../system-docs/operations/deployment.md#loading-the-clue-catalog)).
+- Labels every category without one. **Safe to run again**: labelled categories are skipped, and a run stopped partway picks up where it stopped.
+- Category text is sent to Claude to be rated. The catalog's rights decision (above) covers this; nothing about players is sent.
+- Rating while games are in progress doesn't touch them. New labels count from the next **Start**.
+- Each run reports how many categories it labelled at each level, how many failed (retried on the next run), and how many are still unrated.
+
 ### Loading
 
 - One command per environment loads every season, or a chosen list. Only an admin runs it: `mise run clues:import -- --seasons 1-40` locally, the **Load Clues** workflow for staging and production ([deployment](../../system-docs/operations/deployment.md#loading-the-clue-catalog)).
@@ -60,6 +81,8 @@ Unchanged: clue text and responses go only to the host device (the TV), and only
 
 - Showing host notes (a later enhancement would bring back the categories that have them)
 - The special-matches file
-- Difficulty tuning, or filtering out kids/teen tournament games
+- Filtering out kids/teen tournament games
+- Difficulty from play results (ours or the original contestants'), or a difficulty per clue
+- Showing a category's difficulty to players, or scoring a game differently by difficulty
 - An original clue set of our own
 - An admin screen for the catalog, or a way for players to report a broken clue

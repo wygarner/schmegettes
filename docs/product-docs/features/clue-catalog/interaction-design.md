@@ -59,6 +59,25 @@ failed: season 17 (download timed out) - run again to finish
 
 4. Running again loads nothing new for seasons already loaded (0 in **new clues**) and retries the failed ones.
 
+### Rating the catalog (admin)
+
+States of one category:
+
+```text
+unrated (plays as Medium) ──▶ rated Easy | Medium | Hard   (never changes again)
+        │
+        └──▶ failed (stays unrated, retried on the next run)
+```
+
+A run ends with one summary:
+
+```text
+rated   easy     medium   hard     failed   still unrated
+89,636  29,880   29,876   29,880   0        0
+```
+
+Running it again right after rates nothing (`rated 0`).
+
 ### Edge cases
 
 | Situation | What happens |
@@ -67,4 +86,7 @@ failed: season 17 (download timed out) - run again to finish
 | Run stopped partway (laptop closed, deploy) | Seasons that finished stay loaded. Running again finishes the rest. |
 | A game is on the board during a load | Unaffected. Its board was built at Start. |
 | Upstream fixes a clue's text later | Loads as a new clue; its category then has 6 clues and is left out as incomplete. It never reaches a board with a duplicate. |
+| A season is loaded after the catalog was rated | Its categories play as Medium until the next rating run labels them |
+| Claude can't rate a category (error, refusal, unreadable reply) | It stays unrated, plays as Medium, and is counted under **failed**. The next run tries it again. |
+| Rating run stopped partway | Labels already given stay. Running again rates the rest. |
 | The production load is attempted before private access is live | Refused: the loader exits with "private access is not live" when the database has no `public.hosts` ([feature brief](./feature-brief.md#source)). |

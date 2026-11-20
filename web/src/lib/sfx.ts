@@ -178,6 +178,20 @@ export function playBuzz(): Promise<void> {
   ]);
 }
 
+/** On the TV when a player wins the buzz: a bright electronic buzz, clearly not the thunk. */
+export function playBuzzIn(): Promise<void> {
+  return play(0.36, (ctx, out, at) => {
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(3200, at);
+    filter.connect(out);
+    return [
+      tone(ctx, filter, { type: "square", freq: 523.25, at, attack: 0.005, length: 0.32, peak: 0.22, detune: -6 }),
+      tone(ctx, filter, { type: "sawtooth", freq: 784, at, attack: 0.005, length: 0.32, peak: 0.16, detune: 6 }),
+    ];
+  });
+}
+
 /** Stops every effect that's playing (the host device paused). */
 export function stopEffects(): void {
   for (const p of [...playing]) p.stop();

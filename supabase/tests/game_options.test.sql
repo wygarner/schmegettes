@@ -1,9 +1,9 @@
--- Game options in the lobby: seasons, timers, Double Schmegettes. Run with `mise run db:test`.
+-- Game options in the lobby: seasons, Double Schmegettes, Quick picks (timers are always Standard). Run with `mise run db:test`.
 -- Rules: docs/product-docs/features/lobby/feature-brief.md, "Game options". Users act as
 -- authenticated with request.jwt.claims; Start runs as game_engine, as game/ calls it.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(22);
 
 grant game_engine to current_user;
 grant usage on schema extensions to game_engine;
@@ -67,12 +67,31 @@ select lives_ok(
 );
 select is(
   (select array[timers::text, double_round::text, seasons::text, max_players::text] from public.rooms where id = tests.room()),
-  array['fast', 'false', '{38}', '6'], 'options saved; max players untouched'
+  array['standard', 'false', '{38}', '6'], 'options saved; a timer pace is ignored (always Standard); max players untouched'
 );
 select lives_ok(
   $$ select public.set_room_options(tests.room(), false, null, null, null, null) $$,
   'nulls leave everything as it is'
 );
+select is(
+  (select quick_picks from public.rooms where id = tests.room()), false, 'Quick picks is off by default'
+);
+select lives_ok(
+  $$ select public.set_room_options(tests.room(), false, null, null, null, null, true) $$,
+  'the host turns Quick picks on'
+);
+select is(
+  (select quick_picks from public.rooms where id = tests.room()), true, 'Quick picks saved'
+);
+select lives_ok(
+  $$ select public.set_room_options(tests.room(), false, null, null, true, null) $$,
+  'the 6-argument call (the api before quickPicks) still works'
+);
+select ok(
+  (select quick_picks and double_round from public.rooms where id = tests.room()),
+  'and leaves Quick picks as it was'
+);
+select public.set_room_options(tests.room(), false, null, null, false, null);
 select is(
   (select seasons from public.rooms where id = tests.room()), '{38}'::integer[], 'seasons kept when not set'
 );
@@ -97,6 +116,10 @@ select throws_ok(
   $$ update public.rooms set timers = 'relaxed' where id = tests.room() $$,
   '42501', null, 'nor write the room directly'
 );
+select throws_ok(
+  $$ select public.set_room_options(tests.room(), false, null, null, null, null, false) $$,
+  '42501', 'not the host', 'a contestant can''t turn Quick picks off'
+);
 
 -- ---------------------------------------------------------------------------
 -- Start copies them onto the game; Double off builds no Double board
@@ -105,8 +128,8 @@ select tests.as_engine();
 select set_config('tests.game', public.start_game(tests.room())::text, true);
 reset role;
 select is(
-  (select array[timers::text, double_round::text] from public.games where id = current_setting('tests.game')::uuid),
-  array['fast', 'false'], 'the game keeps the options it started with'
+  (select array[timers::text, double_round::text, quick_picks::text] from public.games where id = current_setting('tests.game')::uuid),
+  array['standard', 'false', 'true'], 'the game keeps the options it started with, Quick picks included'
 );
 select is(
   (select count(*)::integer from public.board_clues where game_id = current_setting('tests.game')::uuid and round = 'double'),
@@ -130,11 +153,11 @@ select throws_ok(
 reset role;
 
 select function_privs_are(
-  'public', 'set_room_options', array['uuid', 'boolean', 'integer[]', 'timer_pace', 'boolean', 'integer'],
+  'public', 'set_room_options', array['uuid', 'boolean', 'integer[]', 'timer_pace', 'boolean', 'integer', 'boolean'],
   'anon', array[]::text[], 'anon can''t set options'
 );
 select function_privs_are(
-  'public', 'set_room_options', array['uuid', 'boolean', 'integer[]', 'timer_pace', 'boolean', 'integer'],
+  'public', 'set_room_options', array['uuid', 'boolean', 'integer[]', 'timer_pace', 'boolean', 'integer', 'boolean'],
   'authenticated', array['EXECUTE'], 'signed-in users can call it (the host check is inside)'
 );
 

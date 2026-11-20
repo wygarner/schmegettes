@@ -875,6 +875,8 @@ export interface paths {
                         timers?: components["schemas"]["TimerPace"];
                         /** @description false: Final follows the Single board */
                         doubleRound?: boolean;
+                        /** @description Quick picks: a spoken pick of just a category picks the lowest clue left in it */
+                        quickPicks?: boolean;
                     };
                 };
             };
@@ -1111,6 +1113,8 @@ export interface components {
             timers: components["schemas"]["TimerPace"];
             /** @description Play the Double Schmegettes board; false: Final follows Single */
             doubleRound: boolean;
+            /** @description Quick picks: a spoken pick of just a category picks the lowest clue left in it */
+            quickPicks: boolean;
         };
         /** @description Trimmed by the server; must not be blank */
         DisplayName: string;

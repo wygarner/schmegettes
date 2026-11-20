@@ -11,7 +11,10 @@ import {
   Text,
   TextInput,
   Title,
+  Tooltip,
+  UnstyledButton,
 } from "@mantine/core";
+import { useReducedMotion } from "@mantine/hooks";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
@@ -20,7 +23,6 @@ import { HostGame } from "../game/HostGame";
 import { HostLayout } from "../game/HostLayout";
 import { MicGate } from "../game/MicGate";
 import { NarratorVoicePicker, useNarratorStatus } from "../game/NarratorVoicePicker";
-import { PlayerControls } from "../game/PlayerControls";
 import { isValidName, MAX_NAME, setLastName } from "../lib/displayName";
 import {
   DEFAULT_OPTIONS,
@@ -122,8 +124,8 @@ function useGameOptions(room: RoomJoin): [GameOptions, (next: GameOptions) => vo
       saveOptions(next);
       void updateRoomOptions(roomId, {
         seasons: seasonList(next.seasons),
-        timers: next.timers,
         doubleRound: next.doubleRound,
+        quickPicks: next.quickPicks,
       }).then((updated) => setOptions(updated ? fromRoom(updated) : fromRoom(room.room)));
     },
     [roomId, room.room],
@@ -173,13 +175,17 @@ export function HostLobbyView({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [starting, setStarting] = useState(false);
-  // Join the game asks for the host device's microphone first (nobody plays without it).
+  // Join asks for the host device's microphone first (nobody plays without it).
   const [askingMic, setAskingMic] = useState(false);
   const joinGame = useCallback(() => {
     setAskingMic(false);
     send({ type: "set_host_plays", plays: true });
   }, [send]);
   const narrator = useNarratorStatus();
+  // The player list starts folded into a tab every time the lobby opens (not remembered), so
+  // the code gets the stage's full width. A join while folded flashes the tab.
+  const [folded, setFolded] = useState(true);
+  const flash = useJoinFlash(state.players.length, folded);
 
   // A Start press ends when the phase moves on or the server answers with an error.
   useEffect(() => {
@@ -309,7 +315,7 @@ export function HostLobbyView({
           </Text>
         )}
         {summary(options) && (
-          <Text c={SOFT} aria-label="Game options" style={{ fontSize: "clamp(10px, 4.5cqh, 18px)" }}>
+          <Text c={SOFT} aria-label="Game options in use" style={{ fontSize: "clamp(10px, 4.5cqh, 18px)" }}>
             {summary(options)}
           </Text>
         )}
@@ -339,7 +345,7 @@ export function HostLobbyView({
             disabled={!state.hostPlays && full}
             onClick={() => (state.hostPlays ? send({ type: "set_host_plays", plays: false }) : setAskingMic(true))}
           >
-            {state.hostPlays ? "Leave the game" : "Join the game"}
+            {state.hostPlays ? "Leave" : "Join"}
           </Button>
           {!state.hostPlays && full && (
             <Text size="sm" c={SOFT}>
@@ -350,12 +356,23 @@ export function HostLobbyView({
             {askingMic && <MicGate host onGranted={joinGame} onLeave={() => setAskingMic(false)} />}
           </Sheet>
         </Stack>
-        <NarratorVoicePicker />
-        {onOptions && (
-          <Button variant="subtle" color="mauve.1" size="compact-sm" onClick={() => setOptionsOpen(true)}>
-            ⚙ Options
-          </Button>
-        )}
+        <Group gap={4} wrap="nowrap">
+          <NarratorVoicePicker />
+          {onOptions && (
+            <Tooltip label="Game options">
+              <ActionIcon
+                variant="subtle"
+                color="mauve.1"
+                size={44}
+                aria-label="Game options"
+                onClick={() => setOptionsOpen(true)}
+                style={{ fontSize: 22 }}
+              >
+                ⚙
+              </ActionIcon>
+            </Tooltip>
+          )}
+        </Group>
         {onOptions && (
           <GameOptionsSheet
             opened={optionsOpen}
@@ -365,11 +382,6 @@ export function HostLobbyView({
           />
         )}
         <Group gap="xs" wrap="nowrap" align="center">
-          {!enoughPlayers && (
-            <Text size="sm" c={SOFT}>
-              Need at least 1 player
-            </Text>
-          )}
           {enoughPlayers && voiceFailed && (
             <Group gap={6} wrap="nowrap">
               <Text size="sm" c="red.3">
@@ -396,27 +408,115 @@ export function HostLobbyView({
     </Stage>
   );
 
-  const column = (
-    <>
-      {state.resume ? <ResumePlayers resume={state.resume} /> : <LobbyPlayers state={state} count={count} />}
-      {state.hostPlays && (
-        <PlayerControls state={state} userId={state.hostUserId} send={send} compact spaceToBuzz buzzerHeight={64} />
-      )}
-    </>
+  // No buzzer on the host device in the lobby, even after Join: it appears with the player
+  // column at Start (lobby interaction design).
+  const shown = state.resume ? state.resume.players.filter((p) => p.back).length : count;
+  const total = state.resume ? state.resume.players.length : state.maxPlayers;
+  const column = folded ? (
+    <PlayersTab count={shown} total={total} flash={flash} onOpen={() => setFolded(false)} />
+  ) : state.resume ? (
+    <ResumePlayers resume={state.resume} onFold={() => setFolded(true)} />
+  ) : (
+    <LobbyPlayers state={state} count={count} onFold={() => setFolded(true)} />
   );
 
-  return <HostLayout stage={stage} column={column} />;
+  return <HostLayout stage={stage} column={column} narrow={folded} />;
+}
+
+const FLASH_MS = 600;
+
+/** True for 0.6 s after a player joins while the list is folded (never with reduced motion). */
+function useJoinFlash(players: number, folded: boolean): boolean {
+  const reduced = useReducedMotion();
+  const [flash, setFlash] = useState(false);
+  const last = useRef(players);
+  useEffect(() => {
+    const joined = players > last.current;
+    last.current = players;
+    if (!joined || !folded || reduced) return;
+    setFlash(true);
+    const t = setTimeout(() => setFlash(false), FLASH_MS);
+    return () => clearTimeout(t);
+  }, [players, folded, reduced]);
+  return flash;
+}
+
+/** The folded player list: a slim full-height tab on the right edge; a tap opens the list. */
+function PlayersTab({
+  count,
+  total,
+  flash,
+  onOpen,
+}: {
+  count: number;
+  total: number;
+  flash: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <UnstyledButton
+      onClick={onOpen}
+      aria-expanded={false}
+      aria-label={`Show players (${count} of ${total})`}
+      style={{
+        flex: 1,
+        minHeight: 0,
+        borderRadius: 8,
+        background: flash ? "var(--mantine-color-green-4)" : TILE_BG,
+        boxShadow: BEVEL,
+        color: flash ? "var(--mantine-color-mauve-9)" : "#fff",
+        transition: `background ${FLASH_MS / 2}ms, color ${FLASH_MS / 2}ms`,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        fontWeight: 700,
+      }}
+    >
+      <span style={{ writingMode: "vertical-rl", letterSpacing: ".08em", fontSize: 13 }}>Players</span>
+      <span style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
+        {count}/{total}
+      </span>
+    </UnstyledButton>
+  );
+}
+
+/** The open list's header: "Players 3 / 6 ›"; a tap folds the list again. */
+function FoldHeader({ children, onFold }: { children: ReactNode; onFold: () => void }) {
+  return (
+    <UnstyledButton
+      onClick={onFold}
+      aria-expanded
+      aria-label="Hide players"
+      px={2}
+      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#fff" }}
+    >
+      <Text fw={700} component="span">
+        {children}
+      </Text>
+      <Text fw={700} component="span" aria-hidden fz={20} lh={1}>
+        ›
+      </Text>
+    </UnstyledButton>
+  );
 }
 
 /** The lobby's player list: join order, connected dot, HOST chip, "(reconnecting)". */
-function LobbyPlayers({ state, count }: { state: RoomState; count: number }) {
+function LobbyPlayers({ state, count, onFold }: { state: RoomState; count: number; onFold?: () => void }) {
   return (
     <>
-      <Group justify="space-between" px={2} wrap="nowrap">
-        <Text fw={700}>
+      {onFold ? (
+        <FoldHeader onFold={onFold}>
           Players {count} / {state.maxPlayers}
-        </Text>
-      </Group>
+        </FoldHeader>
+      ) : (
+        <Group justify="space-between" px={2} wrap="nowrap">
+          <Text fw={700}>
+            Players {count} / {state.maxPlayers}
+          </Text>
+        </Group>
+      )}
       <Box style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         {state.players.length === 0 ? (
           <Text c={SOFT} ta="center" mt="md" className="sg-blink">
@@ -536,13 +636,13 @@ function CodeTiles({ code }: { code: string }) {
 }
 
 /** A resume lobby's players: the game's contestants with their scores, dimmed until back. */
-function ResumePlayers({ resume }: { resume: ResumeLobby }) {
+function ResumePlayers({ resume, onFold }: { resume: ResumeLobby; onFold: () => void }) {
   const back = resume.players.filter((p) => p.back).length;
   return (
     <>
-      <Text fw={700} px={2}>
+      <FoldHeader onFold={onFold}>
         Players {back} / {resume.players.length}
-      </Text>
+      </FoldHeader>
       <ol
         aria-label="Players"
         style={{ display: "flex", flexDirection: "column", gap: 4, listStyle: "none", margin: 0, padding: 0 }}

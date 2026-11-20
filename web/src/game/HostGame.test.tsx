@@ -1,7 +1,7 @@
 import { MantineProvider } from "@mantine/core";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { type NarrateResult, narrate } from "../lib/narrator";
+import { type NarrateResult, narrate, prepareNarration, stopNarration } from "../lib/narrator";
 import { saveVoice } from "../lib/narratorVoice";
 import { prepareVoice } from "../lib/piper/engine";
 import { initialRoom, type RoomState } from "../lib/room";
@@ -13,7 +13,7 @@ import { PICK_BLINK_MS, PICK_REVEAL_MS } from "./timing";
 // The Schmegettes voices download from the network; here the narrator is a fake whose lines
 // the tests end by hand: onend (the room heard it), onerror (sound blocked), skip (not ready).
 vi.mock("../lib/piper/engine", () => ({ prepareVoice: vi.fn(async () => false), readyEngine: vi.fn(() => null) }));
-vi.mock("../lib/narrator", () => ({ narrate: vi.fn(), stopNarration: vi.fn() }));
+vi.mock("../lib/narrator", () => ({ narrate: vi.fn(), prepareNarration: vi.fn(), stopNarration: vi.fn() }));
 
 interface Line {
   text: string;
@@ -25,6 +25,8 @@ interface Line {
 let spoken: Line[];
 beforeEach(() => {
   spoken = [];
+  vi.mocked(prepareNarration).mockClear();
+  vi.mocked(stopNarration).mockClear();
   vi.mocked(narrate).mockImplementation(
     (text: string) =>
       new Promise<NarrateResult>((resolve) => {
@@ -163,6 +165,15 @@ test("a skipped line (voice not ready in time) reports nothing and asks for no t
   expect(screen.queryByRole("button", { name: "Tap to turn on sound" })).toBeNull();
 });
 
+test("pausing stops narration and resume reads the clue again", () => {
+  const { update } = showHost(state);
+  expect(spoken.map((line) => line.text)).toEqual(["THIS GAS"]);
+  update({ ...state, paused: true });
+  expect(stopNarration).toHaveBeenCalled();
+  update({ ...state, paused: false });
+  expect(spoken.map((line) => line.text)).toEqual(["THIS GAS", "THIS GAS"]);
+});
+
 const board = [{ clueId: "c2", category: "OPERA", value: 200, state: "unplayed" as const }];
 const players = [
   { userId: "a", displayName: "Alice", role: "contestant" as const, score: 0, connected: true },
@@ -258,7 +269,11 @@ test("a Daily Double: the reveal, the wager, then the clue read with the wager",
   await waitFor(() => expect(spoken.map((u) => u.text)).toEqual(["It's a Daily Double."]));
   update({ ...dd, wager: 1000 });
   expect(screen.getByText("Alice wagers $1,000")).toBeInTheDocument();
-  update({ ...dd, phase: "clue_reading", wager: 1000, activeClue: { ...ddClue, clueText: "THIS GAS" } });
+  const wagered = { ...dd, wager: 1000, activeClue: { ...ddClue, clueText: "THIS GAS" } };
+  update(wagered);
+  expect(prepareNarration).toHaveBeenLastCalledWith("For 1000, here's the clue. THIS GAS");
+  expect(spoken.at(-1)?.text).toBe("It's a Daily Double.");
+  update({ ...wagered, phase: "clue_reading" });
   expect(spoken.at(-1)?.text).toBe("For 1000, here's the clue. THIS GAS");
   expect(screen.getByText(/DD \$1,000/)).toBeInTheDocument();
 });
@@ -286,6 +301,7 @@ test("Final: the category is announced and reported; the clue is read once", asy
   };
   update(answering);
   expect(screen.getByLabelText("Clue")).toHaveTextContent("THIS VOLCANO");
+  expect(prepareNarration).toHaveBeenLastCalledWith("THIS VOLCANO");
   update({ ...answering, deadlineAt: 999 }); // the answer window opens: no second reading
   expect(spoken.map((u) => u.text)).toEqual(["The Final Schmegettes category is: ISLANDS.", "THIS VOLCANO"]);
 });
@@ -515,12 +531,12 @@ test("the host device gets the Schmegettes voice ready in the background (after 
       <HostGame state={state} send={vi.fn()} hostUserId="host" />
     </MantineProvider>,
   );
-  expect(prepareVoice).toHaveBeenCalledWith("kristin");
+  expect(prepareVoice).toHaveBeenCalledWith("norman");
   // The line didn't wait for it: the narrator was asked at once (and skips it if not ready).
   expect(spoken.map((u) => u.text)).toEqual(["THIS GAS"]);
 });
 
-test("a host who picked a built-in voice before gets Kristin", () => {
+test("a host who picked a built-in voice before gets Norman", () => {
   vi.mocked(prepareVoice).mockClear();
   saveVoice("com.apple.voice.premium.en-US.Ava");
   render(
@@ -528,7 +544,7 @@ test("a host who picked a built-in voice before gets Kristin", () => {
       <HostGame state={state} send={vi.fn()} hostUserId="host" />
     </MantineProvider>,
   );
-  expect(prepareVoice).toHaveBeenCalledWith("kristin");
+  expect(prepareVoice).toHaveBeenCalledWith("norman");
   window.localStorage.clear();
 });
 
@@ -537,6 +553,7 @@ test("the sting plays before the correct response is read", async () => {
   const sting = vi.spyOn(sfx, "playCorrect").mockReturnValue(new Promise<void>((r) => (end = r)));
   showHost({ ...state, phase: "answering", clueEnd: { state: "answered", correctResponse: "Nitrogen" } });
   expect(sting).toHaveBeenCalled();
+  expect(prepareNarration).toHaveBeenLastCalledWith("Correct, Nitrogen is the right answer.");
   expect(spoken.map((u) => u.text)).not.toContain("Correct, Nitrogen is the right answer.");
   end();
   await waitFor(() => expect(spoken.at(-1)?.text).toBe("Correct, Nitrogen is the right answer."));
@@ -565,6 +582,41 @@ test("nobody got it: the time's-up tone; Final gets no sound", async () => {
   correct.mockRestore();
 });
 
+describe("the buzz-in sound", () => {
+  const open: RoomState = { ...state, phase: "buzzing_open" };
+  const won: RoomState = { ...state, phase: "answering", answeringUserId: "a" };
+
+  test("plays once when a player wins the buzz, and again for the next winner", () => {
+    const buzzIn = vi.spyOn(sfx, "playBuzzIn");
+    const { update } = showHost(open);
+    expect(buzzIn).not.toHaveBeenCalled();
+    update(won);
+    expect(buzzIn).toHaveBeenCalledTimes(1);
+    update({ ...won, liveText: "nitro" });
+    expect(buzzIn).toHaveBeenCalledTimes(1);
+    // Wrong: buzzing reopens silently; the next winner gets it again.
+    update({ ...open, attemptedUserIds: ["a"] });
+    expect(buzzIn).toHaveBeenCalledTimes(1);
+    update({ ...won, answeringUserId: "b", attemptedUserIds: ["a"] });
+    expect(buzzIn).toHaveBeenCalledTimes(2);
+    buzzIn.mockRestore();
+  });
+
+  test("not on a reload straight into answering, a Daily Double, or while paused", () => {
+    const buzzIn = vi.spyOn(sfx, "playBuzzIn");
+    const reload = showHost(won);
+    reload.update({ ...won, liveText: "nitro" });
+    cleanup();
+    const dd = showHost({ ...state, phase: "clue_reading", wager: 500 });
+    dd.update({ ...won, wager: 500 });
+    cleanup();
+    const paused = showHost(open);
+    paused.update({ ...won, paused: true });
+    expect(buzzIn).not.toHaveBeenCalled();
+    buzzIn.mockRestore();
+  });
+});
+
 test("Double Schmegettes! gets its fanfare once", () => {
   const fanfare = vi.spyOn(sfx, "playDoubleRound");
   const intro: RoomState = { ...state, phase: "board", activeClue: undefined, roundIntro: "double" };
@@ -586,6 +638,7 @@ test("the pick reveal: blink, then the card, then the clue is read (no announcem
     expect(screen.getByRole("button", { name: "SCIENCE 400, done" })).toHaveTextContent("400");
     expect(screen.queryByLabelText("Clue")).toBeNull();
     expect(spoken).toHaveLength(0);
+    expect(prepareNarration).toHaveBeenCalledWith("THIS GAS");
 
     act(() => vi.advanceTimersByTime(PICK_BLINK_MS));
     expect(screen.getByRole("img", { name: "SCIENCE for $400" })).toBeInTheDocument();
@@ -594,6 +647,26 @@ test("the pick reveal: blink, then the card, then the clue is read (no announcem
     act(() => vi.advanceTimersByTime(PICK_REVEAL_MS - PICK_BLINK_MS));
     expect(screen.getByLabelText("Clue")).toHaveTextContent("THIS GAS");
     expect(spoken.map((u) => u.text)).toEqual(["THIS GAS"]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("leaving a reveal forgets its silent preparation", () => {
+  vi.useFakeTimers();
+  try {
+    const picked: RoomState = {
+      ...state,
+      board: [{ ...clue, state: "active" }],
+      reveal: { clueId: "c1", kind: "card" },
+    };
+    const { update } = showHost(picked);
+    expect(prepareNarration).toHaveBeenCalledWith("THIS GAS");
+    vi.mocked(stopNarration).mockClear();
+    update({ ...onBoard });
+    expect(stopNarration).toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(PICK_REVEAL_MS));
+    expect(spoken).toHaveLength(0);
   } finally {
     vi.useRealTimers();
   }

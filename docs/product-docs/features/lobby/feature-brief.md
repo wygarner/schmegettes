@@ -25,7 +25,7 @@ Every game starts with one person pressing **Host a game** on the device that wi
 
 ### Creating a room
 
-- **Host a game** asks "What's your name?" (prefilled), then creates the room with up to 6 contestants (also the maximum) and the [game options](#game-options) this device used last (every season, Medium difficulty and Double Schmegettes on, the first time). The host lands on the lobby showing the new code.
+- **Host a game** asks "What's your name?" (prefilled), then creates the room with up to 6 contestants (also the maximum) and the [game options](#game-options) this device used last (every season, any difficulty and Double Schmegettes on, the first time). The host lands on the lobby showing the new code.
 - The device that pressed it is the **host device**. It shows the TV view and controls Start. It plays only if the host joins the game (below).
 - No account is needed. If the device has no session, it signs in anonymously first, without showing anything. Hosting is invite-only: a device without host access enters a one-use host code first ([private access](../private-access/feature-brief.md)). Joining stays anonymous.
 - **Room codes**: 5 characters made of letters and digits, with look-alikes (`0 O 1 I L`) left out so a code read off a TV is never ambiguous. Codes are unique among rooms that aren't closed.
@@ -70,7 +70,7 @@ The host sets how the game plays before Start. **Options** in the lobby opens a 
 | Option | Choices | Default |
 |---|---|---|
 | **Seasons** | A range of seasons, from 1 (1984) to 40 (2024), at least one season | All (1–40) |
-| **Difficulty** | **Easy**, **Medium** or **Hard**: which categories the boards and the Final are built from ([clue catalog](../clue-catalog/feature-brief.md#difficulty)) | Medium |
+| **Difficulty** | **Any**, **Easy**, **Medium** or **Hard**. Any uses every category, as before; a level keeps to the categories the boards and the Final are built from ([clue catalog](../clue-catalog/feature-brief.md#difficulty)) | Any |
 | **Double Schmegettes** | On / Off. Off: Final Schmegettes follows the Single board | On |
 | **Quick picks** | On / Off. On: a spoken pick of just a category picks the lowest clue left in it ([gameplay](../gameplay/feature-brief.md#the-board-and-control)) | Off |
 
@@ -80,7 +80,7 @@ The host sets how the game plays before Start. **Options** in the lobby opens a 
 - **There's no timer option.** Every game gives 9 s to buzz in and 9 s to answer ([gameplay](../gameplay/feature-brief.md#reading-and-buzzing)). A device or room that saved Relaxed or Fast from before plays with these times; a game already in progress, or one resumed later, keeps the times it started with.
 - Seasons narrow which clues the board is built from. A narrow range can run out of fresh categories sooner; the board then falls back to the least-recently-seen ones, as it always does ([game history](../game-history/feature-brief.md#building-a-fresh-board)). The game always starts.
 - Difficulty changes only which categories reach the board. Values, Daily Doubles, timers and scoring are the same at every level. Together with a narrow Seasons range, a level can run out of fresh categories sooner; the board then takes fresh ones from the next level over before repeating any ([game history](../game-history/feature-brief.md#building-a-fresh-board)). The game always starts.
-- A room or device that saved its options before Difficulty existed plays Medium.
+- A room or device that saved its options before Difficulty existed plays Any.
 - With Double Schmegettes off, the game has one board with its 1 Daily Double, then Final.
 - **Quick picks** changes only spoken picks that name a category without an amount. Taps, and spoken picks with an amount, work as always. It's off by default because a spoken pick has no confirmation: with it on, an amount the microphone missed ("Opera for… 600" heard as "Opera") picks the lowest clue instead of asking again.
 

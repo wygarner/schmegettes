@@ -99,8 +99,8 @@ Rules: [lobby feature brief](./feature-brief.md#game-options).
 ┌────────────────────── Game options ─────────────────────┐
 │  Seasons        1984 ●━━━━━━━━━━━━━━━━━━━━━━━● 2024      │
 │                 Seasons 1–40 (all)                      │
-│  Difficulty     ( Easy | Medium | Hard )                │
-│                 A mix most groups will enjoy            │
+│  Difficulty     ( Any | Easy | Medium | Hard )          │
+│                 Every category, easy to hard            │
 │  Double         [■■ On ]  Two boards, then Final        │
 │  Schmegettes                                            │
 │                                                         │
@@ -110,7 +110,7 @@ Rules: [lobby feature brief](./feature-brief.md#game-options).
 ```
 
 - **Seasons:** a two-handle range slider, ticks per season, labeled with years at the ends and the range as text below ("Seasons 20–40 · 2003–2024"). The handles can meet (one season) but not cross.
-- **Difficulty:** a three-way segmented control, Medium selected by default. The line below describes the choice: "Clues most people know" (Easy), "A mix most groups will enjoy" (Medium), "For trivia regulars" (Hard). The line under the code says "Easy" or "Hard"; Medium, the default, isn't listed.
+- **Difficulty:** a four-way segmented control, Any selected by default. The line below describes the choice: "Every category, easy to hard" (Any), "Clues most people know" (Easy), "A mix most groups will enjoy" (Medium), "For trivia regulars" (Hard). The line under the code names the level ("Easy", "Medium" or "Hard"); Any, the default, isn't listed.
 - **Double Schmegettes:** a switch. The line beside it says "Two boards, then Final" or "One board, then Final".
 - **Quick picks:** a switch, off by default. The line beside it says "Say the category and amount" (off) or "Just the category picks its lowest clue" (on).
 - Changes apply as they're made; **Done** or a tap outside closes the sheet. The line under the code updates live.
@@ -209,7 +209,7 @@ When the host joined, their controls live in the **player column** on the right 
 | Host changes the options, then a player joins | Nothing changes for the player; options are shown only on the TV |
 | Host picks a one-season range | Allowed. The board falls back to least-recently-seen categories if fresh ones run out |
 | Host picks Hard with a one-season range | Allowed. Fresh Hard categories first, then fresh Medium ones, then the least-recently-seen at any level |
-| A device or room saved options before Difficulty existed | Opens with Medium |
+| A device or room saved options before Difficulty existed | Opens with Any |
 | Host resumes an abandoned game | Its boards were built at Start; the difficulty it started with stands |
 | Rematch | The room's options carry over; the host can change them before Start |
 | Host presses Start while a player is mid-join | Whoever has finished joining when the server handles Start is in. The rest see "This game has already started." |

@@ -46,7 +46,7 @@ Boards are built from whole categories, so a problem with one clue keeps its **w
 
 ### Difficulty
 
-Every category that can reach a board carries a **difficulty**: **Easy**, **Medium** or **Hard**. The host picks one for the game ([game options](../lobby/feature-brief.md#game-options)), and the board is built from categories with that label ([game history](../game-history/feature-brief.md#building-a-fresh-board)).
+Every category that can reach a board carries a **difficulty**: **Easy**, **Medium** or **Hard**. The host can keep a game to one level, and the board is then built from categories with that label; the default, **Any**, uses every category as before ([game options](../lobby/feature-brief.md#game-options), [game history](../game-history/feature-brief.md#building-a-fresh-board)).
 
 - **Whole categories, not clues.** Boards are built from whole categories, so the label belongs to the category. It's judged on what reaches the board: the category name and its first 4 clues with their responses (the Final's 1 clue). The left-out 5th clue doesn't count. Row values still climb within a category, as they always have.
 - **Who decides.** Claude rates each category from its text alone: how likely a typical adult group is to know the responses. Nothing about our players' results, or the original contestants', goes into it.

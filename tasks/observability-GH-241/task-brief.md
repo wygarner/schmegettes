@@ -19,16 +19,23 @@ With no exporter configured (local dev and tests), nothing is exported and nothi
 
 **Worker:** no worker process is deployed today. The worker runs only as GitHub Actions jobs (Load Clues, Rate Clues), whose logs GitHub keeps. Telemetry for a deployed worker is deferred to when one exists; `observability.md` says so. That's the only part of the brief's "api, game, and worker" not built here.
 
-## Decisions needed (before implementation starts)
+## Decisions (Wyatt Garner, 2026-11-20)
 
-1. **Terraform state backend.** Recommended: an HCP Terraform free workspace, which needs no money and no state on a laptop. Alternative: an S3-compatible bucket in the backup account the `backups-and-restore` task creates, which ties this task to that one. Wyatt picks; the spec assumes HCP Terraform.
-2. **Create the stack.** Create the Schmegettes Grafana Cloud stack (free tier) and create, as GitHub Environment secrets on `staging` and `production`:
-   - an access-policy token for OTLP write (`OTEL_EXPORTER_OTLP_HEADERS`);
-   - a Faro app collector URL (`VITE_FARO_URL`, not secret);
-   - a service-account token for Terraform (`GRAFANA_TF_TOKEN`, repo secret);
-   - a Synthetic Monitoring token (`GRAFANA_SM_TOKEN`).
-   
-   An operator does this once; the implementation PR lists the exact names in `configuration-and-secrets.md`.
+1. **Terraform state backend: an HCP Terraform free workspace.** No cost and no state on a laptop. The workspace runs in **local execution mode**: GitHub Actions runs `terraform plan` and `apply`, and HCP Terraform only stores state and locks it. `ops/grafana/` declares it with a `cloud {}` block (organization and workspace named in the block, no secrets). The bucket in the backup account was rejected because it would tie this task to `backups-and-restore`.
+2. **A separate Schmegettes Grafana Cloud stack** (free tier), not `celeronsolutions` (recorded in the product brief).
+
+## Operator setup (Wyatt, once, before implementation starts)
+
+1. Create the Schmegettes Grafana Cloud stack.
+2. Create an HCP Terraform organization and a workspace for `ops/grafana/` (execution mode: local), and a team or user API token for CI.
+3. Add these secrets and variables:
+   - `OTEL_EXPORTER_OTLP_HEADERS` (secret, GitHub Environments `staging` and `production`): an access-policy token with OTLP write
+   - `VITE_FARO_URL` (variable, both GitHub Environments): the Faro app's collector URL. Not secret
+   - `GRAFANA_TF_TOKEN` (repo secret): a service-account token for Terraform
+   - `GRAFANA_SM_TOKEN` (repo secret): a Synthetic Monitoring token
+   - `TF_API_TOKEN` (repo secret): the HCP Terraform API token
+
+The implementation PR records the exact names, and how to rotate each, in `configuration-and-secrets.md`. Until the setup is done, the services and web app run as today: no exporter configured means nothing is exported and nothing fails.
 
 ## Subtasks (narrow → wide)
 
@@ -140,3 +147,7 @@ None.
 ## Docs to update
 
 As in subtask 7.
+
+## Branch
+
+`technical-improvement/GH-241-observability`, from and into `develop`.

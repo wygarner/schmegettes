@@ -4,6 +4,8 @@
 
 There is no remote play: a player has to see the TV to play.
 
+Players reach the game at **schmegettes.app**; phones join at `schmegettes.app/join`.
+
 > Status: this overview reflects the earlier prototype (`wygarner/Schmegettes`) and the bootstrap decisions. `/product` owns it and should refine it before the first feature brief.
 
 ## Core model

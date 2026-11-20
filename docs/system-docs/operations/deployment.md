@@ -2,7 +2,7 @@
 
 **Source of truth:** `.github/workflows/deploy.yml` (called by `deploy-staging.yml` and `deploy-prod.yml`), `api/fly.toml`, `game/fly.toml`, `web/scripts/vercel-deploy.mjs`
 
-Hosting was decided on 2026-11-10: **Fly.io** for `api` and `game`, **Vercel** for `web`, **Supabase** for the database. A push to `develop` deploys staging (`deploy-staging.yml`; skipped when the push changes only `docs/`, `tasks/`, `releases/` or `.md` files, so staging can trail `develop` by docs commits) and a push to `production` deploys production (`deploy-prod.yml`). Both run the same jobs (`deploy.yml`). Custom domains are not set up yet: every URL below is the provider's default hostname and comes from configuration, so adding a domain changes configuration only.
+Hosting was decided on 2026-11-10: **Fly.io** for `api` and `game`, **Vercel** for `web`, **Supabase** for the database. A push to `develop` deploys staging (`deploy-staging.yml`; skipped when the push changes only `docs/`, `tasks/`, `releases/` or `.md` files, so staging can trail `develop` by docs commits) and a push to `production` deploys production (`deploy-prod.yml`). Both run the same jobs (`deploy.yml`). Players use **`https://schmegettes.app`** (production) and **`https://staging.schmegettes.app`** (staging); see [Domains](#domains). The api and game keep their `fly.dev` hostnames (`schmegettes-{api,game}-{staging,prod}.fly.dev`). Every URL comes from configuration, so changing a domain changes configuration only.
 
 ## Environments
 
@@ -48,7 +48,7 @@ Once per environment (staging, then production), by Wyatt Garner. Deploys fail u
 
 1. **Supabase:** create the project (`schmegettes-staging` / `schmegettes-prod`) in us-east-1, next to Fly's `iad` region set in both `fly.toml` files. Apply the [Supabase Auth settings](#supabase-auth-settings), and turn on asymmetric JWT signing keys (services verify tokens against the JWKS).
 2. **Fly.io:** create the two apps (`schmegettes-{api,game}-{staging,prod}`) and a deploy token per app: `fly tokens create deploy -a {app}`.
-3. **Vercel:** create the project (`schmegettes-web-staging` / `schmegettes-web-prod`) and disconnect its Git integration, so CI is its only deployer. On the staging project, turn off Deployment Protection for production deployments if testers have no Vercel login.
+3. **Vercel:** create the project (`schmegettes-web-staging` / `schmegettes-web-prod`) and disconnect its Git integration, so CI is its only deployer. On the staging project, turn off Deployment Protection for production deployments if testers have no Vercel login. Add the environment's domain and its redirects ([Domains](#domains)).
 4. **GitHub:** in the Environment (`staging` / `production`), add the secrets and variables listed in [configuration-and-secrets.md](../security/configuration-and-secrets.md#2-ci-and-operator-secrets).
 5. **First deploy:** run the deploy workflow from the Actions tab (Deploy Staging on `develop`). Migrate creates the `app_service` role; the app deploys fail until step 6.
 6. **App credentials:** set the `app_service` password ([below](#database-roles-per-environment)), then `fly secrets set` on each app ([configuration-and-secrets.md](../security/configuration-and-secrets.md#1-variables-per-package)). Run the deploy again.
@@ -93,9 +93,26 @@ Every category gets a difficulty (Easy, Medium or Hard) so a host can keep a gam
   If either fails, rerating with another model means emptying `public.category_difficulty` and `public.difficulty_scale` in that environment's SQL editor, setting `DIFFICULTY_MODEL`, and running the full rating again.
 - **Production**: run it on the `production` branch, after the catalog is loaded there.
 
+## Domains
+
+DNS for `schmegettes.app` is on Vercel (`ns1.vercel-dns.com`, `ns2.vercel-dns.com`). In each Vercel project the custom domain is primary, and every other domain on the project redirects to it with a permanent 308 that keeps the path and query:
+
+| Project | Primary | Redirects to it |
+|---|---|---|
+| `schmegettes-web-prod` | `schmegettes.app` | `www.schmegettes.app`, `schmegettes-web-prod.vercel.app` |
+| `schmegettes-web-staging` | `staging.schmegettes.app` | `schmegettes-web-staging.vercel.app` |
+
+A new web origin also needs, on that environment:
+
+- `ALLOWED_ORIGINS` on its api and game (Fly secrets; [configuration-and-secrets.md](../security/configuration-and-secrets.md#1-variables-per-package)). Add the new origin first and remove the old one only once the redirect is live, because the api and game reject any origin not listed. Set it with `fly secrets set`, which applies at once (the dashboard only stages secrets until the next deploy).
+- The web entry of `{STAGING,PROD}_VERSION_URLS` (GitHub Environment variable), pointing at the primary domain. The deployed-commit check doesn't follow redirects.
+- The Supabase Auth URL configuration ([below](#supabase-auth-settings)).
+
 ## Supabase Auth settings
 
 Set once per Supabase project (Authentication settings), matching `supabase/config.toml`:
+
+- **Site URL** and **Redirect URLs**: the environment's web origin (`https://schmegettes.app`, `https://staging.schmegettes.app`). Nothing sends email today; this keeps auth links right if that changes.
 
 - **Anonymous sign-ins**: on. Rate limit for anonymous users: 30 per hour per IP.
 - **Email provider**: on, for email and password accounts ([accounts](../../product-docs/features/accounts/feature-brief.md)). **Confirm email: off** and **Secure password change: off**, so Schmegettes never sends email and needs no SMTP. Minimum password length 8, no other password requirements. Rate limit for sign-ins and sign-ups: 30 per 5 minutes per IP.

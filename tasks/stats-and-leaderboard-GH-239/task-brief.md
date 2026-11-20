@@ -139,3 +139,6 @@ The product brief's criteria, in particular:
 ## Docs to update
 
 As in subtask 5.
+
+## Branch
+`new-feature/GH-239-stats-and-leaderboard`, from and into `develop`

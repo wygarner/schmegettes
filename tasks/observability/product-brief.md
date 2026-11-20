@@ -1,6 +1,6 @@
 ---
-jira-type: improvement
-jira-title: "Know when Schmegettes breaks before the players say so"
+task-type: improvement
+task-title: "Know when Schmegettes breaks before the players say so"
 ---
 **Task Type:** Improvement. No player-facing UI change. Players only notice it through faster fixes.
 

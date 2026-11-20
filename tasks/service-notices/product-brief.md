@@ -1,6 +1,6 @@
 ---
-jira-type: new-feature
-jira-title: "Service notices and a status page"
+task-type: new-feature
+task-title: "Service notices and a status page"
 ---
 **Task Type:** New Feature. A new way for players to hear about problems, maintenance, and releases.
 

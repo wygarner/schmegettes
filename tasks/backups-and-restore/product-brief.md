@@ -1,6 +1,6 @@
 ---
-jira-type: improvement
-jira-title: "Off-account backups and a tested restore"
+task-type: improvement
+task-title: "Off-account backups and a tested restore"
 ---
 **Task Type:** Improvement. No player-facing UI change.
 

@@ -1,6 +1,6 @@
 ---
-jira-type: enhancement
-jira-title: "Easy, Medium and Hard clue difficulty, with Any as default"
+task-type: enhancement
+task-title: "Easy, Medium and Hard clue difficulty, with Any as default"
 ---
 **Task Type:** Enhancement. It adds to two existing features: the clue catalog gets a difficulty label per category, and the lobby's game options get a Difficulty setting.
 

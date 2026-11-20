@@ -1,6 +1,6 @@
 ---
-jira-type: enhancement
-jira-title: "Easy, Medium and Hard clue difficulty, with Any as default"
+task-type: enhancement
+task-title: "Easy, Medium and Hard clue difficulty, with Any as default"
 ---
 # Task spec: clue-difficulty
 
@@ -231,4 +231,4 @@ The api's existing "room options updated" line gains `"difficulty"`.
 
 ## Branch
 
-`enhancement/clue-difficulty-impl`, from and into `develop`. No Jira key: Jira is not configured yet (`.github/jira.json` has no `enhancement` issue-type ID and the Jira secrets are unset), so the create-ticket workflow failed on this PR as expected.
+`enhancement/clue-difficulty-impl`, from and into `develop`. No key: this spec merged before task issues existed. Its issue is created by hand once github-issues-tracker merges ([development-workflow.md](../../docs/system-docs/engineering/development-workflow.md#issue-labels)); the branch name stays as written.

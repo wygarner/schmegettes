@@ -1,6 +1,6 @@
 ---
-jira-type: improvement
-jira-title: "Audit log, time-limited staff access, and rate limits everywhere"
+task-type: improvement
+task-title: "Audit log, time-limited staff access, and rate limits everywhere"
 ---
 **Task Type:** Improvement. No player-facing UI change.
 

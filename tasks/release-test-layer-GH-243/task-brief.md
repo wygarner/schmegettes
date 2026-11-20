@@ -6,10 +6,19 @@ task-title: "End-to-end tests, a boot check in CI, and enforced coverage"
 
 Product brief: `tasks/release-test-layer/product-brief.md`. Four independent parts, which can be separate commits in one PR: (A) the Playwright suite, (B) the CI boot check, (C) coverage floors, (D) exact runtime pins.
 
-## Decisions needed (before implementation starts)
+## Decisions (Wyatt Garner, 2026-11-20)
 
-1. **How the E2E host gets host access.** Step 1 of the brief has the host enter a host code. The code rotates every 45 minutes and only an admin can read it, so the suite would need admin credentials in CI. **Recommended:** the host is a dedicated, signed-in E2E host account with permanent host access, created by an operator script (the same mechanism `agent-qa` uses for its QA host; whichever task lands first creates the script). Code redemption stays covered by its existing pgTAP and api tests. **Alternative:** a staging-only admin account whose credentials are a GitHub `staging` secret, so the suite reads the current code through `GET /v1/admin/host-code`. That puts an admin password in CI. This changes a product-brief step, so Wyatt decides (or `/product` amends the brief).
-2. **Where E2E accounts live.** The suite needs one host and two contestant identities on staging. Recommended: guests for the two phones (fresh each run) and the E2E host account from decision 1. Its password goes in the GitHub `staging` environment secret `E2E_HOST_PASSWORD`, never in the repo.
+1. **The E2E host is a dedicated, signed-in staging account with permanent host access.** The suite never reads a host code and holds no admin credentials. Host-code redemption stays covered by its existing pgTAP and api tests. This replaces step 1 of the product brief's flow ("the host enters a host code") for the suite only.
+2. **Accounts:** the two phones are fresh guests on every run. The host signs in with `E2E_HOST_EMAIL` (non-secret variable) and `E2E_HOST_PASSWORD` (secret), both in the GitHub `staging` environment, never in the repo.
+
+**No new code creates the account.** Host access never expires and rotation never removes it ([private access](../../docs/product-docs/features/private-access/feature-brief.md#host-codes)), so the operator does this once, by hand, on staging:
+
+1. In a private window on the staging web app, **Create account** with the E2E email and a generated password.
+2. Read the current code on the devtools admin page (staging), and enter it on that account's host code sheet.
+3. Optionally, set the host's note on the admin page to "E2E host (do not remove)".
+4. Store the two values in the GitHub `staging` environment.
+
+The implementation PR writes these steps into `testing-strategy.md` (under the end-to-end layer). Until they're done, the E2E workflow exits with a clear "E2E_HOST_EMAIL / E2E_HOST_PASSWORD not set on staging" error. The boot check, coverage floors, and pins don't depend on it. The `agent-qa` task can reuse the same steps for its QA host.
 
 ## Approach
 
@@ -71,7 +80,7 @@ The floors come from `testing-strategy.md` §3. Any package below its floor toda
      - a build check that `__e2e` isn't in `dist/` for production (a small script in the web job: `bun run build` with `VITE_ENV=production`, then `grep -L __e2e`).
 5. **(A) E2E suite** (`e2e/`, new package):
    - `package.json` with `@playwright/test` pinned exact; `playwright.config.ts` with `baseURL` from `E2E_BASE_URL`, one project (Chromium), `retries: 0`, `trace: "retain-on-failure"`, `screenshot: "only-on-failure"`, timeout 10 min.
-   - `tests/critical-path.spec.ts` implements the brief's 7 steps with the host from decision 1 and two guest phones. It uses roles and accessible names, the same selectors the unit tests use.
+   - `tests/critical-path.spec.ts` implements the brief's 7 steps with the E2E host (Decisions) and two guest phones. It uses roles and accessible names, the same selectors the unit tests use.
      - Step 4 asserts the verdict and the score change on all three screens.
      - Step 5 has phone A answer wrong (`say("wrong")`), then phone B buzz and answer right.
      - Step 6 plays the rest of the board quickly. The player in control taps the next clue; one phone buzzes and answers or lets it time out. Then Final: both finalists submit a wager and a typed answer. The scoreboard shows on every device, and in My games on one phone.
@@ -114,7 +123,7 @@ The product brief's criteria:
 
 ## Database migration plan
 
-None. The E2E host account is created by an operator script (decision 1), not a migration.
+None. The E2E host account is created by hand, once (Decisions), not by a migration or script.
 
 ## Logging requirements
 
@@ -123,3 +132,7 @@ No change. E2E mode logs nothing extra, and Faro (if the observability task has 
 ## Docs to update
 
 As in subtask 7.
+
+## Branch
+
+`technical-improvement/GH-243-release-test-layer`, from and into `develop`.

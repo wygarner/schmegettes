@@ -118,3 +118,6 @@ The product brief's criteria:
 ## Docs to update
 
 As in subtask 4.
+
+## Branch
+`enhancement/GH-248-data-retention`, from and into `develop`

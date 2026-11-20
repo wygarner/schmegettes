@@ -46,6 +46,8 @@ commit;
 | `games`, `game_players`, `answers`, `game_results` (view) | read if they played or watched that game (`is_game_member`); no writes |
 | `wagers` | **nothing**: Daily Double and Final wagers, and submitted Final answers, are secret until the reveal. Their outcomes reach players only as `answers` rows |
 | `seen_clues` | **nothing**: only used to build boards |
+| `category_difficulty` | **nothing**: each category's difficulty score and label (Easy, Medium, Hard). Players never see a category's label. `game_engine` reads it to build boards; only the owner (the worker's `rate-clues`) writes it |
+| `difficulty_scale` | **nothing** (no role but the owner): the cut points between the labels, one row per kind (board, final), written once by the first complete rating run |
 | `host_codes`, `hosts` | **nothing** (no role but the owner): host codes and who can host (with the admin's note). Players reach them only through `private.*` functions; admins only through the `private.admin_*` functions |
 | `private.host_code_rotation` | **nothing** (no role but the owner): one row naming the current code, when it rotates, and the previous code with its grace deadline |
 | `private.admins` | **nothing** (no role but the owner): account user IDs allowed to use the admin functions. Edited only in the SQL editor |

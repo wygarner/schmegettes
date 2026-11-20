@@ -877,6 +877,8 @@ export interface paths {
                         doubleRound?: boolean;
                         /** @description Quick picks: a spoken pick of just a category picks the lowest clue left in it */
                         quickPicks?: boolean;
+                        /** @description Keep boards to one difficulty; null means Any (every category) */
+                        difficulty?: components["schemas"]["Difficulty"] | null;
                     };
                 };
             };
@@ -1115,6 +1117,8 @@ export interface components {
             doubleRound: boolean;
             /** @description Quick picks: a spoken pick of just a category picks the lowest clue left in it */
             quickPicks: boolean;
+            /** @description The difficulty boards are kept to; null means Any (every category) */
+            difficulty: components["schemas"]["Difficulty"] | null;
         };
         /** @description Trimmed by the server; must not be blank */
         DisplayName: string;
@@ -1248,6 +1252,11 @@ export interface components {
          * @enum {string}
          */
         TimerPace: "relaxed" | "standard" | "fast";
+        /**
+         * @description A clue category's difficulty, and the level a host can keep a game to. Mirrors public.difficulty. A room or game without one (null) uses every category: Any.
+         * @enum {string}
+         */
+        Difficulty: "easy" | "medium" | "hard";
         /**
          * @description A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).
          * @enum {string}

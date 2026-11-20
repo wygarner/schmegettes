@@ -1,6 +1,6 @@
-import { Button, Group, RangeSlider, Stack, Switch, Text } from "@mantine/core";
+import { Button, Group, RangeSlider, SegmentedControl, Stack, Switch, Text } from "@mantine/core";
 import { useState } from "react";
-import { FIRST_SEASON, type GameOptions, LAST_SEASON } from "../lib/gameOptions";
+import { DIFFICULTIES, difficultyName, FIRST_SEASON, type GameOptions, LAST_SEASON } from "../lib/gameOptions";
 import { Sheet } from "../ui/Sheet";
 import { SOFT } from "../ui/tokens";
 
@@ -12,8 +12,16 @@ export function seasonsText(range: [number, number] | null): string {
   return a === b ? `Season ${a} · ${years}` : `Seasons ${a}–${b} · ${years}`;
 }
 
+/** The line under the Difficulty control, for each choice (null is Any). */
+export const DIFFICULTY_TEXT = {
+  any: "Every category, easy to hard",
+  easy: "Clues most people know",
+  medium: "A mix most groups will enjoy",
+  hard: "For trivia regulars",
+} as const;
+
 /**
- * The lobby's game options: seasons, Double Schmegettes, Quick picks. Each change applies at once
+ * The lobby's game options: seasons, difficulty, Double Schmegettes, Quick picks. Each change applies at once
  * (onChange); Done or a tap outside closes it. Rules:
  * docs/product-docs/features/lobby/interaction-design.md, "Game options".
  */
@@ -44,7 +52,7 @@ export function GameOptionsSheet({
       <Text fw={700} mb="xs">
         Game options
       </Text>
-      <Stack gap="md">
+      <Stack gap="sm">
         <div>
           <Group justify="space-between" mb={4}>
             <Text fw={600}>Seasons</Text>
@@ -67,8 +75,27 @@ export function GameOptionsSheet({
             ]}
             label={(v) => `Season ${v}`}
             color="green.4"
-            mb="lg"
+            mb="md"
           />
+        </div>
+        <div>
+          <Text fw={600} mb={4} id="difficulty-label">
+            Difficulty
+          </Text>
+          <SegmentedControl
+            aria-labelledby="difficulty-label"
+            fullWidth
+            size="xs"
+            value={options.difficulty ?? "any"}
+            onChange={(v) => onChange({ ...options, difficulty: DIFFICULTIES.find((d) => d === v) ?? null })}
+            data={[
+              { value: "any", label: "Any" },
+              ...DIFFICULTIES.map((d) => ({ value: d, label: difficultyName(d) })),
+            ]}
+          />
+          <Text size="sm" c={SOFT} mt={4}>
+            {DIFFICULTY_TEXT[options.difficulty ?? "any"]}
+          </Text>
         </div>
         <Switch
           label="Double Schmegettes"

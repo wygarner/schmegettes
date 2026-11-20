@@ -381,8 +381,10 @@ describe("game options", () => {
   };
 
   test("the line under the code lists what isn't the default", () => {
-    withOptions({ seasons: [20, 40], doubleRound: false, quickPicks: false });
-    expect(screen.getByLabelText("Game options in use")).toHaveTextContent("Seasons 20–40 · No Double Schmegettes");
+    withOptions({ seasons: [20, 40], doubleRound: false, quickPicks: false, difficulty: "easy" });
+    expect(screen.getByLabelText("Game options in use")).toHaveTextContent(
+      "Seasons 20–40 · Easy · No Double Schmegettes",
+    );
   });
 
   test("no line with the defaults", () => {
@@ -398,7 +400,8 @@ describe("game options", () => {
     fireEvent.click(button);
     const sheet = screen.getByRole("dialog", { name: "Game options" });
     expect(sheet).not.toHaveTextContent("Timers");
-    expect(within(sheet).queryByRole("radiogroup")).toBeNull();
+    for (const pace of ["Relaxed", "Standard", "Fast"])
+      expect(within(sheet).queryByRole("radio", { name: pace })).toBeNull();
     fireEvent.click(within(sheet).getByRole("switch", { name: /Double Schmegettes/ }));
     expect(onOptions).toHaveBeenLastCalledWith({ ...DEFAULT_OPTIONS, doubleRound: false });
   });
@@ -415,6 +418,15 @@ describe("game options", () => {
     cleanup();
     withOptions({ ...DEFAULT_OPTIONS, quickPicks: true });
     expect(screen.getByLabelText("Game options in use")).toHaveTextContent("Quick picks");
+  });
+
+  test("Difficulty: Any by default; picking Hard changes it at once", () => {
+    const onOptions = withOptions(DEFAULT_OPTIONS);
+    fireEvent.click(screen.getByRole("button", { name: "Game options" }));
+    const sheet = screen.getByRole("dialog", { name: "Game options" });
+    expect(within(sheet).getByRole("radio", { name: "Any" })).toBeChecked();
+    fireEvent.click(within(sheet).getByRole("radio", { name: "Hard" }));
+    expect(onOptions).toHaveBeenLastCalledWith({ ...DEFAULT_OPTIONS, difficulty: "hard" });
   });
 });
 

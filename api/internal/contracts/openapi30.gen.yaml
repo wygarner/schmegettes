@@ -537,6 +537,16 @@ paths:
                   type: boolean
                   description: "Quick picks: a spoken pick of just a category picks the lowest
                     clue left in it"
+                difficulty:
+                  description: "A clue category's difficulty, and the level a host can keep a game
+                    to. Mirrors public.difficulty. A room or game without one
+                    (null) uses every category: Any."
+                  nullable: true
+                  type: string
+                  enum:
+                    - easy
+                    - medium
+                    - hard
               additionalProperties: false
       responses:
         "200":
@@ -803,6 +813,16 @@ components:
           type: boolean
           description: "Quick picks: a spoken pick of just a category picks the lowest
             clue left in it"
+        difficulty:
+          description: "A clue category's difficulty, and the level a host can keep a game
+            to. Mirrors public.difficulty. A room or game without one (null)
+            uses every category: Any."
+          nullable: true
+          type: string
+          enum:
+            - easy
+            - medium
+            - hard
       required:
         - roomId
         - code
@@ -815,6 +835,7 @@ components:
         - timers
         - doubleRound
         - quickPicks
+        - difficulty
     DisplayName:
       type: string
       minLength: 1

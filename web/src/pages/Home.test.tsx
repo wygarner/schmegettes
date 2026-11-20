@@ -135,6 +135,7 @@ test("creating a room opens the host screen", async () => {
         timers: "standard",
         doubleRound: true,
         quickPicks: false,
+        difficulty: null,
       },
     },
   });

@@ -32,7 +32,7 @@ The script reads commit bodies and PR descriptions as well as subjects (the thre
    mkdir -p releases/X.Y.Z
    ```
 2. **Write the four docs** in `releases/X.Y.Z/`: `metadata.md` (`released: false`, blank `release-date`), `tickets.md` (grouped by type), `user-release-notes.md`, `internal-release-notes.md` (migrations, config changes, breaking changes). Open the PR to `production`, titled `[Release] X.Y.Z`.
-3. **Verify:** CI green; migrations rehearsed on staging; end-to-end tests (Playwright) and a smoke test of critical paths: sign in, create room, join by code, buzz, judge, finish a game. Merge `origin/production` in again right before merging.
+3. **Verify:** CI green; migrations rehearsed on staging; the end-to-end suite passes against staging (`gh workflow run e2e.yml`; a failure blocks the release like red CI; [testing-strategy.md](../engineering/testing-strategy.md#6-end-to-end)); and a hand check of what it can't cover: the narrator's voice and spoken answers on a real iPhone host. Merge `origin/production` in again right before merging.
 4. **Human approves. Merge as a merge commit** (`gh pr merge --merge`). `deploy-prod.yml` runs.
 5. **Confirm `deploy-prod.yml` passed for the merge commit**, including the deployed-commit check:
    ```bash

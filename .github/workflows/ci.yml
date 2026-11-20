@@ -61,7 +61,7 @@ jobs:
           CORE='^(shared/|mise\.toml$)'
           {
             echo "shared=$(has "$CORE")"
-            echo "web=$(has "$CORE|^web/|^package\.json$|^bun\.lock$|^biome\.json$")"
+            echo "web=$(has "$CORE|^web/|^e2e/|^package\.json$|^bun\.lock$|^biome\.json$")"
             echo "devtools=$(has "$CORE|^devtools/|^package\.json$|^bun\.lock$")"
             echo "game=$(has "$CORE|^game/|^golib/")"
             echo "api=$(has "$CORE|^api/|^golib/|^supabase/")"
@@ -289,6 +289,82 @@ jobs:
       - name: Row-level security tests
         run: supabase test db
 
+  # Starts what deploys run: the api and game images built from their Dockerfiles, and the
+  # production web build. A build that crashes at boot fails here, not on deploy.
+  # docs/system-docs/engineering/testing-strategy.md ("Test the build").
+  boot:
+    name: Boot (built services)
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true' && (needs.changes.outputs.api == 'true' || needs.changes.outputs.game == 'true' || needs.changes.outputs.web == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: node bun aqua:supabase/cli
+      - name: Generate a throwaway JWT signing key
+        run: |
+          echo '[]' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes > /dev/null
+      # Postgres for the services, Auth for the JWKS they fetch at boot; nothing else.
+      - name: Start local Supabase
+        run: supabase start -x studio,mailpit,logflare,vector,imgproxy,storage-api,realtime,edge-runtime,supavisor,postgres-meta
+      - name: Build the api and game images
+        run: |
+          docker build -f api/Dockerfile --build-arg GIT_SHA=${{ github.sha }} -t boot-api .
+          docker build -f game/Dockerfile --build-arg GIT_SHA=${{ github.sha }} -t boot-game .
+      - name: Start them and wait for /healthz
+        run: |
+          # app_service's password is the local-only one from supabase/seed.sql.
+          common=(
+            -e LOG_LEVEL=info
+            -e DATABASE_URL=postgresql://app_service:app-service-local-only@127.0.0.1:54322/postgres
+            -e SUPABASE_URL=http://127.0.0.1:54321
+            -e SUPABASE_JWKS_URL=http://127.0.0.1:54321/auth/v1/.well-known/jwks.json
+            -e ALLOWED_ORIGINS=http://localhost:4173
+          )
+          docker run -d --name api --network host "${common[@]}" -e PORT=3001 -e GAME_SOCKET_BASE_URL=ws://localhost:3002 boot-api
+          docker run -d --name game --network host "${common[@]}" -e PORT=3002 boot-game
+          for svc in api:3001 game:3002; do
+            name="${svc%%:*}"; port="${svc##*:}"; ok=""
+            for _ in $(seq 30); do
+              if curl -fsS "http://127.0.0.1:$port/healthz" > /dev/null 2>&1; then ok=1; break; fi
+              sleep 1
+            done
+            if [ -z "$ok" ]; then
+              echo "::error::$name did not answer /healthz within 30 s. Its last 50 log lines:"
+              docker logs --tail 50 "$name"
+              exit 1
+            fi
+            echo "$name answers /healthz"
+          done
+      - run: bun install --frozen-lockfile
+      - name: Build web for production
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_API_URL: http://localhost:3001
+          VITE_ENV: production
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          VITE_SUPABASE_ANON_KEY="$(supabase status -o env | sed -n 's/^ANON_KEY="\(.*\)"$/\1/p')"
+          export VITE_SUPABASE_ANON_KEY
+          bun run --cwd web build
+      - name: Serve it and load Home
+        run: |
+          bun run --cwd web preview --port 4173 --strictPort > "$RUNNER_TEMP/preview.log" 2>&1 &
+          for _ in $(seq 30); do curl -fsS http://localhost:4173/ > /dev/null 2>&1 && break; sleep 1; done
+          bun run --cwd e2e typecheck
+          bun run --cwd e2e install-browser
+          BOOT_BASE_URL=http://localhost:4173 bun run --cwd e2e test:boot
+      - name: Service logs
+        if: failure()
+        run: |
+          docker logs --tail 50 api || true
+          docker logs --tail 50 game || true
+          cat "$RUNNER_TEMP/preview.log" || true
+
   evals:
     name: Agent Evals (non-blocking)
     needs: changes
@@ -329,7 +405,7 @@ jobs:
   ci-complete:
     name: CI Complete
     if: always()
-    needs: [changes, secret-scan, scripts, shared, web, devtools, game, api, worker, database, audit]
+    needs: [changes, secret-scan, scripts, shared, web, devtools, game, api, worker, database, boot, audit]
     runs-on: ubuntu-latest
     steps:
       - name: Check job results

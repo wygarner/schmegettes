@@ -6,6 +6,9 @@
       "web/**",
       "devtools/**",
       "scripts/**",
+      "e2e/**",
+      "!**/playwright-report",
+      "!**/test-results",
       "!**/dist",
       "!**/node_modules",
       "!shared/generated"

@@ -56,7 +56,9 @@ function format(rows) {
   if (rows.length === 0) return "No coverage floor applies to these packages.";
   const pad = Math.max(...rows.map((r) => r.key.length));
   return rows
-    .map((r) => `${r.ok ? "ok  " : "FAIL"} ${r.key.padEnd(pad)}  ${String(r.percent).padStart(5)}%  (floor ${r.floor}%)`)
+    .map(
+      (r) => `${r.ok ? "ok  " : "FAIL"} ${r.key.padEnd(pad)}  ${String(r.percent).padStart(5)}%  (floor ${r.floor}%)`,
+    )
     .join("\n");
 }
 

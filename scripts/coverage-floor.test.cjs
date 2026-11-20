@@ -29,7 +29,7 @@ test("groups by prefix, weights by statements, and checks floors", () => {
 test("a package below its floor fails", () => {
   const rows = check(parseProfiles([profile]), { "game/internal/play": 61 });
   assert.equal(rows[0].ok, false);
-  assert.match(format(rows), /^FAIL game\/internal\/play\s+60%  \(floor 61%\)$/);
+  assert.match(format(rows), /^FAIL game\/internal\/play\s+60% {2}\(floor 61%\)$/);
 });
 
 test("deleting a package's tests drops it below the floor", () => {

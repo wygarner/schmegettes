@@ -1,0 +1,58 @@
+name: E2E
+
+# The end-to-end suite (e2e/), run against staging as release verification
+# (docs/system-docs/operations/release-strategy.md, step 3). Not run on PRs.
+# Needs the staging environment's E2E_HOST_EMAIL (variable) and E2E_HOST_PASSWORD (secret):
+# docs/system-docs/engineering/testing-strategy.md, "End-to-end".
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  # One game at a time on staging.
+  group: e2e-staging
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: Critical path (staging)
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: node bun
+      - run: bun install --frozen-lockfile
+      - run: bun run --cwd e2e install-browser
+      - name: Check the E2E host is configured
+        env:
+          E2E_HOST_EMAIL: ${{ vars.E2E_HOST_EMAIL }}
+          E2E_HOST_PASSWORD: ${{ secrets.E2E_HOST_PASSWORD }}
+        run: |
+          if [ -z "$E2E_HOST_EMAIL" ] || [ -z "$E2E_HOST_PASSWORD" ]; then
+            echo "::error::E2E_HOST_EMAIL / E2E_HOST_PASSWORD not set on staging. Set-up: docs/system-docs/engineering/testing-strategy.md, End-to-end."
+            exit 1
+          fi
+      - name: Play a game on staging
+        env:
+          E2E_BASE_URL: https://staging.schmegettes.app
+          E2E_HOST_EMAIL: ${{ vars.E2E_HOST_EMAIL }}
+          E2E_HOST_PASSWORD: ${{ secrets.E2E_HOST_PASSWORD }}
+        run: bun run --cwd e2e test
+      - name: Upload the report and traces
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 14

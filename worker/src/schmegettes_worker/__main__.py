@@ -112,7 +112,8 @@ def rate_clues(args: argparse.Namespace) -> int:
 
         report = clue_rate.rate(store, client, model=model, limit=args.limit)
     print(clue_rate.render_report(report, model))
-    return 0 if not report.failed else 1
+    # Failures are listed in the report and retried next run; they don't fail the run.
+    return 0
 
 
 def import_clues(seasons_spec: str) -> int:

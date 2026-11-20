@@ -66,6 +66,10 @@ alter role app_service with login password '<generated, stored only in the secre
 
 Services connect through the Supabase pooler (transaction mode, port 6543) as `app_service`. Append `?default_query_exec_mode=simple_protocol` to that `DATABASE_URL`: pgx caches prepared statements by default, and the transaction pooler can't serve them. Only `deploy-prod.yml` and `load-clues.yml` hold an owner credential (`*_OWNER_URL`).
 
+If a service can't log in, its log shows `password authentication failed for user "app_service"` (SQLSTATE 28P01) on every boot, the process exits, and after 10 restarts Fly leaves the machine **stopped**: `/healthz` times out and the deploy's "Verify deployed commit" step fails after 15 minutes. A running machine keeps its pooled connections, so a password change can go unnoticed until the next deploy restarts it. Fix: set the password again and `fly secrets set DATABASE_URL=…` on that environment's api and game apps ([rotation](../security/configuration-and-secrets.md#3-owners-and-rotation)).
+
+Staging was down this way from 2026-11-19 03:54 UTC (the first deploy after the password stopped matching) until about 00:25 UTC on 2026-11-20, when `DATABASE_URL` was reset on both staging apps. What changed the password was not determined. Production was not affected.
+
 ## Loading the clue catalog
 
 A new environment has no clues: Start fails until the catalog is loaded. Run **Load Clues** (`.github/workflows/load-clues.yml`) from the Actions tab:

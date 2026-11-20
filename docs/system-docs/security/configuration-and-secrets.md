@@ -34,8 +34,8 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 
 | Name | Kind | Location | Used by |
 |---|---|---|---|
-| `PROD_SUPABASE_DB_OWNER_URL` | secret | GitHub Environment `production` (**not set yet**) | `deploy.yml` migrations; `load-clues.yml`; `rate-clues.yml` |
-| `STAGING_SUPABASE_DB_OWNER_URL` | secret | GitHub Environment `staging` (**not set yet**) | `deploy.yml` migrations; `load-clues.yml`; `rate-clues.yml` |
+| `PROD_SUPABASE_DB_OWNER_URL` | secret | GitHub Environment `production` | `deploy.yml` migrations; `load-clues.yml`; `rate-clues.yml` |
+| `STAGING_SUPABASE_DB_OWNER_URL` | secret | GitHub Environment `staging` | `deploy.yml` migrations; `load-clues.yml`; `rate-clues.yml` |
 | `FLY_API_TOKEN_API`, `FLY_API_TOKEN_GAME` | secrets | GitHub Environments `staging` and `production`, each with that environment's per-app deploy token (`fly tokens create deploy -a {app}`) | `deploy.yml` |
 | `VERCEL_TOKEN` | secret | GitHub Environments `staging` and `production` | `deploy.yml` |
 | `FLY_APP_API`, `FLY_APP_GAME` | variables | GitHub Environments: `schmegettes-{api,game}-staging` / `-prod` | `deploy.yml` |

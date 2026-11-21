@@ -261,7 +261,7 @@ type HostAccess struct {
 // Leaderboard defines model for Leaderboard.
 type Leaderboard struct {
 	GamesToGo *int               `json:"gamesToGo,omitempty"`
-	Me        LeaderboardRow     `json:"me"`
+	Me        *LeaderboardRow    `json:"me"`
 	MyState   LeaderboardMyState `json:"myState"`
 	Rows      []LeaderboardRow   `json:"rows"`
 }
@@ -356,7 +356,7 @@ type Room struct {
 	// Code Short code players type to join a room.
 	Code string `json:"code"`
 
-	// Difficulty A clue category's difficulty, and the level a host can keep a game to. Mirrors public.difficulty. A room or game without one (null) uses every category: Any.
+	// Difficulty The difficulty boards are kept to; null means Any (every category)
 	Difficulty *RoomDifficulty `json:"difficulty"`
 
 	// DoubleRound Play the Double Schmegettes board; false: Final follows Single
@@ -466,7 +466,7 @@ type PostV1RoomsJoinJSONBodyRole string
 
 // PatchV1RoomsRoomIdJSONBody defines parameters for PatchV1RoomsRoomId.
 type PatchV1RoomsRoomIdJSONBody struct {
-	// Difficulty A clue category's difficulty, and the level a host can keep a game to. Mirrors public.difficulty. A room or game without one (null) uses every category: Any.
+	// Difficulty Keep boards to one difficulty; null means Any (every category)
 	Difficulty *PatchV1RoomsRoomIdJSONBodyDifficulty `json:"difficulty"`
 
 	// DoubleRound false: Final follows the Single board

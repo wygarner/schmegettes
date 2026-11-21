@@ -7,6 +7,8 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "tests",
   retries: 0,
+  // Staging is a real network away: allow more than the 5 s default for a screen to update.
+  expect: { timeout: 10_000 },
   workers: 1,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {

@@ -380,6 +380,23 @@ paths:
         "400": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/admin/cleanup-runs:
+    get:
+      summary: The last 30 guest-cleanup runs, newest first (admins only)
+      description: Counts and durations only, never ids. See docs/system-docs/operations/data-retention.md.
+      responses:
+        "200":
+          description: Cleanup runs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runs: { type: array, maxItems: 30, items: { $ref: "#/components/schemas/CleanupRun" } }
+                required: [runs]
+                additionalProperties: false
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
   /v1/admin/staff-access:
     post:
       summary: Grant the caller time-limited read access to one subject (admins only)
@@ -883,6 +900,15 @@ components:
         hostSince: { type: string, format: date-time }
         note: { type: [string, "null"], maxLength: 200 }
       required: [userId, kind, email, lastPlayedAs, hostSince, note]
+      additionalProperties: false
+    CleanupRun:
+      type: object
+      properties:
+        runAt: { type: string, format: date-time }
+        deleted: { type: integer, minimum: 0, description: Guests deleted in this run }
+        durationMs: { type: integer, minimum: 0 }
+        error: { type: [string, "null"], description: "SQLSTATE: message when the run failed and deleted nothing" }
+      required: [runAt, deleted, durationMs, error]
       additionalProperties: false
     StaffSubjectType:
       type: string

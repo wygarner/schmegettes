@@ -116,10 +116,11 @@ There are two cases. The player sees the same thing in both.
 
 ### Admin
 
-In the Supabase dashboard (no admin screen):
+In the Supabase SQL editor (no admin screen), as [operator-scripts.md](../../../system-docs/operations/operator-scripts.md) describes; both are audited:
 
 - **Reset a password:** find the user by email and set a new password.
-- **Free up an email** someone else registered: delete that account (it follows the deletion rule above).
+- **Free up an email** someone else registered: delete that account with `private.admin_delete_account` (it follows the deletion rule above).
+- **Answer "what do you have about me?"**: the steps in [data-retention.md](../../../system-docs/operations/data-retention.md#offboarding).
 
 ## Decisions (2026-11-10)
 

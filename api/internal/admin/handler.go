@@ -90,6 +90,22 @@ func (h Handler) Remove(w http.ResponseWriter, r *http.Request, userID openapi_t
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// CleanupRuns lists the last 30 guest-cleanup runs (data-retention.md).
+func (h Handler) CleanupRuns(w http.ResponseWriter, r *http.Request) {
+	runs, err := h.Store.CleanupRuns(r.Context(), server.Claims(r.Context()))
+	if h.handleError(w, r, "admin cleanup runs failed", err) {
+		return
+	}
+	result := make([]contracts.CleanupRun, 0, len(runs))
+	for _, run := range runs {
+		result = append(result, contracts.CleanupRun{RunAt: run.RunAt.UTC(), Deleted: run.Deleted,
+			DurationMs: run.DurationMs, Error: run.Error})
+	}
+	server.JSON(w, http.StatusOK, struct {
+		Runs []contracts.CleanupRun `json:"runs"`
+	}{Runs: result})
+}
+
 func (h Handler) handleError(w http.ResponseWriter, r *http.Request, message string, err error) bool {
 	switch {
 	case err == nil:

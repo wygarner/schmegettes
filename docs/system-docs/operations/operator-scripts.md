@@ -12,6 +12,8 @@ Every way a person reaches production data outside the game itself: what each on
 | Read the audit log | `scripts/staff-access.mjs --env … audit` | The admin | The request line | — |
 | Reset a player's password | SQL editor (below) | The admin, on the player's request | — | `password_changed`, no actor, `details.via = postgres` |
 | Delete an account on request | SQL editor, `private.admin_delete_account` (below) | The admin, on the owner's request or to free a squatted email | — | `account_deleted`, actor the admin, `details.by = admin` |
+| Answer "what do you have about me?" | A staff-access read, then read-only queries in the SQL editor ([data-retention.md](./data-retention.md#offboarding)) | The admin, on the player's request | As for staff access | As for staff access |
+| Run the guest cleanup by hand | SQL editor: `select private.delete_unused_guests();` (it runs daily on its own) | The admin; staging first | Database log `guests deleted: N` | `guests_deleted` with the count |
 | Host code, hosts, host notes | devtools **Admin** page | The admin | `INFO` "host code rotated", "host access removed", "host note updated" | `host_code_rotated`, `host_access_removed` |
 | Load clue seasons | `load-clues.yml` (Actions, `workflow_dispatch`), worker `import-clues` as the owner | Anyone with write access to the repo; production only from the `production` branch | Worker job lines | — (catalog only, no player data) |
 | Rate clue difficulty | `rate-clues.yml` (Actions), worker `rate-clues` as the owner | Same as above | Worker job lines | — (catalog only) |

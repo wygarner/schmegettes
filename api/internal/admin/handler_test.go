@@ -59,6 +59,13 @@ func (f *fakeStore) Remove(_ context.Context, _ auth.Claims, userID string) erro
 	f.removed = userID
 	return f.err
 }
+func (f *fakeStore) CleanupRuns(context.Context, auth.Claims) ([]CleanupRun, error) {
+	failed := "57014: canceling statement due to statement timeout"
+	return []CleanupRun{
+		{RunAt: t0.Add(24 * time.Hour), Deleted: 12, DurationMs: 340},
+		{RunAt: t0, Deleted: 0, DurationMs: 30001, Error: &failed},
+	}, f.err
+}
 
 type allowAdmin struct{}
 
@@ -76,6 +83,9 @@ func (r routes) PostV1AdminHostCodeRotate(w http.ResponseWriter, req *http.Reque
 func (r routes) GetV1AdminHosts(w http.ResponseWriter, req *http.Request)           { r.Hosts(w, req) }
 func (r routes) PatchV1AdminHostsUserId(w http.ResponseWriter, req *http.Request, id openapi_types.UUID) {
 	r.SetNote(w, req, id)
+}
+func (r routes) GetV1AdminCleanupRuns(w http.ResponseWriter, req *http.Request) {
+	r.CleanupRuns(w, req)
 }
 func (r routes) DeleteV1AdminHostsUserId(w http.ResponseWriter, req *http.Request, id openapi_types.UUID) {
 	r.Remove(w, req, id)
@@ -222,6 +232,32 @@ func TestStoreRefusalIsConcealed(t *testing.T) {
 
 func TestInvalidFromTheStoreIs400(t *testing.T) {
 	if rec := call(t, &fakeStore{err: ErrInvalid}, "PATCH", "/v1/admin/hosts/"+host.UserID, `{"note":"x"}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("→ %d", rec.Code)
+	}
+}
+
+func TestCleanupRunsNewestFirstInUTC(t *testing.T) {
+	rec := call(t, &fakeStore{}, "GET", "/v1/admin/cleanup-runs", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	var body struct {
+		Runs []contracts.CleanupRun `json:"runs"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Runs) != 2 || body.Runs[0].Deleted != 12 || body.Runs[1].Error == nil {
+		t.Errorf("runs %+v", body.Runs)
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`"runAt":"2026-11-18T12:00:00Z"`)) ||
+		!bytes.Contains(rec.Body.Bytes(), []byte(`"error":null`)) {
+		t.Errorf("want UTC times and a null error: %s", rec.Body)
+	}
+}
+
+func TestCleanupRunsRefusalIsConcealed(t *testing.T) {
+	if rec := call(t, &fakeStore{err: ErrNotFound}, "GET", "/v1/admin/cleanup-runs", ""); rec.Code != http.StatusNotFound {
 		t.Errorf("→ %d", rec.Code)
 	}
 }

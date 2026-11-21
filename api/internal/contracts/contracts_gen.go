@@ -158,6 +158,17 @@ type AuditEntry struct {
 	SubjectType *string                `json:"subjectType"`
 }
 
+// CleanupRun defines model for CleanupRun.
+type CleanupRun struct {
+	// Deleted Guests deleted in this run
+	Deleted    int `json:"deleted"`
+	DurationMs int `json:"durationMs"`
+
+	// Error SQLSTATE: message when the run failed and deleted nothing
+	Error *string   `json:"error"`
+	RunAt time.Time `json:"runAt"`
+}
+
 // CorrectAnswers defines model for CorrectAnswers.
 type CorrectAnswers struct {
 	Judged *int `json:"judged"`
@@ -894,6 +905,9 @@ type ServerInterface interface {
 	// Audit entries newest first, at most 500 (admins only)
 	// (GET /v1/admin/audit)
 	GetV1AdminAudit(w http.ResponseWriter, r *http.Request, params GetV1AdminAuditParams)
+	// The last 30 guest-cleanup runs, newest first (admins only)
+	// (GET /v1/admin/cleanup-runs)
+	GetV1AdminCleanupRuns(w http.ResponseWriter, r *http.Request)
 	// Read the current rotating host code (admins only)
 	// (GET /v1/admin/host-code)
 	GetV1AdminHostCode(w http.ResponseWriter, r *http.Request)
@@ -1040,6 +1054,26 @@ func (siw *ServerInterfaceWrapper) GetV1AdminAudit(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetV1AdminAudit(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetV1AdminCleanupRuns operation middleware
+func (siw *ServerInterfaceWrapper) GetV1AdminCleanupRuns(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1AdminCleanupRuns(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1825,6 +1859,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 
 	m.HandleFunc("GET "+options.BaseURL+"/healthz", wrapper.GetHealthz)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/audit", wrapper.GetV1AdminAudit)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/cleanup-runs", wrapper.GetV1AdminCleanupRuns)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/host-code", wrapper.GetV1AdminHostCode)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/host-code/rotate", wrapper.PostV1AdminHostCodeRotate)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/hosts", wrapper.GetV1AdminHosts)

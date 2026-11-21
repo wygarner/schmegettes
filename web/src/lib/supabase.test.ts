@@ -35,3 +35,13 @@ test("a session ended elsewhere (refresh refused, account deleted) is noticed", 
   onChange("SIGNED_OUT");
   expect(signedOutNotice()).toBe(true);
 });
+
+// Day 120: the guest was deleted by the cleanup, so its saved session's refresh is refused and
+// Supabase signs out. The browser quietly becomes a new guest; it was never signed in, so no notice.
+test("a deleted guest's session ending is not noticed, and the next call is a new guest", async () => {
+  onChange("SIGNED_OUT");
+  expect(signedOutNotice()).toBe(false);
+  expect(await getAccessToken()).toBe("guest");
+  expect(auth.signInAnonymously).toHaveBeenCalledOnce();
+  expect(signedOutNotice()).toBe(false);
+});

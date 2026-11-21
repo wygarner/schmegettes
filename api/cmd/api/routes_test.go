@@ -49,6 +49,9 @@ func (adminStore) SetNote(_ context.Context, c auth.Claims, _ string, _ *string)
 	return admin.Host{}, check(c)
 }
 func (adminStore) Remove(_ context.Context, c auth.Claims, _ string) error { return check(c) }
+func (adminStore) CleanupRuns(_ context.Context, c auth.Claims) ([]admin.CleanupRun, error) {
+	return nil, check(c)
+}
 
 func app() http.Handler {
 	return handler(routes{admin: admin.Handler{Store: adminStore{}}, limits: newLimits()}, tokens{}, []string{"http://localhost:5174"})
@@ -71,6 +74,7 @@ var adminCalls = []struct{ method, path, body string }{
 	{"GET", "/v1/admin/hosts", ""},
 	{"PATCH", "/v1/admin/hosts/" + nonAdminID, `{"note":"x"}`},
 	{"DELETE", "/v1/admin/hosts/" + nonAdminID, ""},
+	{"GET", "/v1/admin/cleanup-runs", ""},
 }
 
 // Everyone but an admin gets exactly what an unknown path gets: same status, type, and body.

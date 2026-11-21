@@ -36,12 +36,21 @@ type Host struct {
 	Note         *string
 }
 
+// CleanupRun is one guest-cleanup run (private.cleanup_runs): counts only.
+type CleanupRun struct {
+	RunAt      time.Time
+	Deleted    int
+	DurationMs int
+	Error      *string
+}
+
 type Store interface {
 	CurrentCode(context.Context, auth.Claims) (HostCode, error)
 	Rotate(context.Context, auth.Claims, string) (HostCode, error)
 	Hosts(context.Context, auth.Claims) ([]Host, error)
 	SetNote(context.Context, auth.Claims, string, *string) (Host, error)
 	Remove(context.Context, auth.Claims, string) error
+	CleanupRuns(context.Context, auth.Claims) ([]CleanupRun, error)
 }
 
 type PGStore struct{ DB *db.DB }
@@ -121,6 +130,26 @@ func (s PGStore) Remove(ctx context.Context, claims auth.Claims, userID string) 
 		return err
 	})
 	return mapError(err)
+}
+
+func (s PGStore) CleanupRuns(ctx context.Context, claims auth.Claims) ([]CleanupRun, error) {
+	result := []CleanupRun{}
+	err := s.DB.AsUser(ctx, claims, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, "select run_at, deleted, duration_ms, error from private.admin_cleanup_runs()")
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var c CleanupRun
+			if err := rows.Scan(&c.RunAt, &c.Deleted, &c.DurationMs, &c.Error); err != nil {
+				return err
+			}
+			result = append(result, c)
+		}
+		return rows.Err()
+	})
+	return result, mapError(err)
 }
 
 func mapError(err error) error {

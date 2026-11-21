@@ -262,7 +262,7 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy src
       # Floor: docs/system-docs/engineering/testing-strategy.md §3.
-      - run: uv run pytest --cov=schmegettes_worker --cov-report=term --cov-fail-under=0
+      - run: uv run pytest --cov=schmegettes_worker --cov-report=term --cov-fail-under=43
       - run: uvx pip-audit --strict
 
   database:

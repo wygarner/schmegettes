@@ -37,15 +37,21 @@ Rules:
 | Package | Floor | Where it's checked |
 |---|---|---|
 | `game/internal/play`, `game/internal/judge` | 80% | `game` job: `scripts/coverage-floor.cjs` on `coverage.out` |
-| `golib/` | GOLIB_FLOOR | `game` job's golib step |
-| `api/` (all packages, statement-weighted) | API_FLOOR | `api` job |
-| `worker/` | WORKER_FLOOR | `worker` job: `pytest --cov-fail-under` |
+| `golib/` | 45% (target 80%) | `game` job's golib step |
+| `api/` (all packages, statement-weighted) | 39% (target 70%) | `api` job |
+| `worker/` | 43% (target 70%) | `worker` job: `pytest --cov-fail-under` |
 | `web/src/lib` | 70% | `web` job: vitest `coverage.thresholds` (`web/vite.config.ts`) |
 | `web/src/pages`, `web/src/game` (components) | 50% | the same |
 
 Go floors live in `scripts/coverage-floors.json` (a key ending in `/` is a prefix measured as one group). Coverage is a floor, not a goal: a test that asserts nothing still counts toward it.
 
-STEP_UPS
+**Step-ups.** Three packages started below their targets when the floors went in (2026-11-20). Each floor rises by 10 points every three months until it reaches its target; the PR that raises one adds the tests that get it there.
+
+| Package | Started at | Next floor | By | Target |
+|---|---|---|---|---|
+| `golib/` | 45% | 55% | 2027-02-20 | 80% |
+| `api/` | 39% | 49% | 2027-02-20 | 70% |
+| `worker/` | 43% | 53% | 2027-02-20 | 70% |
 
 ## 4. Rules for new code
 

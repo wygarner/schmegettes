@@ -53,6 +53,7 @@ commit;
 | `private.admins` | **nothing** (no role but the owner): account user IDs allowed to use the admin functions. Edited only in the SQL editor |
 | `private.merge_tickets` | **nothing** (no role but the owner): one-use tickets for moving a guest into an account, stored hashed. Reached only through the account functions |
 | `private.audit_log` | **nothing** (no role but the owner; RLS on, no policies, privileges revoked from every app role): the append-only audit log. Written only by `private.audit`; read by the admin through `private.admin_audit` (below) |
+| `private.cleanup_runs` | **nothing** (no role but the owner): one row per guest-cleanup run, counts and durations only. Admins read it through `private.admin_cleanup_runs()` |
 | `private.staff_grants` | **nothing** (no role but the owner): the admin's time-limited grants to read one user, room, or game, with the reason. Reached only through the `private.staff_*` functions |
 
 Supabase's default grants to `anon`/`authenticated` are revoked, including default privileges for future tables. **Every new table needs an explicit grant, `enable row level security`, policies, and a test in `supabase/tests/`.**
@@ -139,8 +140,20 @@ Rows are written for:
 | `account_created`, `password_changed` | the `auth.users` triggers |
 | `guest_merged` | `merge_guest` (subject: the account; `details.games_added`) |
 | `account_deleted` | `delete_account` (`details.by = 'self'`) and `admin_delete_account` (`'admin'`) |
-| `guests_deleted` | reserved for the data-retention cleanup (`details.count`, once per run). **Not yet implemented** |
+| `guests_deleted` | `delete_unused_guests`, once per run (subject `system`, `details.count`) |
 | `staff_access_granted`, `staff_read`, `staff_access_revoked` | the `staff_*` functions |
+
+## Guest cleanup
+
+Guests unused for 90 days are deleted daily ([data-retention.md](../operations/data-retention.md#guest-cleanup)). `pg_cron` (extension in `pg_catalog`, jobs in schema `cron`) runs job `delete-unused-guests` at 04:17 UTC as the owner. All the functions are security definer in `private`.
+
+| Function | Called by | Does |
+|---|---|---|
+| `private.guest_last_used(user)` | the functions below | The latest of `auth.users.created_at`, `last_sign_in_at`, the newest `auth.sessions` refresh, room joins, game joins, and games hosted |
+| `private.user_is_active(user)` | the functions below | Whether the user is in a room that isn't closed, or in a game in progress as a player or host |
+| `private.eligible_guests(cutoff, max)` | `delete_unused_guests` | Anonymous users last used before `cutoff` and not active, oldest first |
+| `private.delete_unused_guests(cutoff = now() - 90 days)` | `pg_cron` only (no app role may execute it) | Deletes eligible guests with the deletion rule (`delete from auth.users`), checking eligibility again in the delete, in batches of 500, at most 20 per run. Records a `cleanup_runs` row and a `guests_deleted` audit row; a failure records the error and deletes nothing |
+| `private.admin_cleanup_runs()` | `authenticated` (api `GET /v1/admin/cleanup-runs`) | Admins only. The last 30 runs |
 
 ## History outlives rooms and accounts
 

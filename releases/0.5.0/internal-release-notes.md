@@ -24,7 +24,13 @@ Additive: the stats and leaderboard routes in `shared/openapi.yaml`, and the vis
 - Exact pins: node 24.22.3, go 1.25.14, python 3.13.18 (`mise.toml`); `golang:1.25.14-bookworm` in the api and game Dockerfiles.
 
 ## After deploy
-- To fill in: how and when this release reached production, and the health check.
+- **Deployed by hand on 2026-11-21**, because `deploy-prod.yml` (run 44869925985) didn't start, with the same steps and flags as `deploy.yml`:
+  - **Migration:** `supabase db push --linked --include-all` applied `20261121011645_stats_and_leaderboard` to staging first, then production. It was the only pending migration on each, and applied cleanly. Staging code wasn't redeployed, so staging has the new schema under the old code.
+  - **api, game:** `flyctl deploy` (remote builder) at `ab02057`, image label `ab02057`, `APP_ENV=production`, game with `--ha=false`.
+  - **web:** built with the production variables and `VITE_ENV=production` (no `__e2e` in the bundle), then `web/scripts/vercel-deploy.mjs`; Vercel deployment `dpl_6zhy31btyfZUQYDv5gb7hZFa844z`.
+- **Verified:** every address in `PROD_VERSION_URLS` reports `ab02057`; `/healthz` returns 200 on api and game; `/v1/me/stats` and `/v1/leaderboard` return 401 without sign-in (they reach the migrated schema); no error lines in the api logs after the deploy.
+- **Production health confirmed by Wyatt** (critical paths and the Stats page) before this sign-off merged.
+- The Vercel token was a temporary personal token, not the `VERCEL_TOKEN` secret; it is to be revoked.
 
 ## Known issues
 - `show_on_leaderboard` defaults to true: existing signed-in players appear on the leaderboard until they opt out.

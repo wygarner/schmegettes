@@ -154,6 +154,7 @@ Home, My games, Account and the sheets they open. Calmer than the game screens: 
 
 - **Large title**: Oswald 700, uppercase, about 38 px, top left, with an optional pink eyebrow above (12 px, 700, uppercase, `.14em` tracking) and a `QUIET` subtitle below.
 - **Top bar**: a back link ("‹ Home") on the left. Once the large title scrolls away, the bar frosts (blur, dark mauve at 72 %, hairline under it) and shows the title small in the center.
+- **Home control** off the menu screens (join, lobby, game, a game's scoreboard): `HomeButton`, a 44 × 44 house icon in `QUIET` with no fill, tooltip "Home". During a game it opens a "Leave the game?" sheet first ([navigation](../features/navigation/interaction-design.md)).
 - **Section labels** above grouped lists: the eyebrow style in `QUIET` ("NOVEMBER 2026", "SECURITY").
 - Headings and short copy use balanced wrapping; paragraphs avoid single-word last lines.
 

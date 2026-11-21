@@ -41,6 +41,7 @@ import { contestantCount, type ResumeLobby, type RoomState, useRoom } from "../l
 import { type RoomJoin, roomByCode, updateRoomOptions } from "../lib/rooms";
 import { getUserId } from "../lib/supabase";
 import { GoldButton } from "../ui/GoldButton";
+import { HomeButton } from "../ui/HomeButton";
 import { HomeScreenTip } from "../ui/HomeScreenTip";
 import { Sheet } from "../ui/Sheet";
 import { Stage, StageBody } from "../ui/Stage";
@@ -144,6 +145,7 @@ function useGameOptions(room: RoomJoin): [GameOptions, (next: GameOptions) => vo
 function Centered({ children }: { children: ReactNode }) {
   return (
     <Center mih="100vh" p="md">
+      <HomeButton floating />
       <Stack align="center">{children}</Stack>
     </Center>
   );
@@ -227,6 +229,7 @@ export function HostLobbyView({
           </Stage>
         }
         column={<LobbyPlayers state={state} count={contestantCount(state)} />}
+        home={<HomeButton confirm="host" />}
       />
     );
   }
@@ -260,7 +263,12 @@ export function HostLobbyView({
     <Stage>
       <HomeScreenTip />
       <Group justify="space-between" wrap="nowrap" gap="xs">
-        <Wordmark size="clamp(14px, 8cqh, 32px)" />
+        <Group gap={2} wrap="nowrap">
+          <div style={{ margin: "-10px 0 -10px -10px" }}>
+            <HomeButton />
+          </div>
+          <Wordmark size="clamp(14px, 8cqh, 32px)" />
+        </Group>
         {editing ? (
           <Group gap="xs" wrap="nowrap">
             <TextInput

@@ -5,7 +5,7 @@
 | Route | Device | Shows |
 |---|---|---|
 | `/` | any | **Host a game**, code field + **Join** (exists today) |
-| `/host/{code}` | host device (TV) | Lobby: code, join URL, host name, contestants (folded away until opened), **Join**, **Start** |
+| `/host/{code}` | host device (TV) | Lobby: code, QR code, join URL, the player menu (folded away until opened; names and host name editable), **Join**, **Start** |
 | `/join/{code}` | phone | Name entry, then "You're in" |
 
 ## States of a room (lobby part)
@@ -30,45 +30,51 @@ Host a game ─▶ name ─▶ creating ─▶ lobby ──Start──▶ buildi
 
 Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667 × 320). Unlike the game screens, the lobby gives the stage the full width: the player list is **folded away** into a slim tab on the right edge.
 
+> **Not yet implemented** (task `lobby-qa-polish`): the QR code, the join URL in the top line, the player menu's ✎ on every name and its "Hosted by" footer, and dropping the options line. Today the top line says "Hosted by Wyatt ✎", "Join at {site}/join" sits above the code, and the options that aren't the default are listed under it.
+
 **Folded (every time the lobby opens):**
 
 ```text
 ┌──────────────────────────────────────────────────────────────────┬───┐
-│  SCHMEGETTES                               Hosted by Wyatt  ✎    │ P │
+│  SCHMEGETTES                        Join at schmegettes.app/join │ P │
 │                                                                  │ l │
-│                     Join at {site}/join                          │ a │
-│                                                                  │ y │
-│                         K 7 R X M                                │ e │
-│               Seasons 20–40 · No Double Schmegettes              │ r │
+│          ┌─────────┐                                             │ a │
+│          │ ▛▀▜ ▚▞▜ │     K 7 R X M                               │ y │
+│          │ ▙▄▟ ▞▚▟ │                                             │ e │
+│          └─────────┘                                             │ r │
 │  [ Join ]                                    🔊  ⚙   [ Start ]  │ s │
 │                                                                  │3/6│
 └──────────────────────────────────────────────────────────────────┴───┘
 ```
 
-**Open (after a tap on the tab):**
+**Open (after a tap on the tab): the player menu**
 
 ```text
 ┌───────────────────────────────────────────────────┬───────────────────┐
-│  SCHMEGETTES                  Hosted by Wyatt  ✎  │  Players  3 / 6 › │
-│                                                   │  ● Wyatt HOST     │
-│              Join at {site}/join                  │  ● Alice          │
-│                                                   │  ◌ Bob (reconn…)  │
-│                  K 7 R X M                        │                   │
-│      Seasons 20–40 · No Double Schmegettes        │                   │
+│  SCHMEGETTES         Join at schmegettes.app/join │  Players  3 / 6 › │
+│                                                   │  ● Wyatt HOST   ✎ │
+│     ┌───────┐                                     │  ● Alice        ✎ │
+│     │ QR    │    K 7 R X M                        │  ◌ Bob (reconn…)✎ │
+│     └───────┘                                     │                   │
+│                                                   │  Hosted by Wyatt ✎│
 │  [ Leave ]                     🔊  ⚙   [ Start ]  │                   │
 └───────────────────────────────────────────────────┴───────────────────┘
 ```
 
-- The code is the biggest thing on screen (Oswald, readable at 3 m): each letter in gold on its own board-blue tile. Folded, the code has the stage's full width.
+- The code is the biggest thing on screen (Oswald, readable at 3 m): each letter in gold on its own board-blue tile. The **QR code** sits to its left, as tall as the code tiles (at least 120 px at 844 × 390, at least 96 px at 667 × 320). It's dark modules on a white square with a 4-module quiet margin, in every theme. Its accessible name is "QR code to join room K7RXM". It encodes `{site}/join/{code}`, with the full origin of the environment it runs on (staging's QR opens staging).
+- **Top line:** "SCHMEGETTES" on the left, "Join at {site}/join" on the right, where "Hosted by" used to be. `{site}` is the host name without `https://` (`schmegettes.app`). Folded, the code and QR have the stage's full width.
+- **No options line.** Nothing under the code: the game options show only in their sheet.
 - **Players tab.** Folded, the right edge shows a tab about 40 px wide with "Players" and the count ("3/6"). A tap anywhere on it opens the column (about 28% of the width, as in the game) with the list. **›** in the column's header, or a tap on the header, folds it again. The lobby always opens folded: on Home → Host a game, on a reload, and on a rematch. The choice isn't remembered.
 - **A new player** animates into the list when it's open, without a sound. Folded, the count changes and the tab flashes gold once (0.6 s), so the host notices without opening it. With reduced motion turned on, the count just changes.
 - **No buzzer in the lobby on the host device.** The host's buzzer appears in the player column at Start, when the column comes back for the game. Phones keep their dim lobby buzzer.
-- **✎** next to the host name edits it until Start.
+- **Player menu.** Every row in the open list has **✎** at its right end (44 × 44 px tap target), until Start. Tapping it opens the same "What's your name?" sheet as Home's, titled "Rename Alice", prefilled with the current name, with **Save** and **Cancel**. Save updates the list, the TV and that player's phone at once. A disconnected player can be renamed too; their phone shows the new name when it reconnects.
+- **"Hosted by {name}" ✎** is the list's footer. It edits the host name, whether or not the host is playing. When the host plays, their row's ✎ does the same: one name, both places.
 - **Start**: primary button. It is disabled while nobody has joined, with no hint text. A playing host counts.
-- **Join** (secondary) adds the host to the list at once, under their host name, tagged HOST, and the button becomes **Leave**. Editing the host name with ✎ updates both places. Joining doesn't open the column.
+- **Join** (secondary) adds the host to the list at once, under their host name, tagged HOST, and the button becomes **Leave**. Joining doesn't open the column.
 - **🔊** (icon button, no text) opens the narrator voice picker (below). Its accessible name and hover tooltip are "Narrator voice: Norman". While the chosen voice downloads, a progress ring fills around the icon, and **Start** reads "Getting Kristin ready… 40%" and is disabled.
-- On a device that can't run the voices, the 🔊 button is hidden and a notice replaces the join URL line: "This device can't run the Schmegettes narrator. Host from a recent iPhone, iPad or computer." Start stays disabled.
-- **⚙** (icon button, no text; accessible name and tooltip "Game options") opens the game options sheet (below). The line under the code lists the options that aren't the default; it's empty with the defaults.
+- On a device that can't run the voices, the 🔊 button is hidden and a notice appears under the code: "This device can't run the Schmegettes narrator. Host from a recent iPhone, iPad or computer." Start stays disabled.
+- **⚙** (icon button, no text; accessible name and tooltip "Game options") opens the game options sheet (below).
+- The **resume lobby** ([rejoin and resume](../rejoin-games/interaction-design.md)) has the same top line and QR code. Its player list has no ✎: a resumed game keeps its names.
 - Both icon buttons are at least 44 × 44 px to tap.
 
 ### Narrator voice picker (host device)
@@ -100,20 +106,21 @@ Rules: [lobby feature brief](./feature-brief.md#game-options).
 │  Seasons        1984 ●━━━━━━━━━━━━━━━━━━━━━━━● 2024      │
 │                 Seasons 1–40 (all)                      │
 │  Difficulty     ( Any | Easy | Medium | Hard )          │
-│                 Every category, easy to hard            │
 │  Double         [■■ On ]  Two boards, then Final        │
 │  Schmegettes                                            │
-│                                                         │
-│  Quick picks    [ Off□□]  Say the category and amount   │
+│  Default spoken ( Ask | Lowest left )                   │
+│  clue value     When a player says just the category    │
 │                                             [ Done ]    │
 └─────────────────────────────────────────────────────────┘
 ```
 
+> **Not yet implemented** (task `lobby-qa-polish`): today Difficulty has a description line under it, and the last row is a **Quick picks** switch.
+
 - **Seasons:** a two-handle range slider, ticks per season, labeled with years at the ends and the range as text below ("Seasons 20–40 · 2003–2024"). The handles can meet (one season) but not cross.
-- **Difficulty:** a four-way segmented control, Any selected by default. The line below describes the choice: "Every category, easy to hard" (Any), "Clues most people know" (Easy), "A mix most groups will enjoy" (Medium), "For trivia regulars" (Hard). The line under the code names the level ("Easy", "Medium" or "Hard"); Any, the default, isn't listed.
+- **Difficulty:** a four-way segmented control, Any selected by default, with no description line.
 - **Double Schmegettes:** a switch. The line beside it says "Two boards, then Final" or "One board, then Final".
-- **Quick picks:** a switch, off by default. The line beside it says "Say the category and amount" (off) or "Just the category picks its lowest clue" (on).
-- Changes apply as they're made; **Done** or a tap outside closes the sheet. The line under the code updates live.
+- **Default spoken clue value:** a two-way segmented control, **Ask** (default) or **Lowest left**. The line under it, the same for both, says when it applies: "When a player says just the category".
+- Changes apply as they're made; **Done** or a tap outside closes the sheet.
 - Laid out for 844 × 390 without scrolling, like every host screen.
 
 ### Home Screen tip (iPhone and iPad Safari only)
@@ -188,7 +195,16 @@ When the host joined, their controls live in the **player column** on the right 
 | A player joins or leaves while the player list is folded | The tab's count updates; a join flashes the tab once |
 | A player reconnects or drops while the list is folded | Nothing on the tab changes; open the list to see "(reconnecting)" |
 | The host taps 🔊 or ⚙ with a screen reader | The buttons are announced as "Narrator voice: Norman" and "Game options" |
-| Quick picks on, and the controller says "Opera" with Opera 200 done and 400, 600, 800 left | Opera 400 is picked at once, with no confirmation |
+| Default spoken clue value is Lowest left, and the controller says "Opera" with Opera 200 done and 400, 600, 800 left | Opera 400 is picked at once, with no confirmation |
+| A device saved Quick picks on from before | Opens as Lowest left (off opens as Ask) |
+| Host renames Alice to "Dan" while Alice is editing her own name | The latest save wins. Alice's phone shows whichever name was saved last |
+| Host renames a player to a name already in the room | The "Name 2" rule applies, as for any edit |
+| Host renames a player, who presses Leave and joins again | They're asked their name again, prefilled with the name their device remembers (not the host's rename) |
+| A player is renamed while their phone is disconnected | The list shows the new name at once; the phone shows it when it reconnects |
+| Host presses Start while the rename sheet is open | The sheet closes without saving. Names lock at Start |
+| Someone scans the QR code after Start | Same as typing the code: "This game has already started." |
+| Someone scans the QR code of a closed room | "This room has closed." with a link Home |
+| A phone scans the QR code without a camera app that opens links | The text URL in the top line still works with the code typed in |
 | A device saved Relaxed or Fast timers from before | Ignored: every game uses the standard times ([game options](./feature-brief.md#game-options)) |
 | Host reloads the TV | Returns to the same lobby with the same players and host name |
 | Host opens `/host/{code}` on a second device | That device is the same account only if it's the same browser session. Otherwise "Only the host can open this screen" and a link to join |

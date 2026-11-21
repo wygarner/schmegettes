@@ -10,6 +10,8 @@ Every game starts with one person pressing **Host a game** on the device that wi
 |---|---|
 | Host | "I tap one button, say who I am, and get a code I can put up on the TV." |
 | Host | "I can see who has joined, by name, so I know when everyone's in." |
+| Host | "Someone typed a silly or rude name. I fix it from the TV before we start." |
+| Contestant | "I point my camera at the TV and I'm on the join screen for this room, no typing." |
 | Host | "I want to play too, on the same device, without a second phone." |
 | Host | "When we're ready, I start the game with one press." |
 | Contestant | "I type the code from the TV, enter my name, and see myself appear on the TV." |
@@ -20,8 +22,9 @@ Every game starts with one person pressing **Host a game** on the device that wi
 
 - Everyone enters a **display name**: the host on the host device, each contestant on their phone.
 - 1–20 characters, trimmed. Prefilled with the name that device used last time, so a returning player taps once.
-- The host's name is shown on the TV and on phones as "Hosted by {name}". When the host joins the game, the same name is their contestant name.
+- The host's name is shown on phones as "Hosted by {name}", and in the TV's player list. When the host joins the game, the same name is their contestant name.
 - Two contestants with the same name: the later one is shown as "Name 2". Anyone can edit their own name until the game starts.
+- **The host can edit every name** in the lobby's player list, until Start: their own and each contestant's. The same 1–20 character and "Name 2" rules apply. The renamed player's phone shows the new name at once ("You're in, Dan"). Either side can edit again; the latest edit wins. A rename lasts for this room only: it doesn't change the name the player's device suggests next time. **Not yet implemented** (task `lobby-qa-polish`): today the host can edit only their own name.
 
 ### Creating a room
 
@@ -56,8 +59,13 @@ The host device is an iPhone in landscape, mirrored to the TV ([gameplay](../gam
 
 ### The lobby (host device / TV)
 
-- Shows the **room code**, the join URL in plain text, and "Hosted by {name}".
+> **Not yet implemented** (task `lobby-qa-polish`): the QR code, the join URL in the top line, the host name and name editing in the player list, and dropping the options line. Today the top line says "Hosted by {name}" with ✎, the join URL sits above the code, and the options that aren't the default are listed under the code.
+
+- Shows the **room code**, a **QR code** beside it, and the join URL in plain text in the top line, where nothing else competes with it.
+- The **QR code** opens `{site}/join/{code}`: the phone lands on this room's microphone step, with no code to type. It's drawn dark on a white square with a quiet margin in every theme, so phone cameras read it off a mirrored TV. The text URL stays for anyone whose camera won't scan.
 - Shows **joined contestants** live, by display name, in the order they joined, with a count against the limit ("3 / 6"). The list is **folded away by default**: a slim "Players 3/6" tab on the right edge, so the code has the full width. A tap opens the list; another folds it. Every lobby opens folded. A join flashes the tab, so the host notices without opening it.
+- The open list is the **player menu**: every name in it has ✎ to edit it until Start ([display names](#display-names)). Its footer says "Hosted by {name}" with ✎, so a host who isn't playing can still edit their own name.
+- The lobby **doesn't show the game options**. They're only in the options sheet.
 - **Join** / **Leave**: adds or removes the host as a contestant.
 - **Voice** (🔊, an icon button with no text; its accessible name and tooltip give the voice, "Narrator voice: Norman") opens a list of the Schmegettes voices: Norman (the default), Kristin, and John. The device's built-in voices aren't offered. While the chosen voice downloads, a progress ring fills around the icon. Tapping a voice selects it and plays a sample line on the TV ("Here's Volcanoes for 400."), so the host hears it before Start. It's available only in the lobby. The rules for choosing a voice are in [gameplay](../gameplay/feature-brief.md#the-narrators-voice).
 - **Options** (⚙, an icon button with no text; accessible name and tooltip "Game options") opens the [game options](#game-options).
@@ -72,17 +80,17 @@ The host sets how the game plays before Start. **Options** in the lobby opens a 
 | **Seasons** | A range of seasons, from 1 (1984) to 40 (2024), at least one season | All (1–40) |
 | **Difficulty** | **Any**, **Easy**, **Medium** or **Hard**. Any uses every category, as before; a level keeps to the categories the boards and the Final are built from ([clue catalog](../clue-catalog/feature-brief.md#difficulty)) | Any |
 | **Double Schmegettes** | On / Off. Off: Final Schmegettes follows the Single board | On |
-| **Quick picks** | On / Off. On: a spoken pick of just a category picks the lowest clue left in it ([gameplay](../gameplay/feature-brief.md#the-board-and-control)) | Off |
+| **Default spoken clue value** | **Ask** or **Lowest left**. Lowest left: a spoken pick of just a category picks the lowest clue left in it ([gameplay](../gameplay/feature-brief.md#the-board-and-control)). Ask: the phone says "Didn't catch the amount." and the player says it again or taps. Called **Quick picks** (On / Off) until task `lobby-qa-polish` ships; the saved setting and the `quickPicks` contract field keep their names (Lowest left is `true`) | Ask |
 
 - Only the host device sees and changes them, and only in the lobby. They lock at **Start**.
-- The lobby shows the options that aren't the default under the code, so the room knows: "Seasons 20–40 · Easy · No Double Schmegettes · Quick picks". Phones don't show them.
+- Nobody else sees them: neither the lobby on the TV nor the phones show the options.
 - The host device **remembers** the last options for the next room it hosts, like the voice. A **Rematch** keeps the room's options; the host can change them in the lobby before pressing Start again.
 - **There's no timer option.** Every game gives 9 s to buzz in and 9 s to answer ([gameplay](../gameplay/feature-brief.md#reading-and-buzzing)). A device or room that saved Relaxed or Fast from before plays with these times; a game already in progress, or one resumed later, keeps the times it started with.
 - Seasons narrow which clues the board is built from. A narrow range can run out of fresh categories sooner; the board then falls back to the least-recently-seen ones, as it always does ([game history](../game-history/feature-brief.md#building-a-fresh-board)). The game always starts.
 - Difficulty changes only which categories reach the board. Values, Daily Doubles, timers and scoring are the same at every level. Together with a narrow Seasons range, a level can run out of fresh categories sooner; the board then takes fresh ones from the next level over before repeating any ([game history](../game-history/feature-brief.md#building-a-fresh-board)). The game always starts.
 - A room or device that saved its options before Difficulty existed plays Any.
 - With Double Schmegettes off, the game has one board with its 1 Daily Double, then Final.
-- **Quick picks** changes only spoken picks that name a category without an amount. Taps, and spoken picks with an amount, work as always. It's off by default because a spoken pick has no confirmation: with it on, an amount the microphone missed ("Opera for… 600" heard as "Opera") picks the lowest clue instead of asking again.
+- **Default spoken clue value** changes only spoken picks that name a category without an amount. Taps, and spoken picks with an amount, work as always. It's Ask by default because a spoken pick has no confirmation: with Lowest left, an amount the microphone missed ("Opera for… 600" heard as "Opera") picks the lowest clue instead of asking again.
 
 ### Full screen on iPhone and iPad
 
@@ -105,8 +113,9 @@ iPhone and iPad Safari don't let a web page hide the browser's toolbar; only the
 
 ## Out of scope
 
-- QR code for joining
 - A max-players setting (always 6)
+- Renaming players after Start, or in a resume lobby (a resumed game keeps its names)
+- A QR code on phones (to pass the room on from a phone)
 - Removing (kicking) a player
 - Joining as a spectator from the UI
 - Hosting from a phone while a separate screen shows the TV view (a TV browser or a second display)

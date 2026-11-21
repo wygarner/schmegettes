@@ -16,7 +16,7 @@ task-title: "Host lobby: QR code, join URL up top, host renames players, simpler
 - The options sheet: Difficulty has no description line; **Quick picks** becomes **Default spoken clue value: ( Ask | Lowest left )**, with the same behavior.
 
 **Player flow:**
-- **Host opens the lobby:** top line "SCHMEGETTES … Join at schmegettes.app/join". Center: QR code left of the code tiles. Nothing under the code. Players tab folded on the right, as today.
+- **Host opens the lobby:** top line "SCHMEGETTES … Join at schmegettes.app/join". Center: the QR code, with the code tiles under it. Nothing under the code. Players tab folded on the right, as today.
 - **Guest scans the QR:** the phone opens `{site}/join/K7RXM` and goes straight to the microphone step, then the name. On staging, the QR opens staging.
 - **Host renames a player:** opens the player menu, taps ✎ on "Poopface", types "Dan", **Save**. The TV list and Dan's phone ("You're in, Dan") update at once. Dan can edit it again; the latest save wins. Dan's device still suggests "Poopface" next time: a rename lasts for this room only.
 - **Host renames themself:** the player menu's footer "Hosted by Wyatt ✎", or their own row's ✎ when they've joined. One name, both places.
@@ -24,7 +24,7 @@ task-title: "Host lobby: QR code, join URL up top, host renames players, simpler
 - **Edge cases** (full list in the interaction design): Start while the rename sheet is open closes it without saving; renaming to a name already used gets "Name 2"; renaming a disconnected player shows on their phone when they reconnect; a QR scanned after Start or for a closed room shows the same errors as a typed code; the resume lobby gets the QR and top line but no ✎ (a resumed game keeps its names); a device that can't run the narrator shows its notice under the code.
 
 **Success Criteria:**
-- At 844 × 390 and 667 × 320, the lobby shows the top-line URL, the QR and the code with no scrolling, folded and open. The QR is at least 96 px.
+- At 844 × 390 and 667 × 320, the lobby shows the top-line URL, the QR and the code with no scrolling, folded and open. The QR sits centered above the code and is at least 88 px (110 px at 844 × 390), with a rematch or resume line under the code too.
 - An iPhone camera scanning the QR off a mirrored TV at 3 m opens the room's microphone step (checked once by hand on staging).
 - The host renames a connected player and a disconnected one; both phones show the new name (the disconnected one on reconnect), and Start locks names.
 - A non-host can't rename anyone else: the server refuses it.

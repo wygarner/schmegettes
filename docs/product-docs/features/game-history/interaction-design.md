@@ -61,7 +61,7 @@ If the board can't be built (server error), everyone returns to the lobby with "
 ```
 
 - Above the list: three stats: **Games** (every game listed, played or watched), **Wins** (1st places in finished games, in the accent), **Best** (my highest score). They count all my games, not just the 20 loaded: `GET /v1/games` returns them as `stats` on the first page. Hidden for a player with no played games.
-- **No filter.** Played and watched games are listed together. **Not yet implemented** (task `my-games-drop-watched-filter`): today an **All** / **Played** / **Watched** filter sits above the list. Watched games keep their eye tile and **Watched** chip, so they're still easy to tell apart, and a host who didn't play still reaches **Resume game** from them.
+- **No filter.** Played and watched games are listed together. Watched games keep their eye tile and **Watched** chip, so they're still easy to tell apart, and a host who didn't play still reaches **Resume game** from them.
 - Games are grouped by month under small uppercase labels, the rows of a month inside one card with hairline dividers.
 - One row per game: a placement tile (deep mauve with the board bevel; the placement in the accent green with a soft glow for 1st, silver for 2nd, bronze for 3rd), the weekday, date and time ("Today" for today), on the second line an **Unfinished** chip when the game was abandoned, then the players with "You" in place of my name ("You" brighter, "Former player" in italics), and my score in tabular figures (red when negative).
 - Games I only watched (as a non-playing host or a spectator) have an eye in the tile, a **Watched** chip before the players, and no score.

@@ -21,7 +21,7 @@ One, additive: `20261120004624_clue_difficulty`.
 - main-domain's operator steps (Vercel domains, `ALLOWED_ORIGINS`, version URLs, Supabase Auth URLs) were done by hand before this release; nothing in the code needs them, because the join address comes from the page's own host.
 
 ## Contracts
-All additive: `Domain.Difficulty`; `Room.difficulty` (nullable); the `PATCH /v1/rooms/{roomId}` body's `difficulty` (absent leaves it unchanged, null sets Any, an unknown value is a 400); `room_snapshot.difficulty`.
+All additive: `Domain.Difficulty`; `Room.difficulty` (nullable); the `PATCH /v1/rooms/{roomId}` body's `difficulty` (absent leaves it unchanged, null sets Any, an unknown value is a 400). The game server reads the difficulty from the game row; no WebSocket message changes.
 
 ## After deploy
 - **Production has no difficulty labels yet.** Until Rate Clues runs on production, every category counts as Medium: Easy and Hard boards come out the same as Any. To rate: set `PROD_ANTHROPIC_API_KEY`, then dispatch Rate Clues with `environment: production`, `action: rate` (about $4 with Haiku through the Message Batches API; see `deployment.md`). The catalog is already loaded on production (Load Clues, 2026-11-18).

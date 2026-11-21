@@ -62,6 +62,9 @@ type ResumePlayer struct {
 type Store interface {
 	Load(ctx context.Context, roomID string) (Lobby, error)
 	SetName(ctx context.Context, roomID, userID, name string) error
+	// RenameMember is the host renaming another member: like SetName, but not remembered as
+	// that player's name for next time (rename_member).
+	RenameMember(ctx context.Context, roomID, userID, name string) error
 	SetHostPlays(ctx context.Context, roomID string, plays bool) error
 	Leave(ctx context.Context, roomID, userID string) error
 	StartGame(ctx context.Context, roomID string) (gameID string, err error)
@@ -598,6 +601,10 @@ func (r *Room) handle(ctx context.Context, c *Client, data []byte) {
 			r.fail(c, contracts.ErrorCodeWrongPhase, "")
 			return
 		}
+		if m.UserId != nil && *m.UserId != c.UserID {
+			r.renameMember(ctx, c, isHost, *m.UserId, m.DisplayName)
+			return
+		}
 		r.apply(ctx, c, r.store.SetName(ctx, r.id, c.UserID, m.DisplayName))
 
 	case "set_host_plays":
@@ -685,6 +692,38 @@ func (r *Room) handle(ctx context.Context, c *Client, data []byte) {
 			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
 		}
 	}
+}
+
+// renameMember is the host renaming another member from the lobby's player menu, until
+// Start. Not in a resume lobby: a resumed game keeps its names.
+func (r *Room) renameMember(ctx context.Context, c *Client, isHost bool, target, name string) {
+	if !isHost {
+		r.fail(c, contracts.ErrorCodeNotHost, "")
+		return
+	}
+	if r.lobby.Resume != nil {
+		r.fail(c, contracts.ErrorCodeWrongPhase, "")
+		return
+	}
+	if !r.isMember(target) {
+		r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+		return
+	}
+	err := r.store.RenameMember(ctx, r.id, target, name)
+	if err == nil {
+		r.log.Info("member renamed by host", "target_user_id", target)
+	}
+	r.apply(ctx, c, err)
+}
+
+// isMember reports whether userID is in the room's member list.
+func (r *Room) isMember(userID string) bool {
+	for _, m := range r.lobby.Members {
+		if m.UserID == userID {
+			return true
+		}
+	}
+	return false
 }
 
 // apply finishes a lobby change: refresh the room and tell everyone, or report the error.

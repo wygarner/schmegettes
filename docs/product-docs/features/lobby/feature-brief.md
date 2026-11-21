@@ -24,7 +24,7 @@ Every game starts with one person pressing **Host a game** on the device that wi
 - 1–20 characters, trimmed. Prefilled with the name that device used last time, so a returning player taps once.
 - The host's name is shown on phones as "Hosted by {name}", and in the TV's player list. When the host joins the game, the same name is their contestant name.
 - Two contestants with the same name: the later one is shown as "Name 2". Anyone can edit their own name until the game starts.
-- **The host can edit every name** in the lobby's player list, until Start: their own and each contestant's. The same 1–20 character and "Name 2" rules apply. The renamed player's phone shows the new name at once ("You're in, Dan"). Either side can edit again; the latest edit wins. A rename lasts for this room only: it doesn't change the name the player's device suggests next time. **Not yet implemented** (task `lobby-qa-polish`): today the host can edit only their own name.
+- **The host can edit every name** in the lobby's player list, until Start: their own and each contestant's. The same 1–20 character and "Name 2" rules apply. The renamed player's phone shows the new name at once ("You're in, Dan"). Either side can edit again; the latest edit wins. A rename lasts for this room only: it doesn't change the name the player's device suggests next time.
 
 ### Creating a room
 
@@ -59,8 +59,6 @@ The host device is an iPhone in landscape, mirrored to the TV ([gameplay](../gam
 
 ### The lobby (host device / TV)
 
-> **Not yet implemented** (task `lobby-qa-polish`): the QR code, the join URL in the top line, the host name and name editing in the player list, and dropping the options line. Today the top line says "Hosted by {name}" with ✎, the join URL sits above the code, and the options that aren't the default are listed under the code.
-
 - Shows the **room code**, a **QR code** centered above it, and the join URL in plain text in the top line, where nothing else competes with it.
 - The **QR code** opens `{site}/join/{code}`: the phone lands on this room's microphone step, with no code to type. It's drawn dark on a white square with a quiet margin in every theme, so phone cameras read it off a mirrored TV. The text URL stays for anyone whose camera won't scan.
 - Shows **joined contestants** live, by display name, in the order they joined, with a count against the limit ("3 / 6"). The list is **folded away by default**: a slim "Players 3/6" tab on the right edge, so the code has the full width. A tap opens the list; another folds it. Every lobby opens folded. A join flashes the tab, so the host notices without opening it.
@@ -80,7 +78,7 @@ The host sets how the game plays before Start. **Options** in the lobby opens a 
 | **Seasons** | A range of seasons, from 1 (1984) to 40 (2024), at least one season | All (1–40) |
 | **Difficulty** | **Any**, **Easy**, **Medium** or **Hard**. Any uses every category, as before; a level keeps to the categories the boards and the Final are built from ([clue catalog](../clue-catalog/feature-brief.md#difficulty)) | Any |
 | **Double Schmegettes** | On / Off. Off: Final Schmegettes follows the Single board | On |
-| **Default spoken clue value** | **Ask** or **Lowest left**. Lowest left: a spoken pick of just a category picks the lowest clue left in it ([gameplay](../gameplay/feature-brief.md#the-board-and-control)). Ask: the phone says "Didn't catch the amount." and the player says it again or taps. Called **Quick picks** (On / Off) until task `lobby-qa-polish` ships; the saved setting and the `quickPicks` contract field keep their names (Lowest left is `true`) | Ask |
+| **Default spoken clue value** | **Ask** or **Lowest left**. Lowest left: a spoken pick of just a category picks the lowest clue left in it ([gameplay](../gameplay/feature-brief.md#the-board-and-control)). Ask: the phone says "Didn't catch the amount." and the player says it again or taps. It was called **Quick picks** (On / Off) before; the saved setting and the `quickPicks` contract field keep that name (Lowest left is `true`) | Ask |
 
 - Only the host device sees and changes them, and only in the lobby. They lock at **Start**.
 - Nobody else sees them: neither the lobby on the TV nor the phones show the options.

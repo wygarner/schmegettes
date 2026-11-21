@@ -28,11 +28,12 @@
       "additionalProperties": false
     },
     "SetDisplayName": {
-      "description": "Lobby only. Renames the sender in this room; the server adds a suffix when the name is taken.",
+      "description": "Lobby only. Without userId (or with your own), renames the sender and remembers the name for next time. With another member's userId, host only and not in a resume lobby: renames that member for this room without changing their remembered name. The server adds a suffix when the name is taken.",
       "type": "object",
       "properties": {
         "type": { "const": "set_display_name" },
-        "displayName": { "type": "string", "minLength": 1, "maxLength": 20 }
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 20 },
+        "userId": { "type": "string", "format": "uuid" }
       },
       "required": ["type", "displayName"],
       "additionalProperties": false

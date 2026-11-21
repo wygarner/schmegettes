@@ -30,8 +30,6 @@ Host a game ─▶ name ─▶ creating ─▶ lobby ──Start──▶ buildi
 
 Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667 × 320). Unlike the game screens, the lobby gives the stage the full width: the player list is **folded away** into a slim tab on the right edge.
 
-> **Not yet implemented** (task `lobby-qa-polish`): the QR code, the join URL in the top line, the player menu's ✎ on every name and its "Hosted by" footer, and dropping the options line. Today the top line says "Hosted by Wyatt ✎", "Join at {site}/join" sits above the code, and the options that aren't the default are listed under it.
-
 **Folded (every time the lobby opens):**
 
 ```text
@@ -113,8 +111,6 @@ Rules: [lobby feature brief](./feature-brief.md#game-options).
 │                                             [ Done ]    │
 └─────────────────────────────────────────────────────────┘
 ```
-
-> **Not yet implemented** (task `lobby-qa-polish`): today Difficulty has a description line under it, and the last row is a **Quick picks** switch.
 
 - **Seasons:** a two-handle range slider, ticks per season, labeled with years at the ends and the range as text below ("Seasons 20–40 · 2003–2024"). The handles can meet (one season) but not cross.
 - **Difficulty:** a four-way segmented control, Any selected by default, with no description line.

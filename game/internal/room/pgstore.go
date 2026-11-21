@@ -89,6 +89,11 @@ func (s PGStore) SetName(ctx context.Context, roomID, userID, name string) error
 	return s.exec(ctx, "select public.set_member_name($1, $2, $3)", roomID, userID, name)
 }
 
+// RenameMember is the host renaming another member: not remembered as their name.
+func (s PGStore) RenameMember(ctx context.Context, roomID, userID, name string) error {
+	return s.exec(ctx, "select public.rename_member($1, $2, $3)", roomID, userID, name)
+}
+
 // SetHostPlays puts the host in or out of the game.
 func (s PGStore) SetHostPlays(ctx context.Context, roomID string, plays bool) error {
 	return s.exec(ctx, "select public.set_host_plays($1, $2)", roomID, plays)

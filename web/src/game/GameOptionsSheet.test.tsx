@@ -13,10 +13,17 @@ function show(options: GameOptions, onChange = vi.fn()) {
   return onChange;
 }
 
-test("Difficulty starts at Any, with its description", () => {
+const DESCRIPTIONS = [
+  "Every category, easy to hard",
+  "Clues most people know",
+  "A mix most groups will enjoy",
+  "For trivia regulars",
+];
+
+test("Difficulty starts at Any, with no description under it", () => {
   show(DEFAULT_OPTIONS);
   expect(screen.getByRole("radio", { name: "Any" })).toBeChecked();
-  expect(screen.getByText("Every category, easy to hard")).toBeInTheDocument();
+  for (const text of DESCRIPTIONS) expect(screen.queryByText(text)).toBeNull();
 });
 
 test("picking a level changes only the difficulty", () => {
@@ -25,15 +32,31 @@ test("picking a level changes only the difficulty", () => {
   expect(onChange).toHaveBeenCalledWith({ ...DEFAULT_OPTIONS, quickPicks: true, difficulty: "hard" });
 });
 
-test("each level shows its line", () => {
+test("a level shows as checked, still with no description", () => {
   show({ ...DEFAULT_OPTIONS, difficulty: "easy" });
   expect(screen.getByRole("radio", { name: "Easy" })).toBeChecked();
-  expect(screen.getByText("Clues most people know")).toBeInTheDocument();
+  for (const text of DESCRIPTIONS) expect(screen.queryByText(text)).toBeNull();
 });
 
 test("back to Any is null", () => {
   const onChange = show({ ...DEFAULT_OPTIONS, difficulty: "medium" });
-  expect(screen.getByText("A mix most groups will enjoy")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("radio", { name: "Any" }));
   expect(onChange).toHaveBeenCalledWith({ ...DEFAULT_OPTIONS, difficulty: null });
+});
+
+test("Default spoken clue value: Ask by default; Lowest left and Ask set quickPicks", () => {
+  const onChange = show(DEFAULT_OPTIONS);
+  expect(screen.queryByText("Quick picks")).toBeNull();
+  expect(screen.getByText("Default spoken clue value")).toBeInTheDocument();
+  expect(screen.getByText("When a player says just the category")).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: "Ask" })).toBeChecked();
+  fireEvent.click(screen.getByRole("radio", { name: "Lowest left" }));
+  expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_OPTIONS, quickPicks: true });
+});
+
+test("a room saved with Quick picks on opens as Lowest left", () => {
+  const onChange = show({ ...DEFAULT_OPTIONS, quickPicks: true });
+  expect(screen.getByRole("radio", { name: "Lowest left" })).toBeChecked();
+  fireEvent.click(screen.getByRole("radio", { name: "Ask" }));
+  expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_OPTIONS, quickPicks: false });
 });

@@ -53,10 +53,12 @@ type Room struct {
 	Timers          string // relaxed, standard, or fast
 	DoubleRound     bool
 	QuickPicks      bool
+	Difficulty      *string // easy, medium, or hard; nil is Any (every category)
 }
 
 // Options is a change to a room's game options. A nil field is left as it is; SetSeasons
-// says whether Seasons applies (nil Seasons then means every season).
+// says whether Seasons applies (nil Seasons then means every season), and SetDifficulty whether
+// Difficulty does (nil Difficulty then means Any).
 type Options struct {
 	SetSeasons  bool
 	Seasons     []int
@@ -64,6 +66,9 @@ type Options struct {
 	DoubleRound *bool
 	MaxPlayers  *int
 	QuickPicks  *bool
+	// SetDifficulty: Difficulty applies, nil meaning Any.
+	SetDifficulty bool
+	Difficulty    *string
 }
 
 // Store is the data access the handlers need.
@@ -84,7 +89,7 @@ type PGStore struct {
 const selectRoom = `
 select r.id::text, r.code, r.status::text, r.host_id::text,
        coalesce(m.display_name, p.display_name), r.host_plays, r.max_players, r.seasons,
-       r.timers::text, r.double_round, r.quick_picks
+       r.timers::text, r.double_round, r.quick_picks, r.difficulty::text
 from public.rooms r
 join public.room_members m on m.room_id = r.id and m.user_id = r.host_id
 join public.profiles p on p.user_id = r.host_id
@@ -93,7 +98,7 @@ join public.profiles p on p.user_id = r.host_id
 func scanRoom(row pgx.Row) (Room, error) {
 	var r Room
 	err := row.Scan(&r.ID, &r.Code, &r.Status, &r.HostUserID, &r.HostDisplayName, &r.HostPlays, &r.MaxPlayers, &r.Seasons,
-		&r.Timers, &r.DoubleRound, &r.QuickPicks)
+		&r.Timers, &r.DoubleRound, &r.QuickPicks, &r.Difficulty)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Room{}, ErrNotFound
 	}
@@ -146,8 +151,10 @@ func (s PGStore) SetOptions(ctx context.Context, c auth.Claims, roomID string, o
 	var room Room
 	err := s.DB.AsUser(ctx, c, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx,
-			"select public.set_room_options($1::uuid, $2, $3::integer[], $4::public.timer_pace, $5, $6, $7)",
-			roomID, o.SetSeasons, o.Seasons, o.Timers, o.DoubleRound, o.MaxPlayers, o.QuickPicks)
+			"select public.set_room_options($1::uuid, $2, $3::integer[], $4::public.timer_pace, $5, $6, $7, $8,"+
+				" $9::public.difficulty)",
+			roomID, o.SetSeasons, o.Seasons, o.Timers, o.DoubleRound, o.MaxPlayers, o.QuickPicks, o.SetDifficulty,
+			o.Difficulty)
 		if err != nil {
 			return mapOptionsError(err)
 		}

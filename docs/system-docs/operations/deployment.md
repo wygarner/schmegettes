@@ -2,7 +2,7 @@
 
 **Source of truth:** `.github/workflows/deploy.yml` (called by `deploy-staging.yml` and `deploy-prod.yml`), `api/fly.toml`, `game/fly.toml`, `web/scripts/vercel-deploy.mjs`
 
-Hosting was decided on 2026-11-10: **Fly.io** for `api` and `game`, **Vercel** for `web`, **Supabase** for the database. A push to `develop` deploys staging (`deploy-staging.yml`; skipped when the push changes only `docs/`, `tasks/`, `releases/` or `.md` files, so staging can trail `develop` by docs commits) and a push to `production` deploys production (`deploy-prod.yml`). Both run the same jobs (`deploy.yml`). Custom domains are not set up yet: every URL below is the provider's default hostname and comes from configuration, so adding a domain changes configuration only.
+Hosting was decided on 2026-11-10: **Fly.io** for `api` and `game`, **Vercel** for `web`, **Supabase** for the database. A push to `develop` deploys staging (`deploy-staging.yml`; skipped when the push changes only `docs/`, `tasks/`, `releases/` or `.md` files, so staging can trail `develop` by docs commits) and a push to `production` deploys production (`deploy-prod.yml`). Both run the same jobs (`deploy.yml`). Players use **`https://schmegettes.app`** (production) and **`https://staging.schmegettes.app`** (staging); see [Domains](#domains). The api and game keep their `fly.dev` hostnames (`schmegettes-{api,game}-{staging,prod}.fly.dev`). Every URL comes from configuration, so changing a domain changes configuration only.
 
 ## Environments
 
@@ -48,7 +48,7 @@ Once per environment (staging, then production), by Wyatt Garner. Deploys fail u
 
 1. **Supabase:** create the project (`schmegettes-staging` / `schmegettes-prod`) in us-east-1, next to Fly's `iad` region set in both `fly.toml` files. Apply the [Supabase Auth settings](#supabase-auth-settings), and turn on asymmetric JWT signing keys (services verify tokens against the JWKS).
 2. **Fly.io:** create the two apps (`schmegettes-{api,game}-{staging,prod}`) and a deploy token per app: `fly tokens create deploy -a {app}`.
-3. **Vercel:** create the project (`schmegettes-web-staging` / `schmegettes-web-prod`) and disconnect its Git integration, so CI is its only deployer. On the staging project, turn off Deployment Protection for production deployments if testers have no Vercel login.
+3. **Vercel:** create the project (`schmegettes-web-staging` / `schmegettes-web-prod`) and disconnect its Git integration, so CI is its only deployer. On the staging project, turn off Deployment Protection for production deployments if testers have no Vercel login. Add the environment's domain and its redirects ([Domains](#domains)).
 4. **GitHub:** in the Environment (`staging` / `production`), add the secrets and variables listed in [configuration-and-secrets.md](../security/configuration-and-secrets.md#2-ci-and-operator-secrets).
 5. **First deploy:** run the deploy workflow from the Actions tab (Deploy Staging on `develop`). Migrate creates the `app_service` role; the app deploys fail until step 6.
 6. **App credentials:** set the `app_service` password ([below](#database-roles-per-environment)), then `fly secrets set` on each app ([configuration-and-secrets.md](../security/configuration-and-secrets.md#1-variables-per-package)). Run the deploy again.
@@ -66,6 +66,10 @@ alter role app_service with login password '<generated, stored only in the secre
 
 Services connect through the Supabase pooler (transaction mode, port 6543) as `app_service`. Append `?default_query_exec_mode=simple_protocol` to that `DATABASE_URL`: pgx caches prepared statements by default, and the transaction pooler can't serve them. Only `deploy-prod.yml` and `load-clues.yml` hold an owner credential (`*_OWNER_URL`).
 
+If a service can't log in, its log shows `password authentication failed for user "app_service"` (SQLSTATE 28P01) on every boot, the process exits, and after 10 restarts Fly leaves the machine **stopped**: `/healthz` times out and the deploy's "Verify deployed commit" step fails after 15 minutes. A running machine keeps its pooled connections, so a password change can go unnoticed until the next deploy restarts it. Fix: set the password again and `fly secrets set DATABASE_URL=…` on that environment's api and game apps ([rotation](../security/configuration-and-secrets.md#3-owners-and-rotation)).
+
+Staging was down this way from 2026-11-19 03:54 UTC (the first deploy after the password stopped matching) until about 00:25 UTC on 2026-11-20, when `DATABASE_URL` was reset on both staging apps. What changed the password was not determined. Production was not affected.
+
 ## Loading the clue catalog
 
 A new environment has no clues: Start fails until the catalog is loaded. Run **Load Clues** (`.github/workflows/load-clues.yml`) from the Actions tab:
@@ -74,9 +78,42 @@ A new environment has no clues: Start fails until the catalog is loaded. Run **L
 - It takes about a minute for all 40 seasons (about 413,000 clues, 160 MB). The run's summary shows one row per season. Running it again inserts nothing; it retries seasons that failed.
 - **Production**: run it on the `production` branch, and only after private access is live. The loader refuses a database without `public.hosts` ([clue catalog](../../product-docs/features/clue-catalog/feature-brief.md#source)).
 
+## Rating the clue catalog
+
+Every category gets a difficulty (Easy, Medium or Hard) so a host can keep a game to one level ([clue catalog](../../product-docs/features/clue-catalog/feature-brief.md#difficulty)). Until an environment is rated, every category plays as Medium, and Any (the default) works as before. Run **Rate Clues** (`.github/workflows/rate-clues.yml`) from the Actions tab, or with `gh workflow run rate-clues.yml -f environment=staging -f action=rate`:
+
+- It reads that GitHub Environment's owner URL and its own Anthropic key: `STAGING_ANTHROPIC_API_KEY` or `PROD_ANTHROPIC_API_KEY`. The model is `claude-haiku-5-5` unless the variable `DIFFICULTY_MODEL` says otherwise.
+- **Pilot first:** `action=rate`, `limit=500`. The summary ends with the tokens used and an estimated cost. A full catalog (about 90,000 categories) is about 180 pilots.
+- **Recut:** `action=recut` clears every label and both scales, then cuts them again from the stored scores. It's free (nothing is sent to Claude) and is the one deliberate exception to "labels never change": use it only after the cut rule changes.
+- **Full run:** `action=rate` with no limit. Batches usually finish within an hour, and can take up to 24. If the job times out first, run it again: it collects the batches it left and submits only what's still unrated. Run it again after loading new seasons, too. Categories that failed are retried on the next run, and the summary names them with the reason. One that has failed twice (one Claude keeps refusing, say) no longer holds back the cut points: it plays as Medium and is still retried on every run.
+- **Quality checks.** Run them after any new rating. Labels that fail them ship only with the product owner's decision, recorded in the [clue catalog brief](../../product-docs/features/clue-catalog/feature-brief.md#difficulty). The current Haiku labels shipped that way on 2026-11-20, after failing the hand check (26 of 60):
+  1. `action=check-order` (100 categories): Claude scores each board clue on its own; scores must climb from row 1 to row 4. The summary says PASS or FAIL.
+  2. `action=handcheck-export`: download the `handcheck-{environment}` artifact, a sheet of 60 categories (20 per level) without Claude's labels. Fill in `my_label` (easy, medium or hard) for each.
+  3. `action=handcheck-score` with the filled-in sheet: `gh workflow run rate-clues.yml -f environment=staging -f action=handcheck-score -f sheet="$(cat handcheck.csv)"`. At least 45 of 60 must agree.
+
+  To rerate with another model: emptying `public.category_difficulty` and `public.difficulty_scale` in that environment's SQL editor, setting `DIFFICULTY_MODEL`, and running the full rating again.
+- **Production**: run it on the `production` branch, after the catalog is loaded there and `PROD_ANTHROPIC_API_KEY` is set. The checks can be skipped there: the decision above covers the same model and prompt. Production's thirds are cut from its own scores, so its labels won't match staging's exactly.
+
+## Domains
+
+DNS for `schmegettes.app` is on Vercel (`ns1.vercel-dns.com`, `ns2.vercel-dns.com`). In each Vercel project the custom domain is primary, and every other domain on the project redirects to it with a permanent 308 that keeps the path and query:
+
+| Project | Primary | Redirects to it |
+|---|---|---|
+| `schmegettes-web-prod` | `schmegettes.app` | `www.schmegettes.app`, `schmegettes-web-prod.vercel.app` |
+| `schmegettes-web-staging` | `staging.schmegettes.app` | `schmegettes-web-staging.vercel.app` |
+
+A new web origin also needs, on that environment:
+
+- `ALLOWED_ORIGINS` on its api and game (Fly secrets; [configuration-and-secrets.md](../security/configuration-and-secrets.md#1-variables-per-package)). Add the new origin first and remove the old one only once the redirect is live, because the api and game reject any origin not listed. Set it with `fly secrets set`, which applies at once (the dashboard only stages secrets until the next deploy).
+- The web entry of `{STAGING,PROD}_VERSION_URLS` (GitHub Environment variable), pointing at the primary domain. The deployed-commit check doesn't follow redirects.
+- The Supabase Auth URL configuration ([below](#supabase-auth-settings)).
+
 ## Supabase Auth settings
 
 Set once per Supabase project (Authentication settings), matching `supabase/config.toml`:
+
+- **Site URL** and **Redirect URLs**: the environment's web origin (`https://schmegettes.app`, `https://staging.schmegettes.app`). Nothing sends email today; this keeps auth links right if that changes.
 
 - **Anonymous sign-ins**: on. Rate limit for anonymous users: 30 per hour per IP.
 - **Email provider**: on, for email and password accounts ([accounts](../../product-docs/features/accounts/feature-brief.md)). **Confirm email: off** and **Secure password change: off**, so Schmegettes never sends email and needs no SMTP. Minimum password length 8, no other password requirements. Rate limit for sign-ins and sign-ups: 30 per 5 minutes per IP.

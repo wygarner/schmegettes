@@ -14,14 +14,15 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `APP_ENV` | api, game, worker | no | api, game: set by `deploy.yml` (`staging` / `production`); worker: `load-clues.yml` |
 | `LOG_LEVEL` | api, game, worker | no | `fly.toml` `[env]` (`info`) |
 | `DATABASE_URL` | api, game, worker | **yes** (the `app_service` password) | Fly secret. The Supabase transaction pooler URI (port 6543) as `app_service`, ending `?default_query_exec_mode=simple_protocol` ([deployment.md](../operations/deployment.md#database-roles-per-environment)) |
-| `DATABASE_OWNER_URL` | worker | **yes** (owner role, bypasses RLS) | Only for `import-clues`. Local: `worker/.env`. Staging and production: never on a laptop; `load-clues.yml` reads the GitHub Environment secrets below |
+| `DATABASE_OWNER_URL` | worker | **yes** (owner role, bypasses RLS) | Only for `import-clues` and `rate-clues`. Local: `worker/.env`. Staging and production: never on a laptop; `load-clues.yml` and `rate-clues.yml` read the GitHub Environment secrets below |
 | `SUPABASE_URL` | api, game | no | Fly secret (not secret, kept with the rest) |
 | `SUPABASE_JWKS_URL` | api, game | no (public keys) | Fly secret: `{SUPABASE_URL}/auth/v1/.well-known/jwks.json` |
-| `ALLOWED_ORIGINS` | api, game | no | Fly secret: the web origin, e.g. `https://schmegettes-web-prod.vercel.app`. The api's also includes `http://localhost:5174`, so the devtools Admin page can call it |
+| `ALLOWED_ORIGINS` | api, game | no | Fly secret: the web origin, `https://schmegettes.app` (staging `https://staging.schmegettes.app`). The api's also includes `http://localhost:5174`, so the devtools Admin page can call it |
 | `GAME_SOCKET_BASE_URL` | api | no | Fly secret: `wss://schmegettes-game-{staging,prod}.fly.dev` |
 | `REDIS_URL` | game | **yes** | host secret store. Listed in `game/.env.example` but not read yet: no service uses Redis |
 | `CLUE_DATASET_BASE_URL` | worker | no | `worker/.env`; in `load-clues.yml`, the optional repo variable `CLUE_DATASET_BASE_URL` (defaults to the dataset URL) |
-| `ANTHROPIC_API_KEY` | worker | **yes** | host secret store. Not read yet: the LLM judge is not built |
+| `ANTHROPIC_API_KEY` | worker | **yes** | Read by `rate-clues` (and, later, the LLM judge). Local: `worker/.env`. Staging and production: `rate-clues.yml` sets it from `STAGING_ANTHROPIC_API_KEY` or `PROD_ANTHROPIC_API_KEY` (below) |
+| `DIFFICULTY_MODEL` | worker | no | The model `rate-clues` uses (default `claude-haiku-5-5`). Local: `worker/.env`. In `rate-clues.yml`, the optional repo or environment variable `DIFFICULTY_MODEL` |
 | `VITE_SUPABASE_URL` | web | no | GitHub Environment variable, read by `deploy.yml` at build time |
 | `VITE_SUPABASE_ANON_KEY` | web | no (public by design) | GitHub Environment variable |
 | `VITE_API_URL` | web | no | GitHub Environment variable |
@@ -33,8 +34,8 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 
 | Name | Kind | Location | Used by |
 |---|---|---|---|
-| `PROD_SUPABASE_DB_OWNER_URL` | secret | GitHub Environment `production` (**not set yet**) | `deploy.yml` migrations; `load-clues.yml` |
-| `STAGING_SUPABASE_DB_OWNER_URL` | secret | GitHub Environment `staging` (**not set yet**) | `deploy.yml` migrations; `load-clues.yml` |
+| `PROD_SUPABASE_DB_OWNER_URL` | secret | GitHub Environment `production` | `deploy.yml` migrations; `load-clues.yml`; `rate-clues.yml` |
+| `STAGING_SUPABASE_DB_OWNER_URL` | secret | GitHub Environment `staging` | `deploy.yml` migrations; `load-clues.yml`; `rate-clues.yml` |
 | `FLY_API_TOKEN_API`, `FLY_API_TOKEN_GAME` | secrets | GitHub Environments `staging` and `production`, each with that environment's per-app deploy token (`fly tokens create deploy -a {app}`) | `deploy.yml` |
 | `VERCEL_TOKEN` | secret | GitHub Environments `staging` and `production` | `deploy.yml` |
 | `FLY_APP_API`, `FLY_APP_GAME` | variables | GitHub Environments: `schmegettes-{api,game}-staging` / `-prod` | `deploy.yml` |
@@ -42,7 +43,8 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL` | variables (public) | GitHub Environments | `deploy.yml` web build |
 | `GAME_SOCKET_ORIGIN` | variable (public) | GitHub Environments: `wss://schmegettes-game-{staging,prod}.fly.dev` | `deploy.yml`, the web CSP's `connect-src` |
 | `STAGING_VERSION_URLS`, `PROD_VERSION_URLS` | variables (not secret) | GitHub Environment `staging` / `production`: the web `/version.json` and the api and game `/version` URLs, space-separated | `deploy.yml` deployed-commit check |
-| `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` | secrets | repo secrets (**not set yet**: Jira is not configured) | `create-jira-ticket.yml`, `jira-transitions.yml` |
+| `STAGING_ANTHROPIC_API_KEY` | secret | GitHub Environment `staging` (**not set yet**) | `rate-clues.yml` |
+| `PROD_ANTHROPIC_API_KEY` | secret | GitHub Environment `production` (**not set yet**) | `rate-clues.yml` |
 | `ANTHROPIC_API_KEY` | secret | repo secret (**not set yet**) | `ci.yml` evals job |
 
 ## 3. Owners and rotation
@@ -57,8 +59,7 @@ Owner of every secret: **Wyatt Garner**.
 | `VERCEL_TOKEN` | Create a new token in Vercel account settings (scoped to the team), update both GitHub Environment secrets, then delete the old token. |
 | Supabase JWT signing keys | Rotate in Supabase (asymmetric signing keys). No redeploy: `golib/auth` caches the JWKS and refetches it when a token names a key it hasn't seen. Revoke the old key once tokens signed with it have expired. |
 | `REDIS_URL` credentials | Rotate in the Redis provider, then update the game's secret and restart it. |
-| `ANTHROPIC_API_KEY` | Create a new key in the Anthropic console, update the worker's secret and the repo secret, then revoke the old key. |
-| `JIRA_API_TOKEN` | Create a new Atlassian API token, update the repo secret, then revoke the old token. |
+| `ANTHROPIC_API_KEY`, `STAGING_ANTHROPIC_API_KEY`, `PROD_ANTHROPIC_API_KEY` | Create a new key in the Anthropic console, update the secret where that key is kept (`worker/.env`, the GitHub Environment, or the repo secret), then revoke the old key. |
 
 Rotate a secret:
 

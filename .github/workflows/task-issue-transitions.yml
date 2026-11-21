@@ -1,0 +1,116 @@
+name: Task Issue Transitions
+
+on:
+  pull_request:
+    types: [opened, closed]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: 'Issue number (the N in GH-N)'
+        required: true
+        type: string
+      step:
+        description: 'Transition to apply'
+        required: true
+        type: choice
+        options: [inProgress, inReview, done]
+
+jobs:
+  transition:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+
+    steps:
+      # The base branch's scripts, never the PR's own copy: this job can write issues.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: trusted
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Get PR file statuses
+        id: files
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A PR opened with merge conflicts returns no file list, so no transition fires.
+          # Merge the base branch in before opening the PR.
+          STATUS_FILES=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            --paginate --jq '.[] | "\(.status) \(.filename)"' 2>/dev/null) || STATUS_FILES=""
+          {
+            echo "status_files<<EOF"
+            echo "$STATUS_FILES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Detect transition and issue
+        id: detect
+        env:
+          EVENT: ${{ github.event_name }}
+          STATUS_FILES: ${{ steps.files.outputs.status_files }}
+          ACTION: ${{ github.event.action }}
+          MERGED: ${{ github.event.pull_request.merged }}
+          INPUT_ISSUE: ${{ inputs.issue }}
+          INPUT_STEP: ${{ inputs.step }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            if [[ ! "$INPUT_ISSUE" =~ ^[0-9]+$ ]]; then
+              echo "::error::issue must be a number"
+              exit 1
+            fi
+            { echo "transition=$INPUT_STEP"; echo "issue=$INPUT_ISSUE"; echo "spec="; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Only the first task-brief.md in the PR is processed: one issue per spec PR.
+          SPEC=$(echo "$STATUS_FILES" | grep -E "^(added|renamed) tasks/[^/]+-GH-[0-9]+/task-brief\.md$" | head -1 || true)
+          REMOVED=$(echo "$STATUS_FILES" | grep -E "^removed tasks/[^/]+-GH-[0-9]+/task-brief\.md$" | head -1 || true)
+
+          transition=none
+          line=""
+          if [ -n "$SPEC" ] && [ "$ACTION" = "closed" ] && [ "$MERGED" = "true" ]; then
+            transition=inProgress; line="$SPEC"
+          elif [ -n "$SPEC" ] && [ "$ACTION" = "closed" ]; then
+            transition=notMerged; line="$SPEC"
+          elif [ -n "$REMOVED" ] && [ "$ACTION" = "opened" ]; then
+            transition=inReview; line="$REMOVED"
+          elif [ -n "$REMOVED" ] && [ "$ACTION" = "closed" ] && [ "$MERGED" = "true" ]; then
+            transition="done"; line="$REMOVED"
+          fi
+          ISSUE=$(echo "$line" | grep -oE "GH-[0-9]+" | head -1 | cut -d- -f2 || true)
+          SPEC_FILE=""
+          [ "$transition" = "inProgress" ] && SPEC_FILE=$(echo "$line" | awk '{print $2}')
+          { echo "transition=$transition"; echo "issue=$ISSUE"; echo "spec=$SPEC_FILE"; } >> "$GITHUB_OUTPUT"
+
+      # The spec is read from the merged content, so check out the PR's merge commit as data.
+      - name: Check out the merged task spec
+        if: steps.detect.outputs.spec != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          path: merged
+          sparse-checkout: tasks
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: steps.detect.outputs.transition != 'none' && steps.detect.outputs.issue != ''
+        with:
+          python-version: '3.13'
+
+      - name: Transition issue
+        if: steps.detect.outputs.transition != 'none' && steps.detect.outputs.issue != ''
+        # Run from the merged checkout (data only) when there is one.
+        working-directory: ${{ steps.detect.outputs.spec != '' && 'merged' || '.' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SPEC_FILE: ${{ steps.detect.outputs.spec }}
+          SPEC_REF: ${{ github.event.pull_request.merge_commit_sha }}
+          ISSUE: ${{ steps.detect.outputs.issue }}
+          STEP: ${{ steps.detect.outputs.transition }}
+        run: python3 "$GITHUB_WORKSPACE/trusted/.github/scripts/transition-task-issue.py" "$ISSUE" "$STEP"

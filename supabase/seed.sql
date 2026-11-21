@@ -29,6 +29,19 @@ select 1, date '2000-01-03', 'final', 'SAMPLE FINAL ' || cat, null,
 from generate_series(1, 4) as cat
 on conflict (source_key) do nothing;
 
+-- Difficulty labels for the SAMPLE categories, a third each, so Easy, Medium and Hard can be tried
+-- locally without rating anything. Scored too (20 / 50 / 80), so `rate-clues` treats them as done.
+insert into public.category_difficulty (category_key, kind, score, difficulty, model, rated_at)
+select c.category_key, case when c.round = 'final' then 'final' else 'board' end,
+       (array[20, 50, 80])[1 + (n % 3)], (array['easy', 'medium', 'hard']::public.difficulty[])[1 + (n % 3)],
+       'seed', now()
+from (
+  select distinct category_key, round, (regexp_match(category, '(\d+)$'))[1]::integer as n
+  from public.clues
+  where category like 'SAMPLE %'
+) c
+on conflict (category_key) do nothing;
+
 -- Host access (docs/product-docs/features/private-access/): enter DEVS-TEST on the host device,
 -- as many times and on as many devices as you like. Locally it is the current rotating code and
 -- never rotates on its own; Rotate now on the devtools Admin page replaces it until the next

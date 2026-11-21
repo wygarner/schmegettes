@@ -65,7 +65,7 @@ function renderView(state: RoomState) {
   render(
     <MantineProvider>
       <MemoryRouter>
-        <HostLobbyView code="K7RXM" joinUrl="https://example.test/join" state={state} send={send} />
+        <HostLobbyView code="K7RXM" joinAddress="example.test/join" state={state} send={send} />
       </MemoryRouter>
     </MantineProvider>,
   );
@@ -78,7 +78,7 @@ const openPlayers = () => fireEvent.click(screen.getByRole("button", { name: /^S
 test("shows the code, join URL, host name, and an empty list", () => {
   renderView(lobby());
   expect(screen.getByLabelText("Room code")).toHaveTextContent("K7RXM");
-  expect(screen.getByText("Join at https://example.test/join")).toBeInTheDocument();
+  expect(screen.getByText("Join at example.test/join")).toBeInTheDocument();
   expect(screen.getByText("Hosted by Wyatt")).toBeInTheDocument();
   openPlayers();
   expect(screen.getByText("Waiting for players…")).toBeInTheDocument();
@@ -105,7 +105,7 @@ test("a join while folded updates the tab's count and flashes it", () => {
   const view = (state: RoomState) => (
     <MantineProvider>
       <MemoryRouter>
-        <HostLobbyView code="K7RXM" joinUrl="https://example.test/join" state={state} send={vi.fn()} />
+        <HostLobbyView code="K7RXM" joinAddress="example.test/join" state={state} send={vi.fn()} />
       </MemoryRouter>
     </MantineProvider>
   );
@@ -207,7 +207,7 @@ test("building the board, server errors, and a closed room", () => {
   const { unmount } = render(
     <MantineProvider>
       <MemoryRouter>
-        <HostLobbyView code="K7RXM" joinUrl="x" state={lobby({ phase: "building_board" })} send={vi.fn()} />
+        <HostLobbyView code="K7RXM" joinAddress="x" state={lobby({ phase: "building_board" })} send={vi.fn()} />
       </MemoryRouter>
     </MantineProvider>,
   );
@@ -340,7 +340,7 @@ describe("narrator voice", () => {
     act(() => markDeviceUnavailable());
     renderView(twoPlayers());
     expect(screen.getByText(/This device can't run the Schmegettes narrator/)).toBeInTheDocument();
-    expect(screen.queryByText("Join at https://example.test/join")).toBeNull();
+    expect(screen.queryByText("Join at example.test/join")).toBeNull();
     expect(screen.queryByRole("button", { name: /^Narrator voice:/ })).toBeNull();
     expect(screen.getByRole("button", { name: "Start" })).toBeDisabled();
   });
@@ -368,7 +368,7 @@ describe("game options", () => {
         <MemoryRouter>
           <HostLobbyView
             code="K7RXM"
-            joinUrl="https://example.test/join"
+            joinAddress="example.test/join"
             state={lobby()}
             send={vi.fn()}
             options={options}
@@ -381,8 +381,10 @@ describe("game options", () => {
   };
 
   test("the line under the code lists what isn't the default", () => {
-    withOptions({ seasons: [20, 40], doubleRound: false, quickPicks: false });
-    expect(screen.getByLabelText("Game options in use")).toHaveTextContent("Seasons 20–40 · No Double Schmegettes");
+    withOptions({ seasons: [20, 40], doubleRound: false, quickPicks: false, difficulty: "easy" });
+    expect(screen.getByLabelText("Game options in use")).toHaveTextContent(
+      "Seasons 20–40 · Easy · No Double Schmegettes",
+    );
   });
 
   test("no line with the defaults", () => {
@@ -398,7 +400,8 @@ describe("game options", () => {
     fireEvent.click(button);
     const sheet = screen.getByRole("dialog", { name: "Game options" });
     expect(sheet).not.toHaveTextContent("Timers");
-    expect(within(sheet).queryByRole("radiogroup")).toBeNull();
+    for (const pace of ["Relaxed", "Standard", "Fast"])
+      expect(within(sheet).queryByRole("radio", { name: pace })).toBeNull();
     fireEvent.click(within(sheet).getByRole("switch", { name: /Double Schmegettes/ }));
     expect(onOptions).toHaveBeenLastCalledWith({ ...DEFAULT_OPTIONS, doubleRound: false });
   });
@@ -415,6 +418,15 @@ describe("game options", () => {
     cleanup();
     withOptions({ ...DEFAULT_OPTIONS, quickPicks: true });
     expect(screen.getByLabelText("Game options in use")).toHaveTextContent("Quick picks");
+  });
+
+  test("Difficulty: Any by default; picking Hard changes it at once", () => {
+    const onOptions = withOptions(DEFAULT_OPTIONS);
+    fireEvent.click(screen.getByRole("button", { name: "Game options" }));
+    const sheet = screen.getByRole("dialog", { name: "Game options" });
+    expect(within(sheet).getByRole("radio", { name: "Any" })).toBeChecked();
+    fireEvent.click(within(sheet).getByRole("radio", { name: "Hard" }));
+    expect(onOptions).toHaveBeenLastCalledWith({ ...DEFAULT_OPTIONS, difficulty: "hard" });
   });
 });
 

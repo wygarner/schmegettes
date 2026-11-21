@@ -92,7 +92,8 @@ function genGo() {
 }
 
 // oapi-codegen reads OpenAPI 3.0 only and can't follow refs into the domain schema, so api/ is
-// generated from a 3.0 copy: `type: [x, "null"]` becomes `nullable`, and domain refs are inlined.
+// generated from a 3.0 copy: `type: [x, "null"]` and `oneOf: [x, {type: "null"}]` become
+// `nullable`, and domain refs are inlined.
 // The copy is committed next to the code so handler tests can validate responses against it.
 function openapi30(): string {
   const doc = YAML.parse(readFileSync(join(shared, "openapi.yaml"), "utf8"));
@@ -105,6 +106,14 @@ function openapi30(): string {
     }
     if (!node || typeof node !== "object") return;
     const o = node as Record<string, unknown>;
+    if (Array.isArray(o.oneOf) && o.oneOf.length === 2) {
+      const isNull = (s: unknown) => !!s && typeof s === "object" && (s as Record<string, unknown>).type === "null";
+      const other = o.oneOf.find((s) => !isNull(s));
+      if (other && o.oneOf.some(isNull)) {
+        delete o.oneOf;
+        Object.assign(o, structuredClone(other), { nullable: true });
+      }
+    }
     if (typeof o.$ref === "string" && o.$ref.startsWith(ext)) {
       const def = structuredClone(domain[o.$ref.slice(ext.length)]);
       delete o.$ref;

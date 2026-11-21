@@ -78,6 +78,12 @@ dir = "worker"
 # Reads DATABASE_OWNER_URL and CLUE_DATASET_BASE_URL from worker/.env (copied from .env.example).
 run = "test -f .env || { echo 'worker/.env missing: cp worker/.env.example worker/.env' >&2; exit 1; }; set -a; . ./.env; set +a; uv run python -m schmegettes_worker import-clues"
 
+[tasks."clues:rate"]
+description = "Label the local catalog's categories Easy, Medium or Hard with Claude. Usage: mise run clues:rate [-- --limit 500]"
+dir = "worker"
+# Reads DATABASE_OWNER_URL, ANTHROPIC_API_KEY and DIFFICULTY_MODEL from worker/.env.
+run = "test -f .env || { echo 'worker/.env missing: cp worker/.env.example worker/.env' >&2; exit 1; }; set -a; . ./.env; set +a; uv run python -m schmegettes_worker rate-clues"
+
 [tasks."test:web"]
 description = "Usage: mise run test:web -- src/path/to/file.test.tsx"
 run = "bun run --cwd web test"

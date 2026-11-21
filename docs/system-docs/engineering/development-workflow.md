@@ -1,10 +1,10 @@
 # Development Workflow
 
-**Source of truth:** `.github/workflows/`, `.github/scripts/`, `.github/jira.json`
+**Source of truth:** `.github/workflows/`, `.github/scripts/`
 
 How work goes from a request to merged code. Branch names and merge rules are in [branch-strategy.md](./branch-strategy.md); releases are in [release-strategy.md](../operations/release-strategy.md). The stack is in [stack.md](./stack.md).
 
-The Jira project key is `SCH` (set in [`.github/jira.json`](../../../.github/jira.json)). Docs write it as `SCH-{N}`.
+Tasks are tracked as GitHub issues. A task's key is `GH-{N}`, where `{N}` is its issue number; GitHub links `GH-{N}` to the issue wherever it appears.
 
 ---
 
@@ -13,58 +13,60 @@ The Jira project key is `SCH` (set in [`.github/jira.json`](../../../.github/jir
 ```mermaid
 flowchart TB
   product[Product brief] --> plan[Task spec]
-  plan --> progress[Jira: In Progress]
+  plan --> progress[Issue: in progress]
   progress --> impl[Implementation PR]
-  impl --> review[Jira: In Review]
+  impl --> review[Issue: in review]
   impl --> ci[CI on the PR]
-  ci --> done[Jira: Done]
+  ci --> done[Issue: closed]
   done --> develop[develop, deploys staging]
 ```
 
 Every task branch starts from and targets `develop`. CI runs on every PR into `develop` and must be green before it merges; each merge deploys staging, except docs-only merges.
 
-| Step | Owner | What happens | Jira |
+| Step | Owner | What happens | Issue |
 |---|---|---|---|
 | 1. Scope | `/product` | Writes `tasks/{task-name}/product-brief.md`; PR to `develop` | — |
-| 2. Plan | `/engineering` | Writes `task-brief.md` in the same folder; PR to `develop` | Ticket **created** when the PR opens; **In Progress** when it merges |
-| 3. Implement | Implementation agent (`/implement`, or any coding agent reading [AGENTS.md](../../../AGENTS.md)) | Fresh branch from `develop`; one PR; final commit deletes the task folder | **In Review** when the PR opens |
-| 4. Done | Human merges once CI is green | Staging deploys | **Done** when the PR merges |
+| 2. Plan | `/engineering` | Writes `task-brief.md` in the same folder; PR to `develop` | **Created** when the PR opens; **in progress** when it merges |
+| 3. Implement | Implementation agent (`/implement`, or any coding agent reading [AGENTS.md](../../../AGENTS.md)) | Fresh branch from `develop`; one PR; final commit deletes the task folder | **In review** when the PR opens |
+| 4. Done | Human merges once CI is green | Staging deploys | **Closed** when the PR merges |
 | 5. Release | `/engineering`, human-triggered | See [release-strategy.md](../operations/release-strategy.md) | — |
 
-**No agent calls the Jira API.** Every Jira write happens in GitHub Actions, triggered by PR events.
+**No agent creates, edits, labels, or closes a task issue.** Every issue write happens in GitHub Actions, triggered by PR events. Reading issues with `gh` is fine.
 
 ### The task folder is the state machine
 
-| Path in git | Ticket state |
+| Path in git | Issue state |
 |---|---|
-| `tasks/{name}/product-brief.md` | No ticket yet |
-| `tasks/{name}-SCH-{N}/task-brief.md` added (spec PR merged) | In Progress |
-| that `task-brief.md` removed (implementation PR opened) | In Review |
-| that removal merged | Done |
+| `tasks/{name}/product-brief.md` | No issue yet |
+| `tasks/{name}-GH-{N}/task-brief.md` added (spec PR merged) | `status:in-progress` |
+| that `task-brief.md` removed (implementation PR opened) | `status:in-review` |
+| that removal merged | Closed as completed |
 
-The workflows pattern-match on the PR's file-status list (added, renamed, removed). There is no Jira webhook.
+The workflows pattern-match on the PR's file-status list (added, renamed, removed). No webhook is involved.
 
 ---
 
 ## Step 1 — Scope with `/product`
 
-Output: one PR to `develop` adding `tasks/{task-name}/product-brief.md`, with Jira frontmatter (`jira-type`, `jira-title`). Merging it does not create a ticket. New features and enhancements first update the durable docs in `docs/product-docs/features/{name}/` in their own PR.
+Output: one PR to `develop` adding `tasks/{task-name}/product-brief.md`, with task frontmatter (`task-type`, `task-title`). Merging it does not create an issue. New features and enhancements first update the durable docs in `docs/product-docs/features/{name}/` in their own PR.
 
 ## Step 2 — Plan with `/engineering`
 
-`/engineering` writes `task-brief.md` and opens a PR to `develop`. When the PR **opens**, `create-jira-ticket.yml`:
+`/engineering` writes `task-brief.md` and opens a PR to `develop`. When the PR **opens**, `create-task-issue.yml`:
 
-1. creates the ticket from the frontmatter and the markdown body (keep `task-brief.md` under about 30,000 characters, Jira's description limit)
-2. writes `.jira-meta.yml` into the folder
-3. renames the folder to `tasks/{task-name}-SCH-{N}/`
+1. creates the issue from the frontmatter and the markdown body, labelled `task`, `type:{task-type}`, `status:planned`, and comments `Tracking issue: GH-{N}` on the PR (a spec longer than about 65,000 characters is cut at a line break, with a link to the full file)
+2. writes `.task-meta.yml` into the folder
+3. renames the folder to `tasks/{task-name}-GH-{N}/`
 
-`/engineering` pulls the branch, adds the branch table, gets human approval, and merges. On merge the ticket moves to **In Progress** and its description is replaced with the merged spec.
+Re-running the workflow on the same spec reuses its issue (found by the `<!-- task-folder: {task-name} -->` marker in the body), so it never makes a duplicate. If the spec PR is closed without merging, the issue gets a comment and stays open.
+
+`/engineering` pulls the branch, adds the branch table, gets human approval, and merges. On merge the issue moves to `status:in-progress` and its body is replaced with the merged spec.
 
 ## Step 3 — Implement
 
-The implementation agent branches fresh from `develop` as `{task-type}/SCH-{N}-{task-name}` and reads, before editing:
+The implementation agent branches fresh from `develop` as `{task-type}/GH-{N}-{task-name}` and reads, before editing:
 
-- `tasks/{task-name}-SCH-{N}/task-brief.md` and `product-brief.md`
+- `tasks/{task-name}-GH-{N}/task-brief.md` and `product-brief.md`
 - [stack.md](./stack.md) "Access patterns"
 - this file and [branch-strategy.md](./branch-strategy.md)
 
@@ -88,13 +90,13 @@ mise run gen                           # only when shared/ changed; commit the o
 One PR to `develop`. Its final commit:
 
 ```bash
-git rm -r "tasks/{task-name}-SCH-{N}/"
-git commit -m "chore: delete task folder for SCH-{N}"
+git rm -r "tasks/{task-name}-GH-{N}/"
+git commit -m "chore: delete task folder for GH-{N}"
 ```
 
-Title: `[{Task Type}] SCH-{N}: {brief description}`. Opening it moves the ticket to **In Review**; merging moves it to **Done** and deploys staging. CI must be green before it merges. The implementation agent never merges.
+Title: `[{Task Type}] GH-{N}: {brief description}`. Opening it moves the issue to `status:in-review`; merging closes the issue and deploys staging. CI must be green before it merges. The implementation agent never merges.
 
-**Merge `origin/develop` into the task branch before opening the PR.** GitHub returns no file list for a PR opened with conflicts, so the In Review transition would never fire.
+**Merge `origin/develop` into the task branch before opening the PR.** GitHub returns no file list for a PR opened with conflicts, so the in-review transition would never fire.
 
 ## Step 5 — Release
 
@@ -116,22 +118,25 @@ See [release-strategy.md](../operations/release-strategy.md).
 
 | Workflow | Trigger | Result |
 |---|---|---|
-| `create-jira-ticket.yml` | PR opened into `develop` touching `tasks/**/task-brief.md` | Creates the ticket, commits `.jira-meta.yml`, renames the folder. Task names must match `^[a-z0-9-]+$`. One ticket per spec PR. |
-| `jira-transitions.yml` | PR opened / merged | Spec merged → In Progress; implementation opened → In Review; merged → Done. |
+| `create-task-issue.yml` | PR opened into `develop` that adds a `tasks/**/task-brief.md` (edits and deletions are ignored); manual (`files`) | Creates the issue, commits `.task-meta.yml`, renames the folder. Task names must match `^[a-z0-9-]+$`. One issue per spec PR. A manual run on a spec branch pushes the rename to it; on `develop` it pushes `chore/assign-GH-{N}` instead and links the PR to open (Actions can't open PRs in this repo). |
+| `task-issue-transitions.yml` | PR opened / closed; manual (`issue`, `step`) | Spec merged → `status:in-progress`; spec closed unmerged → comment; implementation opened → `status:in-review`; merged → closed. |
 | `ci.yml` | PR into `develop` or `production`; weekly; manual | Path-filtered checks per package; `CI Complete` must pass before a PR merges. Docs/task-only PRs skip the package jobs. |
 | `deploy-staging.yml` | Push to `develop` (every merged PR, except docs-only: only `docs/`, `tasks/`, `releases/` or `.md` files); manual | Calls `deploy.yml` for staging: migrations (the release rehearsal), deploy, deployed-commit verification. |
 | `deploy-prod.yml` | Push to `production`; manual | Calls `deploy.yml` for production: migrations, deploy, deployed-commit verification. |
 
-## Jira setup (once per Jira project)
+## Issue labels
 
-**Not yet done for this repo.** The issue-type IDs in `.github/jira.json` are `REPLACE_ME` and the `JIRA_*` repo secrets are not set, so `create-jira-ticket.yml` fails and no ticket is created. Until then, task folders keep their names, branches carry no `SCH-{N}`, and PR titles use the task name in its place.
+`create-task-issue.yml` creates these labels the first time it runs, so there is nothing to set up. It uses the workflow's own `GITHUB_TOKEN`: no secrets.
 
-These values are instance-specific. Look them up; never copy them from another repo. All of them live in `.github/jira.json`.
+| Label | Meaning |
+|---|---|
+| `task` | A tracking issue for a task folder |
+| `type:new-feature`, `type:enhancement`, `type:improvement`, `type:bug-fix` | The task type from the frontmatter |
+| `status:planned` | Spec PR open |
+| `status:in-progress` | Spec merged |
+| `status:in-review` | Implementation PR open |
 
-1. Create the Jira project. Put its key in `projectKey`.
-2. Issue type IDs: `GET /rest/api/3/issuetype/project?projectId={id}`. Map `new-feature`, `enhancement`, `improvement`, `bug-fix` to IDs in `issueTypes`.
-3. Make sure the Jira workflow has transitions named exactly `In Progress`, `In Review`, `Done` (or change `transitions`). A transition not reachable from the current status is logged and skipped.
-4. Repo secrets: `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`.
+Done is a closed issue (reason: completed). A spec that merged without an issue (before 2026-11-20, when tasks had no tracker) gets one by hand: `gh workflow run create-task-issue.yml --ref develop -f files=tasks/{name}/task-brief.md`, open the PR it links, then `gh workflow run task-issue-transitions.yml --ref develop -f issue={N} -f step=inProgress`.
 
 ## Parallel work
 
@@ -139,6 +144,6 @@ One git worktree per task, as siblings of the main checkout:
 
 ```text
 ~/schmegettes/
-~/schmegettes-SCH-12/
-~/schmegettes-SCH-13/
+~/schmegettes-GH-12/
+~/schmegettes-GH-13/
 ```

@@ -44,7 +44,7 @@ The script reads commit bodies and PR descriptions as well as subjects (the thre
 
 The gap between "code is live" and "marked released" is deliberate: a human confirms production health before anyone is told the release shipped.
 
-`releases/X.Y.Z/` stays on `production` permanently. Releases are not tracked in Jira.
+`releases/X.Y.Z/` stays on `production` permanently. Releases have no tracking issue.
 
 ## Hotfix
 

@@ -186,6 +186,12 @@ const ClueStateAnswered ClueState = "answered"
 const ClueStateUnanswered ClueState = "unanswered"
 const ClueStateUnplayed ClueState = "unplayed"
 
+type Difficulty string
+
+const DifficultyEasy Difficulty = "easy"
+const DifficultyHard Difficulty = "hard"
+const DifficultyMedium Difficulty = "medium"
+
 type Error struct {
 	// Code corresponds to the JSON schema field "code".
 	Code ErrorCode `json:"code" yaml:"code" mapstructure:"code"`

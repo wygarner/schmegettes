@@ -101,7 +101,7 @@ function ConnectedHostLobby({ room }: { room: RoomJoin }) {
   return (
     <HostLobbyView
       code={room.room.code}
-      joinUrl={`${window.location.origin}/join`}
+      joinAddress={`${window.location.host}/join`}
       state={state}
       send={send}
       options={options}
@@ -126,6 +126,7 @@ function useGameOptions(room: RoomJoin): [GameOptions, (next: GameOptions) => vo
         seasons: seasonList(next.seasons),
         doubleRound: next.doubleRound,
         quickPicks: next.quickPicks,
+        difficulty: next.difficulty,
       }).then((updated) => setOptions(updated ? fromRoom(updated) : fromRoom(room.room)));
     },
     [roomId, room.room],
@@ -157,14 +158,15 @@ const ERRORS: Record<string, string> = {
 
 export function HostLobbyView({
   code,
-  joinUrl,
+  joinAddress,
   state,
   send,
   options = DEFAULT_OPTIONS,
   onOptions,
 }: {
   code: string;
-  joinUrl: string;
+  /** Where phones join, without the scheme, as it's read off the TV: "schmegettes.app/join". */
+  joinAddress: string;
   state: RoomState;
   send: (message: ClientMessage) => void;
   /** The room's game options and how to change them (absent: no Options button). */
@@ -300,7 +302,7 @@ export function HostLobbyView({
           </Text>
         ) : (
           <Text fw={600} c={SOFT} style={{ fontSize: "clamp(11px, 6cqh, 24px)" }}>
-            Join at {joinUrl}
+            Join at {joinAddress}
           </Text>
         )}
         <CodeTiles code={code} />
@@ -474,7 +476,6 @@ function PlayersTab({
         fontWeight: 700,
       }}
     >
-      <span style={{ writingMode: "vertical-rl", letterSpacing: ".08em", fontSize: 13 }}>Players</span>
       <span style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
         {count}/{total}
       </span>

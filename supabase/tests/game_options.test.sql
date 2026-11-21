@@ -153,11 +153,11 @@ select throws_ok(
 reset role;
 
 select function_privs_are(
-  'public', 'set_room_options', array['uuid', 'boolean', 'integer[]', 'timer_pace', 'boolean', 'integer', 'boolean'],
+  'public', 'set_room_options', array['uuid', 'boolean', 'integer[]', 'timer_pace', 'boolean', 'integer', 'boolean', 'boolean', 'difficulty'],
   'anon', array[]::text[], 'anon can''t set options'
 );
 select function_privs_are(
-  'public', 'set_room_options', array['uuid', 'boolean', 'integer[]', 'timer_pace', 'boolean', 'integer', 'boolean'],
+  'public', 'set_room_options', array['uuid', 'boolean', 'integer[]', 'timer_pace', 'boolean', 'integer', 'boolean', 'boolean', 'difficulty'],
   'authenticated', array['EXECUTE'], 'signed-in users can call it (the host check is inside)'
 );
 

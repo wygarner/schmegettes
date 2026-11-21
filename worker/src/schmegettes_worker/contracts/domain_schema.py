@@ -64,6 +64,12 @@ class PlayerRole(Enum):
     spectator = 'spectator'
 
 
+class Difficulty(Enum):
+    easy = 'easy'
+    medium = 'medium'
+    hard = 'hard'
+
+
 class RoomStatus(Enum):
     open = 'open'
     in_game = 'in_game'

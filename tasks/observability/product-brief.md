@@ -1,6 +1,6 @@
 ---
-jira-type: improvement
-jira-title: "Know when Schmegettes breaks before the players say so"
+task-type: improvement
+task-title: "Know when Schmegettes breaks before the players say so"
 ---
 **Task Type:** Improvement. No player-facing UI change. Players only notice it through faster fixes.
 
@@ -40,6 +40,6 @@ Everything is already decided in [stack.md](../../docs/system-docs/engineering/s
 - Removing an alert rule from the repo and merging removes it from Grafana.
 - release-strategy.md step 6 points at the dashboard and error rates instead of "not yet implemented".
 
-**Decision needed:** The Grafana Cloud stack connected today is `celeronsolutions`, which belongs to a different business. Recommended: **a separate free-tier Schmegettes stack**, so access, retention, and billing stay separate and the repo can go public without exposing another business's stack. The alternative is to reuse that stack with a `service_namespace=schmegettes` label, which is cheaper to set up but mixes the two businesses' data and access.
+**Decision (Wyatt Garner, 2026-11-19): a separate Schmegettes Grafana Cloud stack** (free tier). The `celeronsolutions` stack belongs to a different business and is not used: separate access, retention, and billing, and nothing of another business's is exposed when the repo goes public. Record the stack's name and URL in observability.md and [stack.md](../../docs/system-docs/engineering/stack.md).
 
 **Out of scope:** A paging app or SMS (email only, as decided), on-call rotation (one person), the customer-facing status page and in-app notices (the `service-notices` task), backups (the `backups-and-restore` task), the security audit table and its alerts (the `security-audit-and-staff-access` task), Redis or worker queue metrics (neither exists yet), and LLM eval telemetry.

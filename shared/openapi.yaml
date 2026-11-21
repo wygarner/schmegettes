@@ -45,7 +45,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Profile" }
     patch:
-      summary: Set the account's name
+      summary: Update the caller's account
       description: Signed-in players only (problem type `not-signed-in` for guests).
       requestBody:
         required: true
@@ -55,7 +55,8 @@ paths:
               type: object
               properties:
                 accountName: { $ref: "#/components/schemas/DisplayName" }
-              required: [accountName]
+                showOnLeaderboard: { type: boolean }
+              minProperties: 1
               additionalProperties: false
       responses:
         "200":
@@ -88,6 +89,36 @@ paths:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problem" }
         "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/me/stats:
+    get:
+      summary: The caller's all-time stats
+      description: Signed-in players only. A player with no counted games gets games 0 and null stats.
+      responses:
+        "200":
+          description: Stats computed from finished games
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MyStats" }
+        "403":
+          description: The caller is a guest (problem type `not-signed-in`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+  /v1/leaderboard:
+    get:
+      summary: The all-time leaderboard
+      description: Signed-in players with at least one counted game only. Contains no user IDs or emails.
+      responses:
+        "200":
+          description: Top 50 ranked players and, when below the top 50, the caller
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Leaderboard" }
+        "403":
+          description: The caller is a guest (`not-signed-in`) or has no counted games (`no-counted-games`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
   /v1/me/merge-tickets:
     post:
       summary: A one-use ticket that lets this guest be moved into an account
@@ -532,7 +563,91 @@ components:
         accountName:
           type: [string, "null"]
           description: The signed-in player's name (leaderboard, name prefill); null for guests and new accounts
-      required: [userId, displayName, isAnonymous, accountName]
+        showOnLeaderboard:
+          type: boolean
+          description: Whether this account appears after it has ten counted games; true for guests and new profiles
+      required: [userId, displayName, isAnonymous, accountName, showOnLeaderboard]
+    AnswerRecord:
+      type: object
+      properties:
+        right: { type: [integer, "null"], minimum: 0 }
+        wrong: { type: [integer, "null"], minimum: 0 }
+      required: [right, wrong]
+      additionalProperties: false
+    CorrectAnswers:
+      type: object
+      properties:
+        right: { type: [integer, "null"], minimum: 0 }
+        judged: { type: [integer, "null"], minimum: 0 }
+      required: [right, judged]
+      additionalProperties: false
+    RankedState:
+      type: object
+      properties:
+        state: { type: string, const: ranked }
+        rank: { type: integer, minimum: 1 }
+      required: [state, rank]
+      additionalProperties: false
+    NeedsGamesState:
+      type: object
+      properties:
+        state: { type: string, const: needs-games }
+        gamesToGo: { type: integer, minimum: 1, maximum: 10 }
+      required: [state, gamesToGo]
+      additionalProperties: false
+    HiddenState:
+      type: object
+      properties:
+        state: { type: string, const: hidden }
+      required: [state]
+      additionalProperties: false
+    MyStats:
+      type: object
+      properties:
+        games: { type: integer, minimum: 0 }
+        wins: { type: [integer, "null"], minimum: 0 }
+        winRate: { type: [integer, "null"], minimum: 0, maximum: 100 }
+        averageScore: { type: [integer, "null"] }
+        bestScore: { type: [integer, "null"] }
+        bestGameId: { type: [string, "null"], format: uuid }
+        careerTotal: { type: [integer, "null"] }
+        correct: { $ref: "#/components/schemas/CorrectAnswers" }
+        dailyDoubles: { $ref: "#/components/schemas/AnswerRecord" }
+        final: { $ref: "#/components/schemas/AnswerRecord" }
+        leaderboard:
+          oneOf:
+            - { $ref: "#/components/schemas/RankedState" }
+            - { $ref: "#/components/schemas/NeedsGamesState" }
+            - { $ref: "#/components/schemas/HiddenState" }
+          discriminator: { propertyName: state }
+      required: [games, wins, winRate, averageScore, bestScore, bestGameId, careerTotal, correct, dailyDoubles, final, leaderboard]
+      additionalProperties: false
+    LeaderboardRow:
+      type: object
+      properties:
+        rank: { type: integer, minimum: 1 }
+        name: { type: string }
+        winRate: { type: integer, minimum: 0, maximum: 100 }
+        wins: { type: integer, minimum: 0 }
+        games: { type: integer, minimum: 10 }
+        isMe: { type: boolean }
+      required: [rank, name, winRate, wins, games, isMe]
+      additionalProperties: false
+    Leaderboard:
+      type: object
+      properties:
+        rows:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/LeaderboardRow" }
+        me:
+          oneOf:
+            - { $ref: "#/components/schemas/LeaderboardRow" }
+            - { type: "null" }
+        myState: { type: string, enum: [ranked, needs-games, hidden] }
+        gamesToGo: { type: integer, minimum: 1, maximum: 9 }
+      required: [rows, me, myState]
+      additionalProperties: false
     Room:
       type: object
       properties:

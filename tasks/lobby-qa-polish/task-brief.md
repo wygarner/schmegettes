@@ -20,7 +20,10 @@ The latest write wins: there's no lock between a player's own edit and the host'
 
 **Lobby layout** (`HostLobby.tsx`):
 - The top line becomes the Wordmark plus "Join at {host}/join" on the right. The inline host-name editor and the "Rematch ·" prefix go.
-- The `StageBody` row becomes `[JoinQr][CodeTiles]`, both sized from the stage's height so they fit at 667 × 320 (QR ≥ 96 px, ≥ 120 px at 844 × 390).
+- `StageBody` stacks `JoinQr` centered **above** `CodeTiles`. Size both from the stage's height:
+  - the QR at about `30cqh` (≥ 88 px at 667 × 320, ≥ 110 px at 844 × 390);
+  - `CodeTiles` at about `26cqh` tall, down from `38cqh`, with the font scaled to match (about `19cqh`; keep the `cqw` caps).
+  - With the rematch, resume or narrator line under the code, it must still fit at 667 × 320 with no scrolling. The QR shrinks first, down to its minimum.
 - The `summary(options)` line is deleted. The narrator-unavailable notice moves under the code.
 - The resume lobby gets the same top line and QR.
 
@@ -93,7 +96,7 @@ One additive change: an optional `userId` on `SetDisplayName`. Old clients never
     - no ✎ in a resume lobby
     - the top line shows "Join at …/join" and no "Hosted by"
     - no options line
-    - the QR is present with its label
+    - the QR is present with its label, and comes before the code tiles in DOM order
   - `src/game/GameOptionsSheet.test.tsx`: no difficulty descriptions; Ask and Lowest left map to `quickPicks` false and true
   - `src/ui/JoinQr.test.tsx`: the encoded URL
   - `src/lib/gameOptions.test.ts`: drop the `summary` tests if `summary` is removed

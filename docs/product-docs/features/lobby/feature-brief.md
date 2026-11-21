@@ -61,7 +61,7 @@ The host device is an iPhone in landscape, mirrored to the TV ([gameplay](../gam
 
 > **Not yet implemented** (task `lobby-qa-polish`): the QR code, the join URL in the top line, the host name and name editing in the player list, and dropping the options line. Today the top line says "Hosted by {name}" with ✎, the join URL sits above the code, and the options that aren't the default are listed under the code.
 
-- Shows the **room code**, a **QR code** beside it, and the join URL in plain text in the top line, where nothing else competes with it.
+- Shows the **room code**, a **QR code** centered above it, and the join URL in plain text in the top line, where nothing else competes with it.
 - The **QR code** opens `{site}/join/{code}`: the phone lands on this room's microphone step, with no code to type. It's drawn dark on a white square with a quiet margin in every theme, so phone cameras read it off a mirrored TV. The text URL stays for anyone whose camera won't scan.
 - Shows **joined contestants** live, by display name, in the order they joined, with a count against the limit ("3 / 6"). The list is **folded away by default**: a slim "Players 3/6" tab on the right edge, so the code has the full width. A tap opens the list; another folds it. Every lobby opens folded. A join flashes the tab, so the host notices without opening it.
 - The open list is the **player menu**: every name in it has ✎ to edit it until Start ([display names](#display-names)). Its footer says "Hosted by {name}" with ✎, so a host who isn't playing can still edit their own name.

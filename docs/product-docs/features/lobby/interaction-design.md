@@ -37,11 +37,11 @@ Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667
 ```text
 ┌──────────────────────────────────────────────────────────────────┬───┐
 │  SCHMEGETTES                        Join at schmegettes.app/join │ P │
-│                                                                  │ l │
-│          ┌─────────┐                                             │ a │
-│          │ ▛▀▜ ▚▞▜ │     K 7 R X M                               │ y │
-│          │ ▙▄▟ ▞▚▟ │                                             │ e │
-│          └─────────┘                                             │ r │
+│                           ┌───────┐                              │ l │
+│                           │ ▛▀▜▚▞ │                              │ a │
+│                           │ ▙▄▟▞▚ │                              │ y │
+│                           └───────┘                              │ e │
+│                         K 7 R X M                                │ r │
 │  [ Join ]                                    🔊  ⚙   [ Start ]  │ s │
 │                                                                  │3/6│
 └──────────────────────────────────────────────────────────────────┴───┘
@@ -52,16 +52,16 @@ Laid out for an iPhone in landscape (844 × 390 target, no scrolling down to 667
 ```text
 ┌───────────────────────────────────────────────────┬───────────────────┐
 │  SCHMEGETTES         Join at schmegettes.app/join │  Players  3 / 6 › │
-│                                                   │  ● Wyatt HOST   ✎ │
-│     ┌───────┐                                     │  ● Alice        ✎ │
-│     │ QR    │    K 7 R X M                        │  ◌ Bob (reconn…)✎ │
-│     └───────┘                                     │                   │
+│                    ┌───────┐                      │  ● Wyatt HOST   ✎ │
+│                    │ QR    │                      │  ● Alice        ✎ │
+│                    └───────┘                      │  ◌ Bob (reconn…)✎ │
+│                   K 7 R X M                       │                   │
 │                                                   │  Hosted by Wyatt ✎│
 │  [ Leave ]                     🔊  ⚙   [ Start ]  │                   │
 └───────────────────────────────────────────────────┴───────────────────┘
 ```
 
-- The code is the biggest thing on screen (Oswald, readable at 3 m): each letter in gold on its own board-blue tile. The **QR code** sits to its left, as tall as the code tiles (at least 120 px at 844 × 390, at least 96 px at 667 × 320). It's dark modules on a white square with a 4-module quiet margin, in every theme. Its accessible name is "QR code to join room K7RXM". It encodes `{site}/join/{code}`, with the full origin of the environment it runs on (staging's QR opens staging).
+- The code is the widest thing on screen (Oswald, readable at 3 m): each letter in gold on its own board-blue tile. The **QR code** is centered above it. They share the stage's height: the QR about 30 % (at least 110 px at 844 × 390, at least 88 px at 667 × 320), the code tiles about 26 %, so the tiles are shorter than they were before the QR. A line under the code (the rematch's "Fresh board…", the resume lobby's "Resuming the game from…", or the narrator notice) still fits at 667 × 320; the QR gives up height first, never below its minimum. It's dark modules on a white square with a 4-module quiet margin, in every theme. Its accessible name is "QR code to join room K7RXM". It encodes `{site}/join/{code}`, with the full origin of the environment it runs on (staging's QR opens staging).
 - **Top line:** "SCHMEGETTES" on the left, "Join at {site}/join" on the right, where "Hosted by" used to be. `{site}` is the host name without `https://` (`schmegettes.app`). Folded, the code and QR have the stage's full width.
 - **No options line.** Nothing under the code: the game options show only in their sheet.
 - **Players tab.** Folded, the right edge shows a tab about 40 px wide with "Players" and the count ("3/6"). A tap anywhere on it opens the column (about 28% of the width, as in the game) with the list. **›** in the column's header, or a tap on the header, folds it again. The lobby always opens folded: on Home → Host a game, on a reload, and on a rematch. The choice isn't remembered.

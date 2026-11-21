@@ -227,6 +227,7 @@ Skeletons in the shape of the content, with a slow shimmer, instead of a spinner
 - The wordmark is Oswald 700 with a vertical green gradient, a dark drop shadow and a faint green glow.
 - "You've been signed out" is a warning info box above the Join card.
 - **Host a game** shows a spinner in place of its chevron while host access is checked.
+- An admin (only) sees one more row after Stats: **Admin** · "Host code", opening `/admin` ([private access](../features/private-access/interaction-design.md#admin-screen-in-the-app-admin)).
 
 Layouts for [My games](../features/game-history/interaction-design.md#look-back-at-past-games-any-player) and the [Account page](../features/accounts/interaction-design.md#account-page-account) are in their specs.
 

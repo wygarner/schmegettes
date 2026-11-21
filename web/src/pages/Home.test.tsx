@@ -1,5 +1,5 @@
 import { MantineProvider } from "@mantine/core";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { currentAccount } from "../lib/account";
@@ -271,4 +271,18 @@ describe("rejoin from Home", () => {
     await screen.findByRole("button", { name: "Host a game" });
     expect(screen.queryByRole("button", { name: "Rejoin" })).toBeNull();
   });
+});
+
+test("the Admin row shows only for an admin", async () => {
+  vi.mocked(currentAccount).mockResolvedValue({ kind: "signed-in", name: "wyatt", isAdmin: true });
+  renderHome();
+  expect(await screen.findByText("Admin")).toBeInTheDocument();
+  expect(screen.getByText("Host code")).toBeInTheDocument();
+  cleanup();
+
+  vi.mocked(currentAccount).mockResolvedValue({ kind: "signed-in", name: "dave" });
+  renderHome();
+  await screen.findByText("Stats");
+  await act(async () => {});
+  expect(screen.queryByText("Admin")).toBeNull();
 });

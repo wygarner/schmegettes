@@ -1522,6 +1522,8 @@ export interface components {
             accountName: string | null;
             /** @description Whether this account appears after it has ten counted games; true for guests and new profiles */
             showOnLeaderboard: boolean;
+            /** @description Present, and true, only for an account on the admin list (the web app's Admin row). Absent for everyone else */
+            isAdmin?: boolean;
         };
         AnswerRecord: {
             right: number | null;

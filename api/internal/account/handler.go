@@ -34,19 +34,27 @@ func (h Handler) Me(w http.ResponseWriter, r *http.Request) {
 	server.JSON(w, http.StatusOK, profile(c, p))
 }
 
-// SetName handles PATCH /v1/me.
-func (h Handler) SetName(w http.ResponseWriter, r *http.Request) {
+// Update handles PATCH /v1/me.
+func (h Handler) Update(w http.ResponseWriter, r *http.Request) {
 	var body contracts.PatchV1MeJSONBody
 	if !server.DecodeJSON(w, r, &body) {
 		return
 	}
-	name := strings.TrimSpace(body.AccountName)
-	if n := utf8.RuneCountInString(name); n < 1 || n > 20 {
-		server.Problem(w, http.StatusBadRequest, "invalid-name", "A name is 1 to 20 characters")
+	if body.AccountName == nil && body.ShowOnLeaderboard == nil {
+		server.Problem(w, http.StatusBadRequest, "invalid-request", "Change at least one setting")
 		return
 	}
+	var name *string
+	if body.AccountName != nil {
+		cleaned := strings.TrimSpace(*body.AccountName)
+		if n := utf8.RuneCountInString(cleaned); n < 1 || n > 20 {
+			server.Problem(w, http.StatusBadRequest, "invalid-name", "A name is 1 to 20 characters")
+			return
+		}
+		name = &cleaned
+	}
 	c := server.Claims(r.Context())
-	p, err := h.Store.SetName(r.Context(), c, name)
+	p, err := h.Store.Update(r.Context(), c, name, body.ShowOnLeaderboard)
 	switch {
 	case errors.Is(err, ErrForbidden):
 		notSignedIn(w)
@@ -55,6 +63,10 @@ func (h Handler) SetName(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		h.internal(w, r, "set account name failed", err)
 	default:
+		if body.ShowOnLeaderboard != nil {
+			slog.InfoContext(r.Context(), "leaderboard visibility changed", "user_id", c.UserID,
+				"shown", *body.ShowOnLeaderboard, "request_id", server.RequestID(r.Context()))
+		}
 		server.JSON(w, http.StatusOK, profile(c, p))
 	}
 }
@@ -128,6 +140,7 @@ func profile(c auth.Claims, p Profile) contracts.Profile {
 	_ = id.UnmarshalText([]byte(c.UserID)) // a verified subject is always a UUID
 	return contracts.Profile{
 		UserId: id, DisplayName: p.DisplayName, AccountName: p.AccountName, IsAnonymous: c.IsAnonymous,
+		ShowOnLeaderboard: p.ShowOnLeaderboard,
 	}
 }
 

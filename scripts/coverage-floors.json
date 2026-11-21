@@ -1,0 +1,9 @@
+{
+  "_comment": "Statement-coverage floors for Go, read by scripts/coverage-floor.cjs. A key ending in / is a prefix measured as one group. Targets and step-ups: docs/system-docs/engineering/testing-strategy.md \u00a73.",
+  "floors": {
+    "game/internal/play": 80,
+    "game/internal/judge": 80,
+    "golib/": 45,
+    "api/": 39
+  }
+}

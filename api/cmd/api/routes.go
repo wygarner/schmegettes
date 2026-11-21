@@ -15,6 +15,7 @@ import (
 	"schmegettes/api/internal/ratelimit"
 	"schmegettes/api/internal/rooms"
 	"schmegettes/api/internal/server"
+	"schmegettes/api/internal/stats"
 )
 
 // routes implements the generated contracts.ServerInterface. Operations no task has built yet
@@ -25,6 +26,7 @@ type routes struct {
 	games  games.Handler
 	host   hostaccess.Handler
 	me     account.Handler
+	stats  stats.Handler
 	limits limits
 	ping   func(context.Context) error
 }
@@ -114,8 +116,10 @@ func (rt routes) GetV1Games(w http.ResponseWriter, r *http.Request, params contr
 func (rt routes) GetV1GamesGameId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
 	rt.games.Detail(w, r, id)
 }
-func (rt routes) GetV1Me(w http.ResponseWriter, r *http.Request)   { rt.me.Me(w, r) }
-func (rt routes) PatchV1Me(w http.ResponseWriter, r *http.Request) { rt.me.SetName(w, r) }
+func (rt routes) GetV1Me(w http.ResponseWriter, r *http.Request)          { rt.me.Me(w, r) }
+func (rt routes) PatchV1Me(w http.ResponseWriter, r *http.Request)        { rt.me.Update(w, r) }
+func (rt routes) GetV1MeStats(w http.ResponseWriter, r *http.Request)     { rt.stats.MyStats(w, r) }
+func (rt routes) GetV1Leaderboard(w http.ResponseWriter, r *http.Request) { rt.stats.Leaderboard(w, r) }
 func (rt routes) DeleteV1Me(w http.ResponseWriter, r *http.Request) {
 	if rt.limits.account.Allow(w, r) {
 		rt.me.Delete(w, r)

@@ -18,6 +18,7 @@ import (
 	"schmegettes/api/internal/games"
 	"schmegettes/api/internal/hostaccess"
 	"schmegettes/api/internal/rooms"
+	"schmegettes/api/internal/stats"
 	"schmegettes/golib/auth"
 	"schmegettes/golib/db"
 	"schmegettes/golib/logging"
@@ -51,6 +52,7 @@ func main() {
 		games:  games.Handler{Store: games.PGStore{DB: database}},
 		host:   hostaccess.Handler{Store: hostaccess.PGStore{DB: database}},
 		me:     account.Handler{Store: account.PGStore{DB: database}},
+		stats:  stats.Handler{Store: stats.PGStore{DB: database}},
 		limits: newLimits(),
 		ping:   database.Ping,
 	}

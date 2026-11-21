@@ -1,6 +1,7 @@
 // The main-thread side of the Piper worker, and getting a voice ready to speak: download (or
 // load from the device), load it into the worker, and check this device is fast enough.
 
+import { e2eActive } from "../e2eFlag";
 import type { FromWorker, PiperConfig, ToWorker } from "./protocol";
 import {
   cancelFetch,
@@ -79,6 +80,11 @@ export function readyEngine(id: PiperVoiceId): PiperEngine | null {
  * reading until this one is ready; then only this one is kept on the device.
  */
 export function prepareVoice(id: PiperVoiceId): Promise<boolean> {
+  // E2E mode downloads nothing: every voice is ready and narration ends at once.
+  if (e2eActive()) {
+    setVoiceStatus(id, { state: "ready" });
+    return Promise.resolve(true);
+  }
   if (loadedId === id) {
     // Back to the voice already loaded: drop whatever was getting ready instead.
     if (preparing) {

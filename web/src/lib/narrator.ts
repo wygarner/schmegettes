@@ -8,6 +8,7 @@
 //   or that fails, is skipped: the text stays on screen and the server's timer moves on.
 // - A voice that becomes ready mid-game (after a reload) is used from the next line on.
 
+import { e2eActive } from "./e2eFlag";
 import { narratorChoice } from "./narratorVoice";
 import { audioContext, narratorOutput } from "./piper/audio";
 import { type Audio, type PiperEngine, readyEngine } from "./piper/engine";
@@ -63,6 +64,7 @@ const synthesize = (engine: PiperEngine, text: string): Promise<Audio | null> =>
 
 /** Starts generating a line's first chunk without touching the audio session or playing it. */
 export function prepareNarration(text: string): void {
+  if (e2eActive()) return;
   const line = spokenText(text);
   const chunks = narrationChunks(line);
   const { id } = narratorChoice();
@@ -162,6 +164,8 @@ function stopPiper(): void {
 
 /** Reads a line aloud. Resolves "ended" only when the room heard all of it. */
 export async function narrate(text: string): Promise<NarrateResult> {
+  // E2E mode: the room "heard" every line at once (testing-strategy.md, End-to-end).
+  if (e2eActive()) return "ended";
   const startedAt = performance.now();
   stopPiper();
   const line = spokenText(text);

@@ -27,8 +27,9 @@ var (
 
 // Profile is the caller's profile row. Both names are empty when there is no row yet.
 type Profile struct {
-	DisplayName string
-	AccountName *string
+	DisplayName       string
+	AccountName       *string
+	ShowOnLeaderboard bool
 }
 
 // MergeResult is what moving a guest into an account changed.
@@ -41,7 +42,7 @@ type MergeResult struct {
 // Store is the data access the handlers need.
 type Store interface {
 	Profile(ctx context.Context, c auth.Claims) (Profile, error)
-	SetName(ctx context.Context, c auth.Claims, name string) (Profile, error)
+	Update(ctx context.Context, c auth.Claims, name *string, showOnLeaderboard *bool) (Profile, error)
 	CreateTicket(ctx context.Context, c auth.Claims) (string, time.Time, error)
 	Merge(ctx context.Context, c auth.Claims, ticket string) (MergeResult, error)
 	Delete(ctx context.Context, c auth.Claims) error
@@ -62,19 +63,36 @@ func (s PGStore) Profile(ctx context.Context, c auth.Claims) (Profile, error) {
 
 func readProfile(ctx context.Context, tx pgx.Tx, p *Profile) error {
 	err := tx.QueryRow(ctx,
-		"select display_name, account_name from public.profiles where user_id = (select auth.uid())",
-	).Scan(&p.DisplayName, &p.AccountName)
+		"select display_name, account_name, show_on_leaderboard from public.profiles where user_id = (select auth.uid())",
+	).Scan(&p.DisplayName, &p.AccountName, &p.ShowOnLeaderboard)
 	if errors.Is(err, pgx.ErrNoRows) {
+		p.ShowOnLeaderboard = true
 		return nil
 	}
 	return err
 }
 
-func (s PGStore) SetName(ctx context.Context, c auth.Claims, name string) (Profile, error) {
+func (s PGStore) Update(ctx context.Context, c auth.Claims, name *string, showOnLeaderboard *bool) (Profile, error) {
 	var p Profile
 	err := s.DB.AsUser(ctx, c, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, "select private.set_account_name($1)", name); err != nil {
-			return err
+		if name != nil {
+			if _, err := tx.Exec(ctx, "select private.set_account_name($1)", *name); err != nil {
+				return err
+			}
+		}
+		if showOnLeaderboard != nil {
+			var guest bool
+			if err := tx.QueryRow(ctx, "select private.caller_is_guest()").Scan(&guest); err != nil {
+				return err
+			}
+			if guest {
+				return ErrForbidden
+			}
+			if _, err := tx.Exec(ctx,
+				"update public.profiles set show_on_leaderboard = $1 where user_id = (select auth.uid())", *showOnLeaderboard,
+			); err != nil {
+				return err
+			}
 		}
 		return readProfile(ctx, tx, &p)
 	})

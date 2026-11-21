@@ -238,6 +238,7 @@ export function Home() {
             trailing={checking ? <Spinner color={QUIET} /> : undefined}
           />
           <Row icon="history" tint={SOFT} title="My games" sub={lastLine(last)} to="/games" />
+          <Row icon="history" tint="#c9b3f9" title="Stats" sub="Your record and the leaderboard" to="/stats" />
         </GroupList>
       </Stack>
 

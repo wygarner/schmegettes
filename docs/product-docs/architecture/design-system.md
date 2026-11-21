@@ -60,6 +60,20 @@ Board values are Oswald 700. Oswald has no 800 weight.
 | `GREEN` (`teal.4`) / `RED` (`red.4`) | Mantine | Correct / incorrect, and negative scores. Correct uses teal, not the accent green, so right and wrong still read at a glance |
 | Buzzer red | dome gradient `#ffb8b8` → `#ff3030` → `#d40c0c` → `#7a0404` | The buzzer, lit. It stays red: it's the one thing that should look like a button to hit |
 
+## App icon
+
+The wordmark's **S** (Oswald 700, converted to a path so no font is needed) in the wordmark's vertical green gradient, with its dark drop shadow and a soft green glow, on the `STAGE_BG` gradient. Files in `web/public/`:
+
+| File | Use | Shape |
+|---|---|---|
+| `favicon.svg` | Browser tab (the source of the design) | Rounded square, S a little larger so it reads at 16 px |
+| `favicon.ico` | Tab fallback (32 px) | Same as `favicon.svg` |
+| `apple-touch-icon.png` | iOS home screen (180 px) | Full-bleed square; iOS rounds the corners |
+| `icon-192.png`, `icon-512.png` | Manifest, `purpose: any` | Full-bleed square |
+| `icon-maskable-512.png` | Manifest, `purpose: maskable` (Android) | Full-bleed, S smaller to stay inside the 80 % safe circle |
+
+The PNGs are rendered from the SVG design. To change the icon, edit `favicon.svg` and re-render the PNGs and ICO from it at the sizes above.
+
 ## Components
 
 ### Buzzer

@@ -52,6 +52,8 @@ commit;
 | `private.host_code_rotation` | **nothing** (no role but the owner): one row naming the current code, when it rotates, and the previous code with its grace deadline |
 | `private.admins` | **nothing** (no role but the owner): account user IDs allowed to use the admin functions. Edited only in the SQL editor |
 | `private.merge_tickets` | **nothing** (no role but the owner): one-use tickets for moving a guest into an account, stored hashed. Reached only through the account functions |
+| `private.audit_log` | **nothing** (no role but the owner; RLS on, no policies, privileges revoked from every app role): the append-only audit log. Written only by `private.audit`; read by the admin through `private.admin_audit` (below) |
+| `private.staff_grants` | **nothing** (no role but the owner): the admin's time-limited grants to read one user, room, or game, with the reason. Reached only through the `private.staff_*` functions |
 
 Supabase's default grants to `anon`/`authenticated` are revoked, including default privileges for future tables. **Every new table needs an explicit grant, `enable row level security`, policies, and a test in `supabase/tests/`.**
 
@@ -101,6 +103,7 @@ Accounts ([accounts](../../product-docs/features/accounts/feature-brief.md)): pl
 | `private.create_merge_ticket()` | Guests only (`42501`). Replaces the guest's earlier tickets with a new one, valid 24 h |
 | `private.merge_guest(ticket)` | Signed-in callers only (`42501`). Spends the ticket (`22023` if wrong, used, expired, or not a guest's); refuses while the guest is in an `in_game` room (`55006`, the ticket stays valid). Then moves the guest into the caller, below, and deletes the guest from `auth.users` |
 | `private.delete_account()` | Signed-in callers only (`42501`); refused while in an `in_game` room (`55006`). Deletes the caller from `auth.users`; the cascades below do the rest |
+| `private.admin_delete_account(user)` | Admins only (`require_admin()`, `42501`). The same deletion for any user, on request ([operator-scripts.md](../operations/operator-scripts.md)); `22023` if there is no such user, `55006` while in an `in_game` room. Run from the SQL editor with the admin's claims set; no api route calls it |
 
 Merging a guest into an account:
 
@@ -112,6 +115,32 @@ Merging a guest into an account:
 
 `profiles.display_name` is the last name used in a room; `profiles.account_name` is the signed-in player's own name (leaderboard, name prefill), null for guests.
 `profiles.show_on_leaderboard` is on by default. Turning it off removes the account from ranking immediately without changing its private stats.
+
+## Audit log and staff access
+
+`private.audit_log` is append-only: `id`, `at`, `actor`, `action`, `subject_type` (`user`, `room`, `game`, `system`), `subject_id`, `request_id`, `details` (counts, flags and ids; never emails, passwords, tokens, or a grant's reason). `action` is checked against the list below. No app role can read, update, or delete rows, and only the owner can; `supabase/tests/audit_and_staff_access.test.sql` proves it.
+
+| Function | Called by | Does |
+|---|---|---|
+| `private.audit(action, subject_type, subject_id, details, actor)` | the functions and trigger below; `game_engine` (trusted jobs, such as data retention's guest cleanup) | Inserts one row. The actor is `auth.uid()`, else the `actor` argument. The request id is `request.id`, which `golib/db` sets in every `AsUser`/`AsEngine` transaction from the api's `X-Request-Id`. A failed insert never fails the caller: it raises a `WARNING` `audit write failed: action=… sqlstate=… request_id=…`, which `golib/db` logs as `ERROR` "audit write failed" |
+| `private.audit_trigger_auth_users()` | triggers `audit_account_created` (after insert) and `audit_account_updated` (after update of `is_anonymous`, `encrypted_password`) on `auth.users` | `account_created` for a new non-anonymous user or a guest becoming an account (actor: that user); `password_changed` when the password hash changes (actor: `auth.uid()`, or none with `details.via` = the role that ran the change, such as `postgres` from the SQL editor or `supabase_auth_admin`). Any error becomes the same warning, so sign-up, sign-in and password changes never fail because of it |
+| `private.staff_grant(type, id, reason, minutes)` | `authenticated` (api `POST /v1/admin/staff-access`) | Admins only. Checks the type, that the subject exists, a 1–200 character reason, and 1–480 minutes (default 60) (`22023`). Records the grant and audits `staff_access_granted` (grant id and minutes, not the reason) |
+| `private.staff_read(grant)` | `authenticated` (api `GET /v1/admin/staff-access/{id}`) | Admins only. Refuses (`28000`) a grant that isn't the caller's, has expired, or was revoked. Returns the subject as fixed JSON (`StaffSubject` in `shared/openapi.yaml`): a user's profile, flags, rooms, games with scores, host access and seen-clue count; a room's options and members; a game's players, board and answers with verdicts. Never emails, password hashes, or tokens. Audits `staff_read` with the grant id |
+| `private.staff_revoke(grant)` | `authenticated` (api `DELETE /v1/admin/staff-access/{id}`) | Admins only, own grants only (`28000`). Ends an active grant and audits `staff_access_revoked`; an inactive one is left as it is |
+| `private.admin_audit(since, action, subject)` | `authenticated` (api `GET /v1/admin/audit`) | Admins only. Newest first, at most 500, each filter optional |
+
+Rows are written for:
+
+| Action | Written by |
+|---|---|
+| `host_access_granted` | `redeem_host_code`, only when it adds the caller to `hosts` |
+| `host_access_removed` | `admin_remove_host`, only when a row was removed |
+| `host_code_rotated` | `admin_rotate_host_code`, only when it replaced the code (subject `system`, no code values) |
+| `account_created`, `password_changed` | the `auth.users` triggers |
+| `guest_merged` | `merge_guest` (subject: the account; `details.games_added`) |
+| `account_deleted` | `delete_account` (`details.by = 'self'`) and `admin_delete_account` (`'admin'`) |
+| `guests_deleted` | reserved for the data-retention cleanup (`details.count`, once per run). **Not yet implemented** |
+| `staff_access_granted`, `staff_read`, `staff_access_revoked` | the `staff_*` functions |
 
 ## History outlives rooms and accounts
 

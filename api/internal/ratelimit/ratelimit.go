@@ -51,6 +51,13 @@ func New(group string, perMinute, burst int) *Limiter {
 	}
 }
 
+// SetClock replaces the limiter's clock. Tests use it to replay a schedule of requests.
+func (l *Limiter) SetClock(now func() time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.now = now
+}
+
 // Allow takes one token for the caller. When none is left it answers 429 with Retry-After
 // and returns false; the handler must then stop.
 func (l *Limiter) Allow(w http.ResponseWriter, r *http.Request) bool {
@@ -73,9 +80,9 @@ func (l *Limiter) AllowKey(w http.ResponseWriter, r *http.Request, key string) b
 
 // take returns 0 when a token was taken, or the whole seconds until one is available.
 func (l *Limiter) take(key string) int {
-	now := l.now()
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	now := l.now()
 	l.sweep(now)
 
 	b, ok := l.buckets[key]

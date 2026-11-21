@@ -12,7 +12,7 @@
 - **My games is one list.** The All / Played / Watched filter is gone; games you watched are still in the list, marked Watched.
 
 ## Your data
-- **Guest data expires.** If you play without an account and don't come back for 90 days, that guest and its games are deleted. Signed-in accounts are kept.
+- **Guest data expires.** If you play without an account and don't come back for 90 days, that guest is deleted and you start fresh next time. Scoreboards you were on keep your scores as "Former player". Sign in to keep your history.
 
 ## Looks
 - **A new icon** for the browser tab and the Home Screen.

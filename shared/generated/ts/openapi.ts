@@ -917,6 +917,49 @@ export interface paths {
         };
         trace?: never;
     };
+    "/v1/admin/cleanup-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The last 30 guest-cleanup runs, newest first (admins only)
+         * @description Counts and durations only, never ids. See docs/system-docs/operations/data-retention.md.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Cleanup runs */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            runs: components["schemas"]["CleanupRun"][];
+                        };
+                    };
+                };
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/staff-access": {
         parameters: {
             query?: never;
@@ -1563,6 +1606,15 @@ export interface components {
             /** Format: date-time */
             hostSince: string;
             note: string | null;
+        };
+        CleanupRun: {
+            /** Format: date-time */
+            runAt: string;
+            /** @description Guests deleted in this run */
+            deleted: number;
+            durationMs: number;
+            /** @description SQLSTATE: message when the run failed and deleted nothing */
+            error: string | null;
         };
         /** @enum {string} */
         StaffSubjectType: "user" | "room" | "game";

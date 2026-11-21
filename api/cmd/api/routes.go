@@ -155,6 +155,9 @@ func (rt routes) GetV1AdminHostCode(w http.ResponseWriter, r *http.Request) {
 func (rt routes) PostV1AdminHostCodeRotate(w http.ResponseWriter, r *http.Request) {
 	rt.admin.Rotate(w, r)
 }
+func (rt routes) GetV1AdminCleanupRuns(w http.ResponseWriter, r *http.Request) {
+	rt.admin.CleanupRuns(w, r)
+}
 func (rt routes) GetV1AdminHosts(w http.ResponseWriter, r *http.Request) {
 	rt.admin.Hosts(w, r)
 }

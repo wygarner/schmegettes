@@ -113,6 +113,6 @@ run = "bun run --cwd e2e test"
 
 [tasks."test:scripts"]
 run = [
-  "node --test scripts/*.test.cjs",
+  "node --test scripts/*.test.cjs scripts/*.test.mjs",
   "cd .github/scripts && python3 -m unittest discover -s tests -t .",
 ]

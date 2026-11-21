@@ -15,10 +15,13 @@ export function HostLayout({
   stage,
   column,
   narrow = false,
+  home,
 }: {
   stage: ReactNode;
   column: ReactNode;
   narrow?: boolean;
+  /** The Home control, at the top of the player column: the board leaves no free corner on the stage. */
+  home?: ReactNode;
 }) {
   const upright = useMediaQuery("(orientation: portrait) and (max-width: 600px)");
   // The host device reads clues aloud. iOS allows that only after speech started from a
@@ -48,6 +51,7 @@ export function HostLayout({
     >
       <Box style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>{stage}</Box>
       <Stack gap={8} style={{ minWidth: 0, minHeight: 0 }} aria-label="Players">
+        {home && <div style={{ flexShrink: 0, margin: "-6px 0 -10px -6px" }}>{home}</div>}
         {column}
       </Stack>
       {upright && (

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"schmegettes/golib/auth"
+	"schmegettes/golib/db"
 )
 
 // Verifier checks an access token. *auth.Verifier implements it.
@@ -149,7 +150,9 @@ func Log(next http.Handler) http.Handler {
 		info := &requestInfo{id: newRequestID()}
 		w.Header().Set("X-Request-Id", info.id)
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
-		next.ServeHTTP(sw, r.WithContext(context.WithValue(r.Context(), requestKey, info)))
+		// The database records the id with any audit row the request writes.
+		ctx := db.WithRequestID(context.WithValue(r.Context(), requestKey, info), info.id)
+		next.ServeHTTP(sw, r.WithContext(ctx))
 		attrs := []any{
 			"request_id", info.id, "method", r.Method, "route", r.URL.Path,
 			"status", sw.status, "duration_ms", time.Since(start).Milliseconds(),

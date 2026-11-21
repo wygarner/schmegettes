@@ -16,6 +16,7 @@ import { BrowserRouter, Route, Routes } from "react-router";
 import { installE2E } from "./lib/e2e";
 import { enforceFullscreen } from "./lib/fullscreen";
 import { Account } from "./pages/Account";
+import { Admin } from "./pages/Admin";
 import { GameScoreboard } from "./pages/GameScoreboard";
 import { Home } from "./pages/Home";
 import { HostLobby } from "./pages/HostLobby";
@@ -114,6 +115,7 @@ createRoot(root).render(
           <Route path="/stats" element={<Stats />} />
           <Route path="/stats/leaderboard" element={<Stats />} />
           <Route path="/account" element={<Account />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
         <MergeRetry />
       </BrowserRouter>

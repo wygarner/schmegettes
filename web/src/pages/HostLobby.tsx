@@ -32,7 +32,6 @@ import {
   savedOptions,
   saveOptions,
   seasonList,
-  summary,
 } from "../lib/gameOptions";
 import { money } from "../lib/money";
 import { stopNarration } from "../lib/narrator";
@@ -41,7 +40,9 @@ import { contestantCount, type ResumeLobby, type RoomState, useRoom } from "../l
 import { type RoomJoin, roomByCode, updateRoomOptions } from "../lib/rooms";
 import { getUserId } from "../lib/supabase";
 import { GoldButton } from "../ui/GoldButton";
+import { HomeButton } from "../ui/HomeButton";
 import { HomeScreenTip } from "../ui/HomeScreenTip";
+import { JoinQr } from "../ui/JoinQr";
 import { Sheet } from "../ui/Sheet";
 import { Stage, StageBody } from "../ui/Stage";
 import { BEVEL, DISPLAY, SOFT, TILE_BG } from "../ui/tokens";
@@ -144,6 +145,7 @@ function useGameOptions(room: RoomJoin): [GameOptions, (next: GameOptions) => vo
 function Centered({ children }: { children: ReactNode }) {
   return (
     <Center mih="100vh" p="md">
+      <HomeButton floating />
       <Stack align="center">{children}</Stack>
     </Center>
   );
@@ -174,7 +176,8 @@ export function HostLobbyView({
   onOptions?: (next: GameOptions) => void;
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
+  // The player menu's rename sheet: whose name (null: the host's own), and the draft.
+  const [renaming, setRenaming] = useState<{ userId: string | null; current: string } | null>(null);
   const [name, setName] = useState("");
   const [starting, setStarting] = useState(false);
   // Join asks for the host device's microphone first (nobody plays without it).
@@ -188,6 +191,11 @@ export function HostLobbyView({
   // the code gets the stage's full width. A join while folded flashes the tab.
   const [folded, setFolded] = useState(true);
   const flash = useJoinFlash(state.players.length, folded);
+
+  // Names lock at Start: an open rename sheet closes without saving.
+  useEffect(() => {
+    if (state.phase !== "lobby") setRenaming(null);
+  }, [state.phase]);
 
   // A Start press ends when the phase moves on or the server answers with an error.
   useEffect(() => {
@@ -227,6 +235,7 @@ export function HostLobbyView({
           </Stage>
         }
         column={<LobbyPlayers state={state} count={contestantCount(state)} />}
+        home={<HomeButton confirm="host" />}
       />
     );
   }
@@ -249,63 +258,48 @@ export function HostLobbyView({
         : `Getting ${narrator.name} ready…`;
   }
 
+  function rename(userId: string | null, current: string) {
+    setName(current);
+    setRenaming({ userId, current });
+  }
+
+  // The host's own name is remembered for next time; a rename of someone else lasts for this
+  // room only (the server doesn't remember it either).
   function saveName() {
-    if (!isValidName(name)) return;
-    setLastName(name);
-    send({ type: "set_display_name", displayName: name.trim() });
-    setEditing(false);
+    if (!renaming || !isValidName(name)) return;
+    if (renaming.userId === null) {
+      setLastName(name);
+      send({ type: "set_display_name", displayName: name.trim() });
+    } else {
+      send({ type: "set_display_name", displayName: name.trim(), userId: renaming.userId });
+    }
+    setRenaming(null);
   }
 
   const stage = (
     <Stage>
       <HomeScreenTip />
       <Group justify="space-between" wrap="nowrap" gap="xs">
-        <Wordmark size="clamp(14px, 8cqh, 32px)" />
-        {editing ? (
-          <Group gap="xs" wrap="nowrap">
-            <TextInput
-              aria-label="Your name"
-              size="xs"
-              maxLength={MAX_NAME}
-              value={name}
-              onChange={(e) => setName(e.currentTarget.value)}
-              onKeyDown={(e) => e.key === "Enter" && saveName()}
-            />
-            <Button size="xs" onClick={saveName} disabled={!isValidName(name)}>
-              Save
-            </Button>
-          </Group>
-        ) : (
-          <Group gap={2} wrap="nowrap" style={{ minWidth: 0 }}>
-            <Text truncate="end" c={SOFT} style={{ fontSize: "clamp(11px, 5cqh, 20px)" }}>
-              {state.rematch ? "Rematch · " : ""}Hosted by {state.hostDisplayName}
-            </Text>
-            <ActionIcon
-              variant="subtle"
-              color="mauve.1"
-              aria-label="Edit your name"
-              onClick={() => {
-                setName(state.hostDisplayName);
-                setEditing(true);
-              }}
-            >
-              ✎
-            </ActionIcon>
-          </Group>
-        )}
+        <Group gap={2} wrap="nowrap">
+          <div style={{ margin: "-10px 0 -10px -10px" }}>
+            <HomeButton />
+          </div>
+          <Wordmark size="clamp(14px, 8cqh, 32px)" />
+        </Group>
+        <Text fw={600} c={SOFT} truncate="end" style={{ fontSize: "clamp(11px, 5.5cqh, 22px)", minWidth: 0 }}>
+          Join at {joinAddress}
+        </Text>
       </Group>
 
-      <StageBody gap="4cqh">
-        {narrator.unavailable ? (
+      <StageBody gap="2.5cqh">
+        {/* The QR code above the room code; together they take the stage's height. */}
+        <JoinQr code={code} size="clamp(88px, 30cqh, 180px)" />
+        <CodeTiles code={code} />
+        {narrator.unavailable && (
           <Text fw={600} c="red.3" ta="center" style={{ fontSize: "clamp(11px, 5cqh, 20px)" }}>
             This device can't run the Schmegettes narrator. Host from a recent iPhone, iPad or computer.
           </Text>
-        ) : (
-          <Text fw={600} c={SOFT} style={{ fontSize: "clamp(11px, 6cqh, 24px)" }}>
-            Join at {joinAddress}
-          </Text>
         )}
-        <CodeTiles code={code} />
         {state.resume && (
           <Text c={SOFT} style={{ fontSize: "clamp(10px, 4.5cqh, 18px)" }}>
             Resuming the game from{" "}
@@ -314,11 +308,6 @@ export function HostLobbyView({
               month: "short",
               day: "numeric",
             })}
-          </Text>
-        )}
-        {summary(options) && (
-          <Text c={SOFT} aria-label="Game options in use" style={{ fontSize: "clamp(10px, 4.5cqh, 18px)" }}>
-            {summary(options)}
           </Text>
         )}
         {state.rematch && (
@@ -375,6 +364,31 @@ export function HostLobbyView({
             </Tooltip>
           )}
         </Group>
+        <Sheet opened={renaming !== null} onClose={() => setRenaming(null)} label={`Rename ${renaming?.current ?? ""}`}>
+          {renaming && (
+            <Stack gap="sm">
+              <Title order={3} ff={DISPLAY} fw={600}>
+                Rename {renaming.current}
+              </Title>
+              <TextInput
+                label="What's your name?"
+                data-autofocus
+                maxLength={MAX_NAME}
+                value={name}
+                onChange={(e) => setName(e.currentTarget.value)}
+                onKeyDown={(e) => e.key === "Enter" && saveName()}
+              />
+              <Group grow>
+                <Button variant="default" onClick={() => setRenaming(null)}>
+                  Cancel
+                </Button>
+                <GoldButton onClick={saveName} disabled={!isValidName(name)}>
+                  Save
+                </GoldButton>
+              </Group>
+            </Stack>
+          )}
+        </Sheet>
         {onOptions && (
           <GameOptionsSheet
             opened={optionsOpen}
@@ -419,7 +433,7 @@ export function HostLobbyView({
   ) : state.resume ? (
     <ResumePlayers resume={state.resume} onFold={() => setFolded(true)} />
   ) : (
-    <LobbyPlayers state={state} count={count} onFold={() => setFolded(true)} />
+    <LobbyPlayers state={state} count={count} onFold={() => setFolded(true)} onRename={rename} />
   );
 
   return <HostLayout stage={stage} column={column} narrow={folded} />;
@@ -503,8 +517,22 @@ function FoldHeader({ children, onFold }: { children: ReactNode; onFold: () => v
   );
 }
 
-/** The lobby's player list: join order, connected dot, HOST chip, "(reconnecting)". */
-function LobbyPlayers({ state, count, onFold }: { state: RoomState; count: number; onFold?: () => void }) {
+/**
+ * The lobby's player list: join order, connected dot, HOST chip, "(reconnecting)". With
+ * `onRename` it's the player menu: ✎ on each name, and a "Hosted by" footer with its own ✎.
+ */
+function LobbyPlayers({
+  state,
+  count,
+  onFold,
+  onRename,
+}: {
+  state: RoomState;
+  count: number;
+  onFold?: () => void;
+  /** The player menu: ✎ on every name, and "Hosted by" ✎ (userId null: the host's own name). */
+  onRename?: (userId: string | null, current: string) => void;
+}) {
   return (
     <>
       {onFold ? (
@@ -596,12 +624,43 @@ function LobbyPlayers({ state, count, onFold }: { state: RoomState; count: numbe
                     HOST
                   </span>
                 )}
+                {onRename && (
+                  <RenameButton
+                    name={p.displayName}
+                    host={p.role === "host"}
+                    onClick={() => onRename(p.role === "host" ? null : p.userId, p.displayName)}
+                  />
+                )}
               </li>
             ))}
           </ol>
         )}
       </Box>
+      {onRename && (
+        <Group gap={2} wrap="nowrap" px={2} style={{ flexShrink: 0 }}>
+          <Text c={SOFT} size="sm" truncate="end" style={{ flex: 1, minWidth: 0 }}>
+            Hosted by {state.hostDisplayName}
+          </Text>
+          <RenameButton name={state.hostDisplayName} host onClick={() => onRename(null, state.hostDisplayName)} />
+        </Group>
+      )}
     </>
+  );
+}
+
+/** ✎ in the player menu: 44 px to tap, though the row is shorter. */
+function RenameButton({ name, host = false, onClick }: { name: string; host?: boolean; onClick: () => void }) {
+  return (
+    <ActionIcon
+      variant="subtle"
+      color="mauve.1"
+      size={28}
+      aria-label={host ? "Edit your name" : `Rename ${name}`}
+      onClick={onClick}
+      style={{ margin: -8, padding: 8, boxSizing: "content-box", flexShrink: 0 }}
+    >
+      ✎
+    </ActionIcon>
   );
 }
 
@@ -614,8 +673,8 @@ function CodeTiles({ code }: { code: string }) {
         <div
           key={id}
           style={{
-            width: "min(13cqw, 30cqh)",
-            height: "min(17cqw, 38cqh)",
+            width: "min(13cqw, 20cqh)",
+            height: "min(17cqw, 26cqh)",
             borderRadius: 8,
             background: "var(--mantine-color-mauve-9)",
             boxShadow: `${BEVEL}, 0 6px 18px rgba(0,0,0,.35)`,
@@ -624,7 +683,7 @@ function CodeTiles({ code }: { code: string }) {
             justifyContent: "center",
             fontFamily: DISPLAY,
             fontWeight: 700,
-            fontSize: "min(12cqw, 28cqh)",
+            fontSize: "min(12cqw, 19cqh)",
             color: "var(--mantine-color-green-4)",
             textShadow: "0 3px 0 rgba(0,0,0,.5)",
           }}

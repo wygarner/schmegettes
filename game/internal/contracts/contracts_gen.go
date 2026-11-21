@@ -777,14 +777,19 @@ type SelectClue struct {
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
 }
 
-// Lobby only. Renames the sender in this room; the server adds a suffix when the
-// name is taken.
+// Lobby only. Without userId (or with your own), renames the sender and remembers
+// the name for next time. With another member's userId, host only and not in a
+// resume lobby: renames that member for this room without changing their
+// remembered name. The server adds a suffix when the name is taken.
 type SetDisplayName struct {
 	// DisplayName corresponds to the JSON schema field "displayName".
 	DisplayName string `json:"displayName" yaml:"displayName" mapstructure:"displayName"`
 
 	// Type corresponds to the JSON schema field "type".
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+
+	// UserId corresponds to the JSON schema field "userId".
+	UserId *string `json:"userId,omitempty" yaml:"userId,omitempty" mapstructure:"userId,omitempty"`
 }
 
 // Host only, lobby only. Joins or leaves the game as a contestant on the host

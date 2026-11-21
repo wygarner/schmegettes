@@ -34,7 +34,7 @@ Proxies may log `Sec-WebSocket-Protocol`. If the chosen host does, switch to a s
 
 | Intent | Who | Effect |
 |---|---|---|
-| `set_display_name` | any member | `set_member_name()`, then `lobby_updated` |
+| `set_display_name` | any member, for their own name; the host, with another member's `userId` | Own name: `set_member_name()`, which also remembers it as the player's prefill. Another member's (host only, else `not_host`; not in a resume lobby, else `wrong_phase`; a non-member is `invalid_message`): `rename_member()`, which doesn't remember it. Then `lobby_updated` |
 | `set_host_plays` | host | `set_host_plays()`, then `lobby_updated` (the host appears in `players` with role `host`) |
 | `leave_room` | non-host, in the lobby or on the final scoreboard (`finished`) | `leave_room()`, the leaver's sockets close, then `lobby_updated` (in the lobby) |
 | `rematch` | host, phase `finished` (else `wrong_phase`; a second press back in the lobby is ignored) | First checks the host still has host access (`private.user_is_host`): if not, the host's sockets only get `error: not_a_host` and nothing is reset. Then the finished game is dropped, the room reloads its members (players who left are gone), and every socket gets a fresh `room_snapshot` in `lobby` at $0. `end_game()` already reopened the room, so Start builds a fresh board as usual |

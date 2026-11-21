@@ -1,6 +1,6 @@
 # Security Model
 
-**Source of truth:** `golib/auth/`, `golib/db/`, `api/internal/server/`, `game/internal/socket/`, `supabase/migrations/`, `supabase/config.toml`, `.claude/settings.json`, `.github/workflows/`
+**Source of truth:** `golib/auth/`, `golib/db/`, `api/internal/server/`, `api/cmd/api/routes.go`, `api/internal/staffaccess/`, `game/internal/socket/`, `supabase/migrations/`, `supabase/config.toml`, `.claude/settings.json`, `.github/workflows/`
 
 Who can reach each part of Schmegettes, how each part checks its caller, what each role may do, and the gaps still open. Secrets and their rotation are in [configuration-and-secrets.md](./configuration-and-secrets.md).
 
@@ -33,7 +33,7 @@ Who can reach each part of Schmegettes, how each part checks its caller, what ea
 |---|---|---|
 | Anonymous player | Play and join by code. History is kept while the session lasts | Supabase Auth issues a JWT; services treat it as any other user |
 | Host | A player (guest or account) who entered the current host code: also create rooms, Start, Rematch | `public.hosts`, checked in `create_room()` and `start_game()` (and before a Rematch). Removing the row removes access |
-| Admin | An account (never a guest) listed in `private.admins`, set by the owner in SQL: reads the host code, rotates it, lists and removes hosts, edits host notes. Sees hosts' account emails | `private.require_admin()` in every admin function, checked on each call; the api's `/v1/admin/*` routes answer a missing page to everyone else, rate-limited. Used from devtools on the admin's own computer; CORS allows `http://localhost:5174`, but the allowlist is the boundary |
+| Admin | An account (never a guest) listed in `private.admins`, set by the owner in SQL: reads the host code, rotates it, lists and removes hosts, edits host notes, reads the audit log, deletes an account on request, and takes time-limited staff access to one player, room, or game (section 4). Sees hosts' account emails | `private.require_admin()` in every admin function, checked on each call; the api's `/v1/admin/*` routes answer a missing page to everyone else, rate-limited. Used from devtools on the admin's own computer (CORS allows `http://localhost:5174`), and, for the host code and Rotate now only, from the web app's `/admin`, shown to an account only when `private.caller_is_admin()` says it's on the list. The allowlist is the boundary |
 | Signed-in player | Same as anonymous, plus history, seen clues, and host access on every device they sign in on. Signs in with email and password | Supabase Auth issues the JWT (`is_anonymous: false`); account-only actions are refused for guests by `private.*` functions, which check both the token and `auth.users.is_anonymous` |
 
 Supabase Auth's Email provider is off and anonymous sign-ups are limited per IP: nobody signs in with email, and Schmegettes sends no email ([private access](../../product-docs/features/private-access/feature-brief.md)).
@@ -54,7 +54,33 @@ Every socket connection first passes `public.is_room_member`, run as the caller 
 
 A player sees only their own profile and the rooms and games they belong to. Postgres row-level security enforces this per transaction, never `WHERE` clauses in application code. Details and the policy table are in [data-and-isolation.md](../architecture/data-and-isolation.md).
 
-## 4. Known gaps
+## 4. Rate limits, audit, and staff access
+
+### Rate limits
+
+Every `api` route has a per-user limit (`api/cmd/api/routes.go`, `routeGroup`), applied after authentication and keyed by the caller's user ID. Admin routes are limited during authentication, before the caller is known, so missing and invalid tokens share one `unauthenticated` bucket. A limited call gets 429 with `Retry-After` (problem type `rate-limited`), and the log line names only the group. `/healthz` and `/version` are exempt.
+
+| Group | Routes | Per minute / burst |
+|---|---|---|
+| `read` (default) | every GET not listed below, and unknown paths | 120 / 40 |
+| `write` (default) | every POST, PATCH, DELETE not listed below | 60 / 20 |
+| `room-options` | `PATCH /v1/rooms/{roomId}` (a host dragging the season slider) | 120 / 40 |
+| `join` | `POST /v1/rooms/join`, `GET /v1/rooms/by-code/{code}`, `POST /v1/games/{gameId}/resume` | 10 / 10 |
+| `host-code` | `POST /v1/host-access/redeem` | 5 / 5 |
+| `account` | `POST /v1/me/merge-tickets`, `POST /v1/me/merge`, `DELETE /v1/me` | 10 / 3 |
+| `admin` | `/v1/admin/*` | 5 / 5 |
+
+These are starting numbers, to be revised from a week of production logs (`"rate limited"` lines by `group`). `api/cmd/api/limits_test.go` replays a full game night (a host and six contestants, 60 slider changes in a minute, rejoins, a rematch) and expects no 429. Supabase Auth limits anonymous sign-ups per IP, which bounds how many identities one address can use. The buckets live in each `api` instance; a second instance needs them in Redis.
+
+### Audit log
+
+`private.audit_log` records host access granted and removed, host code rotations, accounts created, guests merged, password changes (by the player, or by the admin in SQL), account deletions (by the player or the admin), and every staff-access grant, read and revocation, each with the actor, subject, time and request ID. No app role can read, change or delete it; the admin reads it through `GET /v1/admin/audit`. A failed write never blocks the action; it logs `ERROR` "audit write failed", which observability alerts on. Details: [data-and-isolation.md](../architecture/data-and-isolation.md), "Audit log and staff access".
+
+### Staff access
+
+Owner-role access is for migrations and the clue import only. To look at a player's, room's or game's data in production, the admin runs `scripts/staff-access.mjs` ([operator-scripts.md](../operations/operator-scripts.md)): it creates a grant with a reason and a duration (default 1 hour, at most 8), then reads through the api, which returns only that subject in a fixed shape (no emails, password hashes or tokens) until the grant expires or is revoked. Each grant logs `WARN` "staff access granted", which alerts the admin, and the grant and every read are audited.
+
+## 5. Known gaps
 
 Keep this list current. A PR that closes a gap removes its line.
 
@@ -65,17 +91,15 @@ Keep this list current. A PR that closes a gap removes its line.
 | **Change password is checked on the client** | The web app verifies the current password by signing in with it before `updateUser`, because Supabase's server-side check (secure password change) needs email. Someone holding a stolen access token can change the password directly. |
 | **No self-service password reset** | Resets need email. The admin resets by hand (deployment.md, "Supabase Auth settings"). |
 | **Supabase Data API is exposed** | Any signed-in player can query `public` directly with their JWT, so RLS and function grants are the only boundary there. Decide whether to stop exposing `public` (the services don't need the Data API) or keep it and test it as a public surface. |
-| **Rate limits** | Built: per-user limits in `api` on room codes (`join` group: `POST /v1/rooms/join`, `GET /v1/rooms/by-code/{code}`, 10/min) host codes (`host-code`: 5/min), and the admin routes (`admin`: 5/min, unauthenticated attempts sharing one bucket), answering 429 with `Retry-After`; the rejection log line has only the group. Supabase Auth limits anonymous sign-ups per IP, which bounds how many identities one address can use. Still to do: limits on the rest of the `api`; the limiter is per instance (move it to Redis with a second instance). |
-| **Audit table** | Append-only table for role and membership changes, credential changes, and staff access. Application code never updates or deletes rows. A failed write still lets the action complete but raises a critical alert. |
-| **Staff access** to a room or player | An explicit, time-limited grant with a recorded reason, audited, with an alert when used. |
+| **Alerts on audit failures and staff grants** | The api and `golib/db` write the log lines ("audit write failed", "staff access granted"), but the alert rules wait for observability. **Not yet implemented** |
 | **Web security headers** | Built: CSP, HSTS, `nosniff`, Referrer-Policy, Permissions-Policy and `X-Robots-Tag` on every web response, written into `vercel.json` by `web/scripts/vercel-deploy.mjs` with the CSP built from each environment's origins; `web/scripts/vercel-deploy.test.ts` fails if a header is dropped. `style-src` allows `'unsafe-inline'` because Mantine renders `<style>` elements at runtime. `script-src` allows `'wasm-unsafe-eval'` (WebAssembly compilation only, never JavaScript `eval`) and `connect-src` allows `https://huggingface.co` and `https://*.hf.co`, both for the host device's narrator; the voice files are pinned by commit and checked by SHA-256 before use ([stack](../engineering/stack.md), Narration). CORS is already tested in `api/internal/server/server_test.go`, and the game's Origin check in `game/internal/socket/socket_test.go`. |
 | **Telemetry and client error tracking** | Grafana Cloud shipping and Grafana Faro ([stack.md](../engineering/stack.md)). |
 | **Required checks** | Branch protection and rulesets are not available on this private repo's GitHub plan (the API returns 403), so `CI Complete` cannot be a required check on `production`. Until it can, never merge a release with red CI ([release-strategy.md](../operations/release-strategy.md)). |
 | **Security assessment** | First assessment before launch, then every six months and after major architecture changes. Findings go in `docs/security-assessments/{date}/remediation-tracker.md`, updated only through PRs. |
 | **LLM appeal judge** (when built) | Player answers are untrusted input to the model. Tools get the least privilege that works. |
-| **Docs that need hosting first** | `operations/observability.md`, `operations/incident-response.md`, `operations/disaster-recovery.md`, `operations/data-retention.md`, `operations/operator-scripts.md`, `quality/agent-qa.md`. |
+| **Docs that need hosting first** | `operations/observability.md`, `operations/incident-response.md`, `operations/disaster-recovery.md`, `quality/agent-qa.md`. |
 
-## 5. Scans
+## 6. Scans
 
 In `ci.yml` on every PR into `develop` or `production`:
 

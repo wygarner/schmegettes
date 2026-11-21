@@ -62,17 +62,6 @@ export function difficultyName(d: Domain.Difficulty): string {
   return { easy: "Easy", medium: "Medium", hard: "Hard" }[d];
 }
 
-/** The line under the room code: only what isn't the default ("" with the defaults). */
-export function summary(o: GameOptions): string {
-  const parts: string[] = [];
-  if (o.seasons)
-    parts.push(o.seasons[0] === o.seasons[1] ? `Season ${o.seasons[0]}` : `Seasons ${o.seasons[0]}–${o.seasons[1]}`);
-  if (o.difficulty) parts.push(difficultyName(o.difficulty));
-  if (!o.doubleRound) parts.push("No Double Schmegettes");
-  if (o.quickPicks) parts.push("Quick picks");
-  return parts.join(" · ");
-}
-
 // Kept on this device. Storage can be missing or blocked, so every access is guarded.
 const KEY = "schmegettes.gameOptions";
 

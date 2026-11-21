@@ -18,6 +18,7 @@ import (
 	"schmegettes/api/internal/games"
 	"schmegettes/api/internal/hostaccess"
 	"schmegettes/api/internal/rooms"
+	"schmegettes/api/internal/staffaccess"
 	"schmegettes/api/internal/stats"
 	"schmegettes/golib/auth"
 	"schmegettes/golib/db"
@@ -46,13 +47,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	appEnv := getenv("APP_ENV", "local")
 	rt := routes{
-		admin:  admin.Handler{Store: admin.PGStore{DB: database}},
+		admin:  admin.Handler{Store: admin.PGStore{DB: database}, AppEnv: appEnv},
 		rooms:  rooms.Handler{Store: rooms.PGStore{DB: database}, SocketBase: getenv("GAME_SOCKET_BASE_URL", "ws://localhost:3002")},
 		games:  games.Handler{Store: games.PGStore{DB: database}},
 		host:   hostaccess.Handler{Store: hostaccess.PGStore{DB: database}},
 		me:     account.Handler{Store: account.PGStore{DB: database}},
 		stats:  stats.Handler{Store: stats.PGStore{DB: database}},
+		staff:  staffaccess.Handler{Store: staffaccess.PGStore{DB: database}},
 		limits: newLimits(),
 		ping:   database.Ping,
 	}

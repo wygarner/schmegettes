@@ -72,6 +72,8 @@ The implementation agent branches fresh from `develop` as `{task-type}/GH-{N}-{t
 
 Rules: preserve the contracts in `shared/` unless the spec says to change them; never weaken types; update docs when behavior changes; run validation for every package touched.
 
+Player-visible changes: agent QA on the local stack per [agent-qa.md](../quality/agent-qa.md), with the evidence record on the PR.
+
 ### Validation: targeted tests only
 
 **Never run a full test suite locally as routine validation.** Run the tests for the files you touched. CI runs everything, path-filtered, on the PR into `develop`, and the PR merges only when it is green.

@@ -137,7 +137,7 @@ The buzzer is pinned to the bottom of the phone screen on every screen from the 
 |---|---|---|
 | Joining | Microphone screen (below), then the name | none until the player is in |
 | Lobby | "You're in, Alice." **Edit name**, **Leave** | `idle` |
-| `board`, I have control | Mini board (category names and values). No "Your pick" heading, no score, no microphone button: the buzzer is it. While listening, a green "Listening… Say a category and value, like “Opera for 600”" panel (with Quick picks on: "Listening… Say a category, like “Opera”, or a category and value"). | `pick`, `listening` while it listens |
+| `board`, I have control | Mini board (category names and values). No "Your pick" heading, no score, no microphone button: the buzzer is it. While listening, a green "Listening… Say a category and value, like “Opera for 600”" panel (with Lowest left: "Listening… Say a category, like “Opera”, or a category and value"). | `pick`, `listening` while it listens |
 | `board`, someone else picks | "Alice is picking…" and my score | `idle` |
 | `clue_reading` | "Listen…" | `dim` |
 | `buzzing_open` | "Buzz in!" and the 9 s countdown | `lit` |
@@ -210,7 +210,7 @@ The same states as the phone, in the player column, minus what the stage already
 | Situation | Behavior |
 |---|---|
 | Controller taps a clue that's already done | Ignored; the cell is disabled |
-| Controller says just a category with several clues left in it | Quick picks off: "Didn't catch the amount.", nothing is picked, and the buzzer goes back to `pick`. Quick picks on: the lowest value left in that category is picked |
+| Controller says just a category with several clues left in it | Ask (default spoken clue value): "Didn't catch the amount.", nothing is picked, and the buzzer goes back to `pick`. Lowest left: the lowest value left in that category is picked |
 | Controller says a clue that's already done, or one that isn't on the board | "That one's already been played." / "Didn't catch the category." Nothing is picked; the buzzer goes back to `pick`: press it to try again, or tap |
 | Controller presses the buzzer while it's listening | Listening stops; nothing is picked |
 | Control passes or the phase changes while listening | Listening stops; nothing is picked |

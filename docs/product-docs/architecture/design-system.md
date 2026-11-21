@@ -60,6 +60,20 @@ Board values are Oswald 700. Oswald has no 800 weight.
 | `GREEN` (`teal.4`) / `RED` (`red.4`) | Mantine | Correct / incorrect, and negative scores. Correct uses teal, not the accent green, so right and wrong still read at a glance |
 | Buzzer red | dome gradient `#ffb8b8` → `#ff3030` → `#d40c0c` → `#7a0404` | The buzzer, lit. It stays red: it's the one thing that should look like a button to hit |
 
+## App icon
+
+The wordmark's **S** (Oswald 700, converted to a path so no font is needed) in the wordmark's vertical green gradient, with its dark drop shadow and a soft green glow, on the `STAGE_BG` gradient. Files in `web/public/`:
+
+| File | Use | Shape |
+|---|---|---|
+| `favicon.svg` | Browser tab (the source of the design) | Rounded square, S a little larger so it reads at 16 px |
+| `favicon.ico` | Tab fallback (32 px) | Same as `favicon.svg` |
+| `apple-touch-icon.png` | iOS home screen (180 px) | Full-bleed square; iOS rounds the corners |
+| `icon-192.png`, `icon-512.png` | Manifest, `purpose: any` | Full-bleed square |
+| `icon-maskable-512.png` | Manifest, `purpose: maskable` (Android) | Full-bleed, S smaller to stay inside the 80 % safe circle |
+
+The PNGs are rendered from the SVG design. To change the icon, edit `favicon.svg` and re-render the PNGs and ICO from it at the sizes above.
+
 ## Components
 
 ### Buzzer
@@ -140,6 +154,7 @@ Home, My games, Account and the sheets they open. Calmer than the game screens: 
 
 - **Large title**: Oswald 700, uppercase, about 38 px, top left, with an optional pink eyebrow above (12 px, 700, uppercase, `.14em` tracking) and a `QUIET` subtitle below.
 - **Top bar**: a back link ("‹ Home") on the left. Once the large title scrolls away, the bar frosts (blur, dark mauve at 72 %, hairline under it) and shows the title small in the center.
+- **Home control** off the menu screens (join, lobby, game, a game's scoreboard): `HomeButton`, a 44 × 44 house icon in `QUIET` with no fill, tooltip "Home". During a game it opens a "Leave the game?" sheet first ([navigation](../features/navigation/interaction-design.md)).
 - **Section labels** above grouped lists: the eyebrow style in `QUIET` ("NOVEMBER 2026", "SECURITY").
 - Headings and short copy use balanced wrapping; paragraphs avoid single-word last lines.
 
@@ -213,6 +228,7 @@ Skeletons in the shape of the content, with a slow shimmer, instead of a spinner
 - The wordmark is Oswald 700 with a vertical green gradient, a dark drop shadow and a faint green glow.
 - "You've been signed out" is a warning info box above the Join card.
 - **Host a game** shows a spinner in place of its chevron while host access is checked.
+- An admin (only) sees one more row after Stats: **Admin** · "Host code", opening `/admin` ([private access](../features/private-access/interaction-design.md#admin-screen-in-the-app-admin)).
 
 Layouts for [My games](../features/game-history/interaction-design.md#look-back-at-past-games-any-player) and the [Account page](../features/accounts/interaction-design.md#account-page-account) are in their specs.
 

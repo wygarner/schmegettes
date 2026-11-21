@@ -3,7 +3,7 @@
 -- lobby changes run as game_engine, as game/ calls them.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(42);
+select plan(48);
 
 grant game_engine to current_user;
 grant usage on schema extensions to game_engine;
@@ -31,6 +31,10 @@ $$;
 create function tests.name_of(p_room uuid, p_user uuid) returns text
 language sql stable security definer set search_path = '' as $$
   select display_name from public.room_members where room_id = p_room and user_id = p_user;
+$$;
+create function tests.remembered(p_user uuid) returns text
+language sql stable security definer set search_path = '' as $$
+  select display_name from public.profiles where user_id = p_user;
 $$;
 grant execute on all functions in schema tests to public;
 
@@ -106,6 +110,7 @@ select throws_ok(
   '42501', null, 'a user cannot rename members directly'
 );
 select throws_ok($$ select public.set_member_name(tests.room('r'), '33333333-3333-4333-8333-333333333333', 'X') $$, '42501', null, 'users cannot call set_member_name');
+select throws_ok($$ select public.rename_member(tests.room('r'), '33333333-3333-4333-8333-333333333333', 'X') $$, '42501', null, 'users cannot call rename_member');
 select throws_ok($$ select public.set_host_plays(tests.room('r'), true) $$, '42501', null, 'users cannot call set_host_plays');
 select throws_ok($$ select public.leave_room(tests.room('r'), '33333333-3333-4333-8333-333333333333') $$, '42501', null, 'users cannot call leave_room');
 
@@ -155,6 +160,12 @@ select is(tests.name_of(tests.room('r'), '11111111-1111-4111-8111-111111111111')
 -- ---------------------------------------------------------------------------
 select is(public.set_member_name(tests.room('r'), '33333333-3333-4333-8333-333333333333', 'Carol'), 'Carol', 'a member renames');
 select is(public.set_member_name(tests.room('r'), '33333333-3333-4333-8333-333333333333', 'Carol'), 'Carol', 'renaming to your own name keeps it');
+select is(public.rename_member(tests.room('r'), '33333333-3333-4333-8333-333333333333', 'Dan'), 'Dan', 'the host renames a member');
+select is(tests.remembered('33333333-3333-4333-8333-333333333333'), 'Carol', 'a host rename is not remembered as the player''s name');
+select is(public.rename_member(tests.room('r'), '33333333-3333-4333-8333-333333333333', 'wyatt'), 'wyatt 2', 'a host rename to a taken name gets a suffix');
+select throws_ok($$ select public.rename_member(tests.room('r'), '55555555-5555-4555-8555-555555555555', 'X') $$, 'P0002', null, 'renaming someone who isn''t a member fails');
+select throws_ok($$ select public.rename_member(tests.room('old'), '11111111-1111-4111-8111-111111111111', 'X') $$, '55000', null, 'renaming in a closed room fails');
+select public.rename_member(tests.room('r'), '33333333-3333-4333-8333-333333333333', 'Carol');
 select lives_ok($$ select public.leave_room(tests.room('r'), '11111111-1111-4111-8111-111111111111') $$, 'leave_room ignores the host');
 select ok(tests.name_of(tests.room('r'), '11111111-1111-4111-8111-111111111111') is not null, 'the host stays in the room');
 

@@ -12,16 +12,9 @@ export function seasonsText(range: [number, number] | null): string {
   return a === b ? `Season ${a} · ${years}` : `Seasons ${a}–${b} · ${years}`;
 }
 
-/** The line under the Difficulty control, for each choice (null is Any). */
-export const DIFFICULTY_TEXT = {
-  any: "Every category, easy to hard",
-  easy: "Clues most people know",
-  medium: "A mix most groups will enjoy",
-  hard: "For trivia regulars",
-} as const;
-
 /**
- * The lobby's game options: seasons, difficulty, Double Schmegettes, Quick picks. Each change applies at once
+ * The lobby's game options: seasons, difficulty, Double Schmegettes, and the default spoken clue value
+ * (stored as `quickPicks`: Lowest left is true). Each change applies at once
  * (onChange); Done or a tap outside closes it. Rules:
  * docs/product-docs/features/lobby/interaction-design.md, "Game options".
  */
@@ -93,9 +86,6 @@ export function GameOptionsSheet({
               ...DIFFICULTIES.map((d) => ({ value: d, label: difficultyName(d) })),
             ]}
           />
-          <Text size="sm" c={SOFT} mt={4}>
-            {DIFFICULTY_TEXT[options.difficulty ?? "any"]}
-          </Text>
         </div>
         <Switch
           label="Double Schmegettes"
@@ -104,13 +94,25 @@ export function GameOptionsSheet({
           onChange={(e) => onChange({ ...options, doubleRound: e.currentTarget.checked })}
           color="green.4"
         />
-        <Switch
-          label="Quick picks"
-          description={options.quickPicks ? "Just the category picks its lowest clue" : "Say the category and amount"}
-          checked={options.quickPicks}
-          onChange={(e) => onChange({ ...options, quickPicks: e.currentTarget.checked })}
-          color="green.4"
-        />
+        <div>
+          <Text fw={600} mb={4} id="clue-value-label">
+            Default spoken clue value
+          </Text>
+          <SegmentedControl
+            aria-labelledby="clue-value-label"
+            fullWidth
+            size="xs"
+            value={options.quickPicks ? "lowest" : "ask"}
+            onChange={(v) => onChange({ ...options, quickPicks: v === "lowest" })}
+            data={[
+              { value: "ask", label: "Ask" },
+              { value: "lowest", label: "Lowest left" },
+            ]}
+          />
+          <Text size="sm" c={SOFT} mt={4}>
+            When a player says just the category
+          </Text>
+        </div>
       </Stack>
       <Group justify="flex-end" mt="sm">
         <Button onClick={onClose}>Done</Button>

@@ -1,6 +1,6 @@
 # Logging Conventions
 
-**Source of truth:** `golib/logging/`, `worker/src/schmegettes_worker/__main__.py`, `api/internal/server/server.go`
+**Source of truth:** `golib/logging/`, `golib/db/`, `worker/src/schmegettes_worker/__main__.py`, `api/internal/server/server.go`
 
 Structured JSON logs from every service, written to stdout. Shipping them to Grafana Cloud over OpenTelemetry is **not yet implemented** ([stack.md](../engineering/stack.md)). This is the "how" for anyone writing or reviewing a log statement.
 
@@ -64,7 +64,23 @@ A wrong answer, a rejected buzz, or a full room is normal gameplay, not an error
 
 Identifiers, counts, statuses, durations, and error types are safe. Players' typed answers may be logged at `debug` only.
 
-## 6. Checklist for specs and reviews
+## 6. Security events
+
+Lines that alerts and investigations depend on. Keep the message and fields exactly as listed.
+
+| Level | Message | Fields | Written by | Alert |
+|---|---|---|---|---|
+| `error` | `audit write failed` | `action`, `sqlstate`, `request_id` | `golib/db` (`logNotice`), from the `WARNING` `private.audit` raises when it can't write a row. The action itself went through | Critical, immediate (**not yet implemented**: waits for observability) |
+| `warn` | `staff access granted` | `grant_id`, `subject_type`, `subject_id`, `minutes`, `user_id`, `request_id` | `api/internal/staffaccess` | Email to the admin on every line, both environments (**not yet implemented**) |
+| `info` | `staff access read`, `staff access revoked` | `grant_id`, `subject_type`, `subject_id`, `user_id`, `request_id` | `api/internal/staffaccess` | — |
+| `info` | `rate limited` | `group`, `request_id` | `api/internal/ratelimit` | — |
+| `info` | `qa accounts marked` | `count`, `request_id` | `api/internal/admin` | — |
+| `info` | `qa cleanup` | `dry_run`, `rooms`, `games`, `request_id` | `api/internal/admin` | — |
+
+Never logged: a grant's reason (it can contain personal data), what a staff read returned, and the text of other database notices (only their severity and code, at `debug`).
+QA operator logs contain counts only: never account IDs, emails, labels, passwords, room IDs, or game IDs.
+
+## 7. Checklist for specs and reviews
 
 - [ ] Uses the service logger
 - [ ] `err` field for errors; static message; data in fields

@@ -75,7 +75,6 @@
       "Bash(gh issue delete*)",
       "Bash(gh label *)",
       "Read(**/.env)",
-      "Read(**/.env.local)",
       "Read(supabase/signing_keys.json)"
     ]
   }

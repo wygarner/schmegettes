@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import List, Literal, Optional, Union
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, conint, constr
 
@@ -24,6 +25,7 @@ class SetDisplayName(BaseModel):
     )
     type: Literal['set_display_name']
     displayName: constr(min_length=1, max_length=20)
+    userId: Optional[UUID] = None
 
 
 class SetHostPlays(BaseModel):

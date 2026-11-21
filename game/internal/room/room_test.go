@@ -35,6 +35,9 @@ type fakeStore struct {
 	records []string
 	ended   contracts.GameStatus
 
+	selfRenames []string // SetName calls: remembered as the player's name
+	hostRenames []string // RenameMember calls: this room only
+
 	failAnswers bool // RecordAnswer always fails
 	answerLen   int  // characters in the last answer written
 	lastAnswer  play.Record
@@ -81,6 +84,26 @@ func (s *fakeStore) Load(context.Context, string) (Lobby, error) {
 func (s *fakeStore) SetName(_ context.Context, _, userID, name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.selfRenames = append(s.selfRenames, userID)
+	for i := range s.lobby.Members {
+		if s.lobby.Members[i].UserID == userID {
+			s.lobby.Members[i].Name = name
+		}
+	}
+	return nil
+}
+
+// renames returns copies of the SetName and RenameMember calls so far, under the lock.
+func (s *fakeStore) renames() (self, host []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.selfRenames...), append([]string(nil), s.hostRenames...)
+}
+
+func (s *fakeStore) RenameMember(_ context.Context, _, userID, name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.hostRenames = append(s.hostRenames, userID)
 	for i := range s.lobby.Members {
 		if s.lobby.Members[i].UserID == userID {
 			s.lobby.Members[i].Name = name
@@ -515,6 +538,78 @@ func TestRenameAndValidation(t *testing.T) {
 	a.room.Intent(a.client, []byte("not json"))
 	if m := a.until("error"); m.Code != "invalid_message" {
 		t.Errorf("garbage: %q", m.Code)
+	}
+}
+
+func TestHostRenamesAMember(t *testing.T) {
+	f := setup(t)
+	f.store.add(alice, "Alice")
+	f.store.add(bob, "Bob")
+	host := f.connect(hostID)
+	host.next()
+	a := f.connect(alice)
+	host.until("lobby_updated")
+
+	// The host renames Alice: everyone sees it, and it isn't remembered as her name.
+	host.send(map[string]any{"type": "set_display_name", "displayName": "Dan", "userId": alice})
+	// Alice's own connect may still be queued: wait for the update that carries the rename.
+	renamed := false
+	for i := 0; i < 3 && !renamed; i++ {
+		m := a.until("lobby_updated")
+		renamed = names(m.Players)["Dan"] && !names(m.Players)["Alice"]
+	}
+	if !renamed {
+		t.Error("host rename not shown to the renamed player")
+	}
+	self, hostRenames := f.store.renames()
+	if len(hostRenames) != 1 || hostRenames[0] != alice {
+		t.Errorf("host renames %v", hostRenames)
+	}
+	if len(self) != 0 {
+		t.Errorf("a host rename went through SetName: %v", self)
+	}
+
+	// The host's own id is the self path: remembered.
+	host.send(map[string]any{"type": "set_display_name", "displayName": "Wy", "userId": hostID})
+	host.send(map[string]any{"type": "ping"}) // intents run in order: after the pong, the rename is done
+	host.until("pong")
+	if self, _ := f.store.renames(); len(self) != 1 || self[0] != hostID {
+		t.Errorf("self renames %v", self)
+	}
+
+	// Only the host renames others.
+	a.send(map[string]any{"type": "set_display_name", "displayName": "Robert", "userId": bob})
+	if m := a.until("error"); m.Code != "not_host" {
+		t.Errorf("non-host rename: %q", m.Code)
+	}
+	// Someone who isn't in the room.
+	host.send(map[string]any{"type": "set_display_name", "displayName": "X", "userId": "99999999-9999-4999-8999-999999999999"})
+	if m := host.until("error"); m.Code != "invalid_message" {
+		t.Errorf("unknown member: %q", m.Code)
+	}
+	// Names are 1 to 20 characters, for others too.
+	host.send(map[string]any{"type": "set_display_name", "displayName": "123456789012345678901", "userId": alice})
+	if m := host.until("error"); m.Code != "invalid_name" {
+		t.Errorf("long name: %q", m.Code)
+	}
+	if _, hostRenames := f.store.renames(); len(hostRenames) != 1 {
+		t.Errorf("refused renames reached the store: %v", hostRenames)
+	}
+}
+
+func TestHostCantRenameInAResumeLobby(t *testing.T) {
+	f := setup(t)
+	f.store.add(alice, "Alice")
+	f.store.lobby.Resume = &Resume{}
+	host := f.connect(hostID)
+	host.next()
+
+	host.send(map[string]any{"type": "set_display_name", "displayName": "Dan", "userId": alice})
+	if m := host.until("error"); m.Code != "wrong_phase" {
+		t.Errorf("resume lobby rename: %q", m.Code)
+	}
+	if _, hostRenames := f.store.renames(); len(hostRenames) != 0 {
+		t.Errorf("renamed in a resume lobby: %v", hostRenames)
 	}
 }
 

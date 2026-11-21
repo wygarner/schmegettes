@@ -26,11 +26,12 @@ export interface StartGame {
   type: "start_game";
 }
 /**
- * Lobby only. Renames the sender in this room; the server adds a suffix when the name is taken.
+ * Lobby only. Without userId (or with your own), renames the sender and remembers the name for next time. With another member's userId, host only and not in a resume lobby: renames that member for this room without changing their remembered name. The server adds a suffix when the name is taken.
  */
 export interface SetDisplayName {
   type: "set_display_name";
   displayName: string;
+  userId?: string;
 }
 /**
  * Host only, lobby only. Joins or leaves the game as a contestant on the host device.

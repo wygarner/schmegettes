@@ -36,6 +36,7 @@ export function PlayerControls({
   lobby,
   buzzerHeight,
   onLeave,
+  home,
 }: {
   state: RoomState;
   userId: string;
@@ -47,6 +48,8 @@ export function PlayerControls({
   buzzerHeight?: number;
   /** Leave the room from the final scoreboard. */
   onLeave?: () => void;
+  /** The Home control, at the left of the header row (phones). */
+  home?: ReactNode;
 }) {
   const capture = useAnswerCapture(state, userId, send);
   const confirm = usePickConfirm(state, userId, send, { bottom: !compact });
@@ -130,41 +133,46 @@ export function PlayerControls({
     : undefined;
   return (
     <section aria-label="Your controls" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      {inGame && (
+      {(inGame || home) && (
         <div
           style={{
-            height: 36,
+            height: home ? 44 : 36,
             flexShrink: 0,
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
             gap: 8,
           }}
         >
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: ".1em",
-              color: "#d6a3c8",
-              textTransform: "uppercase",
-            }}
-          >
-            {me?.displayName}
-          </span>
-          {/* No score while picking: the board needs the room. */}
-          {!picking && (
-            <output
-              aria-label="Your score"
-              style={{
-                fontFamily: DISPLAY,
-                fontWeight: 600,
-                fontSize: 22,
-                color: (state.scores[userId] ?? 0) < 0 ? RED : ACCENT,
-              }}
-            >
-              {money(state.scores[userId] ?? 0)}
-            </output>
+          {home && <div style={{ marginLeft: -12 }}>{home}</div>}
+          {inGame && (
+            <>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: ".1em",
+                  color: "#d6a3c8",
+                  textTransform: "uppercase",
+                }}
+              >
+                {me?.displayName}
+              </span>
+              {/* No score while picking: the board needs the room. */}
+              {!picking && (
+                <output
+                  aria-label="Your score"
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontWeight: 600,
+                    fontSize: 22,
+                    marginLeft: "auto",
+                    color: (state.scores[userId] ?? 0) < 0 ? RED : ACCENT,
+                  }}
+                >
+                  {money(state.scores[userId] ?? 0)}
+                </output>
+              )}
+            </>
           )}
         </div>
       )}

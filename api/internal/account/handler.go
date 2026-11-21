@@ -138,10 +138,16 @@ func (h Handler) Delete(w http.ResponseWriter, r *http.Request) {
 func profile(c auth.Claims, p Profile) contracts.Profile {
 	var id openapi_types.UUID
 	_ = id.UnmarshalText([]byte(c.UserID)) // a verified subject is always a UUID
-	return contracts.Profile{
+	out := contracts.Profile{
 		UserId: id, DisplayName: p.DisplayName, AccountName: p.AccountName, IsAnonymous: c.IsAnonymous,
 		ShowOnLeaderboard: p.ShowOnLeaderboard,
 	}
+	// Only an admin gets the field at all; everyone else's profile looks as it always has.
+	if p.IsAdmin {
+		admin := true
+		out.IsAdmin = &admin
+	}
+	return out
 }
 
 func notSignedIn(w http.ResponseWriter) {

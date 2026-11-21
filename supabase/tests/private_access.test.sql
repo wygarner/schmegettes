@@ -4,7 +4,7 @@
 -- The functions read the real clock, so tests move the rotation row's boundaries relative to now().
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(76);
+select plan(82);
 
 grant game_engine to current_user;
 grant usage on schema extensions to game_engine;
@@ -259,11 +259,25 @@ insert into public.hosts (user_id, code) values ('33333333-3333-4333-8333-333333
 set local role game_engine;
 select lives_ok($$ select public.start_game(current_setting('tests.r')::uuid) $$, 'Start works with host access');
 
+-- caller_is_admin(): the Home row's check, about the caller only
+select tests.as_user('11111111-1111-4111-8111-111111111111');
+select is(private.caller_is_admin(), true, 'caller_is_admin: true for a listed account');
+select tests.as_user('44444444-4444-4444-8444-444444444444');
+select is(private.caller_is_admin(), false, 'caller_is_admin: false for a signed-in non-admin');
+select tests.as_user('66666666-6666-4666-8666-666666666666');
+select is(private.caller_is_admin(), false, 'caller_is_admin: false for an anonymous user on the list');
+select tests.as_user('99999999-9999-4999-8999-999999999999');
+select is(private.caller_is_admin(), false, 'caller_is_admin: false for an unknown user');
+select tests.as_owner();
+set local role anon;
+select throws_ok($$ select private.caller_is_admin() $$, '42501', null, 'anon cannot call caller_is_admin');
+
 -- Removed from the admin list: refused on the next call
 select tests.as_owner();
 delete from private.admins where user_id = '11111111-1111-4111-8111-111111111111';
 select tests.as_user('11111111-1111-4111-8111-111111111111');
 select throws_ok($$ select * from private.admin_hosts() $$, '42501', 'not found', 'a removed admin is refused at once');
+select is(private.caller_is_admin(), false, 'caller_is_admin: false once removed from the list');
 
 select * from finish();
 rollback;

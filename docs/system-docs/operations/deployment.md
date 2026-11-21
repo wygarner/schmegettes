@@ -129,7 +129,7 @@ set encrypted_password = extensions.crypt('<new password>', extensions.gen_salt(
 where email = lower('<their email>');
 ```
 
-To free an email someone else registered, delete that user (Authentication → Users); it follows the account deletion rules.
+The change is audited (`password_changed`). To free an email someone else registered, delete that user with `private.admin_delete_account` ([operator-scripts.md](./operator-scripts.md), "Deleting an account on request"); it follows the account deletion rules.
 
 ## Host access after a release
 

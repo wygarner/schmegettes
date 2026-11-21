@@ -917,6 +917,331 @@ export interface paths {
         };
         trace?: never;
     };
+    "/v1/admin/cleanup-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The last 30 guest-cleanup runs, newest first (admins only)
+         * @description Counts and durations only, never ids. See docs/system-docs/operations/data-retention.md.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Cleanup runs */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            runs: components["schemas"]["CleanupRun"][];
+                        };
+                    };
+                };
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/qa-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark ordinary accounts as dedicated QA identities (admins only) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        accounts: components["schemas"]["QaAccount"][];
+                    };
+                };
+            };
+            responses: {
+                /** @description Accounts marked */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["Problem"];
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/qa-cleanup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview or remove rooms and games belonging only to QA accounts (admins only) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        olderThanHours: number;
+                        dryRun: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Rows that would be, or were, removed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            removed: components["schemas"]["QaCleanupItem"][];
+                        };
+                    };
+                };
+                400: components["responses"]["Problem"];
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/staff-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grant the caller time-limited read access to one subject (admins only)
+         * @description Recorded and audited (`staff_access_granted`). The reason is stored but never logged.
+         *     A subject that doesn't exist, or a reason or duration out of range, is problem type
+         *     `invalid-grant`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        subjectType: components["schemas"]["StaffSubjectType"];
+                        /** Format: uuid */
+                        subjectId: string;
+                        reason: string;
+                        /** @default 60 */
+                        minutes?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Grant created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StaffGrant"];
+                    };
+                };
+                /** @description Invalid subject, reason, or duration (problem type `invalid-grant`) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/staff-access/{grantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grantId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Read the grant's subject while the grant is active (admins only)
+         * @description Each read is audited (`staff_read`). Never includes emails, password hashes, or tokens.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    grantId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The subject's data */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StaffSubject"];
+                    };
+                };
+                /** @description The grant is expired, revoked, unknown, or someone else's (problem type `grant-inactive`) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Revoke a grant early (admins only) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    grantId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Revoked */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The grant is unknown or someone else's (problem type `grant-inactive`) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Audit entries newest first, at most 500 (admins only) */
+        get: {
+            parameters: {
+                query?: {
+                    since?: string;
+                    action?: string;
+                    subject?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Audit entries */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AuditEntry"][];
+                    };
+                };
+                400: components["responses"]["Problem"];
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/rooms/{roomId}": {
         parameters: {
             query?: never;
@@ -1197,6 +1522,8 @@ export interface components {
             accountName: string | null;
             /** @description Whether this account appears after it has ten counted games; true for guests and new profiles */
             showOnLeaderboard: boolean;
+            /** @description Present, and true, only for an account on the admin list (the web app's Admin row). Absent for everyone else */
+            isAdmin?: boolean;
         };
         AnswerRecord: {
             right: number | null;
@@ -1373,6 +1700,197 @@ export interface components {
             hostSince: string;
             note: string | null;
         };
+        CleanupRun: {
+            /** Format: date-time */
+            runAt: string;
+            /** @description Guests deleted in this run */
+            deleted: number;
+            durationMs: number;
+            /** @description SQLSTATE: message when the run failed and deleted nothing */
+            error: string | null;
+        };
+        QaAccount: {
+            /** Format: uuid */
+            userId: string;
+            /** @enum {string} */
+            role: "host" | "contestant";
+            label: string;
+        };
+        QaCleanupItem: {
+            /** @enum {string} */
+            kind: "room" | "game";
+            /** Format: uuid */
+            id: string;
+        };
+        /** @enum {string} */
+        StaffSubjectType: "user" | "room" | "game";
+        StaffGrant: {
+            /** Format: uuid */
+            grantId: string;
+            subjectType: components["schemas"]["StaffSubjectType"];
+            /** Format: uuid */
+            subjectId: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        AuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            /** Format: uuid */
+            actor: string | null;
+            action: string;
+            subjectType: string | null;
+            /** Format: uuid */
+            subjectId: string | null;
+            requestId: string | null;
+            /** @description Counts, flags, and ids only; never emails, passwords, tokens, or reason text */
+            details: {
+                [key: string]: unknown;
+            };
+        };
+        StaffSubject: components["schemas"]["StaffUser"] | components["schemas"]["StaffRoom"] | components["schemas"]["StaffGame"];
+        /** @description A player as staff see them under a grant. No email, password hash, or tokens. */
+        StaffUser: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "user";
+            /** Format: uuid */
+            userId: string;
+            isAnonymous: boolean;
+            isAdmin: boolean;
+            /**
+             * Format: date-time
+             * @description When the auth user was created
+             */
+            createdAt: string | null;
+            profile: {
+                displayName: string;
+                accountName: string | null;
+                showOnLeaderboard: boolean;
+                /** Format: date-time */
+                createdAt: string;
+            } | null;
+            host: {
+                /** Format: date-time */
+                since: string;
+                note: string | null;
+            } | null;
+            rooms: {
+                /** Format: uuid */
+                roomId: string;
+                code: string;
+                status: components["schemas"]["RoomStatus"];
+                role: components["schemas"]["PlayerRole"];
+                /** Format: date-time */
+                joinedAt: string;
+            }[];
+            games: {
+                /** Format: uuid */
+                gameId: string;
+                status: components["schemas"]["GameStatus"];
+                /** Format: date-time */
+                startedAt: string;
+                /** Format: date-time */
+                finishedAt: string | null;
+                role: components["schemas"]["PlayerRole"];
+                score: number;
+                placement: number | null;
+            }[];
+            seenClueCount: number;
+        };
+        StaffRoom: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "room";
+            /** Format: uuid */
+            roomId: string;
+            code: string;
+            /** Format: uuid */
+            hostId: string;
+            status: components["schemas"]["RoomStatus"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            resumeGameId: string | null;
+            options: {
+                maxPlayers: number;
+                seasons: number[] | null;
+                hostPlays: boolean;
+                timers: components["schemas"]["TimerPace"];
+                doubleRound: boolean;
+                quickPicks: boolean;
+                difficulty: components["schemas"]["Difficulty"] | null;
+            };
+            members: {
+                /** Format: uuid */
+                userId: string;
+                role: components["schemas"]["PlayerRole"];
+                displayName: string | null;
+                /** Format: date-time */
+                joinedAt: string;
+            }[];
+        };
+        StaffGame: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "game";
+            /** Format: uuid */
+            gameId: string;
+            /** Format: uuid */
+            roomId: string | null;
+            status: components["schemas"]["GameStatus"];
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            finishedAt: string | null;
+            /** Format: uuid */
+            hostUserId: string | null;
+            players: {
+                /** Format: uuid */
+                gamePlayerId: string;
+                /** Format: uuid */
+                userId: string | null;
+                role: components["schemas"]["PlayerRole"];
+                displayName: string | null;
+                /** Format: date-time */
+                joinedAt: string;
+                /** Format: date-time */
+                leftAt: string | null;
+                score: number;
+            }[];
+            board: {
+                /** Format: uuid */
+                boardClueId: string;
+                round: components["schemas"]["Round"];
+                columnIndex: number;
+                rowIndex: number;
+                category: string;
+                value: number;
+                isDailyDouble: boolean;
+                state: components["schemas"]["ClueState"];
+            }[];
+            answers: {
+                /** Format: uuid */
+                answerId: string;
+                /** Format: uuid */
+                boardClueId: string;
+                /** Format: uuid */
+                gamePlayerId: string;
+                answer: string;
+                verdict: components["schemas"]["Verdict"];
+                scoreDelta: number;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+        };
         MergeTicket: {
             /** @description Secret; keep it only until it's redeemed */
             ticket: string;
@@ -1408,10 +1926,24 @@ export interface components {
          */
         Difficulty: "easy" | "medium" | "hard";
         /**
+         * @description host runs the board and can override verdicts; contestants buzz and answer; spectators watch.
+         * @enum {string}
+         */
+        PlayerRole: "host" | "contestant" | "spectator";
+        /**
          * @description A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).
          * @enum {string}
          */
         GameStatus: "in_progress" | "finished" | "abandoned";
+        /** @enum {string} */
+        Round: "single" | "double" | "final";
+        /** @enum {string} */
+        ClueState: "unplayed" | "active" | "answered" | "unanswered";
+        /**
+         * @description correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+         * @enum {string}
+         */
+        Verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
     };
     responses: {
         /** @description Error (RFC 9457 problem details) */

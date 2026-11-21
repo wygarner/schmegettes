@@ -10,7 +10,6 @@ package contracts
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -522,7 +521,6 @@ func (t MyStats_Leaderboard) AsRankedState() (RankedState, error) {
 
 // FromRankedState overwrites any union data inside the MyStats_Leaderboard as the provided RankedState
 func (t *MyStats_Leaderboard) FromRankedState(v RankedState) error {
-	v.State = "RankedState"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -530,7 +528,6 @@ func (t *MyStats_Leaderboard) FromRankedState(v RankedState) error {
 
 // MergeRankedState performs a merge with any union data inside the MyStats_Leaderboard, using the provided RankedState
 func (t *MyStats_Leaderboard) MergeRankedState(v RankedState) error {
-	v.State = "RankedState"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -550,7 +547,6 @@ func (t MyStats_Leaderboard) AsNeedsGamesState() (NeedsGamesState, error) {
 
 // FromNeedsGamesState overwrites any union data inside the MyStats_Leaderboard as the provided NeedsGamesState
 func (t *MyStats_Leaderboard) FromNeedsGamesState(v NeedsGamesState) error {
-	v.State = "NeedsGamesState"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -558,7 +554,6 @@ func (t *MyStats_Leaderboard) FromNeedsGamesState(v NeedsGamesState) error {
 
 // MergeNeedsGamesState performs a merge with any union data inside the MyStats_Leaderboard, using the provided NeedsGamesState
 func (t *MyStats_Leaderboard) MergeNeedsGamesState(v NeedsGamesState) error {
-	v.State = "NeedsGamesState"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -578,7 +573,6 @@ func (t MyStats_Leaderboard) AsHiddenState() (HiddenState, error) {
 
 // FromHiddenState overwrites any union data inside the MyStats_Leaderboard as the provided HiddenState
 func (t *MyStats_Leaderboard) FromHiddenState(v HiddenState) error {
-	v.State = "HiddenState"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -586,7 +580,6 @@ func (t *MyStats_Leaderboard) FromHiddenState(v HiddenState) error {
 
 // MergeHiddenState performs a merge with any union data inside the MyStats_Leaderboard, using the provided HiddenState
 func (t *MyStats_Leaderboard) MergeHiddenState(v HiddenState) error {
-	v.State = "HiddenState"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -595,31 +588,6 @@ func (t *MyStats_Leaderboard) MergeHiddenState(v HiddenState) error {
 	merged, err := runtime.JSONMerge(t.union, b)
 	t.union = merged
 	return err
-}
-
-func (t MyStats_Leaderboard) Discriminator() (string, error) {
-	var discriminator struct {
-		Discriminator string `json:"state"`
-	}
-	err := json.Unmarshal(t.union, &discriminator)
-	return discriminator.Discriminator, err
-}
-
-func (t MyStats_Leaderboard) ValueByDiscriminator() (interface{}, error) {
-	discriminator, err := t.Discriminator()
-	if err != nil {
-		return nil, err
-	}
-	switch discriminator {
-	case "HiddenState":
-		return t.AsHiddenState()
-	case "NeedsGamesState":
-		return t.AsNeedsGamesState()
-	case "RankedState":
-		return t.AsRankedState()
-	default:
-		return nil, errors.New("unknown discriminator value: " + discriminator)
-	}
 }
 
 func (t MyStats_Leaderboard) MarshalJSON() ([]byte, error) {

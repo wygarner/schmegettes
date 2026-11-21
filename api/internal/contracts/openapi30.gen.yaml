@@ -915,8 +915,6 @@ components:
             - $ref: "#/components/schemas/RankedState"
             - $ref: "#/components/schemas/NeedsGamesState"
             - $ref: "#/components/schemas/HiddenState"
-          discriminator:
-            propertyName: state
       required:
         - games
         - wins

@@ -1207,27 +1207,18 @@ export interface components {
             judged: number | null;
         };
         RankedState: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            state: "RankedState";
+            /** @constant */
+            state: "ranked";
             rank: number;
         };
         NeedsGamesState: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            state: "NeedsGamesState";
+            /** @constant */
+            state: "needs-games";
             gamesToGo: number;
         };
         HiddenState: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            state: "HiddenState";
+            /** @constant */
+            state: "hidden";
         };
         MyStats: {
             games: number;

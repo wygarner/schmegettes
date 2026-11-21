@@ -151,7 +151,7 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Set the account's name
+         * Update the caller's account
          * @description Signed-in players only (problem type `not-signed-in` for guests).
          */
         patch: {
@@ -164,7 +164,8 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        accountName: components["schemas"]["DisplayName"];
+                        accountName?: components["schemas"]["DisplayName"];
+                        showOnLeaderboard?: boolean;
                     };
                 };
             };
@@ -190,6 +191,102 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/v1/me/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's all-time stats
+         * @description Signed-in players only. A player with no counted games gets games 0 and null stats.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Stats computed from finished games */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MyStats"];
+                    };
+                };
+                /** @description The caller is a guest (problem type `not-signed-in`) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The all-time leaderboard
+         * @description Signed-in players with at least one counted game only. Contains no user IDs or emails.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Top 50 ranked players and, when below the top 50, the caller */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Leaderboard"];
+                    };
+                };
+                /** @description The caller is a guest (`not-signed-in`) or has no counted games (`no-counted-games`) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/me/merge-tickets": {
@@ -1098,6 +1195,59 @@ export interface components {
             isAnonymous: boolean;
             /** @description The signed-in player's name (leaderboard, name prefill); null for guests and new accounts */
             accountName: string | null;
+            /** @description Whether this account appears after it has ten counted games; true for guests and new profiles */
+            showOnLeaderboard: boolean;
+        };
+        AnswerRecord: {
+            right: number | null;
+            wrong: number | null;
+        };
+        CorrectAnswers: {
+            right: number | null;
+            judged: number | null;
+        };
+        RankedState: {
+            /** @constant */
+            state: "ranked";
+            rank: number;
+        };
+        NeedsGamesState: {
+            /** @constant */
+            state: "needs-games";
+            gamesToGo: number;
+        };
+        HiddenState: {
+            /** @constant */
+            state: "hidden";
+        };
+        MyStats: {
+            games: number;
+            wins: number | null;
+            winRate: number | null;
+            averageScore: number | null;
+            bestScore: number | null;
+            /** Format: uuid */
+            bestGameId: string | null;
+            careerTotal: number | null;
+            correct: components["schemas"]["CorrectAnswers"];
+            dailyDoubles: components["schemas"]["AnswerRecord"];
+            final: components["schemas"]["AnswerRecord"];
+            leaderboard: components["schemas"]["RankedState"] | components["schemas"]["NeedsGamesState"] | components["schemas"]["HiddenState"];
+        };
+        LeaderboardRow: {
+            rank: number;
+            name: string;
+            winRate: number;
+            wins: number;
+            games: number;
+            isMe: boolean;
+        };
+        Leaderboard: {
+            rows: components["schemas"]["LeaderboardRow"][];
+            me: components["schemas"]["LeaderboardRow"] | null;
+            /** @enum {string} */
+            myState: "ranked" | "needs-games" | "hidden";
+            gamesToGo?: number;
         };
         Room: {
             /** Format: uuid */

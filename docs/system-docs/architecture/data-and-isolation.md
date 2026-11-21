@@ -38,7 +38,7 @@ commit;
 
 | Table | authenticated can |
 |---|---|
-| `profiles` | read own and fellow room members'; insert/update own |
+| `profiles` | read own and fellow room members'; insert/update own. `show_on_leaderboard` defaults true and is writable only on the caller's row |
 | `clues` | **nothing**: correct responses never reach a user role |
 | `rooms` | read if host or member; create only via `create_room(name)`; no direct writes (status, `host_plays`, and settings change only through functions) |
 | `room_members` | read fellow members; leave (non-host); join only via `join_room(code, name)`; never rename directly |
@@ -88,6 +88,8 @@ Schema `private` holds functions the Data API doesn't expose, so calling them me
 | `private.advance_host_code(at)` | owner only; every function below | Takes a transaction advisory lock and, if `rotates_at` has passed, makes one new code on the latest 45-minute boundary. The old code gets 5 minutes of grace only when exactly one window elapsed |
 | `private.require_admin()` | owner only; every admin function | Raises `42501 not found` unless the caller is a non-anonymous account in `private.admins` |
 | `private.admin_current_host_code()`, `admin_rotate_host_code(expected)`, `admin_hosts()`, `admin_set_host_note(user, note)`, `admin_remove_host(user)` | `authenticated` (api `/v1/admin/*`, as the caller) | Each calls `require_admin()` first. Rotate replaces the code only if `expected` is still current (so two admins make one new code) and gives the old code no grace. Hosts are newest first, with email for accounts and the last display name for guests. Notes are trimmed, empty means none, at most 200 characters |
+| `private.my_stats()` | `authenticated` (api `/v1/me/stats`) | Security definer so one caller's counted games can be aggregated from the shared result rows. Returns only that caller's totals and leaderboard state; guests are refused |
+| `private.leaderboard()` | `authenticated` (api `/v1/leaderboard`) | Security definer because ranking compares every eligible account and checks `auth.users.is_anonymous`. Returns the top 50 plus the caller when below them, with only rank, account name, win rate, wins, games, and `isMe`—never user IDs or emails. Guests and callers without a counted game are refused |
 
 ## Account functions
 
@@ -109,6 +111,7 @@ Merging a guest into an account:
 - Everything else the guest had (profile, memberships, lobbies it hosted) goes with the deleted guest.
 
 `profiles.display_name` is the last name used in a room; `profiles.account_name` is the signed-in player's own name (leaderboard, name prefill), null for guests.
+`profiles.show_on_leaderboard` is on by default. Turning it off removes the account from ranking immediately without changing its private stats.
 
 ## History outlives rooms and accounts
 

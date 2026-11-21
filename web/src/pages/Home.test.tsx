@@ -30,6 +30,7 @@ function renderHome() {
           <Route path="/host/:code" element={<p>host screen</p>} />
           <Route path="/join/:code" element={<p>join screen</p>} />
           <Route path="/account" element={<p>account screen</p>} />
+          <Route path="/stats" element={<p>stats screen</p>} />
         </Routes>
       </MemoryRouter>
     </MantineProvider>,
@@ -211,6 +212,14 @@ test("links to My games, with the last game under it", async () => {
   renderHome();
   expect(await screen.findByText(/Last: .* · 4th ·/)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "My games" })).toHaveTextContent("−$400");
+});
+
+test("links to Stats next to My games", () => {
+  renderHome();
+  const link = screen.getByRole("link", { name: "Stats" });
+  expect(link).toHaveAttribute("href", "/stats");
+  fireEvent.click(link);
+  expect(screen.getByText("stats screen")).toBeInTheDocument();
 });
 
 describe("rejoin from Home", () => {

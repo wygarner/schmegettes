@@ -19,7 +19,7 @@ import { api } from "./api";
 import { supabase } from "./supabase";
 
 /** Who this device is playing as. */
-export type Account = { kind: "guest" } | { kind: "signed-in"; name: string | null };
+export type Account = { kind: "guest" } | { kind: "signed-in"; name: string | null; showOnLeaderboard?: boolean };
 
 /** Same rule as Supabase Auth's minimum_password_length (supabase/config.toml). */
 export const MIN_PASSWORD = 8;
@@ -38,7 +38,7 @@ export async function currentAccount(): Promise<Account | null> {
     const { data: me } = await api.GET("/v1/me");
     const name = me?.accountName ?? null;
     if (me) setCachedAccountName(name);
-    return { kind: "signed-in", name };
+    return { kind: "signed-in", name, showOnLeaderboard: me?.showOnLeaderboard ?? true };
   } catch {
     return null;
   }
@@ -160,6 +160,16 @@ export async function setAccountName(name: string): Promise<boolean> {
     if (!data) return false;
     setCachedAccountName(data.accountName);
     return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Saves leaderboard visibility immediately. */
+export async function setLeaderboardVisibility(show: boolean): Promise<boolean> {
+  try {
+    const { data } = await api.PATCH("/v1/me", { body: { showOnLeaderboard: show } });
+    return data?.showOnLeaderboard === show;
   } catch {
     return false;
   }

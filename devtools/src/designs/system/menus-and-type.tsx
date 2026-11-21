@@ -2024,13 +2024,15 @@ function EmptyArt({ icon, tint }: { icon: keyof typeof ICONS; tint: string }) {
 
 function GameRow({ game, onOpen }: { game: Game; onOpen: () => void }) {
   const p = usePair();
-  const watched = game.place == null;
-  const place = PLACE[game.place ?? 0];
+  const placement = game.place;
+  const score = game.score ?? 0;
+  const watched = placement == null;
+  const place = PLACE[placement ?? 0];
   return (
     <UnstyledButton
       className="mt-row"
       onClick={onOpen}
-      aria-label={`${game.when}${watched ? ", watched" : `, ${ordinal(game.place!)}, ${money(game.score!)}`}${game.unfinished ? ", unfinished" : ""}`}
+      aria-label={`${game.when}${watched ? ", watched" : `, ${ordinal(placement ?? 0)}, ${money(score)}`}${game.unfinished ? ", unfinished" : ""}`}
       style={{
         display: "flex",
         alignItems: "center",
@@ -2058,7 +2060,9 @@ function GameRow({ game, onOpen }: { game: Game; onOpen: () => void }) {
         {watched ? (
           <Icon name="eye" size={20} />
         ) : (
-          <span style={numStyle(p, 19, { fontStretch: p.numStretch ? "87%" : undefined })}>{ordinal(game.place!)}</span>
+          <span style={numStyle(p, 19, { fontStretch: p.numStretch ? "87%" : undefined })}>
+            {ordinal(placement ?? 0)}
+          </span>
         )}
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
@@ -2104,9 +2108,7 @@ function GameRow({ game, onOpen }: { game: Game; onOpen: () => void }) {
           ))}
         </span>
       </span>
-      {!watched && (
-        <span style={{ ...numStyle(p, 19), color: game.score! < 0 ? RED : ACCENT }}>{money(game.score!)}</span>
-      )}
+      {!watched && <span style={{ ...numStyle(p, 19), color: score < 0 ? RED : ACCENT }}>{money(score)}</span>}
       <span style={{ color: FAINT, marginLeft: -4 }}>
         <Icon name="right" size={18} />
       </span>
@@ -2705,7 +2707,7 @@ export default function MenusAndType() {
   const [view, setView] = useState<View>("home");
   const [pairId, setPairId] = useState("classic");
   const [sub, setSub] = useState<Record<string, string>>({ home: "guest", games: "list", account: "signed-in" });
-  const pair = PAIRS.find((x) => x.id === pairId)!;
+  const pair = PAIRS.find((x) => x.id === pairId) ?? PAIRS[0];
   const state = view === "kit" ? "" : sub[view];
 
   const appTheme = { ...theme, fontFamily: pair.body, headings: { fontFamily: pair.display } };

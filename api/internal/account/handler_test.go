@@ -27,18 +27,27 @@ type fakeStore struct {
 	merge   MergeResult
 	err     error
 	gotName string
+	gotShow *bool
 	gotTkt  string
 	calls   int
 }
 
 func (f *fakeStore) Profile(context.Context, auth.Claims) (Profile, error) { return f.profile, f.err }
-func (f *fakeStore) SetName(_ context.Context, _ auth.Claims, name string) (Profile, error) {
+func (f *fakeStore) Update(_ context.Context, _ auth.Claims, name *string, show *bool) (Profile, error) {
 	f.calls++
-	f.gotName = name
+	if name != nil {
+		f.gotName = *name
+	}
+	f.gotShow = show
 	if f.err != nil {
 		return Profile{}, f.err
 	}
-	f.profile.AccountName = &name
+	if name != nil {
+		f.profile.AccountName = name
+	}
+	if show != nil {
+		f.profile.ShowOnLeaderboard = *show
+	}
 	return f.profile, nil
 }
 func (f *fakeStore) CreateTicket(context.Context, auth.Claims) (string, time.Time, error) {
@@ -78,7 +87,7 @@ func (routes) PatchV1RoomsRoomId(http.ResponseWriter, *http.Request, openapi_typ
 func (routes) GetV1HostAccess(http.ResponseWriter, *http.Request)                        {}
 func (routes) PostV1HostAccessRedeem(http.ResponseWriter, *http.Request)                 {}
 func (r routes) GetV1Me(w http.ResponseWriter, req *http.Request)                        { r.Me(w, req) }
-func (r routes) PatchV1Me(w http.ResponseWriter, req *http.Request)                      { r.SetName(w, req) }
+func (r routes) PatchV1Me(w http.ResponseWriter, req *http.Request)                      { r.Update(w, req) }
 func (r routes) DeleteV1Me(w http.ResponseWriter, req *http.Request)                     { r.Delete(w, req) }
 func (r routes) PostV1MeMergeTickets(w http.ResponseWriter, req *http.Request) {
 	r.CreateTicket(w, req)
@@ -127,14 +136,25 @@ func has(rec *httptest.ResponseRecorder, s string) bool {
 }
 
 func TestMe(t *testing.T) {
-	rec := call(t, &fakeStore{}, true, "GET", "/v1/me", "")
-	if rec.Code != 200 || !has(rec, `"isAnonymous":true`) || !has(rec, `"accountName":null`) || !has(rec, `"displayName":""`) {
+	rec := call(t, &fakeStore{profile: Profile{ShowOnLeaderboard: true}}, true, "GET", "/v1/me", "")
+	if rec.Code != 200 || !has(rec, `"isAnonymous":true`) || !has(rec, `"accountName":null`) || !has(rec, `"displayName":""`) || !has(rec, `"showOnLeaderboard":true`) {
 		t.Errorf("guest with no profile: %d %s", rec.Code, rec.Body)
 	}
 	name := "Wyatt"
 	rec = call(t, &fakeStore{profile: Profile{DisplayName: "W", AccountName: &name}}, false, "GET", "/v1/me", "")
 	if rec.Code != 200 || !has(rec, `"accountName":"Wyatt"`) || !has(rec, `"isAnonymous":false`) || !has(rec, userID) {
 		t.Errorf("account: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSetLeaderboardVisibility(t *testing.T) {
+	store := &fakeStore{profile: Profile{ShowOnLeaderboard: true}}
+	rec := call(t, store, false, "PATCH", "/v1/me", `{"showOnLeaderboard":false}`)
+	if rec.Code != 200 || store.gotShow == nil || *store.gotShow || !has(rec, `"showOnLeaderboard":false`) {
+		t.Errorf("visibility: %d %+v %s", rec.Code, store.gotShow, rec.Body)
+	}
+	if rec := call(t, &fakeStore{err: ErrForbidden}, true, "PATCH", "/v1/me", `{"showOnLeaderboard":false}`); rec.Code != 403 {
+		t.Errorf("guest: %d %s", rec.Code, rec.Body)
 	}
 }
 

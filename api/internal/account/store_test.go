@@ -119,11 +119,13 @@ func TestNameAndProfile(t *testing.T) {
 	if err != nil || p.DisplayName != "" || p.AccountName != nil {
 		t.Fatalf("no profile yet: %+v %v", p, err)
 	}
-	p, err = e.store.SetName(ctx, acct, "Wyatt")
+	name := "Wyatt"
+	p, err = e.store.Update(ctx, acct, &name, nil)
 	if err != nil || p.AccountName == nil || *p.AccountName != "Wyatt" {
 		t.Fatalf("set name: %+v %v", p, err)
 	}
-	if _, err := e.store.SetName(ctx, e.guest(t), "Gus"); !errors.Is(err, ErrForbidden) {
+	name = "Gus"
+	if _, err := e.store.Update(ctx, e.guest(t), &name, nil); !errors.Is(err, ErrForbidden) {
 		t.Errorf("a guest set a name: %v", err)
 	}
 }
@@ -163,7 +165,8 @@ func TestDeleteAccount(t *testing.T) {
 		t.Errorf("a guest deleted an account: %v", err)
 	}
 	acct := e.account(t)
-	if _, err := e.store.SetName(ctx, acct, "Gone"); err != nil {
+	name := "Gone"
+	if _, err := e.store.Update(ctx, acct, &name, nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.store.Delete(ctx, acct); err != nil {

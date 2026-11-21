@@ -9,6 +9,7 @@ package contracts
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -58,6 +59,13 @@ const (
 const (
 	Degraded HealthStatus = "degraded"
 	Ok       HealthStatus = "ok"
+)
+
+// Defines values for LeaderboardMyState.
+const (
+	Hidden     LeaderboardMyState = "hidden"
+	NeedsGames LeaderboardMyState = "needs-games"
+	Ranked     LeaderboardMyState = "ranked"
 )
 
 // Defines values for RoomDifficulty.
@@ -127,6 +135,18 @@ type AdminHostCode struct {
 	PreviousValidUntil *time.Time `json:"previousValidUntil"`
 	RotatesAt          time.Time  `json:"rotatesAt"`
 	ServerTime         time.Time  `json:"serverTime"`
+}
+
+// AnswerRecord defines model for AnswerRecord.
+type AnswerRecord struct {
+	Right *int `json:"right"`
+	Wrong *int `json:"wrong"`
+}
+
+// CorrectAnswers defines model for CorrectAnswers.
+type CorrectAnswers struct {
+	Judged *int `json:"judged"`
+	Right  *int `json:"right"`
 }
 
 // CurrentRoom defines model for CurrentRoom.
@@ -227,9 +247,35 @@ type Health struct {
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// HiddenState defines model for HiddenState.
+type HiddenState struct {
+	State string `json:"state"`
+}
+
 // HostAccess defines model for HostAccess.
 type HostAccess struct {
 	CanHost bool `json:"canHost"`
+}
+
+// Leaderboard defines model for Leaderboard.
+type Leaderboard struct {
+	GamesToGo *int               `json:"gamesToGo,omitempty"`
+	Me        *LeaderboardRow    `json:"me"`
+	MyState   LeaderboardMyState `json:"myState"`
+	Rows      []LeaderboardRow   `json:"rows"`
+}
+
+// LeaderboardMyState defines model for Leaderboard.MyState.
+type LeaderboardMyState string
+
+// LeaderboardRow defines model for LeaderboardRow.
+type LeaderboardRow struct {
+	Games   int    `json:"games"`
+	IsMe    bool   `json:"isMe"`
+	Name    string `json:"name"`
+	Rank    int    `json:"rank"`
+	WinRate int    `json:"winRate"`
+	Wins    int    `json:"wins"`
 }
 
 // MergeResult defines model for MergeResult.
@@ -252,6 +298,32 @@ type MergeTicket struct {
 	Ticket string `json:"ticket"`
 }
 
+// MyStats defines model for MyStats.
+type MyStats struct {
+	AverageScore *int                `json:"averageScore"`
+	BestGameId   *openapi_types.UUID `json:"bestGameId"`
+	BestScore    *int                `json:"bestScore"`
+	CareerTotal  *int                `json:"careerTotal"`
+	Correct      CorrectAnswers      `json:"correct"`
+	DailyDoubles AnswerRecord        `json:"dailyDoubles"`
+	Final        AnswerRecord        `json:"final"`
+	Games        int                 `json:"games"`
+	Leaderboard  MyStats_Leaderboard `json:"leaderboard"`
+	WinRate      *int                `json:"winRate"`
+	Wins         *int                `json:"wins"`
+}
+
+// MyStats_Leaderboard defines model for MyStats.Leaderboard.
+type MyStats_Leaderboard struct {
+	union json.RawMessage
+}
+
+// NeedsGamesState defines model for NeedsGamesState.
+type NeedsGamesState struct {
+	GamesToGo int    `json:"gamesToGo"`
+	State     string `json:"state"`
+}
+
 // Problem defines model for Problem.
 type Problem struct {
 	Detail *string `json:"detail,omitempty"`
@@ -263,10 +335,19 @@ type Problem struct {
 // Profile defines model for Profile.
 type Profile struct {
 	// AccountName The signed-in player's name (leaderboard, name prefill); null for guests and new accounts
-	AccountName *string            `json:"accountName"`
-	DisplayName string             `json:"displayName"`
-	IsAnonymous bool               `json:"isAnonymous"`
-	UserId      openapi_types.UUID `json:"userId"`
+	AccountName *string `json:"accountName"`
+	DisplayName string  `json:"displayName"`
+	IsAnonymous bool    `json:"isAnonymous"`
+
+	// ShowOnLeaderboard Whether this account appears after it has ten counted games; true for guests and new profiles
+	ShowOnLeaderboard bool               `json:"showOnLeaderboard"`
+	UserId            openapi_types.UUID `json:"userId"`
+}
+
+// RankedState defines model for RankedState.
+type RankedState struct {
+	Rank  int    `json:"rank"`
+	State string `json:"state"`
 }
 
 // Room defines model for Room.
@@ -274,7 +355,7 @@ type Room struct {
 	// Code Short code players type to join a room.
 	Code string `json:"code"`
 
-	// Difficulty A clue category's difficulty, and the level a host can keep a game to. Mirrors public.difficulty. A room or game without one (null) uses every category: Any.
+	// Difficulty The difficulty boards are kept to; null means Any (every category)
 	Difficulty *RoomDifficulty `json:"difficulty"`
 
 	// DoubleRound Play the Double Schmegettes board; false: Final follows Single
@@ -354,7 +435,8 @@ type PostV1HostAccessRedeemJSONBody struct {
 // PatchV1MeJSONBody defines parameters for PatchV1Me.
 type PatchV1MeJSONBody struct {
 	// AccountName Trimmed by the server; must not be blank
-	AccountName DisplayName `json:"accountName"`
+	AccountName       *DisplayName `json:"accountName,omitempty"`
+	ShowOnLeaderboard *bool        `json:"showOnLeaderboard,omitempty"`
 }
 
 // PostV1MeMergeJSONBody defines parameters for PostV1MeMerge.
@@ -383,7 +465,7 @@ type PostV1RoomsJoinJSONBodyRole string
 
 // PatchV1RoomsRoomIdJSONBody defines parameters for PatchV1RoomsRoomId.
 type PatchV1RoomsRoomIdJSONBody struct {
-	// Difficulty A clue category's difficulty, and the level a host can keep a game to. Mirrors public.difficulty. A room or game without one (null) uses every category: Any.
+	// Difficulty Keep boards to one difficulty; null means Any (every category)
 	Difficulty *PatchV1RoomsRoomIdJSONBodyDifficulty `json:"difficulty"`
 
 	// DoubleRound false: Final follows the Single board
@@ -430,6 +512,94 @@ type PostV1RoomsJoinJSONRequestBody PostV1RoomsJoinJSONBody
 // PatchV1RoomsRoomIdJSONRequestBody defines body for PatchV1RoomsRoomId for application/json ContentType.
 type PatchV1RoomsRoomIdJSONRequestBody PatchV1RoomsRoomIdJSONBody
 
+// AsRankedState returns the union data inside the MyStats_Leaderboard as a RankedState
+func (t MyStats_Leaderboard) AsRankedState() (RankedState, error) {
+	var body RankedState
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRankedState overwrites any union data inside the MyStats_Leaderboard as the provided RankedState
+func (t *MyStats_Leaderboard) FromRankedState(v RankedState) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRankedState performs a merge with any union data inside the MyStats_Leaderboard, using the provided RankedState
+func (t *MyStats_Leaderboard) MergeRankedState(v RankedState) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsNeedsGamesState returns the union data inside the MyStats_Leaderboard as a NeedsGamesState
+func (t MyStats_Leaderboard) AsNeedsGamesState() (NeedsGamesState, error) {
+	var body NeedsGamesState
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromNeedsGamesState overwrites any union data inside the MyStats_Leaderboard as the provided NeedsGamesState
+func (t *MyStats_Leaderboard) FromNeedsGamesState(v NeedsGamesState) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeNeedsGamesState performs a merge with any union data inside the MyStats_Leaderboard, using the provided NeedsGamesState
+func (t *MyStats_Leaderboard) MergeNeedsGamesState(v NeedsGamesState) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsHiddenState returns the union data inside the MyStats_Leaderboard as a HiddenState
+func (t MyStats_Leaderboard) AsHiddenState() (HiddenState, error) {
+	var body HiddenState
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromHiddenState overwrites any union data inside the MyStats_Leaderboard as the provided HiddenState
+func (t *MyStats_Leaderboard) FromHiddenState(v HiddenState) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeHiddenState performs a merge with any union data inside the MyStats_Leaderboard, using the provided HiddenState
+func (t *MyStats_Leaderboard) MergeHiddenState(v HiddenState) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t MyStats_Leaderboard) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *MyStats_Leaderboard) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Liveness and dependency check
@@ -465,13 +635,16 @@ type ServerInterface interface {
 	// Redeem the current rotating host code to give the caller host access
 	// (POST /v1/host-access/redeem)
 	PostV1HostAccessRedeem(w http.ResponseWriter, r *http.Request)
+	// The all-time leaderboard
+	// (GET /v1/leaderboard)
+	GetV1Leaderboard(w http.ResponseWriter, r *http.Request)
 	// Delete the caller's account
 	// (DELETE /v1/me)
 	DeleteV1Me(w http.ResponseWriter, r *http.Request)
 	// The caller's profile
 	// (GET /v1/me)
 	GetV1Me(w http.ResponseWriter, r *http.Request)
-	// Set the account's name
+	// Update the caller's account
 	// (PATCH /v1/me)
 	PatchV1Me(w http.ResponseWriter, r *http.Request)
 	// The room the caller is in, to rejoin from Home (a game first, then a resume invite, then a lobby)
@@ -483,6 +656,9 @@ type ServerInterface interface {
 	// A one-use ticket that lets this guest be moved into an account
 	// (POST /v1/me/merge-tickets)
 	PostV1MeMergeTickets(w http.ResponseWriter, r *http.Request)
+	// The caller's all-time stats
+	// (GET /v1/me/stats)
+	GetV1MeStats(w http.ResponseWriter, r *http.Request)
 	// Create a room; the caller becomes host
 	// (POST /v1/rooms)
 	PostV1Rooms(w http.ResponseWriter, r *http.Request)
@@ -791,6 +967,26 @@ func (siw *ServerInterfaceWrapper) PostV1HostAccessRedeem(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// GetV1Leaderboard operation middleware
+func (siw *ServerInterfaceWrapper) GetV1Leaderboard(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1Leaderboard(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteV1Me operation middleware
 func (siw *ServerInterfaceWrapper) DeleteV1Me(w http.ResponseWriter, r *http.Request) {
 
@@ -902,6 +1098,26 @@ func (siw *ServerInterfaceWrapper) PostV1MeMergeTickets(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostV1MeMergeTickets(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetV1MeStats operation middleware
+func (siw *ServerInterfaceWrapper) GetV1MeStats(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1MeStats(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1189,12 +1405,14 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("POST "+options.BaseURL+"/v1/games/{gameId}/resume", wrapper.PostV1GamesGameIdResume)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/host-access", wrapper.GetV1HostAccess)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/host-access/redeem", wrapper.PostV1HostAccessRedeem)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/leaderboard", wrapper.GetV1Leaderboard)
 	m.HandleFunc("DELETE "+options.BaseURL+"/v1/me", wrapper.DeleteV1Me)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/me", wrapper.GetV1Me)
 	m.HandleFunc("PATCH "+options.BaseURL+"/v1/me", wrapper.PatchV1Me)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/me/current-room", wrapper.GetV1MeCurrentRoom)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/me/merge", wrapper.PostV1MeMerge)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/me/merge-tickets", wrapper.PostV1MeMergeTickets)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/me/stats", wrapper.GetV1MeStats)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/rooms", wrapper.PostV1Rooms)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/rooms/by-code/{code}", wrapper.GetV1RoomsByCodeCode)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/rooms/join", wrapper.PostV1RoomsJoin)

@@ -1,6 +1,6 @@
 # Getting Home
 
-Not built yet (task `home-from-every-screen`). Today the menu screens (My games, Stats, Account) have "‹ Home", the game scoreboard has "‹ My games", and the join, lobby and game screens have no way back except the browser's back button or an error page's link.
+Built in `web/src/ui/HomeButton.tsx`, used by the join, lobby, game and game-scoreboard screens; the menu screens keep `MenuScreen`'s "‹ Home".
 
 ## Why
 
@@ -16,7 +16,7 @@ Home is the main menu: Host a game, Join, My games, Stats, Account. A player who
 
 ## Rules
 
-- **Every screen but Home has a Home control**, always in the same place: the top-left corner. Sheets and dialogs don't; closing them returns to their screen.
+- **Every screen but Home has a Home control**, in the top-left corner. The one exception is the host device during a game: the board fills the stage, so the control sits at the top of the player column instead. Sheets and dialogs don't have one; closing them returns to their screen.
 - **Home never takes you out of a room.** Going Home is like closing the tab: you stay in the room, and Home's card offers **Rejoin** ([rejoin and resume](../rejoin-games/feature-brief.md)). Only **Leave** removes you from a lobby.
 - **No confirmation outside a game.** Menus, the join steps, the lobby, and the end-of-game scoreboard go Home at once. Nothing is lost there.
 - **During a game, Home asks first**: from `building_board` until the end-of-game scoreboard, paused included. Confirming does what a dropped connection does:

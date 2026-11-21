@@ -14,6 +14,7 @@ import {
   finalAnnouncement,
 } from "../lib/speech";
 import { GoldButton } from "../ui/GoldButton";
+import { answering, HomeButton, inGame } from "../ui/HomeButton";
 import { Meter } from "../ui/Meter";
 import { BigMoment, Stage, StageBody, StageHeader } from "../ui/Stage";
 import { ACCENT, DISPLAY, INK, SOFT } from "../ui/tokens";
@@ -321,7 +322,13 @@ export function HostGame({
     </>
   );
 
-  return <HostLayout stage={stage} column={column} />;
+  const home = (
+    <HomeButton
+      confirm={inGame(state) ? "host" : undefined}
+      disabled={state.hostPlays && answering(state, hostUserId)}
+    />
+  );
+  return <HostLayout stage={stage} column={column} home={home} />;
 }
 
 /**

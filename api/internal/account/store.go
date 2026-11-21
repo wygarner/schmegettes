@@ -30,6 +30,8 @@ type Profile struct {
 	DisplayName       string
 	AccountName       *string
 	ShowOnLeaderboard bool
+	// IsAdmin: the caller is on the admin list (private.caller_is_admin), for the web app's Admin row.
+	IsAdmin bool
 }
 
 // MergeResult is what moving a guest into an account changed.
@@ -62,6 +64,9 @@ func (s PGStore) Profile(ctx context.Context, c auth.Claims) (Profile, error) {
 }
 
 func readProfile(ctx context.Context, tx pgx.Tx, p *Profile) error {
+	if err := tx.QueryRow(ctx, "select private.caller_is_admin()").Scan(&p.IsAdmin); err != nil {
+		return err
+	}
 	err := tx.QueryRow(ctx,
 		"select display_name, account_name, show_on_leaderboard from public.profiles where user_id = (select auth.uid())",
 	).Scan(&p.DisplayName, &p.AccountName, &p.ShowOnLeaderboard)

@@ -243,3 +243,52 @@ test("another device took the seat: this page says so", async () => {
   renderJoin();
   expect(await screen.findByText("You're playing on another device.")).toBeInTheDocument();
 });
+
+describe("Home", () => {
+  test("in the lobby it goes Home at once and doesn't leave the room", async () => {
+    const leave = vi.fn();
+    const send = vi.fn();
+    vi.mocked(useRoom).mockReturnValue({ state: inLobby, send, leave });
+    vi.mocked(roomByCode).mockResolvedValue({ ok: true, data: room });
+    renderJoin();
+    await screen.findByText("You're in, Alice.");
+    fireEvent.click(screen.getByRole("button", { name: "Home" }));
+    expect(await screen.findByText("home")).toBeInTheDocument();
+    expect(leave).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalledWith({ type: "leave_room" });
+  });
+
+  test("mid-game it asks first, and leaving keeps the seat", async () => {
+    const leave = vi.fn();
+    const playing: RoomState = { ...inLobby, phase: "board" };
+    vi.mocked(useRoom).mockReturnValue({ state: playing, send: vi.fn(), leave });
+    vi.mocked(roomByCode).mockResolvedValue({ ok: true, data: room });
+    renderJoin();
+    await screen.findByLabelText("Your score");
+    fireEvent.click(screen.getByRole("button", { name: "Home" }));
+    expect(screen.getByRole("dialog", { name: "Leave the game?" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Leave game" }));
+    expect(await screen.findByText("home")).toBeInTheDocument();
+    expect(leave).not.toHaveBeenCalled();
+  });
+
+  test("while answering it does nothing", async () => {
+    const answeringNow: RoomState = { ...inLobby, phase: "answering", answeringUserId: "me" };
+    vi.mocked(useRoom).mockReturnValue({ state: answeringNow, send: vi.fn(), leave: vi.fn() });
+    vi.mocked(roomByCode).mockResolvedValue({ ok: true, data: room });
+    renderJoin();
+    await screen.findByLabelText("Your score");
+    const home = screen.getByRole("button", { name: "Home" });
+    expect(home).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(home);
+    expect(screen.queryByRole("dialog", { name: "Leave the game?" })).toBeNull();
+  });
+
+  test("the name step has it too", async () => {
+    vi.mocked(roomByCode).mockResolvedValue({ ok: false, problem: "room-not-found" });
+    renderJoin();
+    await screen.findByLabelText("What's your name?");
+    fireEvent.click(screen.getByRole("button", { name: "Home" }));
+    expect(await screen.findByText("home")).toBeInTheDocument();
+  });
+});

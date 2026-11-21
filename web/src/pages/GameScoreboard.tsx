@@ -6,6 +6,7 @@ import { money } from "../lib/money";
 import { detailWhen, ordinal, PLACE_COLOR } from "../lib/placement";
 import { resumeGame } from "../lib/rooms";
 import { GoldButton } from "../ui/GoldButton";
+import { HomeButton } from "../ui/HomeButton";
 import { DISPLAY, PHONE_BG, RED, SOFT } from "../ui/tokens";
 
 type Load = { kind: "loading" } | { kind: "missing" } | { kind: "error" } | { kind: "ready"; game: GameDetail };
@@ -31,9 +32,12 @@ export function GameScoreboard() {
   return (
     <div style={{ minHeight: "100dvh", background: PHONE_BG, color: "#fff" }}>
       <Container size="xs" py="lg">
-        <Anchor component={Link} to="/games" size="sm" c="mauve.2">
-          ‹ My games
-        </Anchor>
+        <Group justify="space-between" wrap="nowrap" style={{ margin: "-10px -10px 0 0" }}>
+          <Anchor component={Link} to="/games" size="sm" c="mauve.2">
+            ‹ My games
+          </Anchor>
+          <HomeButton />
+        </Group>
         {load.kind === "loading" && (
           <Group justify="center" mt="xl">
             <Loader color="green.4" />

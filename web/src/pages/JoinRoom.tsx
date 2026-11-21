@@ -12,6 +12,7 @@ import { joinRoom, type RoomJoin, type RoomProblem, roomByCode } from "../lib/ro
 import { onMicPermissionChange } from "../lib/speech";
 import { getUserId } from "../lib/supabase";
 import { GoldButton } from "../ui/GoldButton";
+import { answering, HomeButton, inGame } from "../ui/HomeButton";
 import { DISPLAY, PHONE_BG, SOFT } from "../ui/tokens";
 
 export const JOIN_ERRORS: Record<RoomProblem, string> = {
@@ -120,6 +121,7 @@ export function JoinRoom() {
 
   return (
     <div style={{ minHeight: "100dvh", background: PHONE_BG, color: "#fff" }}>
+      <HomeButton floating />
       <Container size="xs" py={48}>
         <form onSubmit={join}>
           <Stack>
@@ -205,6 +207,7 @@ function ConnectedPlayer({ room, userId }: { room: RoomJoin; userId: string }) {
 function Centered({ children }: { children: ReactNode }) {
   return (
     <Center mih="100dvh" p="md" style={{ background: PHONE_BG, color: "#fff" }}>
+      <HomeButton floating />
       <Stack align="center" ta="center">
         {children}
       </Stack>
@@ -227,6 +230,8 @@ export function PlayerView({
   const [name, setName] = useState("");
   const me = state.players.find((p) => p.userId === userId);
   const finishedAsContestant = state.phase === "finished" && me?.role === "contestant";
+  // Home steps away without leaving: the seat stays and Home offers Rejoin.
+  const home = <HomeButton confirm={inGame(state) ? "contestant" : undefined} disabled={answering(state, userId)} />;
 
   // A contestant who finished a game is offered "Save your games" back on Home (guests only).
   useEffect(() => {
@@ -260,10 +265,10 @@ export function PlayerView({
         </Title>
       </Stack>
     );
-    return <PlayerGame state={state} userId={userId} send={send} lobby={shuffling} />;
+    return <PlayerGame state={state} userId={userId} send={send} lobby={shuffling} home={home} />;
   }
   if (state.phase !== "lobby") {
-    return <PlayerGame state={state} userId={userId} send={send} onLeave={onLeave} />;
+    return <PlayerGame state={state} userId={userId} send={send} onLeave={onLeave} home={home} />;
   }
 
   function saveName() {
@@ -326,7 +331,7 @@ export function PlayerView({
       )}
     </Stack>
   );
-  return <PlayerGame state={state} userId={userId} send={send} lobby={lobby} />;
+  return <PlayerGame state={state} userId={userId} send={send} lobby={lobby} home={home} />;
 }
 
 /** Six board cells flipping while the board is built. */

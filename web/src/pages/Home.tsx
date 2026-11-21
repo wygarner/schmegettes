@@ -23,7 +23,7 @@ import {
   Spinner,
 } from "../ui/menu";
 import { SignInSheet } from "../ui/SignInSheet";
-import { FAINT, QUIET, RED, SOFT, SURFACE } from "../ui/tokens";
+import { AMBER, FAINT, QUIET, RED, SOFT, SURFACE } from "../ui/tokens";
 import { Wordmark } from "../ui/Wordmark";
 import { HostCodeSheet } from "./HostCodeSheet";
 
@@ -239,6 +239,9 @@ export function Home() {
           />
           <Row icon="history" tint={SOFT} title="My games" sub={lastLine(last)} to="/games" />
           <Row icon="history" tint="#c9b3f9" title="Stats" sub="Your record and the leaderboard" to="/stats" />
+          {account?.kind === "signed-in" && account.isAdmin && (
+            <Row icon="key" tint={AMBER} title="Admin" sub="Host code" to="/admin" />
+          )}
         </GroupList>
       </Stack>
 

@@ -1,15 +1,16 @@
 # Getting Home: Interaction Design
 
-Not built yet (task `home-from-every-screen`). Rules: [feature brief](./feature-brief.md).
+Rules: [feature brief](./feature-brief.md). Built in `web/src/ui/HomeButton.tsx`.
 
 ## The Home control
 
 | Screen kind | Control | Where |
 |---|---|---|
 | Menu screens (My games, Stats, Account) | "‹ Home" back link, as the [design system](../../architecture/design-system.md#headers) has it today | Top bar, left |
-| Deeper menu screens (`/games/{id}`) | "‹ My games" back link, plus a house icon button | Back link left; house right of the large title row's top bar |
-| Phone join and game screens (`/join`, `/join/{code}`: code, microphone, name, "You're in", every game phase, end-of-game scoreboard) | House icon button | Top-left, above everything else, never over the buzzer |
-| Host device (`/host/{code}`: lobby, resume lobby, every game phase, end-of-game scoreboard) | House icon button | Top-left corner of the stage, left of "SCHMEGETTES" in the lobby |
+| Deeper menu screens (`/games/{id}`) | "‹ My games" back link, plus a house icon button | Back link left, house right |
+| Phone join and game screens (`/join`, `/join/{code}`: code, microphone, name, "You're in", every game phase, end-of-game scoreboard) | House icon button | Top-left: in the header row, left of the player's name, from the lobby on; pinned to the corner on the steps before (code, microphone, name, loading) |
+| Host device, lobby and resume lobby (`/host/{code}`) | House icon button | Top-left, left of "SCHMEGETTES" |
+| Host device, from Start to the end-of-game scoreboard | House icon button | Top of the player column: the board fills the stage, so no corner of it is free |
 
 - The house icon button: 44 × 44 px tap target, the icon about 20 px, `QUIET` color, no fill. Accessible name and tooltip "Home". It doesn't scale with the stage, so on the TV it stays small.
 - With the [Home Screen tip](../lobby/interaction-design.md#home-screen-tip-iphone-and-ipad-safari-only) showing, the button sits to the left of the tip's text.

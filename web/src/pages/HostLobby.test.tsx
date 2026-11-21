@@ -504,3 +504,17 @@ test("a resume lobby: the game's players with scores, dimmed until back; Resume"
   fireEvent.click(screen.getByRole("button", { name: "Resume" }));
   expect(send).toHaveBeenCalledWith({ type: "start_game" });
 });
+
+test("Home: in the lobby at once; while the board builds it asks first, and never leaves the room", () => {
+  const send = renderView(lobby());
+  fireEvent.click(screen.getByRole("button", { name: "Home" }));
+  expect(screen.queryByRole("dialog", { name: "Leave the game?" })).toBeNull();
+  expect(send).not.toHaveBeenCalledWith({ type: "leave_room" });
+  cleanup();
+
+  renderView(lobby({ phase: "building_board" }));
+  fireEvent.click(screen.getByRole("button", { name: "Home" }));
+  expect(screen.getByRole("dialog", { name: "Leave the game?" })).toHaveTextContent(
+    "The game pauses for everyone until you rejoin from Home.",
+  );
+});

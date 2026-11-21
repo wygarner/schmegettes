@@ -42,6 +42,9 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | variables | GitHub Environments (from the Vercel project's settings) | `deploy.yml` |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL` | variables (public) | GitHub Environments | `deploy.yml` web build |
 | `GAME_SOCKET_ORIGIN` | variable (public) | GitHub Environments: `wss://schmegettes-game-{staging,prod}.fly.dev` | `deploy.yml`, the web CSP's `connect-src` |
+| `E2E_HOST_EMAIL` | variable (not secret) | GitHub Environment `staging` (**not set yet**): the E2E host account ([testing-strategy.md](../engineering/testing-strategy.md#6-end-to-end)) | `e2e.yml` |
+| `E2E_HOST_PASSWORD` | secret | GitHub Environment `staging` (**not set yet**) | `e2e.yml` |
+| `VITE_ENV` | build value (not secret) | Set by `deploy.yml` to the environment name; unset locally. `staging` allows E2E mode; any other value compiles it out | web build |
 | `STAGING_VERSION_URLS`, `PROD_VERSION_URLS` | variables (not secret) | GitHub Environment `staging` / `production`: the web `/version.json` and the api and game `/version` URLs, space-separated | `deploy.yml` deployed-commit check |
 | `STAGING_ANTHROPIC_API_KEY` | secret | GitHub Environment `staging` (**not set yet**) | `rate-clues.yml` |
 | `PROD_ANTHROPIC_API_KEY` | secret | GitHub Environment `production` (**not set yet**) | `rate-clues.yml` |

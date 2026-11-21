@@ -13,6 +13,7 @@ import { createTheme, MantineProvider } from "@mantine/core";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
+import { installE2E } from "./lib/e2e";
 import { enforceFullscreen } from "./lib/fullscreen";
 import { Account } from "./pages/Account";
 import { GameScoreboard } from "./pages/GameScoreboard";
@@ -94,6 +95,10 @@ enforceFullscreen();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("#root missing from index.html");
+
+// Written out (not e2eAllowed()) so the bundler sees a constant and drops E2E mode from every
+// build but the dev server and staging. web's CI job checks for `__e2e` in a production build.
+if (import.meta.env.DEV || import.meta.env.VITE_ENV === "staging") installE2E();
 
 createRoot(root).render(
   <StrictMode>

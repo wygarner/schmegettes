@@ -9,7 +9,8 @@
   "workspaces": [
     "shared",
     "web",
-    "devtools"
+    "devtools",
+    "e2e"
   ],
   "scripts": {
     "dev": "mise run dev",

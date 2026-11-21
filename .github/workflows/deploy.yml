@@ -134,6 +134,8 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          # "staging" lets the end-to-end suite turn on E2E mode (?e2e=1); "production" compiles it out.
+          VITE_ENV: ${{ inputs.environment }}
           GIT_SHA: ${{ github.sha }}
         run: bun run --cwd web build
       # Uploads web/dist with a vercel.json (SPA fallback, CSP built from these origins, HSTS)

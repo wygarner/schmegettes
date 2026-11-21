@@ -74,8 +74,11 @@ Lines that alerts and investigations depend on. Keep the message and fields exac
 | `warn` | `staff access granted` | `grant_id`, `subject_type`, `subject_id`, `minutes`, `user_id`, `request_id` | `api/internal/staffaccess` | Email to the admin on every line, both environments (**not yet implemented**) |
 | `info` | `staff access read`, `staff access revoked` | `grant_id`, `subject_type`, `subject_id`, `user_id`, `request_id` | `api/internal/staffaccess` | — |
 | `info` | `rate limited` | `group`, `request_id` | `api/internal/ratelimit` | — |
+| `info` | `qa accounts marked` | `count`, `request_id` | `api/internal/admin` | — |
+| `info` | `qa cleanup` | `dry_run`, `rooms`, `games`, `request_id` | `api/internal/admin` | — |
 
 Never logged: a grant's reason (it can contain personal data), what a staff read returned, and the text of other database notices (only their severity and code, at `debug`).
+QA operator logs contain counts only: never account IDs, emails, labels, passwords, room IDs, or game IDs.
 
 ## 7. Checklist for specs and reviews
 

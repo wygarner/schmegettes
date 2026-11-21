@@ -1,6 +1,6 @@
 # Configuration and Secrets
 
-**Source of truth:** `api/.env.example`, `game/.env.example`, `web/.env.example`, `worker/.env.example`, `api/fly.toml`, `game/fly.toml`, `.github/workflows/deploy.yml`, `.github/workflows/ci.yml`
+**Source of truth:** `api/.env.example`, `game/.env.example`, `web/.env.example`, `worker/.env.example`, `devtools/.env.example`, `api/fly.toml`, `game/fly.toml`, `.github/workflows/deploy.yml`, `.github/workflows/ci.yml`
 
 Every variable each package reads, where it lives, who owns each secret and how to rotate it, and the config switches. `api` and `game` run on Fly.io: "Fly secret" means `fly secrets set` on that app (staging and production apps each have their own), and "`fly.toml`" means the value is in the repo or passed by the deploy. `web` runs on Vercel, but its values are built in by CI from the GitHub Environment, not set in Vercel.
 
@@ -27,6 +27,7 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `VITE_SUPABASE_ANON_KEY` | web | no (public by design) | GitHub Environment variable |
 | `VITE_API_URL` | web | no | GitHub Environment variable |
 | `VITE_{LOCAL,STAGING,PRODUCTION}_{SUPABASE_URL,SUPABASE_ANON_KEY,API_URL}` | devtools | no (public, like web's) | `devtools/.env.local` on the admin's computer only. Never a database URL or service-role key: the Admin page signs in as the admin |
+| `VITE_{LOCAL,STAGING,PRODUCTION}_QA_ACCOUNT_DOMAIN` | `scripts/qa-accounts.mjs` | no | `devtools/.env.local` on the admin's computer. Domain used for the seven QA email addresses; local defaults to `example.test` |
 
 `VITE_*` values are bundled into the client, so anyone can read them. Never put a secret in a `VITE_*` variable.
 

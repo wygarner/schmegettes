@@ -397,6 +397,58 @@ paths:
                 additionalProperties: false
         "404": { $ref: "#/components/responses/Problem" }
         "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/admin/qa-accounts:
+    post:
+      summary: Mark ordinary accounts as dedicated QA identities (admins only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                accounts:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items: { $ref: "#/components/schemas/QaAccount" }
+              required: [accounts]
+              additionalProperties: false
+      responses:
+        "204": { description: Accounts marked }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /v1/admin/qa-cleanup:
+    post:
+      summary: Preview or remove rooms and games belonging only to QA accounts (admins only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                olderThanHours: { type: integer, minimum: 0, maximum: 8760 }
+                dryRun: { type: boolean }
+              required: [olderThanHours, dryRun]
+              additionalProperties: false
+      responses:
+        "200":
+          description: Rows that would be, or were, removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removed:
+                    type: array
+                    items: { $ref: "#/components/schemas/QaCleanupItem" }
+                required: [removed]
+                additionalProperties: false
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
   /v1/admin/staff-access:
     post:
       summary: Grant the caller time-limited read access to one subject (admins only)
@@ -909,6 +961,21 @@ components:
         durationMs: { type: integer, minimum: 0 }
         error: { type: [string, "null"], description: "SQLSTATE: message when the run failed and deleted nothing" }
       required: [runAt, deleted, durationMs, error]
+      additionalProperties: false
+    QaAccount:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        role: { type: string, enum: [host, contestant] }
+        label: { type: string, minLength: 1, maxLength: 20 }
+      required: [userId, role, label]
+      additionalProperties: false
+    QaCleanupItem:
+      type: object
+      properties:
+        kind: { type: string, enum: [room, game] }
+        id: { type: string, format: uuid }
+      required: [kind, id]
       additionalProperties: false
     StaffSubjectType:
       type: string

@@ -14,7 +14,7 @@ What each kind of test covers, where it runs, and the rules for new code. Tests 
 | End-to-end | The critical path in a browser against a deployed environment: sign in, create room, join by code, buzz, judge, override, reload, Final, finish a game | Playwright (`e2e/`; see "End-to-end" below) | Release verification only, against staging ([release-strategy.md](../operations/release-strategy.md)) |
 | Evals | LLM prompts and judge behaviour | `evals/`. **Not yet implemented** | CI, non-blocking |
 
-Agent QA (an agent driving the real app to confirm a change works) will be described in `quality/agent-qa.md`. **Not yet implemented.**
+Agent QA (an agent driving the real app to confirm a change works) follows [agent-qa.md](../quality/agent-qa.md). Player-visible implementation PRs include its evidence record.
 
 ## 2. Dedicated tests
 

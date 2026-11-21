@@ -32,14 +32,14 @@ The script reads commit bodies and PR descriptions as well as subjects (the thre
    mkdir -p releases/X.Y.Z
    ```
 2. **Write the four docs** in `releases/X.Y.Z/`: `metadata.md` (`released: false`, blank `release-date`), `tickets.md` (grouped by type), `user-release-notes.md`, `internal-release-notes.md` (migrations, config changes, breaking changes). Open the PR to `production`, titled `[Release] X.Y.Z`.
-3. **Verify:** CI green; migrations rehearsed on staging; the end-to-end suite passes against staging (`gh workflow run e2e.yml`; a failure blocks the release like red CI; [testing-strategy.md](../engineering/testing-strategy.md#6-end-to-end)); and a hand check of what it can't cover: the narrator's voice and spoken answers on a real iPhone host. Merge `origin/production` in again right before merging.
+3. **Verify:** CI green; migrations rehearsed on staging; the end-to-end suite passes against staging (`gh workflow run e2e.yml`; a failure blocks the release like red CI; [testing-strategy.md](../engineering/testing-strategy.md#6-end-to-end)); then agent QA runs on staging per [agent-qa.md](../quality/agent-qa.md) and its evidence is recorded in the release's internal notes. A person checks anything in the human checklist affected by the release. Merge `origin/production` in again right before merging.
 4. **Human approves. Merge as a merge commit** (`gh pr merge --merge`). `deploy-prod.yml` runs.
 5. **Confirm `deploy-prod.yml` passed for the merge commit**, including the deployed-commit check:
    ```bash
    gh run list --workflow deploy-prod.yml --commit "$(git rev-parse origin/production)"
    ```
    No run listed → dispatch it: `gh workflow run deploy-prod.yml --ref production`.
-6. **Confirm production health:** Grafana dashboards and error rates since the deploy (**not yet implemented**, see [stack.md](../engineering/stack.md)), and critical paths. Until Grafana is set up, health means `/healthz` answers on `api` and `game`, the worker process is running, and a manual check of the critical paths in step 3 passes.
+6. **Confirm production health:** Grafana dashboards and error rates since the deploy (**not yet implemented**, see [stack.md](../engineering/stack.md)), and a production smoke with QA accounts strictly within [the production rules](../quality/agent-qa.md#production-rules). Until Grafana is set up, health also requires `/healthz` on `api` and `game` and the worker process running.
 7. **Only then** open a sign-off PR to `production` setting `released: true` and `release-date: YYYY-MM-DD` in `metadata.md`; merge as a merge commit.
 
 The gap between "code is live" and "marked released" is deliberate: a human confirms production health before anyone is told the release shipped.

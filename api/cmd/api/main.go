@@ -47,8 +47,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	appEnv := getenv("APP_ENV", "local")
 	rt := routes{
-		admin:  admin.Handler{Store: admin.PGStore{DB: database}},
+		admin:  admin.Handler{Store: admin.PGStore{DB: database}, AppEnv: appEnv},
 		rooms:  rooms.Handler{Store: rooms.PGStore{DB: database}, SocketBase: getenv("GAME_SOCKET_BASE_URL", "ws://localhost:3002")},
 		games:  games.Handler{Store: games.PGStore{DB: database}},
 		host:   hostaccess.Handler{Store: hostaccess.PGStore{DB: database}},

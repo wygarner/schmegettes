@@ -52,6 +52,12 @@ func (adminStore) Remove(_ context.Context, c auth.Claims, _ string) error { ret
 func (adminStore) CleanupRuns(_ context.Context, c auth.Claims) ([]admin.CleanupRun, error) {
 	return nil, check(c)
 }
+func (adminStore) MarkQA(_ context.Context, c auth.Claims, _ []admin.QAAccount) error {
+	return check(c)
+}
+func (adminStore) CleanupQA(_ context.Context, c auth.Claims, _ int, _ bool) ([]admin.QACleanupItem, error) {
+	return nil, check(c)
+}
 
 func app() http.Handler {
 	return handler(routes{admin: admin.Handler{Store: adminStore{}}, limits: newLimits()}, tokens{}, []string{"http://localhost:5174"})
@@ -75,6 +81,8 @@ var adminCalls = []struct{ method, path, body string }{
 	{"PATCH", "/v1/admin/hosts/" + nonAdminID, `{"note":"x"}`},
 	{"DELETE", "/v1/admin/hosts/" + nonAdminID, ""},
 	{"GET", "/v1/admin/cleanup-runs", ""},
+	{"POST", "/v1/admin/qa-accounts", `{"accounts":[{"userId":"22222222-2222-4222-8222-222222222222","role":"contestant","label":"QA 1"}]}`},
+	{"POST", "/v1/admin/qa-cleanup", `{"olderThanHours":0,"dryRun":true}`},
 }
 
 // Everyone but an admin gets exactly what an unknown path gets: same status, type, and body.

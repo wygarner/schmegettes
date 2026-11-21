@@ -2,6 +2,7 @@ import { Container, Stack, Text, TextInput, Title } from "@mantine/core";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { GoldButton } from "../ui/GoldButton";
+import { HomeButton } from "../ui/HomeButton";
 import { DISPLAY, PHONE_BG, SOFT } from "../ui/tokens";
 import { normalizeRoomCode } from "./Home";
 
@@ -17,6 +18,7 @@ export function JoinCode() {
 
   return (
     <div style={{ minHeight: "100dvh", background: PHONE_BG, color: "#fff" }}>
+      <HomeButton floating />
       <Container size="xs" py={48}>
         <form onSubmit={go}>
           <Stack>

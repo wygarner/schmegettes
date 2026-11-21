@@ -14,6 +14,7 @@ export function PlayerGame({
   send,
   lobby,
   onLeave,
+  home,
 }: {
   state: RoomState;
   userId: string;
@@ -22,6 +23,8 @@ export function PlayerGame({
   lobby?: ReactNode;
   /** Leave the room from the final scoreboard. */
   onLeave?: () => void;
+  /** The Home control, in the header row. */
+  home?: ReactNode;
 }) {
   return (
     <div style={{ minHeight: "100dvh", background: PHONE_BG, color: "#fff" }}>
@@ -34,7 +37,15 @@ export function PlayerGame({
             "max(12px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left))",
         }}
       >
-        <PlayerControls state={state} userId={userId} send={send} lobby={lobby} buzzerHeight={120} onLeave={onLeave} />
+        <PlayerControls
+          state={state}
+          userId={userId}
+          send={send}
+          lobby={lobby}
+          buzzerHeight={120}
+          onLeave={onLeave}
+          home={home}
+        />
       </div>
     </div>
   );

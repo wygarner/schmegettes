@@ -19,7 +19,9 @@ import { api } from "./api";
 import { supabase } from "./supabase";
 
 /** Who this device is playing as. */
-export type Account = { kind: "guest" } | { kind: "signed-in"; name: string | null; showOnLeaderboard?: boolean };
+export type Account =
+  | { kind: "guest" }
+  | { kind: "signed-in"; name: string | null; showOnLeaderboard?: boolean; isAdmin?: boolean };
 
 /** Same rule as Supabase Auth's minimum_password_length (supabase/config.toml). */
 export const MIN_PASSWORD = 8;
@@ -38,7 +40,7 @@ export async function currentAccount(): Promise<Account | null> {
     const { data: me } = await api.GET("/v1/me");
     const name = me?.accountName ?? null;
     if (me) setCachedAccountName(name);
-    return { kind: "signed-in", name, showOnLeaderboard: me?.showOnLeaderboard ?? true };
+    return { kind: "signed-in", name, showOnLeaderboard: me?.showOnLeaderboard ?? true, isAdmin: me?.isAdmin === true };
   } catch {
     return null;
   }

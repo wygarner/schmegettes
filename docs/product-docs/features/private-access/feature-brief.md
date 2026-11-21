@@ -1,6 +1,6 @@
 # Private Access
 
-Built in `supabase/migrations/*_private_access.sql` (codes, hosts, and the checks in `create_room` and `start_game`) and `*_host_code_rotation.sql` (the rotating code, the admin list, the admin functions), `api/internal/hostaccess`, `api/internal/admin`, and `api/internal/ratelimit`, `game/internal/room` (Start and Rematch), `web/src/pages/HostCodeSheet.tsx`, and `devtools/src/admin/` (the admin page). **Not yet implemented** (task `in-app-host-code`): the [admin screen in the app](#admin-screen-in-the-app).
+Built in `supabase/migrations/*_private_access.sql` (codes, hosts, and the checks in `create_room` and `start_game`) and `*_host_code_rotation.sql` (the rotating code, the admin list, the admin functions), `api/internal/hostaccess`, `api/internal/admin`, and `api/internal/ratelimit`, `game/internal/room` (Start and Rematch), `web/src/pages/HostCodeSheet.tsx`, `devtools/src/admin/` (the admin page), and `web/src/pages/Admin.tsx` with `*_caller_is_admin.sql` (the [admin screen in the app](#admin-screen-in-the-app)).
 
 ## Why
 

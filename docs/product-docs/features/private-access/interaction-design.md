@@ -7,7 +7,7 @@
 | `/` (Home) | anyone | **Host a game** on a device without host access opens the host-code sheet first. With host access, it goes straight to the name prompt. Code field + **Join** unchanged. |
 | Host-code sheet (over Home) | host device | "Schmegettes is invite-only", code field, **Continue** |
 | `/join/{code}` | phones | Unchanged |
-| `/admin` (from Home's **Admin** row, admins only) | admin | Current host code (hidden until tapped), Copy, Rotate now. **Not yet implemented** (task `in-app-host-code`) |
+| `/admin` (from Home's **Admin** row, admins only) | admin | Current host code (hidden until tapped), Copy, Rotate now |
 | devtools → **Admin** (local only, never deployed) | admin | Current host code, rotate now, hosts list |
 
 ## States of the host device
@@ -66,7 +66,7 @@ Unchanged: room code, then name, then the buzzer. No host-code prompt ever appea
 
 ## Admin screen in the app (`/admin`)
 
-Not yet implemented (task `in-app-host-code`). Rules: [feature brief](./feature-brief.md#admin-screen-in-the-app). A [menu screen](../../architecture/design-system.md#menu-screens), like Account.
+Built in `web/src/pages/Admin.tsx`. Rules: [feature brief](./feature-brief.md#admin-screen-in-the-app). A [menu screen](../../architecture/design-system.md#menu-screens), like Account.
 
 **Home**, for an admin only: one more row in the Host a game / My games list, after Stats.
 

@@ -147,6 +147,19 @@ func TestMe(t *testing.T) {
 	}
 }
 
+func TestMeAdmin(t *testing.T) {
+	rec := call(t, &fakeStore{profile: Profile{DisplayName: "W", IsAdmin: true}}, false, "GET", "/v1/me", "")
+	if rec.Code != 200 || !has(rec, `"isAdmin":true`) {
+		t.Errorf("admin: %d %s", rec.Code, rec.Body)
+	}
+	for _, anonymous := range []bool{false, true} {
+		rec = call(t, &fakeStore{profile: Profile{DisplayName: "W"}}, anonymous, "GET", "/v1/me", "")
+		if rec.Code != 200 || has(rec, `isAdmin`) {
+			t.Errorf("non-admin (anonymous %v) must not get the key: %d %s", anonymous, rec.Code, rec.Body)
+		}
+	}
+}
+
 func TestSetLeaderboardVisibility(t *testing.T) {
 	store := &fakeStore{profile: Profile{ShowOnLeaderboard: true}}
 	rec := call(t, store, false, "PATCH", "/v1/me", `{"showOnLeaderboard":false}`)

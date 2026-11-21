@@ -375,7 +375,10 @@ type Profile struct {
 	// AccountName The signed-in player's name (leaderboard, name prefill); null for guests and new accounts
 	AccountName *string `json:"accountName"`
 	DisplayName string  `json:"displayName"`
-	IsAnonymous bool    `json:"isAnonymous"`
+
+	// IsAdmin Present, and true, only for an account on the admin list (the web app's Admin row). Absent for everyone else
+	IsAdmin     *bool `json:"isAdmin,omitempty"`
+	IsAnonymous bool  `json:"isAnonymous"`
 
 	// ShowOnLeaderboard Whether this account appears after it has ten counted games; true for guests and new profiles
 	ShowOnLeaderboard bool               `json:"showOnLeaderboard"`

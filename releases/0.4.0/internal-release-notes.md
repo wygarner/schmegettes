@@ -24,7 +24,7 @@ One, additive: `20261120004624_clue_difficulty`.
 All additive: `Domain.Difficulty`; `Room.difficulty` (nullable); the `PATCH /v1/rooms/{roomId}` body's `difficulty` (absent leaves it unchanged, null sets Any, an unknown value is a 400). The game server reads the difficulty from the game row; no WebSocket message changes.
 
 ## After deploy
-- **Production has no difficulty labels yet.** Until Rate Clues runs on production, every category counts as Medium: Easy and Hard boards come out the same as Any. To rate: set `PROD_ANTHROPIC_API_KEY`, then dispatch Rate Clues with `environment: production`, `action: rate` (about $4 with Haiku through the Message Batches API; see `deployment.md`). The catalog is already loaded on production (Load Clues, 2026-11-18).
+- **Production's difficulty labels were copied from staging** on 2026-11-20, not rated again: the two catalogs are identical (89,636 categories, same keys), so the labels Wyatt hand-checked are the ones players get. Copied by hand through the Supabase CLI: every `category_difficulty` row and both `difficulty_scale` rows, inserted only where production had none, then checked against staging with a hash of every row. `PROD_ANTHROPIC_API_KEY` is not needed for these labels; it is needed only to rate categories added to production later.
 
 ## Known issues
 - **The labels missed the hand-check bar:** 26 of 60 agreed with Wyatt's labels (the bar was 45). Shipped anyway as a starting point; recorded in the clue-catalog feature brief (#255). Labels never change once set, so a better prompt later needs a new rating run.

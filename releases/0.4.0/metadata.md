@@ -1,7 +1,7 @@
 ---
 version: 0.4.0
-released: false
-release-date:
+released: true
+release-date: 2026-11-20
 ---
 
 # 0.4.0

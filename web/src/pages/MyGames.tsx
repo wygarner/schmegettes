@@ -1,22 +1,20 @@
-import { SegmentedControl, Stack } from "@mantine/core";
+import { Stack } from "@mantine/core";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { type GameKind, type GameStats, type GameSummary, listGames } from "../lib/games";
+import { type GameStats, type GameSummary, listGames } from "../lib/games";
 import { money } from "../lib/money";
 import { listMonth, listWhen, ordinal, PLACE_COLOR } from "../lib/placement";
 import { isAnonymous } from "../lib/supabase";
-import { Callout, Chip, EmptyState, Icon, MenuButton, MenuScreen, numbers, SEGMENTED, SectionLabel } from "../ui/menu";
+import { Callout, Chip, EmptyState, Icon, MenuButton, MenuScreen, numbers, SectionLabel } from "../ui/menu";
 import { SignInSheet } from "../ui/SignInSheet";
-import { ACCENT, AMBER, BEVEL, FAINT, QUIET, RED, SOFT, SURFACE } from "../ui/tokens";
+import { ACCENT, AMBER, BEVEL, FAINT, RED, SOFT, SURFACE } from "../ui/tokens";
 
-type Filter = "all" | GameKind;
 type Load = "loading" | "error" | "ready";
 
 /** /games: the player's past games, played or watched, newest first, 20 at a time. */
 export function MyGames() {
   const navigate = useNavigate();
   const [load, setLoad] = useState<Load>("loading");
-  const [filter, setFilter] = useState<Filter>("all");
   const [games, setGames] = useState<GameSummary[]>([]);
   const [stats, setStats] = useState<GameStats | null>(null);
   const [next, setNext] = useState<string | null>(null);
@@ -24,12 +22,9 @@ export function MyGames() {
   const [anonymous, setAnonymous] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
 
-  const first = useCallback(async (f: Filter) => {
+  const first = useCallback(async () => {
     setLoad("loading");
-    const [page, anon] = await Promise.all([
-      listGames(undefined, f === "all" ? undefined : f),
-      isAnonymous().catch(() => false),
-    ]);
+    const [page, anon] = await Promise.all([listGames(), isAnonymous().catch(() => false)]);
     setAnonymous(anon);
     if (!page.ok) return setLoad("error");
     setGames(page.data.items);
@@ -39,21 +34,21 @@ export function MyGames() {
   }, []);
 
   useEffect(() => {
-    void first(filter);
-  }, [first, filter]);
+    void first();
+  }, [first]);
 
   async function showMore() {
     if (!next || more) return;
     setMore(true);
-    const page = await listGames(next, filter === "all" ? undefined : filter);
+    const page = await listGames(next);
     setMore(false);
     if (!page.ok) return;
     setGames((g) => [...g, ...page.data.items]);
     setNext(page.data.nextCursor);
   }
 
-  // An empty history has nothing to filter: the empty state replaces stats and filter.
-  const noHistory = filter === "all" && games.length === 0;
+  // An empty history: the empty state replaces the stats.
+  const noHistory = games.length === 0;
 
   let body: React.ReactNode;
   if (load === "error") {
@@ -63,7 +58,7 @@ export function MyGames() {
         tint={AMBER}
         title="Couldn't load your games"
         action={
-          <MenuButton kind="secondary" onClick={() => void first(filter)}>
+          <MenuButton kind="secondary" onClick={() => void first()}>
             Try again
           </MenuButton>
         }
@@ -90,29 +85,8 @@ export function MyGames() {
     body = (
       <>
         {stats && stats.played > 0 && <StatStrip stats={stats} />}
-        {(load === "ready" || stats) && (
-          <div style={{ padding: "0 16px 18px" }}>
-            <SegmentedControl
-              fullWidth
-              radius="xl"
-              size="sm"
-              withItemsBorders={false}
-              aria-label="Show"
-              value={filter}
-              onChange={(v) => setFilter(v as Filter)}
-              data={[
-                { value: "all", label: "All" },
-                { value: "played", label: "Played" },
-                { value: "watched", label: "Watched" },
-              ]}
-              styles={SEGMENTED}
-            />
-          </div>
-        )}
         {load === "loading" ? (
           <Skeleton withStats={stats === null} />
-        ) : games.length === 0 ? (
-          <p style={{ textAlign: "center", color: QUIET, fontSize: 15, margin: "24px" }}>No {filter} games.</p>
         ) : (
           <Stack gap={22}>
             <GameList games={games} onOpen={(id) => navigate(`/games/${id}`)} />
@@ -152,7 +126,7 @@ export function MyGames() {
         onClose={() => setSigningIn(false)}
         onSignedIn={() => {
           setSigningIn(false);
-          void first(filter);
+          void first();
         }}
       />
     </MenuScreen>

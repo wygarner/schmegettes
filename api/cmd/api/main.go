@@ -27,7 +27,6 @@ import (
 var commit = "unknown"
 
 func main() {
-	os.Exit(1) // TEMPORARY: proves the boot job catches a crash at boot; reverted next commit
 	logging.Setup("api", getenv("APP_ENV", "local"), getenv("LOG_LEVEL", "info"))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

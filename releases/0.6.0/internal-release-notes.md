@@ -29,7 +29,12 @@ All additive, so no subprotocol or `/v2` bump:
 - New web dependency: `qrcode-generator` 2.0.4 (MIT).
 
 ## After deploy
-- Not deployed yet.
+- **Deployed by hand on 2026-11-21** at `cd9b3c1` (the merge of #283), because `deploy-prod.yml` doesn't start. Same steps and flags as `deploy.yml`:
+  - **Migrations:** `supabase db push --linked --include-all` on staging first (the rehearsal), then production. Each dry run listed exactly the five migrations above, and each applied cleanly, `pg_cron` included. Staging code wasn't redeployed, so staging has the new schema under the old code. The `supabase link` and `db push` deny rules were lifted in `.claude/settings.json` for this, by Wyatt.
+  - **api, game:** `flyctl deploy` (remote builder), image label `cd9b3c16b8585fae3d708c8e9cb733e2a625f8ce`, `APP_ENV=production`, game with `--ha=false`. Both machines passed their health checks.
+  - **web:** built with the production variables and `VITE_ENV=production` (no `__e2e` in the bundle), then `web/scripts/vercel-deploy.mjs` with the Vercel token from `devtools/.env.local`; Vercel deployment `dpl_HtzuvQreLa7HwZKWwcNZshyv61zj`.
+- **Verified:** every address in `PROD_VERSION_URLS` reports `cd9b3c1`; `/healthz` returns 200 on api and game; `/v1/me` returns 401 without sign-in; no error or warning lines in the api or game logs after the deploy.
+- **Production health confirmed by Wyatt:** pending (this sign-off merges only after it).
 - Operator follow-ups once live:
   - **QA accounts:** run `node scripts/qa-accounts.mjs --env staging create` and the production equivalent; save the passwords in the password manager (#266).
   - **Guest cleanup:** a manual staging run with its count recorded (#265).

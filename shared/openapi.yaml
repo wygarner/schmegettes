@@ -619,7 +619,20 @@ components:
             - { $ref: "#/components/schemas/RankedState" }
             - { $ref: "#/components/schemas/NeedsGamesState" }
             - { $ref: "#/components/schemas/HiddenState" }
-      required: [games, wins, winRate, averageScore, bestScore, bestGameId, careerTotal, correct, dailyDoubles, final, leaderboard]
+      required:
+        [
+          games,
+          wins,
+          winRate,
+          averageScore,
+          bestScore,
+          bestGameId,
+          careerTotal,
+          correct,
+          dailyDoubles,
+          final,
+          leaderboard,
+        ]
       additionalProperties: false
     LeaderboardRow:
       type: object

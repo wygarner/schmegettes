@@ -31,9 +31,9 @@ const (
 
 // Defines values for CurrentRoomKind.
 const (
-	Game         CurrentRoomKind = "game"
-	Lobby        CurrentRoomKind = "lobby"
-	ResumeInvite CurrentRoomKind = "resume_invite"
+	CurrentRoomKindGame         CurrentRoomKind = "game"
+	CurrentRoomKindLobby        CurrentRoomKind = "lobby"
+	CurrentRoomKindResumeInvite CurrentRoomKind = "resume_invite"
 )
 
 // Defines values for CurrentRoomRole.
@@ -69,6 +69,18 @@ const (
 	Ranked     LeaderboardMyState = "ranked"
 )
 
+// Defines values for QaAccountRole.
+const (
+	QaAccountRoleContestant QaAccountRole = "contestant"
+	QaAccountRoleHost       QaAccountRole = "host"
+)
+
+// Defines values for QaCleanupItemKind.
+const (
+	QaCleanupItemKindGame QaCleanupItemKind = "game"
+	QaCleanupItemKindRoom QaCleanupItemKind = "room"
+)
+
 // Defines values for RoomDifficulty.
 const (
 	RoomDifficultyEasy   RoomDifficulty = "easy"
@@ -98,8 +110,8 @@ const (
 
 // Defines values for PostV1RoomsJoinJSONBodyRole.
 const (
-	PostV1RoomsJoinJSONBodyRoleContestant PostV1RoomsJoinJSONBodyRole = "contestant"
-	PostV1RoomsJoinJSONBodyRoleSpectator  PostV1RoomsJoinJSONBodyRole = "spectator"
+	Contestant PostV1RoomsJoinJSONBodyRole = "contestant"
+	Spectator  PostV1RoomsJoinJSONBodyRole = "spectator"
 )
 
 // Defines values for PatchV1RoomsRoomIdJSONBodyDifficulty.
@@ -370,6 +382,25 @@ type Profile struct {
 	UserId            openapi_types.UUID `json:"userId"`
 }
 
+// QaAccount defines model for QaAccount.
+type QaAccount struct {
+	Label  string             `json:"label"`
+	Role   QaAccountRole      `json:"role"`
+	UserId openapi_types.UUID `json:"userId"`
+}
+
+// QaAccountRole defines model for QaAccount.Role.
+type QaAccountRole string
+
+// QaCleanupItem defines model for QaCleanupItem.
+type QaCleanupItem struct {
+	Id   openapi_types.UUID `json:"id"`
+	Kind QaCleanupItemKind  `json:"kind"`
+}
+
+// QaCleanupItemKind defines model for QaCleanupItem.Kind.
+type QaCleanupItemKind string
+
 // RankedState defines model for RankedState.
 type RankedState struct {
 	Rank  int    `json:"rank"`
@@ -582,6 +613,17 @@ type PatchV1AdminHostsUserIdJSONBody struct {
 	Note *string `json:"note"`
 }
 
+// PostV1AdminQaAccountsJSONBody defines parameters for PostV1AdminQaAccounts.
+type PostV1AdminQaAccountsJSONBody struct {
+	Accounts []QaAccount `json:"accounts"`
+}
+
+// PostV1AdminQaCleanupJSONBody defines parameters for PostV1AdminQaCleanup.
+type PostV1AdminQaCleanupJSONBody struct {
+	DryRun         bool `json:"dryRun"`
+	OlderThanHours int  `json:"olderThanHours"`
+}
+
 // PostV1AdminStaffAccessJSONBody defines parameters for PostV1AdminStaffAccess.
 type PostV1AdminStaffAccessJSONBody struct {
 	Minutes     *int               `json:"minutes,omitempty"`
@@ -668,6 +710,12 @@ type PostV1AdminHostCodeRotateJSONRequestBody PostV1AdminHostCodeRotateJSONBody
 
 // PatchV1AdminHostsUserIdJSONRequestBody defines body for PatchV1AdminHostsUserId for application/json ContentType.
 type PatchV1AdminHostsUserIdJSONRequestBody PatchV1AdminHostsUserIdJSONBody
+
+// PostV1AdminQaAccountsJSONRequestBody defines body for PostV1AdminQaAccounts for application/json ContentType.
+type PostV1AdminQaAccountsJSONRequestBody PostV1AdminQaAccountsJSONBody
+
+// PostV1AdminQaCleanupJSONRequestBody defines body for PostV1AdminQaCleanup for application/json ContentType.
+type PostV1AdminQaCleanupJSONRequestBody PostV1AdminQaCleanupJSONBody
 
 // PostV1AdminStaffAccessJSONRequestBody defines body for PostV1AdminStaffAccess for application/json ContentType.
 type PostV1AdminStaffAccessJSONRequestBody PostV1AdminStaffAccessJSONBody
@@ -923,6 +971,12 @@ type ServerInterface interface {
 	// Set or clear an admin-only host note
 	// (PATCH /v1/admin/hosts/{userId})
 	PatchV1AdminHostsUserId(w http.ResponseWriter, r *http.Request, userId openapi_types.UUID)
+	// Mark ordinary accounts as dedicated QA identities (admins only)
+	// (POST /v1/admin/qa-accounts)
+	PostV1AdminQaAccounts(w http.ResponseWriter, r *http.Request)
+	// Preview or remove rooms and games belonging only to QA accounts (admins only)
+	// (POST /v1/admin/qa-cleanup)
+	PostV1AdminQaCleanup(w http.ResponseWriter, r *http.Request)
 	// Grant the caller time-limited read access to one subject (admins only)
 	// (POST /v1/admin/staff-access)
 	PostV1AdminStaffAccess(w http.ResponseWriter, r *http.Request)
@@ -1196,6 +1250,46 @@ func (siw *ServerInterfaceWrapper) PatchV1AdminHostsUserId(w http.ResponseWriter
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchV1AdminHostsUserId(w, r, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1AdminQaAccounts operation middleware
+func (siw *ServerInterfaceWrapper) PostV1AdminQaAccounts(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1AdminQaAccounts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1AdminQaCleanup operation middleware
+func (siw *ServerInterfaceWrapper) PostV1AdminQaCleanup(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1AdminQaCleanup(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1865,6 +1959,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/hosts", wrapper.GetV1AdminHosts)
 	m.HandleFunc("DELETE "+options.BaseURL+"/v1/admin/hosts/{userId}", wrapper.DeleteV1AdminHostsUserId)
 	m.HandleFunc("PATCH "+options.BaseURL+"/v1/admin/hosts/{userId}", wrapper.PatchV1AdminHostsUserId)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/qa-accounts", wrapper.PostV1AdminQaAccounts)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/qa-cleanup", wrapper.PostV1AdminQaCleanup)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/staff-access", wrapper.PostV1AdminStaffAccess)
 	m.HandleFunc("DELETE "+options.BaseURL+"/v1/admin/staff-access/{grantId}", wrapper.DeleteV1AdminStaffAccessGrantId)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/staff-access/{grantId}", wrapper.GetV1AdminStaffAccessGrantId)

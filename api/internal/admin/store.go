@@ -44,6 +44,17 @@ type CleanupRun struct {
 	Error      *string
 }
 
+type QAAccount struct {
+	UserID string
+	Role   string
+	Label  string
+}
+
+type QACleanupItem struct {
+	Kind string
+	ID   string
+}
+
 type Store interface {
 	CurrentCode(context.Context, auth.Claims) (HostCode, error)
 	Rotate(context.Context, auth.Claims, string) (HostCode, error)
@@ -51,6 +62,8 @@ type Store interface {
 	SetNote(context.Context, auth.Claims, string, *string) (Host, error)
 	Remove(context.Context, auth.Claims, string) error
 	CleanupRuns(context.Context, auth.Claims) ([]CleanupRun, error)
+	MarkQA(context.Context, auth.Claims, []QAAccount) error
+	CleanupQA(context.Context, auth.Claims, int, bool) ([]QACleanupItem, error)
 }
 
 type PGStore struct{ DB *db.DB }
@@ -146,6 +159,40 @@ func (s PGStore) CleanupRuns(ctx context.Context, claims auth.Claims) ([]Cleanup
 				return err
 			}
 			result = append(result, c)
+		}
+		return rows.Err()
+	})
+	return result, mapError(err)
+}
+
+func (s PGStore) MarkQA(ctx context.Context, claims auth.Claims, accounts []QAAccount) error {
+	err := s.DB.AsUser(ctx, claims, func(tx pgx.Tx) error {
+		for _, account := range accounts {
+			if _, err := tx.Exec(ctx, "select private.admin_mark_qa($1::uuid, $2, $3)",
+				account.UserID, account.Role, account.Label); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return mapError(err)
+}
+
+func (s PGStore) CleanupQA(ctx context.Context, claims auth.Claims, olderThanHours int, dryRun bool) ([]QACleanupItem, error) {
+	result := []QACleanupItem{}
+	err := s.DB.AsUser(ctx, claims, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx,
+			"select kind, id from private.admin_qa_cleanup(make_interval(hours => $1), $2)", olderThanHours, dryRun)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var item QACleanupItem
+			if err := rows.Scan(&item.Kind, &item.ID); err != nil {
+				return err
+			}
+			result = append(result, item)
 		}
 		return rows.Err()
 	})

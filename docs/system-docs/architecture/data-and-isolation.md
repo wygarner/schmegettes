@@ -55,6 +55,7 @@ commit;
 | `private.audit_log` | **nothing** (no role but the owner; RLS on, no policies, privileges revoked from every app role): the append-only audit log. Written only by `private.audit`; read by the admin through `private.admin_audit` (below) |
 | `private.cleanup_runs` | **nothing** (no role but the owner): one row per guest-cleanup run, counts and durations only. Admins read it through `private.admin_cleanup_runs()` |
 | `private.staff_grants` | **nothing** (no role but the owner): the admin's time-limited grants to read one user, room, or game, with the reason. Reached only through the `private.staff_*` functions |
+| `private.qa_accounts` | **nothing** (RLS on, no policies, privileges revoked from every app role): dedicated QA identities. Reached only through the helpers below |
 
 Supabase's default grants to `anon`/`authenticated` are revoked, including default privileges for future tables. **Every new table needs an explicit grant, `enable row level security`, policies, and a test in `supabase/tests/`.**
 
@@ -93,6 +94,9 @@ Schema `private` holds functions the Data API doesn't expose, so calling them me
 | `private.admin_current_host_code()`, `admin_rotate_host_code(expected)`, `admin_hosts()`, `admin_set_host_note(user, note)`, `admin_remove_host(user)` | `authenticated` (api `/v1/admin/*`, as the caller) | Each calls `require_admin()` first. Rotate replaces the code only if `expected` is still current (so two admins make one new code) and gives the old code no grace. Hosts are newest first, with email for accounts and the last display name for guests. Notes are trimmed, empty means none, at most 200 characters |
 | `private.my_stats()` | `authenticated` (api `/v1/me/stats`) | Security definer so one caller's counted games can be aggregated from the shared result rows. Returns only that caller's totals and leaderboard state; guests are refused |
 | `private.leaderboard()` | `authenticated` (api `/v1/leaderboard`) | Security definer because ranking compares every eligible account and checks `auth.users.is_anonymous`. Returns the top 50 plus the caller when below them, with only rank, account name, win rate, wins, games, and `isMe`—never user IDs or emails. Guests and callers without a counted game are refused |
+| `private.is_qa(user)` | internal only | Whether an account is a dedicated QA identity. Ranking and cleanup use it; no app role can call it directly |
+| `private.admin_mark_qa(user, role, label)` | `authenticated` (api `POST /v1/admin/qa-accounts`) | Admins only. Marks the account, sets its account name and leaderboard preference, and gives the QA host permanent host access |
+| `private.admin_qa_cleanup(age, dry_run)` | `authenticated` (api `POST /v1/admin/qa-cleanup`) | Admins only. Previews or deletes old rooms and games belonging only to QA accounts, plus those accounts' seen clues for deleted games. Any non-QA participant makes the row ineligible |
 
 ## Account functions
 
@@ -142,6 +146,8 @@ Rows are written for:
 | `account_deleted` | `delete_account` (`details.by = 'self'`) and `admin_delete_account` (`'admin'`) |
 | `guests_deleted` | `delete_unused_guests`, once per run (subject `system`, `details.count`) |
 | `staff_access_granted`, `staff_read`, `staff_access_revoked` | the `staff_*` functions |
+| `qa_account_marked` | `admin_mark_qa`, once per marked account (subject: that account; role only in details) |
+| `qa_cleanup` | `admin_qa_cleanup`, once per preview or apply (subject `system`; dry-run flag and room/game counts) |
 
 ## Guest cleanup
 

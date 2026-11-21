@@ -16,7 +16,102 @@ import (
 
 const maxCodeLength = 16
 
-type Handler struct{ Store Store }
+// AppEnv is local, staging, or production. Production cleanup always keeps at least 24 hours.
+type Handler struct {
+	Store  Store
+	AppEnv string
+}
+
+func (h Handler) MarkQA(w http.ResponseWriter, r *http.Request) {
+	var body contracts.PostV1AdminQaAccountsJSONBody
+	if !server.DecodeJSON(w, r, &body) {
+		return
+	}
+	if len(body.Accounts) == 0 || len(body.Accounts) > 20 {
+		server.Problem(w, http.StatusBadRequest, "invalid-request", "Invalid request body")
+		return
+	}
+	accounts := make([]QAAccount, 0, len(body.Accounts))
+	seen := make(map[string]struct{}, len(body.Accounts))
+	for _, account := range body.Accounts {
+		label := strings.TrimSpace(account.Label)
+		userID := account.UserId.String()
+		if (account.Role != contracts.QaAccountRoleHost && account.Role != contracts.QaAccountRoleContestant) ||
+			utf8.RuneCountInString(label) < 1 || utf8.RuneCountInString(label) > 20 {
+			server.Problem(w, http.StatusBadRequest, "invalid-request", "Invalid request body")
+			return
+		}
+		if _, duplicate := seen[userID]; duplicate {
+			server.Problem(w, http.StatusBadRequest, "invalid-request", "Invalid request body")
+			return
+		}
+		seen[userID] = struct{}{}
+		accounts = append(accounts, QAAccount{UserID: userID, Role: string(account.Role), Label: label})
+	}
+	if h.handleQAError(w, r, "admin QA accounts failed", h.Store.MarkQA(r.Context(), server.Claims(r.Context()), accounts)) {
+		return
+	}
+	slog.InfoContext(r.Context(), "qa accounts marked", "request_id", server.RequestID(r.Context()),
+		"count", len(accounts))
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h Handler) CleanupQA(w http.ResponseWriter, r *http.Request) {
+	var body contracts.PostV1AdminQaCleanupJSONBody
+	if !server.DecodeJSON(w, r, &body) {
+		return
+	}
+	if body.OlderThanHours < 0 || body.OlderThanHours > 8760 {
+		server.Problem(w, http.StatusBadRequest, "invalid-request", "Invalid request body")
+		return
+	}
+	if h.AppEnv == "production" && body.OlderThanHours < 24 {
+		body.OlderThanHours = 24
+	}
+	removed, err := h.Store.CleanupQA(r.Context(), server.Claims(r.Context()), body.OlderThanHours, body.DryRun)
+	if h.handleQAError(w, r, "admin QA cleanup failed", err) {
+		return
+	}
+	result := make([]contracts.QaCleanupItem, 0, len(removed))
+	rooms, games := 0, 0
+	for _, item := range removed {
+		var id openapi_types.UUID
+		if err := id.UnmarshalText([]byte(item.ID)); err != nil {
+			h.handleQAError(w, r, "admin QA cleanup failed", err)
+			return
+		}
+		kind := contracts.QaCleanupItemKind(item.Kind)
+		result = append(result, contracts.QaCleanupItem{Kind: kind, Id: id})
+		switch kind {
+		case contracts.QaCleanupItemKindRoom:
+			rooms++
+		case contracts.QaCleanupItemKindGame:
+			games++
+		}
+	}
+	slog.InfoContext(r.Context(), "qa cleanup", "request_id", server.RequestID(r.Context()),
+		"dry_run", body.DryRun, "rooms", rooms, "games", games)
+	server.JSON(w, http.StatusOK, struct {
+		Removed []contracts.QaCleanupItem `json:"removed"`
+	}{Removed: result})
+}
+
+// QA operator logs deliberately omit user and target ids; the task's evidence may contain
+// only aggregate counts.
+func (h Handler) handleQAError(w http.ResponseWriter, r *http.Request, message string, err error) bool {
+	switch {
+	case err == nil:
+		return false
+	case errors.Is(err, ErrNotFound):
+		server.NotFound(w, r)
+	case errors.Is(err, ErrInvalid):
+		server.Problem(w, http.StatusBadRequest, "invalid-request", "Invalid request")
+	default:
+		slog.ErrorContext(r.Context(), message, "err", err, "request_id", server.RequestID(r.Context()))
+		server.Problem(w, http.StatusInternalServerError, "internal", "Something went wrong")
+	}
+	return true
+}
 
 func (h Handler) CurrentCode(w http.ResponseWriter, r *http.Request) {
 	code, err := h.Store.CurrentCode(r.Context(), server.Claims(r.Context()))

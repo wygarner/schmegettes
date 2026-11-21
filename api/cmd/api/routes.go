@@ -158,6 +158,12 @@ func (rt routes) PostV1AdminHostCodeRotate(w http.ResponseWriter, r *http.Reques
 func (rt routes) GetV1AdminCleanupRuns(w http.ResponseWriter, r *http.Request) {
 	rt.admin.CleanupRuns(w, r)
 }
+func (rt routes) PostV1AdminQaAccounts(w http.ResponseWriter, r *http.Request) {
+	rt.admin.MarkQA(w, r)
+}
+func (rt routes) PostV1AdminQaCleanup(w http.ResponseWriter, r *http.Request) {
+	rt.admin.CleanupQA(w, r)
+}
 func (rt routes) GetV1AdminHosts(w http.ResponseWriter, r *http.Request) {
 	rt.admin.Hosts(w, r)
 }

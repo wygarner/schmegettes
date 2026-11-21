@@ -1,6 +1,6 @@
 # Operator Scripts
 
-**Source of truth:** `scripts/staff-access.mjs`, `api/internal/staffaccess/`, `supabase/migrations/20261121143107_audit_and_staff_access.sql`, `.github/workflows/load-clues.yml`, `.github/workflows/rate-clues.yml`, `.github/workflows/deploy.yml`
+**Source of truth:** `scripts/staff-access.mjs`, `scripts/qa-accounts.mjs`, `api/internal/staffaccess/`, `api/internal/admin/`, `supabase/migrations/20261121143107_audit_and_staff_access.sql`, `supabase/migrations/20261121161615_qa_accounts.sql`, `.github/workflows/load-clues.yml`, `.github/workflows/rate-clues.yml`, `.github/workflows/deploy.yml`
 
 Every way a person reaches production data outside the game itself: what each one does, who may run it, and what it logs and audits. If it isn't listed here, don't do it in production. The audit log is described in [data-and-isolation.md](../architecture/data-and-isolation.md), "Audit log and staff access"; the log lines in [logging-conventions.md](./logging-conventions.md), "Security events".
 
@@ -14,6 +14,7 @@ Every way a person reaches production data outside the game itself: what each on
 | Delete an account on request | SQL editor, `private.admin_delete_account` (below) | The admin, on the owner's request or to free a squatted email | — | `account_deleted`, actor the admin, `details.by = admin` |
 | Answer "what do you have about me?" | A staff-access read, then read-only queries in the SQL editor ([data-retention.md](./data-retention.md#offboarding)) | The admin, on the player's request | As for staff access | As for staff access |
 | Run the guest cleanup by hand | SQL editor: `select private.delete_unused_guests();` (it runs daily on its own) | The admin; staging first | Database log `guests deleted: N` | `guests_deleted` with the count |
+| Provision or clean dedicated QA accounts | `scripts/qa-accounts.mjs` (below) | The admin; staging before production | `INFO` "qa accounts marked", "qa cleanup" (counts only) | `qa_account_marked`, `qa_cleanup` |
 | Host code, hosts, host notes | devtools **Admin** page | The admin | `INFO` "host code rotated", "host access removed", "host note updated" | `host_code_rotated`, `host_access_removed` |
 | Load clue seasons | `load-clues.yml` (Actions, `workflow_dispatch`), worker `import-clues` as the owner | Anyone with write access to the repo; production only from the `production` branch | Worker job lines | — (catalog only, no player data) |
 | Rate clue difficulty | `rate-clues.yml` (Actions), worker `rate-clues` as the owner | Same as above | Worker job lines | — (catalog only) |
@@ -39,6 +40,21 @@ node scripts/staff-access.mjs --env production audit --subject <userId>
 - The reason is stored with the grant and is never logged. Write what you're investigating, not the player's personal details.
 - Every grant logs `WARN` "staff access granted". A grant you didn't make means someone has the admin's password: change it and check the audit log.
 - Rate limit: the admin routes allow 5 calls a minute.
+
+## QA accounts
+
+`scripts/qa-accounts.mjs` uses normal Supabase sign-up, then signs in as the admin and calls the rate-limited admin API. It reads `VITE_{ENV}_{SUPABASE_URL,SUPABASE_ANON_KEY,API_URL,QA_ACCOUNT_DOMAIN}` from the process environment or `devtools/.env.local`. Passwords are printed once during creation and never stored by the script.
+
+```bash
+node scripts/qa-accounts.mjs --env staging create
+node scripts/qa-accounts.mjs --env staging list
+node scripts/qa-accounts.mjs --env staging cleanup              # dry run
+node scripts/qa-accounts.mjs --env staging cleanup --apply
+node scripts/qa-accounts.mjs --env production cleanup           # at least 24 hours, dry run
+node scripts/qa-accounts.mjs --env production cleanup --apply --yes
+```
+
+Cleanup is enforced in SQL: it refuses a room or game containing any non-QA participant and never deletes the QA accounts. Full operating and production rules are in [agent-qa.md](../quality/agent-qa.md).
 
 ## Resetting a password
 

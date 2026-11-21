@@ -49,6 +49,7 @@ Both are built on [accounts](../accounts/feature-brief.md): they follow a player
 
 - **One leaderboard for everyone** on Schmegettes with an account (owner's choice, 2026-11-10).
 - **Who's on it:** signed-in players with at least **10 counted games** who haven't hidden themselves. Below 10: "Play 7 more games to get on the leaderboard."
+- Dedicated QA accounts never appear on the leaderboard and never shift a real player's rank.
 - **Ranked by win rate.** Ties go to more wins, then more games; still tied, they share a rank (two players at 4th, the next is 6th).
 - Shows the **top 50**. A player outside the top 50 sees their own row pinned at the bottom with their rank.
 - Each row: rank, name, win rate, wins, games. Nothing else about a player is shown: no email, no game list, no picture.

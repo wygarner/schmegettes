@@ -960,6 +960,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/qa-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark ordinary accounts as dedicated QA identities (admins only) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        accounts: components["schemas"]["QaAccount"][];
+                    };
+                };
+            };
+            responses: {
+                /** @description Accounts marked */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["Problem"];
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/qa-cleanup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview or remove rooms and games belonging only to QA accounts (admins only) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        olderThanHours: number;
+                        dryRun: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Rows that would be, or were, removed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            removed: components["schemas"]["QaCleanupItem"][];
+                        };
+                    };
+                };
+                400: components["responses"]["Problem"];
+                404: components["responses"]["Problem"];
+                429: components["responses"]["RateLimited"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/staff-access": {
         parameters: {
             query?: never;
@@ -1615,6 +1706,19 @@ export interface components {
             durationMs: number;
             /** @description SQLSTATE: message when the run failed and deleted nothing */
             error: string | null;
+        };
+        QaAccount: {
+            /** Format: uuid */
+            userId: string;
+            /** @enum {string} */
+            role: "host" | "contestant";
+            label: string;
+        };
+        QaCleanupItem: {
+            /** @enum {string} */
+            kind: "room" | "game";
+            /** Format: uuid */
+            id: string;
         };
         /** @enum {string} */
         StaffSubjectType: "user" | "room" | "game";

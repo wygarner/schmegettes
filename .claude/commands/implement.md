@@ -11,6 +11,7 @@ Read:
 3. `docs/system-docs/engineering/development-workflow.md` and `branch-strategy.md`
 4. The architecture docs for the packages you touch (`docs/system-docs/architecture/`)
 5. `docs/system-docs/operations/logging-conventions.md` if you add logs or failure paths
+6. `docs/system-docs/quality/agent-qa.md` for every player-visible change
 
 ## Branch
 
@@ -30,6 +31,7 @@ Work through the spec's subtasks in order (contracts → migrations → services
 - A new table: RLS enabled, explicit grants, policies, and a pgTAP test in `supabase/tests/`.
 - Migrations must be compatible with the code already running (add, don't drop or rename).
 - Logs follow `logging-conventions.md`. Never log tokens, credentials, emails, or full payloads.
+- Player-visible changes require local agent QA and its evidence record on the PR, following `agent-qa.md`.
 
 ## Validate (targeted only)
 
@@ -56,3 +58,4 @@ One PR. The task folder deletion is its final commit. Then watch CI (`gh pr chec
 - Force-push a shared or protected branch
 - Merge your own PR
 - Create, edit, label, or close task issues (GitHub Actions own every issue write; reading with `gh` is fine)
+- In production QA, finish a game, touch non-QA data, use Admin/staff/owner access, or write through Supabase; follow `agent-qa.md`

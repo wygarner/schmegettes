@@ -1,4 +1,4 @@
-import { Stack } from "@mantine/core";
+import { Stack, Switch } from "@mantine/core";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
@@ -9,8 +9,10 @@ import {
   deleteAccount,
   MIN_PASSWORD,
   type PasswordChange,
+  setLeaderboardVisibility,
   signOut,
 } from "../lib/account";
+import { getMyStats } from "../lib/stats";
 import { AccountNameSheet } from "../ui/AccountNameSheet";
 import {
   Avatar,
@@ -49,6 +51,7 @@ export function Account() {
   const [confirm, setConfirm] = useState<"sign-out" | "delete" | null>(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
 
   const load = useCallback(async () => {
     const a = await currentAccount();
@@ -77,6 +80,28 @@ export function Account() {
   }
 
   const closeToast = useCallback(() => setToast(null), []);
+
+  async function setShown(show: boolean) {
+    if (account === "loading" || account?.kind !== "signed-in" || visibilitySaving) return;
+    const previous = account;
+    setAccount({ ...account, showOnLeaderboard: show });
+    setVisibilitySaving(true);
+    const saved = await setLeaderboardVisibility(show);
+    if (!saved) {
+      setAccount(previous);
+      setError("Couldn't change your leaderboard setting. Try again.");
+    } else if (!show) {
+      setToast("You're hidden from the leaderboard.");
+    } else {
+      const stats = await getMyStats();
+      setToast(
+        stats.kind === "ok" && stats.data.leaderboard.state === "ranked"
+          ? "You're on the leaderboard."
+          : "You'll appear after 10 games.",
+      );
+    }
+    setVisibilitySaving(false);
+  }
 
   let body: React.ReactNode;
   if (account === "loading") {
@@ -173,6 +198,24 @@ export function Account() {
           Your email is your username. It can't be changed.
         </p>
 
+        <SectionLabel>Leaderboard</SectionLabel>
+        <GroupList>
+          <div style={{ padding: "15px 18px" }}>
+            <Switch
+              label="Show me on the leaderboard"
+              description="Your account name appears after 10 finished games."
+              checked={account.showOnLeaderboard ?? true}
+              disabled={visibilitySaving}
+              onChange={(event) => void setShown(event.currentTarget.checked)}
+              styles={{
+                label: { color: "#fff", fontSize: 15, fontWeight: 600 },
+                description: { color: QUIET, fontSize: 13, marginTop: 3 },
+              }}
+            />
+          </div>
+        </GroupList>
+        <div style={{ height: 24 }} />
+
         <SectionLabel>Security</SectionLabel>
         <GroupList>
           <Row icon="lock" title="Change password" onClick={() => setChanging(true)} />
@@ -211,7 +254,7 @@ export function Account() {
         initial={account !== "loading" && account?.kind === "signed-in" ? (account.name ?? "") : ""}
         onSaved={(name) => {
           setEditing(false);
-          setAccount({ kind: "signed-in", name });
+          if (account !== "loading" && account?.kind === "signed-in") setAccount({ ...account, name });
           setToast("Name saved.");
         }}
         onClose={() => setEditing(false)}

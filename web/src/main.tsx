@@ -21,6 +21,7 @@ import { HostLobby } from "./pages/HostLobby";
 import { JoinCode } from "./pages/JoinCode";
 import { JoinRoom } from "./pages/JoinRoom";
 import { MyGames } from "./pages/MyGames";
+import { Stats } from "./pages/Stats";
 import { MergeRetry } from "./ui/MergeRetry";
 
 // Shared with devtools/ prototypes via the same values; see docs/product-docs/architecture/design-system.md.
@@ -105,6 +106,8 @@ createRoot(root).render(
           <Route path="/join/:code" element={<JoinRoom />} />
           <Route path="/games" element={<MyGames />} />
           <Route path="/games/:gameId" element={<GameScoreboard />} />
+          <Route path="/stats" element={<Stats />} />
+          <Route path="/stats/leaderboard" element={<Stats />} />
           <Route path="/account" element={<Account />} />
         </Routes>
         <MergeRetry />

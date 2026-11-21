@@ -2,7 +2,16 @@ import { MantineProvider } from "@mantine/core";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, expect, test, vi } from "vitest";
-import { accountEmail, changePassword, currentAccount, deleteAccount, setAccountName, signOut } from "../lib/account";
+import {
+  accountEmail,
+  changePassword,
+  currentAccount,
+  deleteAccount,
+  setAccountName,
+  setLeaderboardVisibility,
+  signOut,
+} from "../lib/account";
+import { getMyStats } from "../lib/stats";
 import { Account } from "./Account";
 
 vi.mock("../lib/account", async (original) => ({
@@ -13,7 +22,9 @@ vi.mock("../lib/account", async (original) => ({
   deleteAccount: vi.fn(),
   signOut: vi.fn(),
   setAccountName: vi.fn(),
+  setLeaderboardVisibility: vi.fn(),
 }));
+vi.mock("../lib/stats", () => ({ getMyStats: vi.fn() }));
 
 function show() {
   render(
@@ -34,6 +45,8 @@ beforeEach(() => {
   vi.mocked(changePassword).mockReset();
   vi.mocked(deleteAccount).mockReset();
   vi.mocked(signOut).mockReset().mockResolvedValue();
+  vi.mocked(setLeaderboardVisibility).mockReset().mockResolvedValue(true);
+  vi.mocked(getMyStats).mockReset().mockResolvedValue({ kind: "error" });
 });
 
 test("shows the name and the owner's email", async () => {
@@ -102,4 +115,24 @@ test("a guest is offered sign-in", async () => {
   expect(within(dialog).getByRole("button", { name: "Create account" })).toBeInTheDocument();
   expect(within(dialog).getByLabelText("Email")).toBeInTheDocument();
   expect(screen.queryByText("sam@example.com")).toBeNull();
+});
+
+test("leaderboard visibility saves optimistically and rolls back on failure", async () => {
+  let finish: (saved: boolean) => void = () => undefined;
+  vi.mocked(currentAccount).mockResolvedValue({ kind: "signed-in", name: "Wyatt", showOnLeaderboard: true });
+  vi.mocked(setLeaderboardVisibility).mockReturnValue(
+    new Promise((resolve) => {
+      finish = resolve;
+    }),
+  );
+  show();
+  const label = await screen.findByText("Show me on the leaderboard");
+  const toggle = label.closest("label")?.querySelector("input");
+  if (!toggle) throw new Error("leaderboard switch input missing");
+  expect(toggle).toBeChecked();
+  fireEvent.click(toggle);
+  expect(toggle).not.toBeChecked();
+  finish(false);
+  expect(await screen.findByText("Couldn't change your leaderboard setting. Try again.")).toBeInTheDocument();
+  expect(toggle).toBeChecked();
 });

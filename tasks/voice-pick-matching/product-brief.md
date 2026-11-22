@@ -58,4 +58,4 @@ What already works and must keep working: "Science for 400", "science for $400",
 - A pick where only the 2nd hearing matches is made; the shown words are the top hearing.
 - Production QA: across one full game, at least 9 of 10 spoken picks are made on the first press when the player says the category the way they naturally would (a shortened name is fine).
 
-**Out of scope:** Abbreviations the board doesn't spell ("WWII"); picking by value alone ("the 400"); picking by row or column ("top left"); changing the messages or the listening UI; server-side matching; logging failed picks (see the handoff).
+**Out of scope:** Abbreviations the board doesn't spell ("WWII"); picking by value alone ("the 400"); picking by row or column ("top left"); changing the messages or the listening UI; server-side matching. (Logging spoken picks was moved into scope on 2026-11-22: see task-brief.md.)

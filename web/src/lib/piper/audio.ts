@@ -11,6 +11,18 @@
 let ctx: AudioContext | null = null;
 let bridge: { node: MediaStreamAudioDestinationNode; element: HTMLAudioElement } | null = null;
 
+const SILENCE_THRESHOLD = 0.002;
+
+/** Removes Piper's edge padding. The final piece keeps its natural ending. */
+export function trimSilence(samples: Float32Array): Float32Array {
+  let start = 0;
+  while (start < samples.length && Math.abs(samples[start] ?? 0) < SILENCE_THRESHOLD) start++;
+  let end = samples.length;
+  while (end > start && Math.abs(samples[end - 1] ?? 0) < SILENCE_THRESHOLD) end--;
+  if (start === samples.length) return samples.subarray(0, Math.min(1, samples.length));
+  return samples.subarray(start, end);
+}
+
 /** Asks iOS for media playback, so the silent switch doesn't mute the narrator. */
 export function ensurePlaybackSession(): void {
   try {

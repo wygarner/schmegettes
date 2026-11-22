@@ -2,15 +2,17 @@
 // built-in voices are never used. Rules: docs/product-docs/features/gameplay/feature-brief.md,
 // "The narrator's voice".
 //
-// - prepareNarration() may generate the first bounded chunk during a silent lead-in. narrate()
-//   is the only function that can play it, and generates later chunks while earlier ones play.
+// - prepareNarration() queues every punctuation-shaped piece during the silent reveal. The one
+//   Piper worker generates them sequentially; narrate() is the only function that plays them.
+// - Piper's padding is trimmed between pieces. Punctuation cuts get a fixed comma-sized pause;
+//   the first piece's one allowed word-boundary cut gets continuing intonation and no gap.
 // - A line whose first audio hasn't started PIPER_START_TIMEOUT_MS after playback was requested,
 //   or that fails, is skipped: the text stays on screen and the server's timer moves on.
 // - A voice that becomes ready mid-game (after a reload) is used from the next line on.
 
 import { e2eActive } from "./e2eFlag";
 import { narratorChoice } from "./narratorVoice";
-import { audioContext, narratorOutput } from "./piper/audio";
+import { audioContext, narratorOutput, trimSilence } from "./piper/audio";
 import { type Audio, type PiperEngine, readyEngine } from "./piper/engine";
 import { narrationChunks } from "./piper/sentences";
 import type { PiperVoiceId } from "./piper/voices";
@@ -38,7 +40,7 @@ interface PreparedLine {
   engine: PiperEngine;
   text: string;
   chunks: string[];
-  first: Promise<Audio | null>;
+  audio: Promise<Audio | null>[];
 }
 let prepared: PreparedLine | null = null;
 
@@ -62,7 +64,24 @@ function within<T>(promise: Promise<T>, ms: number): Promise<T | typeof TIMEOUT>
 const synthesize = (engine: PiperEngine, text: string): Promise<Audio | null> =>
   engine.synthesize(text).catch(() => null);
 
-/** Starts generating a line's first chunk without touching the audio session or playing it. */
+const ENDS_WITH_PUNCTUATION = /[,;:—–.!?…](?:["')\]]*)$/;
+const PIECE_GAP_SECONDS = 0.12;
+
+function synthesisText(chunk: string, index: number, count: number): string {
+  return index === 0 && count > 1 && !ENDS_WITH_PUNCTUATION.test(chunk) ? `${chunk},` : chunk;
+}
+
+/** Queue all work immediately, while preserving the worker's required sequential order. */
+function prepareChunks(engine: PiperEngine, chunks: string[]): Promise<Audio | null>[] {
+  let previous = Promise.resolve<Audio | null>(null);
+  return chunks.map((chunk, index) => {
+    const next = previous.then(() => synthesize(engine, synthesisText(chunk, index, chunks.length)));
+    previous = next;
+    return next;
+  });
+}
+
+/** Starts generating every line piece without touching the audio session or playing it. */
 export function prepareNarration(text: string): void {
   if (e2eActive()) return;
   const line = spokenText(text);
@@ -74,14 +93,14 @@ export function prepareNarration(text: string): void {
     return;
   }
   if (prepared?.voiceId === id && prepared.engine === engine && prepared.text === line) return;
-  prepared = { voiceId: id, engine, text: line, chunks, first: synthesize(engine, chunks[0] ?? line) };
+  prepared = { voiceId: id, engine, text: line, chunks, audio: prepareChunks(engine, chunks) };
 }
 
 async function narratePiper(
   engine: PiperEngine,
   chunks: string[],
   startedAt: number,
-  firstPrepared: Promise<Audio | null> | null,
+  preparedAudio: Promise<Audio | null>[] | null,
 ): Promise<NarrateResult> {
   const run: Run = { stopped: false, sources: [] };
   current = run;
@@ -101,15 +120,18 @@ async function narratePiper(
   }
 
   let at = 0;
-  const play = (audio: Audio): Promise<void> => {
-    const buffer = ctx.createBuffer(1, audio.samples.length, audio.sampleRate);
-    buffer.getChannelData(0).set(audio.samples);
+  const play = (audio: Audio, index: number): Promise<void> => {
+    const isLast = index === chunks.length - 1;
+    const samples = isLast ? audio.samples : trimSilence(audio.samples);
+    const buffer = ctx.createBuffer(1, samples.length, audio.sampleRate);
+    buffer.getChannelData(0).set(samples);
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(narratorOutput(ctx));
     const start = Math.max(at, ctx.currentTime);
     source.start(start);
-    at = start + buffer.duration;
+    const punctuationGap = !isLast && ENDS_WITH_PUNCTUATION.test(chunks[index] ?? "") ? PIECE_GAP_SECONDS : 0;
+    at = start + buffer.duration + punctuationGap;
     run.sources.push(source);
     return new Promise((resolve) => {
       source.onended = () => resolve();
@@ -117,11 +139,9 @@ async function narratePiper(
   };
 
   let first: Audio | typeof TIMEOUT | null;
+  const audio = preparedAudio ?? prepareChunks(engine, chunks);
   try {
-    first = await within(
-      firstPrepared ?? synthesize(engine, chunks[0] ?? ""),
-      PIPER_START_TIMEOUT_MS - (performance.now() - startedAt),
-    );
+    first = await within(audio[0] ?? Promise.resolve(null), PIPER_START_TIMEOUT_MS - (performance.now() - startedAt));
   } catch {
     if (current === run) current = null;
     return "skipped";
@@ -132,17 +152,16 @@ async function narratePiper(
     return "skipped";
   }
 
-  // Play each bounded chunk while the next one is generated, back to back.
-  let ended = play(first);
+  let ended = play(first, 0);
   for (let i = 1; i < chunks.length; i++) {
-    const next = await synthesize(engine, chunks[i] ?? "");
+    const next = await audio[i];
     if (!next) {
       await ended;
       if (current === run) current = null;
       return run.stopped ? "stopped" : "skipped";
     }
     if (run.stopped) return "stopped";
-    ended = play(next);
+    ended = play(next, i);
   }
   await ended;
   if (current === run) current = null;
@@ -175,7 +194,7 @@ export async function narrate(text: string): Promise<NarrateResult> {
   if (!engine || chunks.length === 0) return "skipped";
   const match = prepared?.voiceId === id && prepared.engine === engine && prepared.text === line ? prepared : null;
   prepared = null;
-  return narratePiper(engine, match?.chunks ?? chunks, startedAt, match?.first ?? null);
+  return narratePiper(engine, match?.chunks ?? chunks, startedAt, match?.audio ?? null);
 }
 
 /** Stops whatever the narrator is saying and forgets silent work for a screen that went away. */

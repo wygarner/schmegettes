@@ -1,15 +1,7 @@
 import { expect, test } from "vitest";
-import { MAX_NARRATION_CHUNK_WORDS, narrationChunks, splitSentences } from "./sentences";
+import { narrationChunks, splitSentences } from "./sentences";
 
-test("the announcement and the clue are separate sentences", () => {
-  expect(splitSentences("Here's VOLCANOES for 400. This one erupted in 2022. Name it!")).toEqual([
-    "Here's VOLCANOES for 400.",
-    "This one erupted in 2022.",
-    "Name it!",
-  ]);
-});
-
-test("initials and titles don't end a sentence", () => {
+test("splitSentences preserves announcements, initials, and titles", () => {
   expect(splitSentences("Here's NAVY for 200. The U.S. Navy was founded in 1775.")).toEqual([
     "Here's NAVY for 200.",
     "The U.S. Navy was founded in 1775.",
@@ -18,35 +10,52 @@ test("initials and titles don't end a sentence", () => {
     "Dr. Seuss wrote it.",
     "Mt. Fuji is in Japan.",
   ]);
-});
-
-test("one sentence, quotes, and empty text", () => {
-  expect(splitSentences("Just one")).toEqual(["Just one"]);
   expect(splitSentences('He said "Go." Then he left.')).toEqual(['He said "Go."', "Then he left."]);
   expect(splitSentences("  ")).toEqual([]);
 });
 
-test("long sentences are bounded without losing or repeating words", () => {
-  const line = "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen";
-  const chunks = narrationChunks(line);
-  expect(chunks).toEqual([
-    "One two three four five six seven",
-    "eight nine ten eleven twelve thirteen fourteen",
-    "fifteen",
+test("piece one uses the first punctuation within ten words", () => {
+  expect(narrationChunks("One two three four five six seven eight nine ten, eleven twelve.")).toEqual([
+    "One two three four five six seven eight nine ten,",
+    "eleven twelve.",
   ]);
-  expect(chunks.every((chunk) => chunk.split(" ").length <= MAX_NARRATION_CHUNK_WORDS)).toBe(true);
-  expect(chunks.join(" ")).toBe(line);
+  expect(narrationChunks("One two three, four five six seven eight nine ten eleven.")).toEqual([
+    "One two three,",
+    "four five six seven eight nine ten eleven.",
+  ]);
 });
 
-test("sentence and clause boundaries win over the hard word bound", () => {
-  const line = "One two three four five, six seven eight nine. Ten eleven twelve.";
-  expect(narrationChunks(line)).toEqual(["One two three four five,", "six seven eight nine.", "Ten eleven twelve."]);
+test("piece one alone may fall back to seven words without punctuation", () => {
+  const line = "One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen";
+  expect(narrationChunks(line)).toEqual([
+    "One two three four five six seven",
+    "eight nine ten eleven twelve thirteen fourteen fifteen",
+  ]);
 });
 
-test("quotes, numbers, initials, and titles stay lossless", () => {
-  const line = 'Dr. King said "Meet the U.S. team at 10:30," before everyone left for Washington.';
-  const chunks = narrationChunks(line);
-  expect(chunks.join(" ")).toBe(line);
-  expect(chunks.every((chunk) => chunk.split(" ").length <= MAX_NARRATION_CHUNK_WORDS)).toBe(true);
+test("later pieces grow toward twice the previous piece and cut at the closest clause", () => {
+  const line =
+    "One two three, four five six seven, eight nine ten eleven twelve, thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty.";
+  expect(narrationChunks(line)).toEqual([
+    "One two three,",
+    "four five six seven,",
+    "eight nine ten eleven twelve,",
+    "thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty.",
+  ]);
+});
+
+test("later pieces are never cut without punctuation", () => {
+  const words = Array.from({ length: 30 }, (_, i) => `word${i + 1}`);
+  const chunks = narrationChunks(words.join(" "));
+  expect(chunks).toEqual([words.slice(0, 7).join(" "), words.slice(7).join(" ")]);
+  expect(chunks.join(" ")).toBe(words.join(" "));
+});
+
+test("sentence endings remain natural later boundaries", () => {
+  expect(narrationChunks("One two three four five. Six seven eight nine. Ten eleven twelve.")).toEqual([
+    "One two three four five.",
+    "Six seven eight nine.",
+    "Ten eleven twelve.",
+  ]);
   expect(narrationChunks("   ")).toEqual([]);
 });

@@ -12,11 +12,13 @@ class FakeSource {
   onended: (() => void) | null = null;
   started = false;
   connectedTo: unknown = null;
+  startedAt: number | undefined;
   connect(node: unknown) {
     this.connectedTo = node;
   }
-  start() {
+  start(at?: number) {
     this.started = true;
+    this.startedAt = at;
   }
   stop() {
     this.onended?.();
@@ -43,7 +45,7 @@ function fakeAudio(state: AudioContextState = "running") {
   return sources;
 }
 
-const CLIP: Audio = { samples: new Float32Array(2205), sampleRate: 22050 };
+const CLIP: Audio = { samples: new Float32Array(2205).fill(0.01), sampleRate: 22050 };
 function fakeEngine(): PiperEngine & { synthesize: ReturnType<typeof vi.fn> } {
   return { load: vi.fn(), synthesize: vi.fn(async () => CLIP), dispose: vi.fn() };
 }
@@ -75,18 +77,21 @@ test("a Schmegettes voice reads each sentence in order and ends after the last",
   await expect(done).resolves.toBe("ended");
 });
 
-test("preparation is silent and its first bounded chunk is reused", async () => {
+test("preparation is silent, generates every piece in order, and is reused", async () => {
   const sources = fakeAudio();
   const line = "One two three four five six seven eight nine ten";
   prepareNarration(line);
   await flush();
-  expect(engine.synthesize.mock.calls.map((c) => c[0])).toEqual(["One two three four five six seven"]);
+  expect(engine.synthesize.mock.calls.map((c) => c[0])).toEqual([
+    "One two three four five six seven,",
+    "eight nine ten",
+  ]);
   expect(sources).toHaveLength(0);
 
   const done = narrate(line);
   await flush();
   expect(engine.synthesize.mock.calls.map((c) => c[0])).toEqual([
-    "One two three four five six seven",
+    "One two three four five six seven,",
     "eight nine ten",
   ]);
   expect(sources).toHaveLength(2);
@@ -107,6 +112,36 @@ test("a prepared line gets the full timeout from the playback request", async ()
   expect(result).toBeUndefined();
   await vi.advanceTimersByTimeAsync(1);
   await expect(done).resolves.toBe("skipped");
+});
+
+test("trims padding between pieces and adds 120 ms only after punctuation", async () => {
+  const sources = fakeAudio();
+  const padded: Audio = {
+    samples: new Float32Array([0, 0, 0.01, 0.02, 0, 0]),
+    sampleRate: 100,
+  };
+  engine.synthesize.mockResolvedValue(padded);
+  const done = narrate("One two, three four.");
+  await flush();
+  expect(sources).toHaveLength(2);
+  expect(sources[0]?.startedAt).toBe(0);
+  expect(sources[1]?.startedAt).toBeCloseTo(0.14);
+  for (const source of sources) source.onended?.();
+  await expect(done).resolves.toBe("ended");
+});
+
+test("the punctuation-free first cut uses continuing intonation with no scheduled gap", async () => {
+  const sources = fakeAudio();
+  const line = "one two three four five six seven eight nine ten";
+  const done = narrate(line);
+  await flush();
+  expect(engine.synthesize.mock.calls.map((c) => c[0])).toEqual([
+    "one two three four five six seven,",
+    "eight nine ten",
+  ]);
+  expect(sources[1]?.startedAt).toBeCloseTo(CLIP.samples.length / CLIP.sampleRate);
+  for (const source of sources) source.onended?.();
+  await expect(done).resolves.toBe("ended");
 });
 
 test("preparation for another line is never reused", async () => {

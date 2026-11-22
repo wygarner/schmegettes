@@ -158,21 +158,29 @@ type Room struct {
 	log        *slog.Logger
 
 	// The game in progress, once Start succeeds (or on load of a room in a game).
-	game       *play.Game
-	gameID     string
-	pending    []play.Record
-	writeTries int // failures of pending[0]
-	stopTimer  func() bool
-	timerGen   int
+	game            *play.Game
+	gameID          string
+	pending         []play.Record
+	writeTries      int // failures of pending[0]
+	stopTimer       func() bool
+	timerGen        int
+	voicePickMisses map[string]voicePickLimit
+}
+
+type voicePickLimit struct {
+	gameID string
+	last   time.Time
+	count  int
 }
 
 func newRoom(id string, store Store, cfg Config) *Room {
 	return &Room{
 		id: id, store: store, cfg: cfg,
-		events:  make(chan event),
-		done:    make(chan struct{}),
-		clients: map[*Client]bool{},
-		log:     slog.With("room_id", id),
+		events:          make(chan event),
+		done:            make(chan struct{}),
+		clients:         map[*Client]bool{},
+		voicePickMisses: map[string]voicePickLimit{},
+		log:             slog.With("room_id", id),
 	}
 }
 

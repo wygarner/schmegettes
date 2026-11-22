@@ -41,7 +41,7 @@ export function usePickConfirm(
             <GoldButton
               size="lg"
               onClick={() => {
-                send({ type: "select_clue", clueId: clue.clueId });
+                send({ type: "select_clue", clueId: clue.clueId, via: "tap" });
                 close();
               }}
             >

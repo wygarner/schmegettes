@@ -42,6 +42,12 @@ log.info("season imported", season=season, clues=len(clues), duration_ms=elapsed
 
 A wrong answer, a rejected buzz, or a full room is normal gameplay, not an error. Log it at `debug` or not at all.
 
+Gameplay events kept at `info`:
+
+| Message | Fields |
+|---|---|
+| `voice pick` | `outcome`, `game_id`, `user_id`; picked: `board_clue_id`; missed: `problem`, `heard`, `alternatives`, `categories` |
+
 ## 4. Correlation fields
 
 | Field | Where |
@@ -62,7 +68,7 @@ A wrong answer, a rejected buzz, or a full room is normal gameplay, not an error
 - Whole request/response bodies or whole WebSocket messages
 - LLM prompts or completions in full (log the model, token counts, latency, verdict)
 
-Identifiers, counts, statuses, durations, and error types are safe. Players' typed answers may be logged at `debug` only.
+Identifiers, counts, statuses, durations, and error types are safe. Players' typed answers may be logged at `debug` only. The one speech exception is `voice pick` at `info`: a pick contains a category and amount, not an answer, and failed-pick text is retained so matching failures can be measured.
 
 ## 6. Security events
 

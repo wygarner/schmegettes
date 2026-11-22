@@ -53,7 +53,12 @@ export function PlayerControls({
 }) {
   const capture = useAnswerCapture(state, userId, send);
   const confirm = usePickConfirm(state, userId, send, { bottom: !compact });
-  const voice = useVoicePick(state.board, (clueId) => send({ type: "select_clue", clueId }), state.quickPicks);
+  const voice = useVoicePick(
+    state.board,
+    (clueId) => send({ type: "select_clue", clueId, via: "voice" }),
+    state.quickPicks,
+    (miss) => send({ type: "voice_pick_missed", ...miss }),
+  );
   const [early, setEarly] = useState(false);
   const clueId = state.activeClue?.clueId;
   const lockedUntil = state.lockouts[userId];
@@ -378,7 +383,7 @@ function CompactStatus({ state, userId, voice }: { state: RoomState; userId: str
   if (state.paused || state.results) return null;
   // A spoken pick: what it's hearing, then what it heard and why nothing was picked. The
   // pick is public (it goes on the board), so showing the words on the TV is fine.
-  if (canPick(state, userId) && (voice.listening || voice.problem)) {
+  if (canPick(state, userId) && (voice.listening || voice.heard || voice.problem)) {
     return (
       <div aria-live="polite" style={{ textAlign: "center", minWidth: 0 }}>
         {voice.listening && (
@@ -444,7 +449,13 @@ function VoiceFeedback({ voice }: { voice: VoicePick }) {
       </div>
     );
   }
-  if (!voice.problem) return null;
+  if (!voice.problem) {
+    return voice.heard ? (
+      <Text ta="center" size="sm" fs="italic" aria-label="What we heard">
+        “{voice.heard}”
+      </Text>
+    ) : null;
+  }
   return (
     <Text c="red.3" fw={600} ta="center" size="sm">
       {voice.problem} Press the buzzer to try again, or tap a clue.

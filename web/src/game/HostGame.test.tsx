@@ -228,7 +228,7 @@ test("a playing host with control taps and confirms", async () => {
   fireEvent.click(screen.getByRole("button", { name: "OPERA for 200" }));
   expect(send).not.toHaveBeenCalled();
   fireEvent.click(await screen.findByRole("button", { name: "Pick" }));
-  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c2" });
+  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c2", via: "tap" });
 });
 
 test("no waiting caption; the picker's tile is highlighted", () => {
@@ -447,7 +447,7 @@ describe("the host picks by voice", () => {
     fireEvent.click(buzzer);
     expect(rec.started).toBe(1);
     act(() => rec.onFinal?.("opera for 200"));
-    expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c2" });
+    expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c2", via: "voice" });
   });
 
   test("the column shows what it hears, and why a pick failed", () => {

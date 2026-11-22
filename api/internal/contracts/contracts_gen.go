@@ -29,6 +29,12 @@ const (
 	Guest   AdminHostKind = "guest"
 )
 
+// Defines values for AdminNoticeStatusPageSync.
+const (
+	AdminNoticeStatusPageSyncFailed AdminNoticeStatusPageSync = "failed"
+	AdminNoticeStatusPageSyncOk     AdminNoticeStatusPageSync = "ok"
+)
+
 // Defines values for CurrentRoomKind.
 const (
 	CurrentRoomKindGame         CurrentRoomKind = "game"
@@ -58,8 +64,8 @@ const (
 
 // Defines values for HealthStatus.
 const (
-	Degraded HealthStatus = "degraded"
-	Ok       HealthStatus = "ok"
+	HealthStatusDegraded HealthStatus = "degraded"
+	HealthStatusOk       HealthStatus = "ok"
 )
 
 // Defines values for LeaderboardMyState.
@@ -67,6 +73,21 @@ const (
 	Hidden     LeaderboardMyState = "hidden"
 	NeedsGames LeaderboardMyState = "needs-games"
 	Ranked     LeaderboardMyState = "ranked"
+)
+
+// Defines values for NoticeKind.
+const (
+	Incident    NoticeKind = "incident"
+	Maintenance NoticeKind = "maintenance"
+	WhatsNew    NoticeKind = "whats_new"
+)
+
+// Defines values for NoticePhase.
+const (
+	Active   NoticePhase = "active"
+	Now      NoticePhase = "now"
+	Resolved NoticePhase = "resolved"
+	Upcoming NoticePhase = "upcoming"
 )
 
 // Defines values for QaAccountRole.
@@ -149,6 +170,30 @@ type AdminHostCode struct {
 	RotatesAt          time.Time  `json:"rotatesAt"`
 	ServerTime         time.Time  `json:"serverTime"`
 }
+
+// AdminNotice defines model for AdminNotice.
+type AdminNotice struct {
+	Body            string                    `json:"body"`
+	CreatedAt       time.Time                 `json:"createdAt"`
+	CreatedBy       openapi_types.UUID        `json:"createdBy"`
+	EndsAt          *time.Time                `json:"endsAt"`
+	History         int                       `json:"history"`
+	Id              openapi_types.UUID        `json:"id"`
+	Kind            NoticeKind                `json:"kind"`
+	Link            *string                   `json:"link"`
+	Phase           NoticePhase               `json:"phase"`
+	Resolution      *string                   `json:"resolution"`
+	ResolvedAt      *time.Time                `json:"resolvedAt"`
+	Revision        int                       `json:"revision"`
+	StartsAt        *time.Time                `json:"startsAt"`
+	StatusPageError *string                   `json:"statusPageError"`
+	StatusPageSync  AdminNoticeStatusPageSync `json:"statusPageSync"`
+	Title           string                    `json:"title"`
+	UpdatedAt       time.Time                 `json:"updatedAt"`
+}
+
+// AdminNoticeStatusPageSync defines model for AdminNotice.StatusPageSync.
+type AdminNoticeStatusPageSync string
 
 // AnswerRecord defines model for AnswerRecord.
 type AnswerRecord struct {
@@ -361,6 +406,37 @@ type NeedsGamesState struct {
 	GamesToGo int    `json:"gamesToGo"`
 	State     string `json:"state"`
 }
+
+// Notice defines model for Notice.
+type Notice struct {
+	Body       string             `json:"body"`
+	EndsAt     *time.Time         `json:"endsAt"`
+	Id         openapi_types.UUID `json:"id"`
+	Kind       NoticeKind         `json:"kind"`
+	Link       *string            `json:"link"`
+	Phase      NoticePhase        `json:"phase"`
+	Resolution *string            `json:"resolution"`
+	ResolvedAt *time.Time         `json:"resolvedAt"`
+	Revision   int                `json:"revision"`
+	StartsAt   *time.Time         `json:"startsAt"`
+	Title      string             `json:"title"`
+}
+
+// NoticeInput defines model for NoticeInput.
+type NoticeInput struct {
+	Body     string     `json:"body"`
+	EndsAt   *time.Time `json:"endsAt"`
+	Kind     NoticeKind `json:"kind"`
+	Link     *string    `json:"link"`
+	StartsAt *time.Time `json:"startsAt"`
+	Title    string     `json:"title"`
+}
+
+// NoticeKind defines model for NoticeKind.
+type NoticeKind string
+
+// NoticePhase defines model for NoticePhase.
+type NoticePhase string
 
 // Problem defines model for Problem.
 type Problem struct {
@@ -616,6 +692,25 @@ type PatchV1AdminHostsUserIdJSONBody struct {
 	Note *string `json:"note"`
 }
 
+// GetV1AdminNoticesParams defines parameters for GetV1AdminNotices.
+type GetV1AdminNoticesParams struct {
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
+}
+
+// PatchV1AdminNoticesIdJSONBody defines parameters for PatchV1AdminNoticesId.
+type PatchV1AdminNoticesIdJSONBody struct {
+	Body     *string    `json:"body,omitempty"`
+	EndsAt   *time.Time `json:"endsAt"`
+	Link     *string    `json:"link"`
+	StartsAt *time.Time `json:"startsAt"`
+	Title    *string    `json:"title,omitempty"`
+}
+
+// PostV1AdminNoticesIdResolveJSONBody defines parameters for PostV1AdminNoticesIdResolve.
+type PostV1AdminNoticesIdResolveJSONBody struct {
+	Resolution string `json:"resolution"`
+}
+
 // PostV1AdminQaAccountsJSONBody defines parameters for PostV1AdminQaAccounts.
 type PostV1AdminQaAccountsJSONBody struct {
 	Accounts []QaAccount `json:"accounts"`
@@ -713,6 +808,15 @@ type PostV1AdminHostCodeRotateJSONRequestBody PostV1AdminHostCodeRotateJSONBody
 
 // PatchV1AdminHostsUserIdJSONRequestBody defines body for PatchV1AdminHostsUserId for application/json ContentType.
 type PatchV1AdminHostsUserIdJSONRequestBody PatchV1AdminHostsUserIdJSONBody
+
+// PostV1AdminNoticesJSONRequestBody defines body for PostV1AdminNotices for application/json ContentType.
+type PostV1AdminNoticesJSONRequestBody = NoticeInput
+
+// PatchV1AdminNoticesIdJSONRequestBody defines body for PatchV1AdminNoticesId for application/json ContentType.
+type PatchV1AdminNoticesIdJSONRequestBody PatchV1AdminNoticesIdJSONBody
+
+// PostV1AdminNoticesIdResolveJSONRequestBody defines body for PostV1AdminNoticesIdResolve for application/json ContentType.
+type PostV1AdminNoticesIdResolveJSONRequestBody PostV1AdminNoticesIdResolveJSONBody
 
 // PostV1AdminQaAccountsJSONRequestBody defines body for PostV1AdminQaAccounts for application/json ContentType.
 type PostV1AdminQaAccountsJSONRequestBody PostV1AdminQaAccountsJSONBody
@@ -974,6 +1078,21 @@ type ServerInterface interface {
 	// Set or clear an admin-only host note
 	// (PATCH /v1/admin/hosts/{userId})
 	PatchV1AdminHostsUserId(w http.ResponseWriter, r *http.Request, userId openapi_types.UUID)
+	// Active and recent notices (admins only)
+	// (GET /v1/admin/notices)
+	GetV1AdminNotices(w http.ResponseWriter, r *http.Request, params GetV1AdminNoticesParams)
+	// Post a service notice (admins only)
+	// (POST /v1/admin/notices)
+	PostV1AdminNotices(w http.ResponseWriter, r *http.Request)
+	// Edit a notice and increment its revision (admins only)
+	// (PATCH /v1/admin/notices/{id})
+	PatchV1AdminNoticesId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Resolve an incident (admins only)
+	// (POST /v1/admin/notices/{id}/resolve)
+	PostV1AdminNoticesIdResolve(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Retry status-page synchronization (admins only)
+	// (POST /v1/admin/notices/{id}/sync)
+	PostV1AdminNoticesIdSync(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// Mark ordinary accounts as dedicated QA identities (admins only)
 	// (POST /v1/admin/qa-accounts)
 	PostV1AdminQaAccounts(w http.ResponseWriter, r *http.Request)
@@ -1028,6 +1147,9 @@ type ServerInterface interface {
 	// The caller's all-time stats
 	// (GET /v1/me/stats)
 	GetV1MeStats(w http.ResponseWriter, r *http.Request)
+	// Active service notices in display priority order
+	// (GET /v1/notices)
+	GetV1Notices(w http.ResponseWriter, r *http.Request)
 	// Create a room; the caller becomes host
 	// (POST /v1/rooms)
 	PostV1Rooms(w http.ResponseWriter, r *http.Request)
@@ -1253,6 +1375,152 @@ func (siw *ServerInterfaceWrapper) PatchV1AdminHostsUserId(w http.ResponseWriter
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchV1AdminHostsUserId(w, r, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetV1AdminNotices operation middleware
+func (siw *ServerInterfaceWrapper) GetV1AdminNotices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetV1AdminNoticesParams
+
+	// ------------- Optional query parameter "days" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "days", r.URL.Query(), &params.Days)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "days", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1AdminNotices(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1AdminNotices operation middleware
+func (siw *ServerInterfaceWrapper) PostV1AdminNotices(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1AdminNotices(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchV1AdminNoticesId operation middleware
+func (siw *ServerInterfaceWrapper) PatchV1AdminNoticesId(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchV1AdminNoticesId(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1AdminNoticesIdResolve operation middleware
+func (siw *ServerInterfaceWrapper) PostV1AdminNoticesIdResolve(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1AdminNoticesIdResolve(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1AdminNoticesIdSync operation middleware
+func (siw *ServerInterfaceWrapper) PostV1AdminNoticesIdSync(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1AdminNoticesIdSync(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1687,6 +1955,26 @@ func (siw *ServerInterfaceWrapper) GetV1MeStats(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// GetV1Notices operation middleware
+func (siw *ServerInterfaceWrapper) GetV1Notices(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1Notices(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PostV1Rooms operation middleware
 func (siw *ServerInterfaceWrapper) PostV1Rooms(w http.ResponseWriter, r *http.Request) {
 
@@ -1962,6 +2250,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/hosts", wrapper.GetV1AdminHosts)
 	m.HandleFunc("DELETE "+options.BaseURL+"/v1/admin/hosts/{userId}", wrapper.DeleteV1AdminHostsUserId)
 	m.HandleFunc("PATCH "+options.BaseURL+"/v1/admin/hosts/{userId}", wrapper.PatchV1AdminHostsUserId)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/notices", wrapper.GetV1AdminNotices)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/notices", wrapper.PostV1AdminNotices)
+	m.HandleFunc("PATCH "+options.BaseURL+"/v1/admin/notices/{id}", wrapper.PatchV1AdminNoticesId)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/notices/{id}/resolve", wrapper.PostV1AdminNoticesIdResolve)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/notices/{id}/sync", wrapper.PostV1AdminNoticesIdSync)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/qa-accounts", wrapper.PostV1AdminQaAccounts)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/qa-cleanup", wrapper.PostV1AdminQaCleanup)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/staff-access", wrapper.PostV1AdminStaffAccess)
@@ -1980,6 +2273,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("POST "+options.BaseURL+"/v1/me/merge", wrapper.PostV1MeMerge)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/me/merge-tickets", wrapper.PostV1MeMergeTickets)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/me/stats", wrapper.GetV1MeStats)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/notices", wrapper.GetV1Notices)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/rooms", wrapper.PostV1Rooms)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/rooms/by-code/{code}", wrapper.GetV1RoomsByCodeCode)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/rooms/join", wrapper.PostV1RoomsJoin)

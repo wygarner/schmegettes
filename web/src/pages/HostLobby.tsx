@@ -35,6 +35,7 @@ import {
 } from "../lib/gameOptions";
 import { money } from "../lib/money";
 import { stopNarration } from "../lib/narrator";
+import { fetchNotices, lobbyNotices, type NoticeResponse } from "../lib/notices";
 import { prepareVoice } from "../lib/piper/engine";
 import { contestantCount, type ResumeLobby, type RoomState, useRoom } from "../lib/room";
 import { type RoomJoin, roomByCode, updateRoomOptions } from "../lib/rooms";
@@ -43,6 +44,7 @@ import { GoldButton } from "../ui/GoldButton";
 import { HomeButton } from "../ui/HomeButton";
 import { HomeScreenTip } from "../ui/HomeScreenTip";
 import { JoinQr } from "../ui/JoinQr";
+import { LobbyNoticeStrip } from "../ui/LobbyNoticeStrip";
 import { Sheet } from "../ui/Sheet";
 import { Stage, StageBody } from "../ui/Stage";
 import { BEVEL, DISPLAY, SOFT, TILE_BG } from "../ui/tokens";
@@ -99,6 +101,23 @@ export function HostLobby() {
 function ConnectedHostLobby({ room }: { room: RoomJoin }) {
   const { state, send } = useRoom(room.gameSocketUrl, room.room.hostUserId);
   const [options, change] = useGameOptions(room);
+  const [noticeData, setNoticeData] = useState<NoticeResponse | null>(null);
+  const fetchedNotices = useRef(false);
+  useEffect(() => {
+    if (state.phase !== "lobby" || fetchedNotices.current) return;
+    fetchedNotices.current = true;
+    let live = true;
+    void fetchNotices()
+      .then((data) => {
+        if (live) setNoticeData(data);
+      })
+      .catch(() => {
+        if (live) setNoticeData(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [state.phase]);
   return (
     <HostLobbyView
       code={room.room.code}
@@ -107,6 +126,7 @@ function ConnectedHostLobby({ room }: { room: RoomJoin }) {
       send={send}
       options={options}
       onOptions={change}
+      noticeData={noticeData}
     />
   );
 }
@@ -165,6 +185,7 @@ export function HostLobbyView({
   send,
   options = DEFAULT_OPTIONS,
   onOptions,
+  noticeData = null,
 }: {
   code: string;
   /** Where phones join, without the scheme, as it's read off the TV: "schmegettes.app/join". */
@@ -174,6 +195,8 @@ export function HostLobbyView({
   /** The room's game options and how to change them (absent: no Options button). */
   options?: GameOptions;
   onOptions?: (next: GameOptions) => void;
+  /** Fetched once by the connected lobby; exposed for focused display tests. */
+  noticeData?: NoticeResponse | null;
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   // The player menu's rename sheet: whose name (null: the host's own), and the draft.
@@ -276,9 +299,11 @@ export function HostLobbyView({
     setRenaming(null);
   }
 
+  const warning = noticeData ? lobbyNotices(noticeData.notices, noticeData.serverTime)[0] : undefined;
+
   const stage = (
     <Stage>
-      <HomeScreenTip />
+      {warning ? <LobbyNoticeStrip notice={warning} serverTime={noticeData?.serverTime ?? ""} /> : <HomeScreenTip />}
       <Group justify="space-between" wrap="nowrap" gap="xs">
         <Group gap={2} wrap="nowrap">
           <div style={{ margin: "-10px 0 -10px -10px" }}>

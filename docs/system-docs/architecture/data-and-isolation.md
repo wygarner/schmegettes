@@ -56,6 +56,8 @@ commit;
 | `private.cleanup_runs` | **nothing** (no role but the owner): one row per guest-cleanup run, counts and durations only. Admins read it through `private.admin_cleanup_runs()` |
 | `private.staff_grants` | **nothing** (no role but the owner): the admin's time-limited grants to read one user, room, or game, with the reason. Reached only through the `private.staff_*` functions |
 | `private.qa_accounts` | **nothing** (RLS on, no policies, privileges revoked from every app role): dedicated QA identities. Reached only through the helpers below |
+| `public.notices` | **nothing directly**: players read display-only fields through `private.active_notices()`; admins write through `private.admin_*notice*` functions |
+| `private.notice_history` | **nothing** (RLS on, no policies): append-only post, edit, resolve, and sync history with the admin actor |
 
 Supabase's default grants to `anon`/`authenticated` are revoked, including default privileges for future tables. **Every new table needs an explicit grant, `enable row level security`, policies, and a test in `supabase/tests/`.**
 
@@ -97,6 +99,8 @@ Schema `private` holds functions the Data API doesn't expose, so calling them me
 | `private.is_qa(user)` | internal only | Whether an account is a dedicated QA identity. Ranking and cleanup use it; no app role can call it directly |
 | `private.admin_mark_qa(user, role, label)` | `authenticated` (api `POST /v1/admin/qa-accounts`) | Admins only. Marks the account, sets its account name and leaderboard preference, and gives the QA host permanent host access |
 | `private.admin_qa_cleanup(age, dry_run)` | `authenticated` (api `POST /v1/admin/qa-cleanup`) | Admins only. Previews or deletes old rooms and games belonging only to QA accounts, plus those accounts' seen clues for deleted games. Any non-QA participant makes the row ineligible |
+| `private.active_notices(at)` | `authenticated` (api `GET /v1/notices`) | Display-only active notices in Incident, Maintenance, What's new order, evaluated on the server clock |
+| `private.admin_post_notice`, `admin_edit_notice`, `admin_resolve_notice`, `admin_set_notice_sync`, `admin_notices` | `authenticated` (api `/v1/admin/notices*`) | Admins only. Validate lifecycle changes, increment revisions on edits/resolution, and append `notice_history` plus the security audit |
 
 ## Account functions
 
@@ -148,6 +152,7 @@ Rows are written for:
 | `staff_access_granted`, `staff_read`, `staff_access_revoked` | the `staff_*` functions |
 | `qa_account_marked` | `admin_mark_qa`, once per marked account (subject: that account; role only in details) |
 | `qa_cleanup` | `admin_qa_cleanup`, once per preview or apply (subject `system`; dry-run flag and room/game counts) |
+| `notice_posted`, `notice_edited`, `notice_resolved`, `notice_synced` | the `admin_*notice*` functions (subject: the notice; display content is kept in notice history, not audit details) |
 
 ## Guest cleanup
 

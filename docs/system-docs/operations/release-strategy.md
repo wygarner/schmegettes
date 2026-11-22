@@ -41,6 +41,7 @@ The script reads commit bodies and PR descriptions as well as subjects (the thre
    No run listed → dispatch it: `gh workflow run deploy-prod.yml --ref production`.
 6. **Confirm production health:** Grafana dashboards and error rates since the deploy (**not yet implemented**, see [stack.md](../engineering/stack.md)), and a production smoke with QA accounts strictly within [the production rules](../quality/agent-qa.md#production-rules). Until Grafana is set up, health also requires `/healthz` on `api` and `game` and the worker process running.
 7. **Only then** open a sign-off PR to `production` setting `released: true` and `release-date: YYYY-MM-DD` in `metadata.md`; merge as a merge commit.
+8. **Post What's new** from the production devtools Admin page, using the signed-off `user-release-notes.md` as the source. Preview it, post once, and confirm it appears on Home.
 
 The gap between "code is live" and "marked released" is deliberate: a human confirms production health before anyone is told the release shipped.
 
@@ -70,13 +71,13 @@ Code rollbacks do not undo migrations. Because migrations are additive (see [dat
 
 ## Communication
 
-Players are anonymous by default, so there is no email list: players hear about releases and incidents through in-app notices, plus a status page (decided 2026-11-09; **not yet implemented**). There is no separate support or internal team, so the guide's "Support" and "Internal team" rows don't apply.
+Players are anonymous by default, so there is no email list: players hear about releases and incidents through in-app notices, plus the externally hosted Instatus page. There is no separate support or internal team, so the guide's "Support" and "Internal team" rows don't apply.
 
 | Event | Audience | Channel | Timing | Owner |
 |---|---|---|---|---|
-| Release | Players | `user-release-notes.md`, shown as an in-app notice (**not yet implemented**) | After sign-off (Process step 7) | Wyatt Garner |
-| Planned maintenance or downtime | Players | In-app notice; status page (**not yet implemented**) | At least 24 hours ahead | Wyatt Garner |
-| Incident players notice | Affected players | In-app notice; status page (**not yet implemented**) | A first notice once the incident is confirmed, then an update every 6 hours until resolved, then a resolution notice | Wyatt Garner |
+| Release | Players | `user-release-notes.md`, posted as What's new in devtools | After sign-off (Process step 8) | Wyatt Garner |
+| Planned maintenance or downtime | Players | Devtools Maintenance notice; synchronized to Instatus | At least 24 hours ahead | Wyatt Garner |
+| Incident players notice | Affected players | Devtools Incident notice; synchronized to Instatus | A first notice once the incident is confirmed, then an update every 6 hours until resolved, then a resolution notice | Wyatt Garner |
 | Security or privacy incident | Affected players, and regulators where required | As the law requires | Within the legal deadline | Wyatt Garner |
 
 Every message:

@@ -6,6 +6,7 @@ import { currentAccount } from "../lib/account";
 import { markGamePlayed, setSignedOutNotice, shouldShowSavePrompt, signedOutNotice } from "../lib/accountFlags";
 import { lastGame } from "../lib/games";
 import { getHostAccess, redeemHostCode } from "../lib/hostAccess";
+import { fetchNotices } from "../lib/notices";
 import { type CurrentRoom, createRoom, currentRoom } from "../lib/rooms";
 import { Home, normalizeRoomCode } from "./Home";
 
@@ -19,6 +20,10 @@ vi.mock("../lib/hostAccess", async (original) => ({
   ...(await original<typeof import("../lib/hostAccess")>()),
   getHostAccess: vi.fn(),
   redeemHostCode: vi.fn(),
+}));
+vi.mock("../lib/notices", async (original) => ({
+  ...(await original<typeof import("../lib/notices")>()),
+  fetchNotices: vi.fn(),
 }));
 
 function renderHome() {
@@ -44,6 +49,7 @@ beforeEach(() => {
   vi.mocked(currentAccount).mockReset().mockResolvedValue({ kind: "guest" });
   vi.mocked(lastGame).mockReset().mockResolvedValue(null);
   vi.mocked(currentRoom).mockReset().mockResolvedValue(null);
+  vi.mocked(fetchNotices).mockReset().mockResolvedValue({ notices: [], serverTime: new Date().toISOString() });
   window.localStorage.clear();
 });
 

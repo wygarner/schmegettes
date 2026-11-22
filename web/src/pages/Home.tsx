@@ -1,5 +1,5 @@
 import { Stack } from "@mantine/core";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { type Account, currentAccount } from "../lib/account";
 import { setSignedOutNotice, shouldShowSavePrompt, signedOutNotice, snoozeSavePrompt } from "../lib/accountFlags";
@@ -7,6 +7,14 @@ import { getPrefillName, isValidName, MAX_NAME, setLastName } from "../lib/displ
 import { type GameSummary, lastGame } from "../lib/games";
 import { getHostAccess } from "../lib/hostAccess";
 import { money } from "../lib/money";
+import {
+  dismissNotice,
+  fetchNotices,
+  type HealthState,
+  type Notice,
+  NoticeHealth,
+  visibleNotices,
+} from "../lib/notices";
 import { listWhen, ordinal } from "../lib/placement";
 import { type CurrentRoom, createRoom, currentRoom } from "../lib/rooms";
 import {
@@ -22,8 +30,10 @@ import {
   Row,
   Spinner,
 } from "../ui/menu";
+import { NoticeBanner } from "../ui/NoticeBanner";
 import { SignInSheet } from "../ui/SignInSheet";
 import { AMBER, FAINT, QUIET, RED, SOFT, SURFACE } from "../ui/tokens";
+import { UnreachableBanner } from "../ui/UnreachableBanner";
 import { Wordmark } from "../ui/Wordmark";
 import { HostCodeSheet } from "./HostCodeSheet";
 
@@ -65,6 +75,50 @@ export function Home() {
   // The room this account is in, to rejoin (rejoin-games feature brief).
   const [room, setRoom] = useState<CurrentRoom | null>(null);
   const [roomEnded, setRoomEnded] = useState(false);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [noticeHealth, setNoticeHealth] = useState<HealthState>("healthy");
+  const health = useRef(new NoticeHealth());
+
+  useEffect(() => {
+    let live = true;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const refresh = async () => {
+      if (retry) clearTimeout(retry);
+      try {
+        const response = await fetchNotices();
+        if (!live) return;
+        setNotices(visibleNotices(response.notices));
+        setNoticeHealth(health.current.success());
+      } catch {
+        if (!live) return;
+        setNotices([]);
+        setNoticeHealth(health.current.failure());
+        retry = setTimeout(() => void refresh(), 30_000);
+      }
+    };
+    const visibility = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    const connection = () => {
+      setNoticeHealth(health.current.connectionChanged());
+      if (navigator.onLine !== false) void refresh();
+    };
+    void refresh();
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, 5 * 60_000);
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("online", connection);
+    window.addEventListener("offline", connection);
+    return () => {
+      live = false;
+      clearInterval(interval);
+      if (retry) clearTimeout(retry);
+      document.removeEventListener("visibilitychange", visibility);
+      window.removeEventListener("online", connection);
+      window.removeEventListener("offline", connection);
+    };
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -172,6 +226,19 @@ export function Home() {
       </div>
 
       <Stack gap={14} px={16}>
+        {noticeHealth === "healthy" ? (
+          <NoticeBanner
+            notices={notices}
+            onDismiss={(notice) => {
+              dismissNotice(notice);
+              setNotices((current) =>
+                current.filter((item) => item.id !== notice.id || item.revision !== notice.revision),
+              );
+            }}
+          />
+        ) : (
+          <UnreachableBanner state={noticeHealth} />
+        )}
         {signedOut && (
           <Callout
             tone="warn"

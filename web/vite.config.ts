@@ -48,6 +48,7 @@ export default defineConfig({
       VITE_SUPABASE_URL: "http://supabase.test",
       VITE_SUPABASE_ANON_KEY: "test-anon-key",
       VITE_API_URL: "http://api.test",
+      VITE_STATUS_URL: "https://status.test",
     },
   },
 });

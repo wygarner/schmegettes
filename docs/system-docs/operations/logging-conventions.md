@@ -82,6 +82,8 @@ Lines that alerts and investigations depend on. Keep the message and fields exac
 | `info` | `rate limited` | `group`, `request_id` | `api/internal/ratelimit` | — |
 | `info` | `qa accounts marked` | `count`, `request_id` | `api/internal/admin` | — |
 | `info` | `qa cleanup` | `dry_run`, `rooms`, `games`, `request_id` | `api/internal/admin` | — |
+| `info` | `notice posted`, `notice edited`, `notice resolved` | `notice_id`, `kind`, `revision` | `api/internal/notices` | — |
+| `warn` | `status page sync failed` | `notice_id`, `provider_status` | `api/internal/notices` | — |
 
 Never logged: a grant's reason (it can contain personal data), what a staff read returned, and the text of other database notices (only their severity and code, at `debug`).
 QA operator logs contain counts only: never account IDs, emails, labels, passwords, room IDs, or game IDs.

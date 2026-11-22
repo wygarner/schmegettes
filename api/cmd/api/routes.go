@@ -13,6 +13,7 @@ import (
 	"schmegettes/api/internal/contracts"
 	"schmegettes/api/internal/games"
 	"schmegettes/api/internal/hostaccess"
+	"schmegettes/api/internal/notices"
 	"schmegettes/api/internal/ratelimit"
 	"schmegettes/api/internal/rooms"
 	"schmegettes/api/internal/server"
@@ -23,15 +24,16 @@ import (
 // routes implements the generated contracts.ServerInterface. Operations no task has built yet
 // answer 501.
 type routes struct {
-	admin  admin.Handler
-	rooms  rooms.Handler
-	games  games.Handler
-	host   hostaccess.Handler
-	me     account.Handler
-	stats  stats.Handler
-	staff  staffaccess.Handler
-	limits limits
-	ping   func(context.Context) error
+	admin   admin.Handler
+	rooms   rooms.Handler
+	games   games.Handler
+	host    hostaccess.Handler
+	notices notices.Handler
+	me      account.Handler
+	stats   stats.Handler
+	staff   staffaccess.Handler
+	limits  limits
+	ping    func(context.Context) error
 }
 
 // limits are the per-user rate limits. Every route has one group (routeGroup): a default by
@@ -122,10 +124,10 @@ func (rt routes) GetHealthz(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 	if err := rt.ping(ctx); err != nil {
-		server.JSON(w, http.StatusServiceUnavailable, contracts.Health{Status: contracts.Degraded})
+		server.JSON(w, http.StatusServiceUnavailable, contracts.Health{Status: contracts.HealthStatusDegraded})
 		return
 	}
-	server.JSON(w, http.StatusOK, contracts.Health{Status: contracts.Ok})
+	server.JSON(w, http.StatusOK, contracts.Health{Status: contracts.HealthStatusOk})
 }
 
 func (routes) GetVersion(w http.ResponseWriter, _ *http.Request) {
@@ -147,6 +149,21 @@ func (rt routes) GetV1RoomsByCodeCode(w http.ResponseWriter, r *http.Request, co
 func (rt routes) GetV1HostAccess(w http.ResponseWriter, r *http.Request) { rt.host.Status(w, r) }
 func (rt routes) PostV1HostAccessRedeem(w http.ResponseWriter, r *http.Request) {
 	rt.host.Redeem(w, r)
+}
+
+func (rt routes) GetV1Notices(w http.ResponseWriter, r *http.Request) { rt.notices.Active(w, r) }
+func (rt routes) GetV1AdminNotices(w http.ResponseWriter, r *http.Request, params contracts.GetV1AdminNoticesParams) {
+	rt.notices.List(w, r, params.Days)
+}
+func (rt routes) PostV1AdminNotices(w http.ResponseWriter, r *http.Request) { rt.notices.Post(w, r) }
+func (rt routes) PatchV1AdminNoticesId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	rt.notices.Edit(w, r, id)
+}
+func (rt routes) PostV1AdminNoticesIdResolve(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	rt.notices.Resolve(w, r, id)
+}
+func (rt routes) PostV1AdminNoticesIdSync(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	rt.notices.Retry(w, r, id)
 }
 
 func (rt routes) GetV1AdminHostCode(w http.ResponseWriter, r *http.Request) {

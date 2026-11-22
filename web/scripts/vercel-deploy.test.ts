@@ -8,6 +8,7 @@ import { collectFiles, contentSecurityPolicy, deploy, vercelConfig } from "./ver
 const env = {
   VITE_SUPABASE_URL: "https://abc.supabase.co",
   VITE_API_URL: "https://schmegettes-api-staging.fly.dev",
+  VITE_STATUS_URL: "https://status.schmegettes.com",
   GAME_SOCKET_ORIGIN: "wss://schmegettes-game-staging.fly.dev",
 };
 const vercelEnv = {

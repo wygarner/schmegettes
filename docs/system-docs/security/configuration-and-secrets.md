@@ -19,6 +19,8 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `SUPABASE_JWKS_URL` | api, game | no (public keys) | Fly secret: `{SUPABASE_URL}/auth/v1/.well-known/jwks.json` |
 | `ALLOWED_ORIGINS` | api, game | no | Fly secret: the web origin, `https://schmegettes.app` (staging `https://staging.schmegettes.app`). The api's also includes `http://localhost:5174`, so the devtools Admin page can call it |
 | `GAME_SOCKET_BASE_URL` | api | no | Fly secret: `wss://schmegettes-game-{staging,prod}.fly.dev` |
+| `STATUS_PAGE_API_TOKEN` | api | **yes** | Fly secret. Instatus API key for that environment's page; unset selects the no-op client |
+| `STATUS_PAGE_ID` | api | no | Fly secret alongside the token: the Instatus page ID for that environment |
 | `REDIS_URL` | game | **yes** | host secret store. Listed in `game/.env.example` but not read yet: no service uses Redis |
 | `CLUE_DATASET_BASE_URL` | worker | no | `worker/.env`; in `load-clues.yml`, the optional repo variable `CLUE_DATASET_BASE_URL` (defaults to the dataset URL) |
 | `ANTHROPIC_API_KEY` | worker | **yes** | Read by `rate-clues` (and, later, the LLM judge). Local: `worker/.env`. Staging and production: `rate-clues.yml` sets it from `STAGING_ANTHROPIC_API_KEY` or `PROD_ANTHROPIC_API_KEY` (below) |
@@ -26,6 +28,7 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `VITE_SUPABASE_URL` | web | no | GitHub Environment variable, read by `deploy.yml` at build time |
 | `VITE_SUPABASE_ANON_KEY` | web | no (public by design) | GitHub Environment variable |
 | `VITE_API_URL` | web | no | GitHub Environment variable |
+| `VITE_STATUS_URL` | web | no | GitHub Environment variable: the public Instatus page opened by the unreachable banner |
 | `VITE_{LOCAL,STAGING,PRODUCTION}_{SUPABASE_URL,SUPABASE_ANON_KEY,API_URL}` | devtools | no (public, like web's) | `devtools/.env.local` on the admin's computer only. Never a database URL or service-role key: the Admin page signs in as the admin |
 | `VITE_{LOCAL,STAGING,PRODUCTION}_QA_ACCOUNT_DOMAIN` | `scripts/qa-accounts.mjs` | no | `devtools/.env.local` on the admin's computer. Domain used for the seven QA email addresses; local defaults to `example.test` |
 
@@ -41,7 +44,7 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `VERCEL_TOKEN` | secret | GitHub Environments `staging` and `production` | `deploy.yml` |
 | `FLY_APP_API`, `FLY_APP_GAME` | variables | GitHub Environments: `schmegettes-{api,game}-staging` / `-prod` | `deploy.yml` |
 | `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | variables | GitHub Environments (from the Vercel project's settings) | `deploy.yml` |
-| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL` | variables (public) | GitHub Environments | `deploy.yml` web build |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL`, `VITE_STATUS_URL` | variables (public) | GitHub Environments | `deploy.yml` web build |
 | `GAME_SOCKET_ORIGIN` | variable (public) | GitHub Environments: `wss://schmegettes-game-{staging,prod}.fly.dev` | `deploy.yml`, the web CSP's `connect-src` |
 | `E2E_HOST_EMAIL` | variable (not secret) | GitHub Environment `staging` (**not set yet**): the E2E host account ([testing-strategy.md](../engineering/testing-strategy.md#6-end-to-end)) | `e2e.yml` |
 | `E2E_HOST_PASSWORD` | secret | GitHub Environment `staging` (**not set yet**) | `e2e.yml` |
@@ -64,6 +67,7 @@ Owner of every secret: **Wyatt Garner**.
 | Supabase JWT signing keys | Rotate in Supabase (asymmetric signing keys). No redeploy: `golib/auth` caches the JWKS and refetches it when a token names a key it hasn't seen. Revoke the old key once tokens signed with it have expired. |
 | `REDIS_URL` credentials | Rotate in the Redis provider, then update the game's secret and restart it. |
 | `ANTHROPIC_API_KEY`, `STAGING_ANTHROPIC_API_KEY`, `PROD_ANTHROPIC_API_KEY` | Create a new key in the Anthropic console, update the secret where that key is kept (`worker/.env`, the GitHub Environment, or the repo secret), then revoke the old key. |
+| `STATUS_PAGE_API_TOKEN` | Create a replacement Instatus key scoped to the page, set it with `fly secrets set STATUS_PAGE_API_TOKEN=… -a {api-app}`, confirm a notice sync, then revoke the old key. Free-plan keys expire after at most 90 days. |
 
 Rotate a secret:
 

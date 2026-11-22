@@ -775,7 +775,15 @@ type SelectClue struct {
 
 	// Type corresponds to the JSON schema field "type".
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+
+	// Via corresponds to the JSON schema field "via".
+	Via *SelectClueVia `json:"via,omitempty" yaml:"via,omitempty" mapstructure:"via,omitempty"`
 }
+
+type SelectClueVia string
+
+const SelectClueViaTap SelectClueVia = "tap"
+const SelectClueViaVoice SelectClueVia = "voice"
 
 // Lobby only. Without userId (or with your own), renames the sender and remembers
 // the name for next time. With another member's userId, host only and not in a
@@ -914,6 +922,30 @@ const VerdictOverriddenIncorrect Verdict = "overridden_incorrect"
 
 // userId -> score after the override.
 type VerdictOverriddenScores map[string]int
+
+// A spoken pick that the phone could not match. Logged by the server only; it
+// never changes game state or broadcasts.
+type VoicePickMissed struct {
+	// Alternatives corresponds to the JSON schema field "alternatives".
+	Alternatives []string `json:"alternatives,omitempty" yaml:"alternatives,omitempty" mapstructure:"alternatives,omitempty"`
+
+	// Heard corresponds to the JSON schema field "heard".
+	Heard string `json:"heard" yaml:"heard" mapstructure:"heard"`
+
+	// Problem corresponds to the JSON schema field "problem".
+	Problem VoicePickMissedProblem `json:"problem" yaml:"problem" mapstructure:"problem"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
+
+type VoicePickMissedProblem string
+
+const VoicePickMissedProblemAmbiguous VoicePickMissedProblem = "ambiguous"
+const VoicePickMissedProblemNoCategory VoicePickMissedProblem = "no-category"
+const VoicePickMissedProblemNoValue VoicePickMissedProblem = "no-value"
+const VoicePickMissedProblemNothingHeard VoicePickMissedProblem = "nothing-heard"
+const VoicePickMissedProblemTaken VoicePickMissedProblem = "taken"
 
 // A player locked a wager. Daily Double: amount is on every copy (public). Final:
 // amount is only in the wagering player's own copy, never the host device's.

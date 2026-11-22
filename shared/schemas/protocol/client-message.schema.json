@@ -9,6 +9,7 @@
     { "$ref": "#/$defs/SetHostPlays" },
     { "$ref": "#/$defs/LeaveRoom" },
     { "$ref": "#/$defs/SelectClue" },
+    { "$ref": "#/$defs/VoicePickMissed" },
     { "$ref": "#/$defs/ReadingDone" },
     { "$ref": "#/$defs/Buzz" },
     { "$ref": "#/$defs/AnswerProgress" },
@@ -60,9 +61,29 @@
       "type": "object",
       "properties": {
         "type": { "const": "select_clue" },
-        "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" }
+        "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
+        "via": { "type": "string", "enum": ["tap", "voice"] }
       },
       "required": ["type", "clueId"],
+      "additionalProperties": false
+    },
+    "VoicePickMissed": {
+      "description": "A spoken pick that the phone could not match. Logged by the server only; it never changes game state or broadcasts.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "voice_pick_missed" },
+        "problem": {
+          "type": "string",
+          "enum": ["no-category", "ambiguous", "no-value", "taken", "nothing-heard"]
+        },
+        "heard": { "type": "string", "maxLength": 200 },
+        "alternatives": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "maxItems": 4
+        }
+      },
+      "required": ["type", "problem", "heard"],
       "additionalProperties": false
     },
     "ReadingDone": {

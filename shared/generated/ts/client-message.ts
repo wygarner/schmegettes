@@ -9,6 +9,7 @@ export type ClientMessage =
   | SetHostPlays
   | LeaveRoom
   | SelectClue
+  | VoicePickMissed
   | ReadingDone
   | Buzz
   | AnswerProgress
@@ -52,6 +53,19 @@ export interface LeaveRoom {
 export interface SelectClue {
   type: "select_clue";
   clueId: string;
+  via?: "tap" | "voice";
+}
+/**
+ * A spoken pick that the phone could not match. Logged by the server only; it never changes game state or broadcasts.
+ */
+export interface VoicePickMissed {
+  type: "voice_pick_missed";
+  problem: "no-category" | "ambiguous" | "no-value" | "taken" | "nothing-heard";
+  heard: string;
+  /**
+   * @maxItems 4
+   */
+  alternatives?: [] | [string] | [string, string] | [string, string, string] | [string, string, string, string];
 }
 /**
  * Host only. The host device finished reading the active clue aloud, so buzzing can open.

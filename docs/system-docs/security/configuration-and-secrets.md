@@ -22,7 +22,7 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `STATUS_PAGE_API_TOKEN` | api | **yes** | Fly secret. Instatus API key for that environment's page; unset selects the no-op client |
 | `STATUS_PAGE_ID` | api | no | Fly secret alongside the token: the Instatus page ID for that environment |
 | `REDIS_URL` | game | **yes** | host secret store. Listed in `game/.env.example` but not read yet: no service uses Redis |
-| `CLUE_DATASET_BASE_URL` | worker | no | `worker/.env`; in `load-clues.yml`, the optional repo variable `CLUE_DATASET_BASE_URL` (defaults to the dataset URL) |
+| `CLUE_DATASET_BASE_URL` | worker | no | `worker/.env`; in `load-clues.yml`, the repository or environment variable `CLUE_DATASET_BASE_URL` (required; the load fails without it). The repo ships no dataset or default URL: each operator, including anyone running a fork, supplies their own and is responsible for its rights |
 | `ANTHROPIC_API_KEY` | worker | **yes** | Read by `rate-clues` (and, later, the LLM judge). Local: `worker/.env`. Staging and production: `rate-clues.yml` sets it from `STAGING_ANTHROPIC_API_KEY` or `PROD_ANTHROPIC_API_KEY` (below) |
 | `DIFFICULTY_MODEL` | worker | no | The model `rate-clues` uses (default `claude-haiku-5-5`). Local: `worker/.env`. In `rate-clues.yml`, the optional repo or environment variable `DIFFICULTY_MODEL` |
 | `VITE_SUPABASE_URL` | web | no | GitHub Environment variable, read by `deploy.yml` at build time |

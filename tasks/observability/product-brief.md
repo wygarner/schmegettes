@@ -40,6 +40,6 @@ Everything is already decided in [stack.md](../../docs/system-docs/engineering/s
 - Removing an alert rule from the repo and merging removes it from Grafana.
 - release-strategy.md step 6 points at the dashboard and error rates instead of "not yet implemented".
 
-**Decision (Wyatt Garner, 2026-11-19): a separate Schmegettes Grafana Cloud stack** (free tier). The `celeronsolutions` stack belongs to a different business and is not used: separate access, retention, and billing, and nothing of another business's is exposed when the repo goes public. Record the stack's name and URL in observability.md and [stack.md](../../docs/system-docs/engineering/stack.md).
+**Decision (Wyatt Garner, 2026-11-19): a dedicated Schmegettes Grafana Cloud stack** (free tier), not shared with any other project, so access, retention, and billing stay separate. The stack is operator configuration: its URLs and tokens live in the environment, never in the repository, and anyone running a fork sets up their own stack. Document the setup (what to create and which variables to set) in observability.md, not this deployment's stack name.
 
 **Out of scope:** A paging app or SMS (email only, as decided), on-call rotation (one person), the customer-facing status page and in-app notices (the `service-notices` task), backups (the `backups-and-restore` task), the security audit table and its alerts (the `security-audit-and-staff-access` task), Redis or worker queue metrics (neither exists yet), and LLM eval telemetry.

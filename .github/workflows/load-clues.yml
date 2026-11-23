@@ -58,13 +58,18 @@ jobs:
           # Each environment reads only its own secret: no fallback from one to the other.
           PROD_OWNER_URL: ${{ secrets.PROD_SUPABASE_DB_OWNER_URL }}
           STAGING_OWNER_URL: ${{ secrets.STAGING_SUPABASE_DB_OWNER_URL }}
-          CLUE_DATASET_BASE_URL: ${{ vars.CLUE_DATASET_BASE_URL || 'https://raw.githubusercontent.com/wygarner/jeopardy_clue_dataset/refs/heads/main/seasons' }}
+          # No default: each operator supplies their own dataset (configuration-and-secrets.md).
+          CLUE_DATASET_BASE_URL: ${{ vars.CLUE_DATASET_BASE_URL }}
         run: |
           if [ "$APP_ENV" = production ]; then DATABASE_OWNER_URL="$PROD_OWNER_URL"; else DATABASE_OWNER_URL="$STAGING_OWNER_URL"; fi
           export DATABASE_OWNER_URL
           unset PROD_OWNER_URL STAGING_OWNER_URL
           if [ -z "$DATABASE_OWNER_URL" ]; then
             echo "::error::No owner database URL for $APP_ENV (STAGING_SUPABASE_DB_OWNER_URL or PROD_SUPABASE_DB_OWNER_URL in the GitHub Environment)."
+            exit 1
+          fi
+          if [ -z "$CLUE_DATASET_BASE_URL" ]; then
+            echo "::error::Set the repository or environment variable CLUE_DATASET_BASE_URL to your clue dataset's season folder."
             exit 1
           fi
           uv run --no-dev python -m schmegettes_worker import-clues --seasons "$SEASONS" | tee "$RUNNER_TEMP/summary.txt"

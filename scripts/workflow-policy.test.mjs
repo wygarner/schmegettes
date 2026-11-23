@@ -1,4 +1,5 @@
 // Run with: node --test scripts/workflow-policy.test.mjs
+// biome-ignore-all lint/suspicious/noTemplateCurlyInString: fixtures contain literal GitHub Actions ${{ }} expressions
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -40,7 +41,10 @@ test("a clean workflow passes", () => {
 test("no-untrusted-trigger: pull_request_target and workflow_run fail, in block or flow form", () => {
   assert.deepEqual(rulesOf(clean.replace("  pull_request:\n", "  pull_request_target:\n")), ["no-untrusted-trigger"]);
   assert.deepEqual(rulesOf(clean.replace("  workflow_dispatch:\n", "  workflow_run:\n")), ["no-untrusted-trigger"]);
-  const flow = clean.replace(/on:\n {2}pull_request:\n {4}branches: \[develop\]\n {2}workflow_dispatch:\n/, "on: [push, workflow_run]\n");
+  const flow = clean.replace(
+    /on:\n {2}pull_request:\n {4}branches: \[develop\]\n {2}workflow_dispatch:\n/,
+    "on: [push, workflow_run]\n",
+  );
   assert.deepEqual(rulesOf(flow), ["no-untrusted-trigger"]);
 });
 
@@ -84,22 +88,39 @@ test("run-injection: untrusted expressions in a script fail, inline or block", (
 });
 
 test("fork-guard: a PR-triggered job with write permissions or secrets needs the trusted-PR guard", () => {
-  const writes = clean.replace("    runs-on: ubuntu-latest\n", "    runs-on: ubuntu-latest\n    permissions:\n      issues: write\n");
+  const writes = clean.replace(
+    "    runs-on: ubuntu-latest\n",
+    "    runs-on: ubuntu-latest\n    permissions:\n      issues: write\n",
+  );
   assert.deepEqual(rulesOf(writes), ["fork-guard"]);
-  const secrets = clean.replace("      - uses: ./.github/actions/local\n", "      - uses: ./.github/actions/local\n        env:\n          KEY: ${{ secrets.API_KEY }}\n");
+  const secrets = clean.replace(
+    "      - uses: ./.github/actions/local\n",
+    "      - uses: ./.github/actions/local\n        env:\n          KEY: ${{ secrets.API_KEY }}\n",
+  );
   assert.deepEqual(rulesOf(secrets), ["fork-guard"]);
-  const inherit = clean.replace(/ {4}runs-on: ubuntu-latest\n {4}steps:[\s\S]*$/, "    uses: ./.github/workflows/deploy.yml\n    secrets: inherit\n");
+  const inherit = clean.replace(
+    / {4}runs-on: ubuntu-latest\n {4}steps:[\s\S]*$/,
+    "    uses: ./.github/workflows/deploy.yml\n    secrets: inherit\n",
+  );
   assert.deepEqual(rulesOf(inherit), ["fork-guard"]);
-  const guarded = writes.replace("    runs-on: ubuntu-latest\n", `    if: github.event_name != 'pull_request' || ${TRUSTED_PR_GUARD}\n    runs-on: ubuntu-latest\n`);
+  const guarded = writes.replace(
+    "    runs-on: ubuntu-latest\n",
+    `    if: github.event_name != 'pull_request' || ${TRUSTED_PR_GUARD}\n    runs-on: ubuntu-latest\n`,
+  );
   assert.deepEqual(rulesOf(guarded), []);
-  const githubToken = clean.replace("      - uses: ./.github/actions/local\n", "      - uses: ./.github/actions/local\n        with:\n          token: ${{ secrets.GITHUB_TOKEN }}\n");
+  const githubToken = clean.replace(
+    "      - uses: ./.github/actions/local\n",
+    "      - uses: ./.github/actions/local\n        with:\n          token: ${{ secrets.GITHUB_TOKEN }}\n",
+  );
   assert.deepEqual(rulesOf(githubToken), []);
   const notPr = writes.replace("  pull_request:\n    branches: [develop]\n", "  push:\n    branches: [production]\n");
   assert.deepEqual(rulesOf(notPr), []);
 });
 
 test("hosted-runner: a self-hosted runner fails", () => {
-  assert.deepEqual(rulesOf(clean.replace("runs-on: ubuntu-latest", "runs-on: [self-hosted, linux]")), ["hosted-runner"]);
+  assert.deepEqual(rulesOf(clean.replace("runs-on: ubuntu-latest", "runs-on: [self-hosted, linux]")), [
+    "hosted-runner",
+  ]);
 });
 
 test("a violation names the file, job and rule", () => {

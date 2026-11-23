@@ -1,6 +1,6 @@
 # Operator Scripts
 
-**Source of truth:** `scripts/staff-access.mjs`, `scripts/qa-accounts.mjs`, `api/internal/staffaccess/`, `api/internal/admin/`, `supabase/migrations/20261121143107_audit_and_staff_access.sql`, `supabase/migrations/20261121161615_qa_accounts.sql`, `.github/workflows/load-clues.yml`, `.github/workflows/rate-clues.yml`, `.github/workflows/deploy.yml`
+**Source of truth:** `scripts/staff-access.mjs`, `scripts/qa-accounts.mjs`, `api/internal/staffaccess/`, `api/internal/admin/`, `supabase/migrations/20261121143107_audit_and_staff_access.sql`, `supabase/migrations/20261121161615_qa_accounts.sql`, `.github/workflows/load-clues.yml`, `.github/workflows/rate-clues.yml`, `.github/workflows/deploy.yml`, `scripts/history-scan.sh`
 
 Every way a person reaches production data outside the game itself: what each one does, who may run it, and what it logs and audits. If it isn't listed here, don't do it in production. The audit log is described in [data-and-isolation.md](../architecture/data-and-isolation.md), "Audit log and staff access"; the log lines in [logging-conventions.md](./logging-conventions.md), "Security events".
 
@@ -81,3 +81,14 @@ commit;
 ```
 
 It refuses a user who is in a game in progress (`55006`); try again after the game. The account's results stay on other players' scoreboards as "Former player" ([data-and-isolation.md](../architecture/data-and-isolation.md), "History outlives rooms and accounts").
+
+## History secret scan
+
+`scripts/history-scan.sh` scans every commit on every local and remote-tracking ref for secrets with the same gitleaks version (8.30.1, run through `mise exec`) and `.gitleaks.toml` as CI. Run it before history becomes public: before the repository was made public, and before any long-lived branch from elsewhere is pushed.
+
+```bash
+git fetch --prune origin
+scripts/history-scan.sh ~/history-scan.json    # the report must be outside the repository
+```
+
+It prints only aggregates: finding counts by rule and by file, and the number of distinct commit author and committer emails with their domains (never full addresses). The JSON report is redacted; delete it once every finding is classified. A provable false positive gets a narrow `.gitleaks.toml` allowlist entry; anything else is rotated ([configuration-and-secrets.md](../security/configuration-and-secrets.md#3-owners-and-rotation)). Exit status: 0 clean, 1 findings, anything else a scan error. Anyone with a checkout may run it; it reads no credentials.

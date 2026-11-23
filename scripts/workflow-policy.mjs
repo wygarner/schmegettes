@@ -61,7 +61,11 @@ function triggersOf(lines, top) {
   const on = top.find((k) => k.key === "on" || k.key === "true");
   if (!on) return [];
   if (on.value) {
-    return on.value.replace(/[[\]]/g, "").split(",").map((s) => s.trim()).filter(Boolean);
+    return on.value
+      .replace(/[[\]]/g, "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
   return childKeys(blockAfter(lines, on.index, on.indent)).map((k) => k.key);
 }
@@ -107,7 +111,11 @@ export function checkWorkflow(file, text) {
     const script = [match[2], ...blockAfter(lines, index, indentOf(line)).map((l) => l.line)].join("\n");
     for (const expression of script.match(/\$\{\{[^}]*\}\}/g) ?? []) {
       if (UNTRUSTED_EXPRESSIONS.some((pattern) => pattern.test(expression))) {
-        report("run-injection", null, `line ${index + 1} interpolates ${expression} into a script; pass it through env:`);
+        report(
+          "run-injection",
+          null,
+          `line ${index + 1} interpolates ${expression} into a script; pass it through env:`,
+        );
       }
     }
   });

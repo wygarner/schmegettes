@@ -36,6 +36,8 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 
 ## 2. CI and operator secrets
 
+The repository is public. Pull requests from forks run CI with a read-only token and **no secrets or environment variables from GitHub Environments**; jobs that need them run only for branches in this repository ([security-model.md](./security-model.md#7-public-repository)). Never add a workflow path that hands a secret to a fork's code.
+
 | Name | Kind | Location | Used by |
 |---|---|---|---|
 | `PROD_SUPABASE_DB_OWNER_URL` | secret | GitHub Environment `production` | `deploy.yml` migrations; `load-clues.yml`; `rate-clues.yml` |
@@ -57,6 +59,8 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 ## 3. Owners and rotation
 
 Owner of every secret: **Wyatt Garner**.
+
+A secret found by a scan (`ci.yml`'s gitleaks job, GitHub secret scanning, or `scripts/history-scan.sh`) is treated as leaked once it is in a pushed commit: rotate it with the steps below, then remove it from the branch. Rewriting published history doesn't un-leak it.
 
 | Secret | How to rotate |
 |---|---|

@@ -1,0 +1,5 @@
+issue: 300
+key: GH-300
+title: "Deploy and roll back without depending on GitHub Actions"
+task-type: improvement
+created: 2026-11-24

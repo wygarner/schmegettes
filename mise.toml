@@ -1,6 +1,7 @@
 # Toolchain versions for every package, used by local machines and CI (jdx/mise-action).
-# Every runtime is pinned to an exact patch (last bumped 2026-11-20). The monthly bump
-# routine is in docs/system-docs/engineering/stack.md, "Runtime pins".
+# Every runtime is pinned to an exact patch (last bumped 2026-11-24). The monthly bump
+# routine, and the monthly support check for each release line, are in
+# docs/system-docs/engineering/stack.md, "Runtime pins".
 # Changing a version here is a stack change: update docs/system-docs/engineering/stack.md too.
 
 [tools]

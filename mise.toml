@@ -107,6 +107,10 @@ description = "Usage: mise run test:worker -- tests/test_judging.py"
 dir = "worker"
 run = "uv run pytest"
 
+[tasks.deploy]
+description = "Deploy staging or production from this checkout, or check one (operator only; deployment.md). Run `mise run deploy -- --help`"
+run = "node scripts/deploy.mjs"
+
 [tasks."test:e2e"]
 description = "End-to-end suite against E2E_BASE_URL (default http://localhost:5173). Needs E2E_HOST_EMAIL and E2E_HOST_PASSWORD; locally also E2E_HOST_CODE (DEVSTEST). See testing-strategy.md"
 run = "bun run --cwd e2e test"

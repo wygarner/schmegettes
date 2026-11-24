@@ -113,7 +113,7 @@ A full-history secret scan (`scripts/history-scan.sh`, [operator-scripts.md](../
 
 ## 7. Public repository
 
-The repository is public, so anyone can read every branch, tag, issue and pull request, fork it, and open a pull request that starts workflows.
+The repository has been public since 2026-11-23 (runbook below, steps 1–8 applied that day), so anyone can read every branch, tag, issue and pull request, fork it, and open a pull request that starts workflows.
 
 ### Trusted and untrusted pull requests
 

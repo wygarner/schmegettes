@@ -189,3 +189,6 @@ git diff --check
 - `docs/system-docs/engineering/stack.md`
 
 No product feature docs change.
+
+## Branch
+`technical-improvement/GH-300-action-budget-independent-delivery`, from and into `develop`

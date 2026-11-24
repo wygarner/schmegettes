@@ -206,7 +206,6 @@ test("preflight fails before any change on a dirty checkout, wrong commit, stale
     [{ dirty: " M web/src/main.tsx\n" }, /uncommitted or untracked/],
     [{ ancestor: false }, /staging deploys only a commit on origin\/develop/],
     [{ tip: "" }, /origin\/develop is missing; run `git fetch origin`/],
-    [{ remoteTip: OLD }, /origin\/develop is stale/],
     [{ tools: ["git", "flyctl", "bun", "node"] }, /supabase is not on PATH/],
     [{ env: { ...CONFIG, FLY_API_TOKEN_GAME: "" } }, /FLY_API_TOKEN_GAME is not set/],
     [
@@ -223,6 +222,16 @@ test("preflight fails before any change on a dirty checkout, wrong commit, stale
     assert.match(text, /nothing was changed/);
     assert.equal(h.mutating(), 0, String(expected));
   }
+});
+
+test("staging accepts a local origin/develop that lags GitHub's; production does not", async () => {
+  const staging = harness({ remoteTip: OLD });
+  const lagging = await staging.run("preflight", "staging", "all");
+  assert.equal(lagging.code, 0);
+  assert.ok(!staging.calls.some((c) => c.kind === "git" && c.args[0] === "ls-remote"));
+  const production = await harness({ environment: "production", remoteTip: OLD }).run("preflight", "production");
+  assert.equal(production.code, 2);
+  assert.match(production.text, /origin\/production is stale/);
 });
 
 test("production deploys only the current origin/production tip", async () => {

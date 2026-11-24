@@ -26,7 +26,7 @@ What Schmegettes keeps about players, where, for how long, and what deletes it. 
 | Cleanup runs | `private.cleanup_runs` | Permanently (counts and durations only) | — | Not applicable: no IDs |
 | Service notices and notice history | `public.notices`, `private.notice_history` | Permanently | — | Kept; history holds the admin's user ID, while Instatus receives notice text only |
 | Server logs and error reports | Grafana Cloud | **30 days**, set by the `observability` task. **Not yet implemented**: today logs go only to stdout on Fly.io, kept by Fly's own log retention | Grafana Cloud retention setting | Kept until they expire. They hold user IDs and failed spoken-pick text, never emails, passwords, or answers ([logging-conventions.md](./logging-conventions.md)) |
-| Database backups | Supabase, and off-site storage | **30 days**, set by the `backups-and-restore` task. **Not yet implemented**: today only Supabase's own plan backups | The backup storage's expiry rule | Gone from backups 30 days after deletion |
+| Database backups | Supabase | Supabase's own plan backups, on Supabase's schedule (at most 30 days). There is no off-site export: the `backups-and-restore` task was dropped (2026-11-24) | Supabase's backup expiry | Gone from backups when Supabase's last backup holding it expires |
 | Supabase Auth and API logs | Supabase | Supabase's retention for the project's plan (confirm on the plan page) | Supabase | Kept until they expire; they include emails and IP addresses |
 | Web request logs | Vercel | Vercel's retention for the plan. The web app is static, so only edge request logs exist | Vercel | Kept until they expire; IP addresses and paths, no player data |
 | CI logs and test data | GitHub Actions | GitHub's default (90 days) | GitHub | Not applicable: tests use synthetic users only |
@@ -65,7 +65,6 @@ Every outside service that stores or sees player data.
 | Grafana Labs | Logs, traces, and Faro error reports, once the `observability` task ships them (user and room IDs, no emails or answers) | The Grafana Cloud stack's region, named when the stack is created. **Not yet implemented** |
 | Hugging Face | The host device downloads narrator voices from it, so it sees the host's IP address and browser | Hugging Face's CDN |
 | GitHub | Code and CI logs. No player data: CI uses synthetic test users | — |
-| Backup storage provider | Database backups | To be named by the `backups-and-restore` task. **Not yet implemented** |
 | Instatus | Incident and Maintenance notice title, body, schedule, and resolution; no player data | Instatus' hosting region for the selected page |
 
 ## Offboarding

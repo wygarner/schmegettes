@@ -46,6 +46,7 @@ With no exporter configured (local dev and tests), nothing is exported and nothi
 | `GRAFANA_ANNOTATION_TOKEN` | secret | Environments `staging`, `production` | The deploy command: a service-account token limited to annotations |
 | `GRAFANA_TF_TOKEN` | secret | Environment `grafana` | Terraform: a service-account token |
 | `GRAFANA_SM_TOKEN` | secret | Environment `grafana` | Terraform: Synthetic Monitoring |
+| `GRAFANA_SM_URL` | variable | Environment `grafana` | Terraform: the Synthetic Monitoring API URL for the stack's region |
 | `TF_API_TOKEN` | secret | Environment `grafana` | The HCP Terraform API token |
 | `TF_CLOUD_ORGANIZATION`, `TF_WORKSPACE` | variables | Environment `grafana` | The `cloud {}` block |
 | `ALERT_EMAIL` | secret | Environment `grafana` | The contact point (never committed) |

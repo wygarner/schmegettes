@@ -17,6 +17,8 @@ on:
 
 jobs:
   transition:
+    # A fork PR gets a read-only token: skip it instead of failing.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read

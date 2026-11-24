@@ -1,19 +1,19 @@
 module schmegettes/api
 
-go 1.25.0
+go 1.27.0
 
 require (
 	github.com/getkin/kin-openapi v0.153.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.13.0
-	github.com/oapi-codegen/runtime v1.1.1
-	golang.org/x/time v0.15.0
+	github.com/oapi-codegen/runtime v1.9.1
+	golang.org/x/time v0.16.0
 	schmegettes/golib v0.0.0
 )
 
 require (
-	github.com/MicahParks/jwkset v0.11.3 // indirect
-	github.com/MicahParks/keyfunc/v3 v3.8.2 // indirect
+	github.com/MicahParks/jwkset v0.11.4 // indirect
+	github.com/MicahParks/keyfunc/v3 v3.9.2 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/go-openapi/jsonpointer v0.22.5 // indirect
 	github.com/go-openapi/swag/jsonname v0.25.5 // indirect

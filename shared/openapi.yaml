@@ -1104,8 +1104,25 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
       required:
-        [id, revision, kind, phase, title, body, link, startsAt, endsAt, resolvedAt, resolution,
-         statusPageSync, statusPageError, createdBy, history, createdAt, updatedAt]
+        [
+          id,
+          revision,
+          kind,
+          phase,
+          title,
+          body,
+          link,
+          startsAt,
+          endsAt,
+          resolvedAt,
+          resolution,
+          statusPageSync,
+          statusPageError,
+          createdBy,
+          history,
+          createdAt,
+          updatedAt,
+        ]
       additionalProperties: false
     AdminHostCode:
       type: object

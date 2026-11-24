@@ -4,7 +4,11 @@ task-title: "Know when Schmegettes breaks before the players say so"
 ---
 # Task spec: observability
 
-Product brief: `tasks/observability/product-brief.md`. Decided already: Grafana Cloud over OTLP, Faro in the web app, Grafana Alerting with rules as code, uptime checks from outside Fly, email to Wyatt. The Schmegettes stack is its own free-tier stack, not `celeronsolutions` (Wyatt, 2026-11-19).
+Product brief: [product-brief.md](./product-brief.md). Decided already: Grafana Cloud over OTLP, Faro in the web app, Grafana Alerting with rules as code, uptime checks from outside Fly, email to Wyatt. The stack is a dedicated Schmegettes free-tier stack, not shared with any other project (Wyatt, 2026-11-19).
+
+**Revision (2026-11-24).** Updated for two changes made after this spec was written:
+- **One deploy command (GH-300).** `scripts/deploy.mjs` is the only deploy implementation and `deploy.yml` only calls it, so the deploy annotation, the Fly telemetry secrets and `VITE_FARO_URL` go into the command, not workflow YAML. Deploys run by hand without Actions get them too.
+- **The repository is public.** Stack names, URLs, the Terraform organization and workspace, and the checked hostnames are operator configuration, never committed: anyone running a fork sets up their own stack. Workflows that hold Grafana or Terraform credentials never run for a fork PR, and those credentials live in a protected GitHub Environment instead of repository secrets.
 
 ## Approach
 
@@ -15,27 +19,39 @@ Product brief: `tasks/observability/product-brief.md`. Decided already: Grafana 
 
 With no exporter configured (local dev and tests), nothing is exported and nothing fails. The web app uses Grafana Faro for errors, Web Vitals and a few custom events, with session replay and page-text capture off.
 
-**Config as code.** Alert rules, contact points, notification policies, dashboards and uptime checks live in `ops/grafana/` as Terraform, using the `grafana/grafana` provider, which covers alerting, dashboards and Synthetic Monitoring. A workflow plans on PRs that touch `ops/grafana/` and applies on merge to `develop`. Terraform is chosen because deleting a rule from the repo then deletes it in Grafana (success criterion), and it needs no custom sync code. State lives in a remote backend (see Decisions needed). Both environments live in one stack, told apart by the `deployment.environment` resource attribute (`staging` | `production`) on every signal. Production alerts go to Wyatt's email right away; staging alerts go to the same contact point through a policy that groups them into one notification a day (`group_interval` 24h), labelled `env=staging`.
+**Config as code.** Alert rules, contact points, notification policies, dashboards and uptime checks live in `ops/grafana/` as Terraform, using the `grafana/grafana` provider, which covers alerting, dashboards and Synthetic Monitoring. A workflow checks formatting and validates on PRs that touch `ops/grafana/`, without credentials, and plans then applies on merge to `develop`, in the protected `grafana` environment. Terraform is chosen because deleting a rule from the repo then deletes it in Grafana (success criterion), and it needs no custom sync code. State lives in a remote backend (see Decisions needed). Both environments live in one stack, told apart by the `deployment.environment` resource attribute (`staging` | `production`) on every signal. Production alerts go to Wyatt's email right away; staging alerts go to the same contact point through a policy that groups them into one notification a day (`group_interval` 24h), labelled `env=staging`.
 
 **Worker:** no worker process is deployed today. The worker runs only as GitHub Actions jobs (Load Clues, Rate Clues), whose logs GitHub keeps. Telemetry for a deployed worker is deferred to when one exists; `observability.md` says so. That's the only part of the brief's "api, game, and worker" not built here.
 
 ## Decisions (Wyatt Garner, 2026-11-20)
 
 1. **Terraform state backend: an HCP Terraform free workspace.** No cost and no state on a laptop. The workspace runs in **local execution mode**: GitHub Actions runs `terraform plan` and `apply`, and HCP Terraform only stores state and locks it. `ops/grafana/` declares it with a `cloud {}` block (organization and workspace named in the block, no secrets). The bucket in the backup account was rejected because it would tie this task to `backups-and-restore`.
-2. **A separate Schmegettes Grafana Cloud stack** (free tier), not `celeronsolutions` (recorded in the product brief).
+2. **A dedicated Schmegettes Grafana Cloud stack** (free tier), not shared with any other project (recorded in the product brief).
+3. **(2026-11-24, public repository) Configuration, not committed names.** The Terraform `cloud {}` block names no organization or workspace; they come from `TF_CLOUD_ORGANIZATION` and `TF_WORKSPACE`. The Grafana URL, the health-check targets and the alert email come from Terraform variables set from the `grafana` environment. `observability.md` documents how to set up a stack and which values to set, not this deployment's stack name or URL.
+4. **(2026-11-24) No Terraform plan on PRs.** A plan needs a Grafana token, and a PR job must not hold one on a public repository. PRs run `terraform fmt -check` and `terraform validate` (no credentials, safe for forks). The apply job prints the plan before applying, in the run log.
 
 ## Operator setup (Wyatt, once, before implementation starts)
 
 1. Create the Schmegettes Grafana Cloud stack.
 2. Create an HCP Terraform organization and a workspace for `ops/grafana/` (execution mode: local), and a team or user API token for CI.
-3. Add these secrets and variables:
-   - `OTEL_EXPORTER_OTLP_HEADERS` (secret, GitHub Environments `staging` and `production`): an access-policy token with OTLP write
-   - `VITE_FARO_URL` (variable, both GitHub Environments): the Faro app's collector URL. Not secret
-   - `GRAFANA_TF_TOKEN` (repo secret): a service-account token for Terraform
-   - `GRAFANA_SM_TOKEN` (repo secret): a Synthetic Monitoring token
-   - `TF_API_TOKEN` (repo secret): the HCP Terraform API token
+3. Create a GitHub Environment `grafana` whose deployment branches are `develop` only, so only the apply job on `develop` can read its secrets.
+4. Add these secrets and variables, and keep the deploy ones in the password manager too (the operator copy, [configuration-and-secrets.md](../../docs/system-docs/security/configuration-and-secrets.md#2-ci-and-operator-secrets)):
 
-The implementation PR records the exact names, and how to rotate each, in `configuration-and-secrets.md`. Until the setup is done, the services and web app run as today: no exporter configured means nothing is exported and nothing fails.
+| Name | Kind | Where | Used by |
+|---|---|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | variable | Environments `staging`, `production` | The deploy command, which sets it on the api and game Fly apps |
+| `OTEL_EXPORTER_OTLP_HEADERS` | secret | Environments `staging`, `production` | Same: an access-policy token with OTLP write |
+| `VITE_FARO_URL` | variable (public) | Environments `staging`, `production` | The deploy command's web build and the CSP |
+| `GRAFANA_URL` | variable | Environments `staging`, `production`, `grafana` | Deploy annotations; the Terraform provider |
+| `GRAFANA_ANNOTATION_TOKEN` | secret | Environments `staging`, `production` | The deploy command: a service-account token limited to annotations |
+| `GRAFANA_TF_TOKEN` | secret | Environment `grafana` | Terraform: a service-account token |
+| `GRAFANA_SM_TOKEN` | secret | Environment `grafana` | Terraform: Synthetic Monitoring |
+| `TF_API_TOKEN` | secret | Environment `grafana` | The HCP Terraform API token |
+| `TF_CLOUD_ORGANIZATION`, `TF_WORKSPACE` | variables | Environment `grafana` | The `cloud {}` block |
+| `ALERT_EMAIL` | secret | Environment `grafana` | The contact point (never committed) |
+| `HEALTH_TARGETS` | variable | Environment `grafana` | JSON for the synthetic checks: per environment, the api and game `/healthz` URLs and the web home page |
+
+The implementation PR records the exact names, and how to rotate each, in `configuration-and-secrets.md`. Until the setup is done, the services, the web app and deploys run as today: with no exporter, Faro URL or annotation token configured, nothing is exported or annotated and nothing fails.
 
 ## Subtasks (narrow → wide)
 
@@ -74,17 +90,22 @@ The implementation PR records the exact names, and how to rotate each, in `confi
      - **No session replay, no tracing of fetch bodies**, and a `beforeSend` that drops any `context`/`value` longer than 500 characters and strips URL query strings.
      - The user is not set (no IDs from Supabase), so Faro sees an anonymous session ID only.
    - Custom events: `narrator_line_skipped` from `narrator.ts` wherever it returns `"skipped"` (attributes `reason`, `voice`; never the text), and `socket_reconnect` from `gameSocket.ts`.
-   - CSP: `web/scripts/vercel-deploy.mjs` adds the Faro collector origin to `connect-src` for each environment, and `vercel-deploy.test.ts` asserts it.
-   - `deploy.yml` passes `VITE_FARO_URL` from the environment's variables at build time.
-5. **CI/deploy** (`.github/workflows/`):
-   - `deploy.yml`: after "Verify deployed commit", a step posts a Grafana annotation through the HTTP API (`GRAFANA_ANNOTATION_TOKEN`): `tags: [deploy, <env>]`, `text: <commit> <PR title>`. It runs on success and on failure, with `failed` in the tags on failure.
-   - It also sets the Fly secrets `OTEL_EXPORTER_OTLP_ENDPOINT`/`OTEL_EXPORTER_OTLP_HEADERS` from Environment secrets before the deploys, using `fly secrets set --stage`, so the deploy applies them.
-   - New `grafana.yml`: `terraform fmt -check` and `terraform plan` on PRs touching `ops/grafana/**`; `terraform apply` on push to `develop` touching it, plus manual dispatch.
-   - The deploy-verification failure alert: a Grafana rule on the `deploy` + `failed` annotation is awkward. Instead, `deploy.yml`'s failure path posts directly to the email contact point through the alerting API's test-receiver endpoint. **Simpler and acceptable:** rely on GitHub's failed-workflow email to Wyatt, and document that in `observability.md`. Pick the latter unless it proves unreliable.
+   - CSP: `web/scripts/vercel-deploy.mjs` adds the Faro collector origin to `connect-src` when `VITE_FARO_URL` is set, and `vercel-deploy.test.ts` asserts it (and that it's absent otherwise).
+5. **Deploy command and workflows** (`scripts/deploy.mjs`, `.github/workflows/`). Everything deploy-related goes in the command, so a deploy run by hand behaves the same; `deploy.yml` only maps the new Environment values onto it. Each addition is optional: when its configuration is absent, the command skips it and says so.
+   - **Web build:** pass `VITE_FARO_URL` to the build and to `vercel-deploy.mjs`. Preflight checks it's an https URL when set.
+   - **Fly telemetry secrets:** before deploying api and game, when `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` are set, stage them on each app with `flyctl secrets import --stage --app <app>`, passing `KEY=value` lines on **stdin**, so the values never appear in arguments (the runner gains stdin input). The deploy that follows applies them.
+   - **Deploy annotation:** after verification, when `GRAFANA_URL` and `GRAFANA_ANNOTATION_TOKEN` are set, post an annotation through the Grafana HTTP API: `tags: [deploy, <env>, <scope>]`, `text: <short sha> <commit subject>`. Also on a failed deploy, with `failed` in the tags and the failed step. A failed annotation is a warning, never a failed deploy. The token goes in the request header only and is redacted like every other secret (add the new secret names to `SECRET_NAMES`).
+   - Tests in `scripts/deploy.test.mjs`: secrets staged before the Fly deploys and never in arguments; annotation on success and failure; annotation failure doesn't fail the deploy; everything skipped when not configured; the new secrets never appear in output. `deploy.yml` still contains no provider commands.
+   - **New `grafana.yml`**:
+     - `pull_request` touching `ops/grafana/**`: `terraform fmt -check` and `terraform validate` with `-backend=false`. No secrets and no environment, so it is safe for fork PRs.
+     - `push` to `develop` touching `ops/grafana/**`, plus `workflow_dispatch`: one job in the `grafana` environment that plans, prints the plan, and applies. Add `concurrency` without cancel-in-progress.
+     - Pin `hashicorp/setup-terraform` to a full SHA and pin the Terraform version. It must pass `scripts/workflow-policy.test.mjs` (permissions, SHA pins, no secrets on a PR path).
+   - The deploy-verification failure alert: rely on GitHub's failed-workflow email to Wyatt plus the `failed` deploy annotation, and document both in `observability.md`. For a deploy run by hand, the operator sees the failure directly.
 6. **ops/grafana** (Terraform, new):
-   - `contact_points.tf`: email to Wyatt. The address comes from a TF variable fed by a GitHub secret, never committed.
+   - `providers.tf`: the `cloud {}` block without organization or workspace (they come from `TF_CLOUD_ORGANIZATION`/`TF_WORKSPACE`), and the Grafana provider's URL from `var.grafana_url`.
+   - `contact_points.tf`: email to Wyatt. The address comes from `var.alert_email`, fed by the `ALERT_EMAIL` secret, never committed.
    - `policies.tf`: route `env=production` to immediate email; route `env=staging` to the same receiver with `group_wait 1h`, `group_interval 24h`.
-   - `synthetic.tf`: HTTP checks every 60 s from 2 probes on `https://schmegettes-{api,game}-{env}.fly.dev/healthz` and on the web home page (`https://schmegettes.app/`, `https://staging.schmegettes.app/`).
+   - `synthetic.tf`: HTTP checks every 60 s from 2 probes on each environment's api and game `/healthz` and web home page, from `var.health_targets` (the `HEALTH_TARGETS` variable). No hostnames are committed.
    - `alerts.tf`, one rule group per environment:
      1. **uptime:** a check failing for 2 consecutive minutes;
      2. **server errors:** the rate of 5xx plus `ERROR` log lines over 10 min above `var.server_error_threshold`. Start at 5 per 10 min, then set it from a week of production baseline and record the number and date in `observability.md`.
@@ -95,17 +116,19 @@ The implementation PR records the exact names, and how to rotate each, in `confi
    - **Test alert:** a `grafana_rule_group` "test" with one rule on a constant query that's disabled by default (`is_paused = true`). `observability.md` documents how to fire it per environment: unpause through a one-line TF var, apply, wait, re-pause. Alternatively, use the contact point's "Test" button. Record the date it last reached Wyatt.
    - **Retention:** set and record the stack's log and trace retention, at most 30 days (the `data-retention` task relies on this), in `observability.md`.
 7. **docs**:
-   - new `docs/system-docs/operations/observability.md`: the stack name and URL; signals and where they come from; metric names; alert rules with thresholds and their dates; routing; the test-alert procedure and the last-tested date; retention; access (Wyatt only); the privacy rules; and the worker note.
+   - new `docs/system-docs/operations/observability.md`: how to set up a stack and the values to set (not this deployment's stack name or URL); signals and where they come from; metric names; alert rules with thresholds and their dates; routing; the test-alert procedure and the last-tested date; retention; access (Wyatt only); the privacy rules; and the worker note.
    - new `docs/system-docs/operations/incident-response.md`: who is paged; telling staging from production (the label in the email subject); the first five checks (the tonight dashboard, `/healthz` for each app, `fly status`/`fly logs`, the last deploy annotation, Supabase status); rollback (link to `release-strategy.md`); player notices (link to the `service-notices` feature, with "not yet implemented" until it lands); and a postmortem template.
-   - `stack.md`: the Grafana rows now say built, with the stack name and URL.
+   - `stack.md`: the Grafana rows now say built (no stack name or URL).
    - `logging-conventions.md`: logs also go to Grafana via OTLP; `trace_id`/`span_id`; the privacy rules for Faro.
    - `release-strategy.md` step 6: point at the dashboard and error rates.
    - `security-model.md`: update the "Telemetry" and "Docs that need hosting first" rows.
-   - `configuration-and-secrets.md`: the new variables and secrets.
+   - `configuration-and-secrets.md`: the new variables and secrets, the `grafana` environment, and rotation for each.
+   - `deployment.md`: the deploy command's optional telemetry steps (secret staging, annotation).
+   - `security-model.md` §7: the `grafana` environment and why PRs don't plan.
 
 ## Key files
 
-`golib/telemetry/` (new), `golib/logging/logging.go`, `api/cmd/api/main.go`, `api/internal/server/server.go`, `game/cmd/game/main.go`, `game/internal/room/{room,hub}.go`, `game/internal/socket/`, `web/src/main.tsx`, `web/src/lib/{narrator,gameSocket}.ts`, `web/scripts/vercel-deploy.mjs` (+ test), `.github/workflows/{deploy,grafana}.yml`, `ops/grafana/**` (new), and the docs above.
+`golib/telemetry/` (new), `golib/logging/logging.go`, `api/cmd/api/main.go`, `api/internal/server/server.go`, `game/cmd/game/main.go`, `game/internal/room/{room,hub}.go`, `game/internal/socket/`, `web/src/main.tsx`, `web/src/lib/{narrator,gameSocket}.ts`, `web/scripts/vercel-deploy.mjs` (+ test), `scripts/deploy.mjs` (+ test), `.github/workflows/{deploy,grafana}.yml`, `ops/grafana/**` (new), and the docs above.
 
 ## Contracts preserved
 
@@ -130,7 +153,8 @@ For the forced panic: a hook available only when `ENV=staging` and the room code
 - `mise run test:api -- ./internal/server/...`: span names use route patterns; the request log carries `trace_id`.
 - `go test ./...` in `golib/telemetry` and `golib/logging`: no-op without an endpoint; fan-out.
 - `mise run test:web -- src/lib/narrator.test.ts src/main.test.tsx scripts/vercel-deploy.test.ts`: Faro off without `VITE_FARO_URL`; `beforeSend` strips query strings and long values; the skip event carries no text; CSP includes the collector.
-- `terraform validate` and `plan` in CI for `ops/grafana/`.
+- `mise run test:scripts`: the deploy command's telemetry steps (subtask 5) and the workflow policy on `grafana.yml`.
+- `terraform fmt -check` and `terraform validate` locally and on the PR; the plan runs on the first apply after merge, in the `grafana` environment.
 - Manual on staging: the success criteria.
 
 ## Database migration plan

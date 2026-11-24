@@ -97,7 +97,7 @@ Keep this list current. A PR that closes a gap removes its line.
 | **Required checks** | Branch protection and rulesets were not available on the private repo's GitHub plan (the API returned 403). Once the repo is public, `develop` and `production` are protected (section 7), but `CI Complete` is not yet a required check, so never merge a release with red CI ([release-strategy.md](../operations/release-strategy.md)). |
 | **Security assessment** | First assessment before launch, then every six months and after major architecture changes. Findings go in `docs/security-assessments/{date}/remediation-tracker.md`, updated only through PRs. |
 | **LLM appeal judge** (when built) | Player answers are untrusted input to the model. Tools get the least privilege that works. |
-| **Docs that need hosting first** | `operations/observability.md`, `operations/incident-response.md`, `operations/disaster-recovery.md`, `quality/agent-qa.md`. |
+| **Docs that need hosting first** | `operations/observability.md`, `operations/incident-response.md`, `quality/agent-qa.md`. |
 
 ## 6. Scans
 

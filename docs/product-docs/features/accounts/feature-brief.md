@@ -108,7 +108,7 @@ There are two cases. The player sees the same thing in both.
 | A **guest** | Until **90 days** after it was last used (any sign-in, join, host, or game) | Deleted by the deletion rule above: its results stay on scoreboards as "Former player", and its seen clues and host access are deleted |
 | Games, scores, and scoreboards | Permanently, for everyone who played or watched ([game history](../game-history/feature-brief.md)) | — |
 | Server logs and error reports | At most 30 days | Deleted by the log service. They never contain emails, passwords, or answers |
-| Database backups | 30 days | Deleted, so a deleted account is fully gone from backups 30 days after deletion |
+| Database backups | Only Supabase's own backups, at most 30 days | Deleted when they expire, so a deleted account is fully gone from backups within 30 days of deletion |
 
 - A guest that becomes an account, or is moved into one at sign-in, is no longer a guest: the 90 days stop applying.
 - Nothing is deleted from a game in progress. A guest that is in a game, or in an open room, counts as used.

@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Schmegettes</title>
   <!-- Schmegettes icon: the wordmark's S (Oswald 700 outline) on the stage gradient. Source: docs/product-docs/architecture/design-system.md -->
   <defs>
     <radialGradient id="stage" cx="256" cy="0" r="620" gradientUnits="userSpaceOnUse">

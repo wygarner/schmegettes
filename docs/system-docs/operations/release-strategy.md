@@ -38,7 +38,8 @@ The script reads commit bodies and PR descriptions as well as subjects (the thre
    ```bash
    gh run list --workflow deploy-prod.yml --commit "$(git rev-parse origin/production)"
    ```
-   No run listed → dispatch it: `gh workflow run deploy-prod.yml --ref production`.
+   No run listed → dispatch it: `gh workflow run deploy-prod.yml --ref production` (it waits for Wyatt's approval on the `production` environment).
+   Actions unavailable, or the run can't finish → Wyatt deploys the same merge commit by hand with the same command the workflow runs, [deploying without Actions](./deployment.md#deploying-without-actions): `git checkout --detach origin/production`, `mise run deploy -- preflight production all`, then `mise run deploy -- run production all`. No new commit and no dispatch are needed. Then continue with step 6.
 6. **Confirm production health:** Grafana dashboards and error rates since the deploy (**not yet implemented**, see [stack.md](../engineering/stack.md)), and a production smoke with QA accounts strictly within [the production rules](../quality/agent-qa.md#production-rules). Until Grafana is set up, health also requires `/healthz` on `api` and `game` and the worker process running.
 7. **Only then** open a sign-off PR to `production` setting `released: true` and `release-date: YYYY-MM-DD` in `metadata.md`; merge as a merge commit.
 8. **Post What's new** from the production devtools Admin page, using the signed-off `user-release-notes.md` as the source. Preview it, post once, and confirm it appears on Home.
@@ -56,18 +57,20 @@ The gap between "code is live" and "marked released" is deliberate: a human conf
 
 ## Rollback
 
-Each deploy labels its Fly images with the commit, and Vercel keeps every deployment, so a rollback names the last good commit or deployment. Run Fly commands from the repo root with the pinned `flyctl` (`mise install`); use the `-staging` names to practise on staging.
+Each deploy labels its Fly images with the commit, and Vercel keeps every deployment, so a rollback names the last good commit or deployment. None of it needs GitHub Actions. Run from the repo root so `mise` supplies the pinned `flyctl`; set `FLY_API_TOKEN` to that app's deploy token from the password manager. Practise on staging first.
 
-| Component | Command |
-|---|---|
-| web | Vercel dashboard → `schmegettes-web-prod` → Deployments → the last good production deployment → **Instant Rollback** |
-| api | `fly releases -a schmegettes-api-prod --image` to find the last good image, then `fly deploy . -c api/fly.toml -a schmegettes-api-prod --image registry.fly.io/schmegettes-api-prod:{commit}` |
-| game | `fly releases -a schmegettes-game-prod --image`, then `fly deploy . -c game/fly.toml -a schmegettes-game-prod --ha=false --image registry.fly.io/schmegettes-game-prod:{commit}` |
-| worker | None: no worker process is deployed |
+| Component | Staging | Production |
+|---|---|---|
+| web | Vercel dashboard → `schmegettes-web-staging` → Deployments → the last good production deployment → **Instant Rollback** | Same, on `schmegettes-web-prod` |
+| api | `mise exec -- flyctl releases -a schmegettes-api-staging --image` to find the last good image, then `mise exec -- flyctl deploy . -c api/fly.toml -a schmegettes-api-staging --image registry.fly.io/schmegettes-api-staging:{commit}` | The same with `schmegettes-api-prod` |
+| game | `mise exec -- flyctl releases -a schmegettes-game-staging --image`, then `mise exec -- flyctl deploy . -c game/fly.toml -a schmegettes-game-staging --ha=false --image registry.fly.io/schmegettes-game-staging:{commit}` | The same with `schmegettes-game-prod` (keep `--ha=false`) |
+| worker | None: no worker process is deployed | None |
+
+**Then verify** that the component runs the restored commit, without changing anything (set that environment's version URL first): `mise run deploy -- verify production api --sha {commit}` (or `web`, `game`; `all` to see the whole environment).
 
 A rollback is not a commit on `production`, so the next push to `production` deploys over it. Fix forward with a hotfix.
 
-Code rollbacks do not undo migrations. Because migrations are additive (see [data-and-isolation.md](../architecture/data-and-isolation.md)), rolling code back over a new migration is normally safe; evaluate each case. After a rollback, reopen the affected tickets and record the reason in the internal release notes.
+Code rollbacks do not undo migrations, and there is no database rollback: migrations are additive and forward-only (see [data-and-isolation.md](../architecture/data-and-isolation.md)), so rolling code back over a new migration is normally safe; evaluate each case. After a rollback, reopen the affected tickets and record the reason in the internal release notes.
 
 ## Communication
 

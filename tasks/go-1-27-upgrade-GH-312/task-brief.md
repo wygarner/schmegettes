@@ -120,3 +120,6 @@ Run gofmt and go vet in each module you touch. Don't run full package suites loc
 - `docs/system-docs/engineering/stack.md` (subtask 5)
 - `mise.toml` comment
 - No product docs.
+
+## Branch
+`technical-improvement/GH-312-go-1-27-upgrade`, from and into `develop`

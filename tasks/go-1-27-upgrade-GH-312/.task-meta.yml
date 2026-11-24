@@ -1,0 +1,5 @@
+issue: 312
+key: GH-312
+title: "Move Go to a supported release (1.27) and keep it there"
+task-type: improvement
+created: 2026-11-24

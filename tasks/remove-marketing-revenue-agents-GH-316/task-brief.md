@@ -62,3 +62,6 @@ None. No logs or failure paths change.
 
 - `README.md` (subtask 3)
 - `docs/product-docs/architecture/product-overview.md` (subtask 2)
+
+## Branch
+`technical-improvement/GH-316-remove-marketing-revenue-agents`, from and into `develop`

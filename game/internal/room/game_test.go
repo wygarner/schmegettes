@@ -1,7 +1,9 @@
 package room
 
 import (
+	"bytes"
 	"encoding/json"
+	"log/slog"
 	"slices"
 	"strings"
 	"testing"
@@ -9,6 +11,12 @@ import (
 
 	"schmegettes/game/internal/contracts"
 )
+
+func captureRoomLogs(f *fixture) *bytes.Buffer {
+	var out bytes.Buffer
+	f.hubRoom().log = slog.New(slog.NewJSONHandler(&out, nil)).With("room_id", roomID)
+	return &out
+}
 
 // startedGame has the host and two players in a game that just started, Alice in control.
 func startedGame(t *testing.T) (*fixture, *conn, *conn, *conn) {
@@ -208,6 +216,93 @@ func TestPickByNonController(t *testing.T) {
 	notPicker := map[string]*conn{alice: b, bob: a}[controller(f)]
 	notPicker.send(map[string]any{"type": "select_clue", "clueId": "clue-s"})
 	if m := notPicker.until("error"); m.Code != "not_in_control" {
+		t.Errorf("code %q", m.Code)
+	}
+}
+
+func TestVoicePickOutcomeLogs(t *testing.T) {
+	t.Run("picked", func(t *testing.T) {
+		f, _, a, b := startedGame(t)
+		logs := captureRoomLogs(f)
+		picker := map[string]*conn{alice: a, bob: b}[controller(f)]
+		picker.send(map[string]any{"type": "select_clue", "clueId": "clue-s", "via": "voice"})
+		picker.send(map[string]any{"type": "ping"})
+		picker.until("pong")
+		line := logs.String()
+		for _, want := range []string{`"msg":"voice pick"`, `"outcome":"picked"`, `"game_id":"game-1"`,
+			`"board_clue_id":"clue-s"`, `"user_id":"` + picker.client.UserID + `"`} {
+			if !strings.Contains(line, want) {
+				t.Errorf("log missing %s: %s", want, line)
+			}
+		}
+	})
+
+	t.Run("missed only from controller on board", func(t *testing.T) {
+		f, _, a, b := startedGame(t)
+		logs := captureRoomLogs(f)
+		picker := map[string]*conn{alice: a, bob: b}[controller(f)]
+		other := a
+		if picker == a {
+			other = b
+		}
+		message := map[string]any{"type": "voice_pick_missed", "problem": "no-category", "heard": "tennis 400",
+			"alternatives": []string{"tennis four hundred"}}
+		picker.send(message)
+		picker.send(map[string]any{"type": "ping"})
+		picker.until("pong")
+		line := logs.String()
+		for _, want := range []string{`"outcome":"missed"`, `"problem":"no-category"`, `"heard":"tennis 400"`,
+			`"alternatives":["tennis four hundred"]`, `"categories":["SCIENCE"]`} {
+			if !strings.Contains(line, want) {
+				t.Errorf("log missing %s: %s", want, line)
+			}
+		}
+
+		other.send(message)
+		other.send(map[string]any{"type": "ping"})
+		other.until("pong")
+		if got := strings.Count(logs.String(), `"outcome":"missed"`); got != 1 {
+			t.Errorf("logged %d misses, want 1", got)
+		}
+	})
+}
+
+func TestVoicePickMissFloodGuard(t *testing.T) {
+	f, _, a, b := startedGame(t)
+	logs := captureRoomLogs(f)
+	picker := map[string]*conn{alice: a, bob: b}[controller(f)]
+	message := map[string]any{"type": "voice_pick_missed", "problem": "ambiguous", "heard": "history"}
+	send := func() {
+		picker.send(message)
+		picker.send(map[string]any{"type": "ping"})
+		picker.until("pong")
+	}
+
+	send()
+	send() // same second: dropped
+	for range 19 {
+		f.clock.advance(time.Second)
+		send()
+	}
+	f.clock.advance(time.Second)
+	send() // 21st for this game: dropped
+	if got := strings.Count(logs.String(), `"outcome":"missed"`); got != 20 {
+		t.Errorf("logged %d misses, want 20", got)
+	}
+}
+
+func TestInvalidVoicePickMissGetsInvalidMessage(t *testing.T) {
+	_, _, a, _ := startedGame(t)
+	a.send(map[string]any{"type": "voice_pick_missed", "problem": "other", "heard": "x"})
+	if m := a.until("error"); m.Code != "invalid_message" {
+		t.Errorf("code %q", m.Code)
+	}
+}
+
+func TestInvalidSelectClueViaGetsInvalidMessage(t *testing.T) {
+	_, _, a, _ := startedGame(t)
+	a.send(map[string]any{"type": "select_clue", "clueId": "clue-s", "via": "other"})
+	if m := a.until("error"); m.Code != "invalid_message" {
 		t.Errorf("code %q", m.Code)
 	}
 }

@@ -1,6 +1,6 @@
 # Service Notices
 
-Not built yet.
+Built in `supabase` (notice lifecycle and audit trail), `api/internal/notices`, Home and the host lobby in `web`, and the devtools Admin page. Incident and Maintenance notices synchronize to Instatus; What's new stays in the app.
 
 ## Why
 
@@ -75,6 +75,8 @@ A game night is planned: people come over, the TV is on, and the host opens Schm
 | No status page; in-app notices only | Least to build | Says nothing when the app itself can't load; breaks the release-strategy promise |
 
 The service is an engineering choice, within these constraints: a free tier is enough, notices can be posted through its API (so the admin posts once), and it collects no player data.
+
+**Engineering selection (2026-11-22): Instatus.** One page may use separate staging and production components, or each environment may use its own page. The api adapter is isolated behind `StatusPage`; no token selects a no-op client for local development.
 
 **Never interrupt a game.** A party in progress gains nothing from a banner on the TV. If something breaks mid-game, players already know.
 

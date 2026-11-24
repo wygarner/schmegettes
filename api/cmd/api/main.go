@@ -17,7 +17,10 @@ import (
 	"schmegettes/api/internal/admin"
 	"schmegettes/api/internal/games"
 	"schmegettes/api/internal/hostaccess"
+	"schmegettes/api/internal/notices"
 	"schmegettes/api/internal/rooms"
+	"schmegettes/api/internal/staffaccess"
+	"schmegettes/api/internal/stats"
 	"schmegettes/golib/auth"
 	"schmegettes/golib/db"
 	"schmegettes/golib/logging"
@@ -45,14 +48,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	appEnv := getenv("APP_ENV", "local")
+	statusPage := notices.NewInstatus(os.Getenv("STATUS_PAGE_API_TOKEN"), os.Getenv("STATUS_PAGE_ID"))
 	rt := routes{
-		admin:  admin.Handler{Store: admin.PGStore{DB: database}},
-		rooms:  rooms.Handler{Store: rooms.PGStore{DB: database}, SocketBase: getenv("GAME_SOCKET_BASE_URL", "ws://localhost:3002")},
-		games:  games.Handler{Store: games.PGStore{DB: database}},
-		host:   hostaccess.Handler{Store: hostaccess.PGStore{DB: database}},
-		me:     account.Handler{Store: account.PGStore{DB: database}},
-		limits: newLimits(),
-		ping:   database.Ping,
+		admin:   admin.Handler{Store: admin.PGStore{DB: database}, AppEnv: appEnv},
+		rooms:   rooms.Handler{Store: rooms.PGStore{DB: database}, SocketBase: getenv("GAME_SOCKET_BASE_URL", "ws://localhost:3002")},
+		games:   games.Handler{Store: games.PGStore{DB: database}},
+		host:    hostaccess.Handler{Store: hostaccess.PGStore{DB: database}},
+		notices: notices.Handler{Store: notices.PGStore{DB: database}, StatusPage: statusPage},
+		me:      account.Handler{Store: account.PGStore{DB: database}},
+		stats:   stats.Handler{Store: stats.PGStore{DB: database}},
+		staff:   staffaccess.Handler{Store: staffaccess.PGStore{DB: database}},
+		limits:  newLimits(),
+		ping:    database.Ping,
 	}
 	srv := &http.Server{
 		Addr:              ":" + getenv("PORT", "3001"),

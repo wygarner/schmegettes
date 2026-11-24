@@ -36,6 +36,7 @@ export function PlayerControls({
   lobby,
   buzzerHeight,
   onLeave,
+  home,
 }: {
   state: RoomState;
   userId: string;
@@ -47,10 +48,17 @@ export function PlayerControls({
   buzzerHeight?: number;
   /** Leave the room from the final scoreboard. */
   onLeave?: () => void;
+  /** The Home control, at the left of the header row (phones). */
+  home?: ReactNode;
 }) {
   const capture = useAnswerCapture(state, userId, send);
   const confirm = usePickConfirm(state, userId, send, { bottom: !compact });
-  const voice = useVoicePick(state.board, (clueId) => send({ type: "select_clue", clueId }), state.quickPicks);
+  const voice = useVoicePick(
+    state.board,
+    (clueId) => send({ type: "select_clue", clueId, via: "voice" }),
+    state.quickPicks,
+    (miss) => send({ type: "voice_pick_missed", ...miss }),
+  );
   const [early, setEarly] = useState(false);
   const clueId = state.activeClue?.clueId;
   const lockedUntil = state.lockouts[userId];
@@ -130,41 +138,46 @@ export function PlayerControls({
     : undefined;
   return (
     <section aria-label="Your controls" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      {inGame && (
+      {(inGame || home) && (
         <div
           style={{
-            height: 36,
+            height: home ? 44 : 36,
             flexShrink: 0,
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
             gap: 8,
           }}
         >
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: ".1em",
-              color: "#d6a3c8",
-              textTransform: "uppercase",
-            }}
-          >
-            {me?.displayName}
-          </span>
-          {/* No score while picking: the board needs the room. */}
-          {!picking && (
-            <output
-              aria-label="Your score"
-              style={{
-                fontFamily: DISPLAY,
-                fontWeight: 600,
-                fontSize: 22,
-                color: (state.scores[userId] ?? 0) < 0 ? RED : ACCENT,
-              }}
-            >
-              {money(state.scores[userId] ?? 0)}
-            </output>
+          {home && <div style={{ marginLeft: -12 }}>{home}</div>}
+          {inGame && (
+            <>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: ".1em",
+                  color: "#d6a3c8",
+                  textTransform: "uppercase",
+                }}
+              >
+                {me?.displayName}
+              </span>
+              {/* No score while picking: the board needs the room. */}
+              {!picking && (
+                <output
+                  aria-label="Your score"
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontWeight: 600,
+                    fontSize: 22,
+                    marginLeft: "auto",
+                    color: (state.scores[userId] ?? 0) < 0 ? RED : ACCENT,
+                  }}
+                >
+                  {money(state.scores[userId] ?? 0)}
+                </output>
+              )}
+            </>
           )}
         </div>
       )}
@@ -370,7 +383,7 @@ function CompactStatus({ state, userId, voice }: { state: RoomState; userId: str
   if (state.paused || state.results) return null;
   // A spoken pick: what it's hearing, then what it heard and why nothing was picked. The
   // pick is public (it goes on the board), so showing the words on the TV is fine.
-  if (canPick(state, userId) && (voice.listening || voice.problem)) {
+  if (canPick(state, userId) && (voice.listening || voice.heard || voice.problem)) {
     return (
       <div aria-live="polite" style={{ textAlign: "center", minWidth: 0 }}>
         {voice.listening && (
@@ -436,7 +449,13 @@ function VoiceFeedback({ voice }: { voice: VoicePick }) {
       </div>
     );
   }
-  if (!voice.problem) return null;
+  if (!voice.problem) {
+    return voice.heard ? (
+      <Text ta="center" size="sm" fs="italic" aria-label="What we heard">
+        “{voice.heard}”
+      </Text>
+    ) : null;
+  }
   return (
     <Text c="red.3" fw={600} ta="center" size="sm">
       {voice.problem} Press the buzzer to try again, or tap a clue.

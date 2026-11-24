@@ -22,12 +22,14 @@ import {
   AdminApiError,
   type AdminHost,
   type AdminHostCode,
+  type AdminNotice,
   createAdminApi,
   SignInError,
   UnreachableError,
 } from "./client";
 import { configured, type EnvironmentConfig, type EnvironmentName, environments as realEnvironments } from "./env";
 import { formatCode, hostLabel, maxTimerMs, rotatesOnItsOwn, shortDate, timeLeft, utcTime } from "./format";
+import { NoticesSection } from "./NoticesSection";
 
 const notAdmin = "Can't sign in as an admin here.";
 const environmentKey = "schmegettes-admin-environment";
@@ -71,6 +73,7 @@ export function AdminPage({ environments = realEnvironments, createApi = createA
   const [signedInAs, setSignedInAs] = useState("");
   const [code, setCode] = useState<AdminHostCode | null>(null);
   const [hosts, setHosts] = useState<AdminHost[]>([]);
+  const [notices, setNotices] = useState<AdminNotice[]>([]);
   const [offsetMs, setOffsetMs] = useState(0); // server clock minus this computer's clock
   const [now, setNow] = useState(() => Date.now());
   const [blockedUntil, setBlockedUntil] = useState(0);
@@ -82,6 +85,7 @@ export function AdminPage({ environments = realEnvironments, createApi = createA
   const clear = useCallback(() => {
     setCode(null);
     setHosts([]);
+    setNotices([]);
     setConfirm(null);
     setEditing(null);
   }, []);
@@ -116,10 +120,10 @@ export function AdminPage({ environments = realEnvironments, createApi = createA
     if (!api) return;
     setPhase("loading");
     try {
-      const nextCode = await api.hostCode();
-      const nextHosts = await api.hosts();
+      const [nextCode, nextHosts, nextNotices] = await Promise.all([api.hostCode(), api.hosts(), api.notices()]);
       showCode(nextCode);
       setHosts(nextHosts);
+      setNotices(nextNotices);
       setPhase("ready");
     } catch (err) {
       await fail(err);
@@ -338,7 +342,7 @@ export function AdminPage({ environments = realEnvironments, createApi = createA
 
       {phase === "loading" && <Text c="dimmed">Loading…</Text>}
 
-      {phase === "ready" && code && (
+      {phase === "ready" && code && api && (
         <Stack gap="xl">
           {blocked && (
             <Alert color="yellow">Too many requests. Try again in {Math.ceil((blockedUntil - now) / 1000)} s.</Alert>
@@ -439,6 +443,7 @@ export function AdminPage({ environments = realEnvironments, createApi = createA
               </Table>
             )}
           </Stack>
+          <NoticesSection api={api} notices={notices} onNotices={setNotices} />
         </Stack>
       )}
 

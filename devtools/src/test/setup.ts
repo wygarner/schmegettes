@@ -26,3 +26,4 @@ class ResizeObserverStub {
   disconnect() {}
 }
 window.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+HTMLElement.prototype.scrollIntoView = () => {};

@@ -13,11 +13,11 @@ on:
         type: choice
         options: [staging, production]
       action:
-        description: "rate: label the catalog. check-order, handcheck-export, handcheck-score: the quality gate"
+        description: "rate: label the catalog. recut: cut the labels again from stored scores. check-order, handcheck-export, handcheck-score: the quality checks"
         required: true
         default: rate
         type: choice
-        options: [rate, check-order, handcheck-export, handcheck-score]
+        options: [rate, recut, check-order, handcheck-export, handcheck-score]
       limit:
         description: "rate: at most this many categories (a pilot; empty for all). check-order: categories to check (default 100)"
         required: false
@@ -55,7 +55,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: python uv
       - run: uv sync --locked --no-dev
@@ -89,6 +89,7 @@ jobs:
           fi
           case "$ACTION" in
             rate) args=(${LIMIT:+--limit "$LIMIT"}) ;;
+            recut) args=(--recut) ;;
             check-order) args=(--check-order "${LIMIT:-100}") ;;
             handcheck-export) args=(--handcheck-export "$RUNNER_TEMP/handcheck.csv") ;;
             handcheck-score)

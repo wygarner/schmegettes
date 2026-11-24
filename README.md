@@ -21,3 +21,7 @@ bun run dev             # starts local Supabase if needed, then web, api, game, 
 ```
 
 Agents: `/product`, `/engineering`, `/implement`, `/designer`, `/marketing`, `/revenue` (in `.claude/commands/`). The lifecycle is in [development-workflow.md](docs/system-docs/engineering/development-workflow.md).
+
+## License
+
+Schmegettes is licensed under the [GNU General Public License v3.0](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute and [SECURITY.md](SECURITY.md) to report a vulnerability.

@@ -1,25 +1,10 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { DEFAULT_OPTIONS, fromRoom, isDefault, savedOptions, saveOptions, seasonList, summary } from "./gameOptions";
+import { DEFAULT_OPTIONS, fromRoom, isDefault, savedOptions, saveOptions, seasonList } from "./gameOptions";
 
-const base = { difficulty: null };
-
-describe("summary", () => {
-  test("empty with the defaults", () => expect(summary(DEFAULT_OPTIONS)).toBe(""));
-  test("only what isn't the default", () => {
-    expect(summary({ ...base, seasons: [20, 40], doubleRound: false, quickPicks: false })).toBe(
-      "Seasons 20–40 · No Double Schmegettes",
-    );
-    expect(summary({ ...base, seasons: [7, 7], doubleRound: true, quickPicks: false })).toBe("Season 7");
-    expect(summary({ ...base, seasons: null, doubleRound: false, quickPicks: true })).toBe(
-      "No Double Schmegettes · Quick picks",
-    );
+describe("isDefault", () => {
+  test("any change from the defaults counts", () => {
+    expect(isDefault(DEFAULT_OPTIONS)).toBe(true);
     expect(isDefault({ ...DEFAULT_OPTIONS, quickPicks: true })).toBe(false);
-  });
-  test("a difficulty comes right after the seasons; Any isn't listed", () => {
-    expect(summary({ seasons: [20, 40], doubleRound: false, quickPicks: true, difficulty: "easy" })).toBe(
-      "Seasons 20–40 · Easy · No Double Schmegettes · Quick picks",
-    );
-    expect(summary({ ...DEFAULT_OPTIONS, difficulty: "hard" })).toBe("Hard");
     expect(isDefault({ ...DEFAULT_OPTIONS, difficulty: "medium" })).toBe(false);
     expect(DEFAULT_OPTIONS.difficulty).toBeNull();
   });

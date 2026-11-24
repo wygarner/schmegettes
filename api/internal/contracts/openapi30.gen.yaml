@@ -55,7 +55,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Profile"
     patch:
-      summary: Set the account's name
+      summary: Update the caller's account
       description: Signed-in players only (problem type `not-signed-in` for guests).
       requestBody:
         required: true
@@ -66,8 +66,9 @@ paths:
               properties:
                 accountName:
                   $ref: "#/components/schemas/DisplayName"
-              required:
-                - accountName
+                showOnLeaderboard:
+                  type: boolean
+              minProperties: 1
               additionalProperties: false
       responses:
         "200":
@@ -109,6 +110,43 @@ paths:
                 $ref: "#/components/schemas/Problem"
         "429":
           $ref: "#/components/responses/RateLimited"
+  /v1/me/stats:
+    get:
+      summary: The caller's all-time stats
+      description: Signed-in players only. A player with no counted games gets games 0
+        and null stats.
+      responses:
+        "200":
+          description: Stats computed from finished games
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyStats"
+        "403":
+          description: The caller is a guest (problem type `not-signed-in`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/leaderboard:
+    get:
+      summary: The all-time leaderboard
+      description: Signed-in players with at least one counted game only. Contains no
+        user IDs or emails.
+      responses:
+        "200":
+          description: Top 50 ranked players and, when below the top 50, the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Leaderboard"
+        "403":
+          description: The caller is a guest (`not-signed-in`) or has no counted games
+            (`no-counted-games`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
   /v1/me/merge-tickets:
     post:
       summary: A one-use ticket that lets this guest be moved into an account
@@ -357,6 +395,192 @@ paths:
                 $ref: "#/components/schemas/Problem"
         "429":
           $ref: "#/components/responses/RateLimited"
+  /v1/notices:
+    get:
+      summary: Active service notices in display priority order
+      responses:
+        "200":
+          description: Active notices, evaluated using the server clock
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notices:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notice"
+                  serverTime:
+                    type: string
+                    format: date-time
+                required:
+                  - notices
+                  - serverTime
+                additionalProperties: false
+  /v1/admin/notices:
+    get:
+      summary: Active and recent notices (admins only)
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        "200":
+          description: Notices newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminNotice"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    post:
+      summary: Post a service notice (admins only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoticeInput"
+      responses:
+        "201":
+          description: Posted; status-page failure does not fail this response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNotice"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/admin/notices/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      summary: Edit a notice and increment its revision (admins only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+                body:
+                  type: string
+                  maxLength: 280
+                link:
+                  type: string
+                  format: uri
+                  pattern: ^https://
+                  nullable: true
+                startsAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+                endsAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+              minProperties: 1
+              additionalProperties: false
+      responses:
+        "200":
+          description: Updated notice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNotice"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/admin/notices/{id}/resolve:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Resolve an incident (admins only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                resolution:
+                  type: string
+                  minLength: 1
+                  maxLength: 280
+              required:
+                - resolution
+              additionalProperties: false
+      responses:
+        "200":
+          description: Resolved incident
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNotice"
+        "400":
+          description: Invalid notice or an attempt to resolve a non-incident
+            (`invalid-notice` or `not-an-incident`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/admin/notices/{id}/sync:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Retry status-page synchronization (admins only)
+      responses:
+        "200":
+          description: Notice with its latest synchronization state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNotice"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
   /v1/admin/host-code:
     get:
       summary: Read the current rotating host code (admins only)
@@ -472,6 +696,240 @@ paths:
           $ref: "#/components/responses/Problem"
         "429":
           $ref: "#/components/responses/RateLimited"
+  /v1/admin/cleanup-runs:
+    get:
+      summary: The last 30 guest-cleanup runs, newest first (admins only)
+      description: Counts and durations only, never ids. See
+        docs/system-docs/operations/data-retention.md.
+      responses:
+        "200":
+          description: Cleanup runs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runs:
+                    type: array
+                    maxItems: 30
+                    items:
+                      $ref: "#/components/schemas/CleanupRun"
+                required:
+                  - runs
+                additionalProperties: false
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/admin/qa-accounts:
+    post:
+      summary: Mark ordinary accounts as dedicated QA identities (admins only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                accounts:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items:
+                    $ref: "#/components/schemas/QaAccount"
+              required:
+                - accounts
+              additionalProperties: false
+      responses:
+        "204":
+          description: Accounts marked
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/admin/qa-cleanup:
+    post:
+      summary: Preview or remove rooms and games belonging only to QA accounts (admins
+        only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                olderThanHours:
+                  type: integer
+                  minimum: 0
+                  maximum: 8760
+                dryRun:
+                  type: boolean
+              required:
+                - olderThanHours
+                - dryRun
+              additionalProperties: false
+      responses:
+        "200":
+          description: Rows that would be, or were, removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removed:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/QaCleanupItem"
+                required:
+                  - removed
+                additionalProperties: false
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/admin/staff-access:
+    post:
+      summary: Grant the caller time-limited read access to one subject (admins only)
+      description: >
+        Recorded and audited (`staff_access_granted`). The reason is stored but
+        never logged.
+
+        A subject that doesn't exist, or a reason or duration out of range, is
+        problem type
+
+        `invalid-grant`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subjectType:
+                  $ref: "#/components/schemas/StaffSubjectType"
+                subjectId:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                minutes:
+                  type: integer
+                  minimum: 1
+                  maximum: 480
+                  default: 60
+              required:
+                - subjectType
+                - subjectId
+                - reason
+              additionalProperties: false
+      responses:
+        "201":
+          description: Grant created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffGrant"
+        "400":
+          description: Invalid subject, reason, or duration (problem type `invalid-grant`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/admin/staff-access/{grantId}:
+    parameters:
+      - name: grantId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Read the grant's subject while the grant is active (admins only)
+      description: Each read is audited (`staff_read`). Never includes emails,
+        password hashes, or tokens.
+      responses:
+        "200":
+          description: The subject's data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffSubject"
+        "403":
+          description: The grant is expired, revoked, unknown, or someone else's (problem
+            type `grant-inactive`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    delete:
+      summary: Revoke a grant early (admins only)
+      responses:
+        "204":
+          description: Revoked
+          or already inactive: null
+        "403":
+          description: The grant is unknown or someone else's (problem type
+            `grant-inactive`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/admin/audit:
+    get:
+      summary: Audit entries newest first, at most 500 (admins only)
+      parameters:
+        - name: since
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: action
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 40
+        - name: subject
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Audit entries
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 500
+                items:
+                  $ref: "#/components/schemas/AuditEntry"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
   /v1/rooms/{roomId}:
     get:
       summary: Room details (members only)
@@ -538,15 +996,17 @@ paths:
                   description: "Quick picks: a spoken pick of just a category picks the lowest
                     clue left in it"
                 difficulty:
-                  description: "A clue category's difficulty, and the level a host can keep a game
-                    to. Mirrors public.difficulty. A room or game without one
-                    (null) uses every category: Any."
+                  description: Keep boards to one difficulty; null means Any (every category)
+                  allOf:
+                    - description: "A clue category's difficulty, and the level a host can keep a game
+                        to. Mirrors public.difficulty. A room or game without
+                        one (null) uses every category: Any."
+                      type: string
+                      enum:
+                        - easy
+                        - medium
+                        - hard
                   nullable: true
-                  type: string
-                  enum:
-                    - easy
-                    - medium
-                    - hard
               additionalProperties: false
       responses:
         "200":
@@ -760,11 +1220,193 @@ components:
           description: The signed-in player's name (leaderboard, name prefill); null for
             guests and new accounts
           nullable: true
+        showOnLeaderboard:
+          type: boolean
+          description: Whether this account appears after it has ten counted games; true
+            for guests and new profiles
+        isAdmin:
+          type: boolean
+          description: Present, and true, only for an account on the admin list (the web
+            app's Admin row). Absent for everyone else
       required:
         - userId
         - displayName
         - isAnonymous
         - accountName
+        - showOnLeaderboard
+    AnswerRecord:
+      type: object
+      properties:
+        right:
+          type: integer
+          minimum: 0
+          nullable: true
+        wrong:
+          type: integer
+          minimum: 0
+          nullable: true
+      required:
+        - right
+        - wrong
+      additionalProperties: false
+    CorrectAnswers:
+      type: object
+      properties:
+        right:
+          type: integer
+          minimum: 0
+          nullable: true
+        judged:
+          type: integer
+          minimum: 0
+          nullable: true
+      required:
+        - right
+        - judged
+      additionalProperties: false
+    RankedState:
+      type: object
+      properties:
+        state:
+          type: string
+          const: ranked
+        rank:
+          type: integer
+          minimum: 1
+      required:
+        - state
+        - rank
+      additionalProperties: false
+    NeedsGamesState:
+      type: object
+      properties:
+        state:
+          type: string
+          const: needs-games
+        gamesToGo:
+          type: integer
+          minimum: 1
+          maximum: 10
+      required:
+        - state
+        - gamesToGo
+      additionalProperties: false
+    HiddenState:
+      type: object
+      properties:
+        state:
+          type: string
+          const: hidden
+      required:
+        - state
+      additionalProperties: false
+    MyStats:
+      type: object
+      properties:
+        games:
+          type: integer
+          minimum: 0
+        wins:
+          type: integer
+          minimum: 0
+          nullable: true
+        winRate:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+        averageScore:
+          type: integer
+          nullable: true
+        bestScore:
+          type: integer
+          nullable: true
+        bestGameId:
+          type: string
+          format: uuid
+          nullable: true
+        careerTotal:
+          type: integer
+          nullable: true
+        correct:
+          $ref: "#/components/schemas/CorrectAnswers"
+        dailyDoubles:
+          $ref: "#/components/schemas/AnswerRecord"
+        final:
+          $ref: "#/components/schemas/AnswerRecord"
+        leaderboard:
+          oneOf:
+            - $ref: "#/components/schemas/RankedState"
+            - $ref: "#/components/schemas/NeedsGamesState"
+            - $ref: "#/components/schemas/HiddenState"
+      required:
+        - games
+        - wins
+        - winRate
+        - averageScore
+        - bestScore
+        - bestGameId
+        - careerTotal
+        - correct
+        - dailyDoubles
+        - final
+        - leaderboard
+      additionalProperties: false
+    LeaderboardRow:
+      type: object
+      properties:
+        rank:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        winRate:
+          type: integer
+          minimum: 0
+          maximum: 100
+        wins:
+          type: integer
+          minimum: 0
+        games:
+          type: integer
+          minimum: 10
+        isMe:
+          type: boolean
+      required:
+        - rank
+        - name
+        - winRate
+        - wins
+        - games
+        - isMe
+      additionalProperties: false
+    Leaderboard:
+      type: object
+      properties:
+        rows:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/LeaderboardRow"
+        me:
+          allOf:
+            - $ref: "#/components/schemas/LeaderboardRow"
+          nullable: true
+        myState:
+          type: string
+          enum:
+            - ranked
+            - needs-games
+            - hidden
+        gamesToGo:
+          type: integer
+          minimum: 1
+          maximum: 9
+      required:
+        - rows
+        - me
+        - myState
+      additionalProperties: false
     Room:
       type: object
       properties:
@@ -814,15 +1456,17 @@ components:
           description: "Quick picks: a spoken pick of just a category picks the lowest
             clue left in it"
         difficulty:
-          description: "A clue category's difficulty, and the level a host can keep a game
-            to. Mirrors public.difficulty. A room or game without one (null)
-            uses every category: Any."
+          description: The difficulty boards are kept to; null means Any (every category)
+          allOf:
+            - description: "A clue category's difficulty, and the level a host can keep a game
+                to. Mirrors public.difficulty. A room or game without one (null)
+                uses every category: Any."
+              type: string
+              enum:
+                - easy
+                - medium
+                - hard
           nullable: true
-          type: string
-          enum:
-            - easy
-            - medium
-            - hard
       required:
         - roomId
         - code
@@ -1020,6 +1664,181 @@ components:
       required:
         - canHost
       additionalProperties: false
+    NoticeKind:
+      type: string
+      enum:
+        - incident
+        - maintenance
+        - whats_new
+    NoticePhase:
+      type: string
+      enum:
+        - active
+        - resolved
+        - upcoming
+        - now
+    Notice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          minimum: 1
+        kind:
+          $ref: "#/components/schemas/NoticeKind"
+        phase:
+          $ref: "#/components/schemas/NoticePhase"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 60
+        body:
+          type: string
+          maxLength: 280
+        link:
+          type: string
+          format: uri
+          nullable: true
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolution:
+          type: string
+          maxLength: 280
+          nullable: true
+      required:
+        - id
+        - revision
+        - kind
+        - phase
+        - title
+        - body
+        - link
+        - startsAt
+        - endsAt
+        - resolvedAt
+        - resolution
+      additionalProperties: false
+    NoticeInput:
+      type: object
+      properties:
+        kind:
+          $ref: "#/components/schemas/NoticeKind"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 60
+        body:
+          type: string
+          maxLength: 280
+        link:
+          type: string
+          format: uri
+          pattern: ^https://
+          nullable: true
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - kind
+        - title
+        - body
+      additionalProperties: false
+    AdminNotice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          minimum: 1
+        kind:
+          $ref: "#/components/schemas/NoticeKind"
+        phase:
+          $ref: "#/components/schemas/NoticePhase"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 60
+        body:
+          type: string
+          maxLength: 280
+        link:
+          type: string
+          format: uri
+          nullable: true
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolution:
+          type: string
+          maxLength: 280
+          nullable: true
+        statusPageSync:
+          type: string
+          enum:
+            - ok
+            - failed
+        statusPageError:
+          type: string
+          nullable: true
+        createdBy:
+          type: string
+          format: uuid
+        history:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - revision
+        - kind
+        - phase
+        - title
+        - body
+        - link
+        - startsAt
+        - endsAt
+        - resolvedAt
+        - resolution
+        - statusPageSync
+        - statusPageError
+        - createdBy
+        - history
+        - createdAt
+        - updatedAt
+      additionalProperties: false
     AdminHostCode:
       type: object
       properties:
@@ -1078,6 +1897,581 @@ components:
         - lastPlayedAs
         - hostSince
         - note
+      additionalProperties: false
+    CleanupRun:
+      type: object
+      properties:
+        runAt:
+          type: string
+          format: date-time
+        deleted:
+          type: integer
+          minimum: 0
+          description: Guests deleted in this run
+        durationMs:
+          type: integer
+          minimum: 0
+        error:
+          type: string
+          description: "SQLSTATE: message when the run failed and deleted nothing"
+          nullable: true
+      required:
+        - runAt
+        - deleted
+        - durationMs
+        - error
+      additionalProperties: false
+    QaAccount:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum:
+            - host
+            - contestant
+        label:
+          type: string
+          minLength: 1
+          maxLength: 20
+      required:
+        - userId
+        - role
+        - label
+      additionalProperties: false
+    QaCleanupItem:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+            - room
+            - game
+        id:
+          type: string
+          format: uuid
+      required:
+        - kind
+        - id
+      additionalProperties: false
+    StaffSubjectType:
+      type: string
+      enum:
+        - user
+        - room
+        - game
+      x-go-type: string
+    StaffGrant:
+      type: object
+      properties:
+        grantId:
+          type: string
+          format: uuid
+        subjectType:
+          $ref: "#/components/schemas/StaffSubjectType"
+        subjectId:
+          type: string
+          format: uuid
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - grantId
+        - subjectType
+        - subjectId
+        - expiresAt
+      additionalProperties: false
+    AuditEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        at:
+          type: string
+          format: date-time
+        actor:
+          type: string
+          format: uuid
+          nullable: true
+        action:
+          type: string
+        subjectType:
+          type: string
+          nullable: true
+        subjectId:
+          type: string
+          format: uuid
+          nullable: true
+        requestId:
+          type: string
+          nullable: true
+        details:
+          type: object
+          description: Counts, flags, and ids only; never emails, passwords, tokens, or
+            reason text
+          additionalProperties: true
+      required:
+        - id
+        - at
+        - actor
+        - action
+        - subjectType
+        - subjectId
+        - requestId
+        - details
+      additionalProperties: false
+    StaffSubject:
+      oneOf:
+        - $ref: "#/components/schemas/StaffUser"
+        - $ref: "#/components/schemas/StaffRoom"
+        - $ref: "#/components/schemas/StaffGame"
+      discriminator:
+        propertyName: kind
+        mapping:
+          user: "#/components/schemas/StaffUser"
+          room: "#/components/schemas/StaffRoom"
+          game: "#/components/schemas/StaffGame"
+    StaffUser:
+      type: object
+      description: A player as staff see them under a grant. No email, password hash,
+        or tokens.
+      properties:
+        kind:
+          type: string
+          const: user
+        userId:
+          type: string
+          format: uuid
+        isAnonymous:
+          type: boolean
+        isAdmin:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+          description: When the auth user was created
+          nullable: true
+        profile:
+          type: object
+          properties:
+            displayName:
+              type: string
+            accountName:
+              type: string
+              nullable: true
+            showOnLeaderboard:
+              type: boolean
+            createdAt:
+              type: string
+              format: date-time
+          required:
+            - displayName
+            - accountName
+            - showOnLeaderboard
+            - createdAt
+          additionalProperties: false
+          nullable: true
+        host:
+          type: object
+          properties:
+            since:
+              type: string
+              format: date-time
+            note:
+              type: string
+              nullable: true
+          required:
+            - since
+            - note
+          additionalProperties: false
+          nullable: true
+        rooms:
+          type: array
+          items:
+            type: object
+            properties:
+              roomId:
+                type: string
+                format: uuid
+              code:
+                type: string
+              status:
+                x-go-type: string
+                type: string
+                enum:
+                  - open
+                  - in_game
+                  - closed
+              role:
+                x-go-type: string
+                description: host runs the board and can override verdicts; contestants buzz and
+                  answer; spectators watch.
+                type: string
+                enum:
+                  - host
+                  - contestant
+                  - spectator
+              joinedAt:
+                type: string
+                format: date-time
+            required:
+              - roomId
+              - code
+              - status
+              - role
+              - joinedAt
+            additionalProperties: false
+        games:
+          type: array
+          items:
+            type: object
+            properties:
+              gameId:
+                type: string
+                format: uuid
+              status:
+                x-go-type: string
+                description: "A recorded game: in_progress until it ends as finished (Final
+                  revealed) or abandoned (room closed or everyone left)."
+                type: string
+                enum:
+                  - in_progress
+                  - finished
+                  - abandoned
+              startedAt:
+                type: string
+                format: date-time
+              finishedAt:
+                type: string
+                format: date-time
+                nullable: true
+              role:
+                x-go-type: string
+                description: host runs the board and can override verdicts; contestants buzz and
+                  answer; spectators watch.
+                type: string
+                enum:
+                  - host
+                  - contestant
+                  - spectator
+              score:
+                type: integer
+              placement:
+                type: integer
+                nullable: true
+            required:
+              - gameId
+              - status
+              - startedAt
+              - finishedAt
+              - role
+              - score
+              - placement
+            additionalProperties: false
+        seenClueCount:
+          type: integer
+          minimum: 0
+      required:
+        - kind
+        - userId
+        - isAnonymous
+        - isAdmin
+        - createdAt
+        - profile
+        - host
+        - rooms
+        - games
+        - seenClueCount
+      additionalProperties: false
+    StaffRoom:
+      type: object
+      properties:
+        kind:
+          type: string
+          const: room
+        roomId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        hostId:
+          type: string
+          format: uuid
+        status:
+          x-go-type: string
+          type: string
+          enum:
+            - open
+            - in_game
+            - closed
+        createdAt:
+          type: string
+          format: date-time
+        resumeGameId:
+          type: string
+          format: uuid
+          nullable: true
+        options:
+          type: object
+          properties:
+            maxPlayers:
+              type: integer
+            seasons:
+              type: array
+              items:
+                type: integer
+              nullable: true
+            hostPlays:
+              type: boolean
+            timers:
+              x-go-type: string
+              description: "The game's pace, chosen in the lobby: how long buzzing stays open
+                and how long a player has to answer. relaxed 15 s / 12 s,
+                standard 9 s / 9 s, fast 5 s / 7 s. Mirrors public.timer_pace."
+              type: string
+              enum:
+                - relaxed
+                - standard
+                - fast
+            doubleRound:
+              type: boolean
+            quickPicks:
+              type: boolean
+            difficulty:
+              allOf:
+                - x-go-type: string
+                  description: "A clue category's difficulty, and the level a host can keep a game
+                    to. Mirrors public.difficulty. A room or game without one
+                    (null) uses every category: Any."
+                  type: string
+                  enum:
+                    - easy
+                    - medium
+                    - hard
+              nullable: true
+          required:
+            - maxPlayers
+            - seasons
+            - hostPlays
+            - timers
+            - doubleRound
+            - quickPicks
+            - difficulty
+          additionalProperties: false
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                type: string
+                format: uuid
+              role:
+                x-go-type: string
+                description: host runs the board and can override verdicts; contestants buzz and
+                  answer; spectators watch.
+                type: string
+                enum:
+                  - host
+                  - contestant
+                  - spectator
+              displayName:
+                type: string
+                nullable: true
+              joinedAt:
+                type: string
+                format: date-time
+            required:
+              - userId
+              - role
+              - displayName
+              - joinedAt
+            additionalProperties: false
+      required:
+        - kind
+        - roomId
+        - code
+        - hostId
+        - status
+        - createdAt
+        - resumeGameId
+        - options
+        - members
+      additionalProperties: false
+    StaffGame:
+      type: object
+      properties:
+        kind:
+          type: string
+          const: game
+        gameId:
+          type: string
+          format: uuid
+        roomId:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          x-go-type: string
+          description: "A recorded game: in_progress until it ends as finished (Final
+            revealed) or abandoned (room closed or everyone left)."
+          type: string
+          enum:
+            - in_progress
+            - finished
+            - abandoned
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        hostUserId:
+          type: string
+          format: uuid
+          nullable: true
+        players:
+          type: array
+          items:
+            type: object
+            properties:
+              gamePlayerId:
+                type: string
+                format: uuid
+              userId:
+                type: string
+                format: uuid
+                nullable: true
+              role:
+                x-go-type: string
+                description: host runs the board and can override verdicts; contestants buzz and
+                  answer; spectators watch.
+                type: string
+                enum:
+                  - host
+                  - contestant
+                  - spectator
+              displayName:
+                type: string
+                nullable: true
+              joinedAt:
+                type: string
+                format: date-time
+              leftAt:
+                type: string
+                format: date-time
+                nullable: true
+              score:
+                type: integer
+            required:
+              - gamePlayerId
+              - userId
+              - role
+              - displayName
+              - joinedAt
+              - leftAt
+              - score
+            additionalProperties: false
+        board:
+          type: array
+          items:
+            type: object
+            properties:
+              boardClueId:
+                type: string
+                format: uuid
+              round:
+                x-go-type: string
+                type: string
+                enum:
+                  - single
+                  - double
+                  - final
+              columnIndex:
+                type: integer
+              rowIndex:
+                type: integer
+              category:
+                type: string
+              value:
+                type: integer
+              isDailyDouble:
+                type: boolean
+              state:
+                x-go-type: string
+                type: string
+                enum:
+                  - unplayed
+                  - active
+                  - answered
+                  - unanswered
+            required:
+              - boardClueId
+              - round
+              - columnIndex
+              - rowIndex
+              - category
+              - value
+              - isDailyDouble
+              - state
+            additionalProperties: false
+        answers:
+          type: array
+          items:
+            type: object
+            properties:
+              answerId:
+                type: string
+                format: uuid
+              boardClueId:
+                type: string
+                format: uuid
+              gamePlayerId:
+                type: string
+                format: uuid
+              answer:
+                type: string
+              verdict:
+                x-go-type: string
+                description: correct/incorrect from the judge; overridden when the host changes
+                  a verdict; appeal_pending while the worker's appeal judge
+                  decides.
+                type: string
+                enum:
+                  - correct
+                  - incorrect
+                  - overridden_correct
+                  - overridden_incorrect
+                  - appeal_pending
+              scoreDelta:
+                type: integer
+              createdAt:
+                type: string
+                format: date-time
+            required:
+              - answerId
+              - boardClueId
+              - gamePlayerId
+              - answer
+              - verdict
+              - scoreDelta
+              - createdAt
+            additionalProperties: false
+      required:
+        - kind
+        - gameId
+        - roomId
+        - status
+        - startedAt
+        - finishedAt
+        - hostUserId
+        - players
+        - board
+        - answers
       additionalProperties: false
     MergeTicket:
       type: object

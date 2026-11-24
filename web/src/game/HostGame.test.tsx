@@ -1,5 +1,6 @@
 import { MantineProvider } from "@mantine/core";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { type NarrateResult, narrate, prepareNarration, stopNarration } from "../lib/narrator";
 import { saveVoice } from "../lib/narratorVoice";
@@ -57,14 +58,18 @@ test("reads the clue aloud once, then reports reading done", async () => {
   const send = vi.fn();
   const { rerender } = render(
     <MantineProvider>
-      <HostGame state={state} send={send} hostUserId="host" />
+      <MemoryRouter>
+        <HostGame state={state} send={send} hostUserId="host" />
+      </MemoryRouter>
     </MantineProvider>,
   );
   expect(screen.getByLabelText("Clue")).toHaveTextContent("THIS GAS");
   expect(spoken.map((u) => u.text)).toEqual(["THIS GAS"]);
   rerender(
     <MantineProvider>
-      <HostGame state={{ ...state }} send={send} hostUserId="host" />
+      <MemoryRouter>
+        <HostGame state={{ ...state }} send={send} hostUserId="host" />
+      </MemoryRouter>
     </MantineProvider>,
   );
   expect(spoken).toHaveLength(1);
@@ -75,16 +80,18 @@ test("reads the clue aloud once, then reports reading done", async () => {
 test("shows the correct response and the verdict", () => {
   render(
     <MantineProvider>
-      <HostGame
-        state={{
-          ...state,
-          phase: "answering",
-          lastVerdict: { userId: "a", answer: "nitrogen", verdict: "correct", delta: 400 },
-          clueEnd: { state: "answered", correctResponse: "Nitrogen" },
-        }}
-        send={vi.fn()}
-        hostUserId="host"
-      />
+      <MemoryRouter>
+        <HostGame
+          state={{
+            ...state,
+            phase: "answering",
+            lastVerdict: { userId: "a", answer: "nitrogen", verdict: "correct", delta: 400 },
+            clueEnd: { state: "answered", correctResponse: "Nitrogen" },
+          }}
+          send={vi.fn()}
+          hostUserId="host"
+        />
+      </MemoryRouter>
     </MantineProvider>,
   );
   expect(screen.getByText("Nitrogen")).toBeInTheDocument();
@@ -94,19 +101,21 @@ test("shows the correct response and the verdict", () => {
 test("the host's player bar appears when the host plays", () => {
   render(
     <MantineProvider>
-      <HostGame
-        state={{
-          ...state,
-          hostPlays: true,
-          phase: "buzzing_open",
-          players: [
-            ...state.players,
-            { userId: "host", displayName: "Wyatt", role: "host", score: 0, connected: true },
-          ],
-        }}
-        send={vi.fn()}
-        hostUserId="host"
-      />
+      <MemoryRouter>
+        <HostGame
+          state={{
+            ...state,
+            hostPlays: true,
+            phase: "buzzing_open",
+            players: [
+              ...state.players,
+              { userId: "host", displayName: "Wyatt", role: "host", score: 0, connected: true },
+            ],
+          }}
+          send={vi.fn()}
+          hostUserId="host"
+        />
+      </MemoryRouter>
     </MantineProvider>,
   );
   expect(screen.getByLabelText("Your controls")).toBeInTheDocument();
@@ -116,18 +125,20 @@ test("the host's player bar appears when the host plays", () => {
 test("final scores", () => {
   render(
     <MantineProvider>
-      <HostGame
-        state={{
-          ...state,
-          phase: "finished",
-          results: [
-            { userId: "a", displayName: "Alice", score: 1200, placement: 1 },
-            { userId: "b", displayName: "Bob", score: -400, placement: 2 },
-          ],
-        }}
-        send={vi.fn()}
-        hostUserId="host"
-      />
+      <MemoryRouter>
+        <HostGame
+          state={{
+            ...state,
+            phase: "finished",
+            results: [
+              { userId: "a", displayName: "Alice", score: 1200, placement: 1 },
+              { userId: "b", displayName: "Bob", score: -400, placement: 2 },
+            ],
+          }}
+          send={vi.fn()}
+          hostUserId="host"
+        />
+      </MemoryRouter>
     </MantineProvider>,
   );
   expect(screen.getByText("Final scores")).toBeInTheDocument();
@@ -138,7 +149,9 @@ test("when the browser blocks speech, buzzing is left to the server timer and th
   const send = vi.fn();
   render(
     <MantineProvider>
-      <HostGame state={state} send={send} hostUserId="host" />
+      <MemoryRouter>
+        <HostGame state={state} send={send} hostUserId="host" />
+      </MemoryRouter>
     </MantineProvider>,
   );
   spoken[0]?.onerror?.();
@@ -156,7 +169,9 @@ test("a skipped line (voice not ready in time) reports nothing and asks for no t
   const send = vi.fn();
   render(
     <MantineProvider>
-      <HostGame state={state} send={send} hostUserId="host" />
+      <MemoryRouter>
+        <HostGame state={state} send={send} hostUserId="host" />
+      </MemoryRouter>
     </MantineProvider>,
   );
   spoken[0]?.skip();
@@ -192,7 +207,9 @@ const onBoard: RoomState = {
 function host(s: RoomState, send = vi.fn()) {
   render(
     <MantineProvider>
-      <HostGame state={s} send={send} hostUserId="host" />
+      <MemoryRouter>
+        <HostGame state={s} send={send} hostUserId="host" />
+      </MemoryRouter>
     </MantineProvider>,
   );
   return send;
@@ -211,7 +228,7 @@ test("a playing host with control taps and confirms", async () => {
   fireEvent.click(screen.getByRole("button", { name: "OPERA for 200" }));
   expect(send).not.toHaveBeenCalled();
   fireEvent.click(await screen.findByRole("button", { name: "Pick" }));
-  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c2" });
+  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c2", via: "tap" });
 });
 
 test("no waiting caption; the picker's tile is highlighted", () => {
@@ -248,7 +265,9 @@ const ddClue = { clueId: "c1", category: "SCIENCE", value: 400, state: "active" 
 function showHost(s: RoomState, send = vi.fn()) {
   const r = render(
     <MantineProvider>
-      <HostGame state={s} send={send} hostUserId="host" />
+      <MemoryRouter>
+        <HostGame state={s} send={send} hostUserId="host" />
+      </MemoryRouter>
     </MantineProvider>,
   );
   return {
@@ -256,7 +275,9 @@ function showHost(s: RoomState, send = vi.fn()) {
     update: (n: RoomState) =>
       r.rerender(
         <MantineProvider>
-          <HostGame state={n} send={send} hostUserId="host" />
+          <MemoryRouter>
+            <HostGame state={n} send={send} hostUserId="host" />
+          </MemoryRouter>
         </MantineProvider>,
       ),
   };
@@ -426,7 +447,7 @@ describe("the host picks by voice", () => {
     fireEvent.click(buzzer);
     expect(rec.started).toBe(1);
     act(() => rec.onFinal?.("opera for 200"));
-    expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c2" });
+    expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c2", via: "voice" });
   });
 
   test("the column shows what it hears, and why a pick failed", () => {
@@ -528,7 +549,9 @@ test("the host device gets the Schmegettes voice ready in the background (after 
   vi.mocked(prepareVoice).mockClear();
   render(
     <MantineProvider>
-      <HostGame state={state} send={vi.fn()} hostUserId="host" />
+      <MemoryRouter>
+        <HostGame state={state} send={vi.fn()} hostUserId="host" />
+      </MemoryRouter>
     </MantineProvider>,
   );
   expect(prepareVoice).toHaveBeenCalledWith("norman");
@@ -541,7 +564,9 @@ test("a host who picked a built-in voice before gets Norman", () => {
   saveVoice("com.apple.voice.premium.en-US.Ava");
   render(
     <MantineProvider>
-      <HostGame state={state} send={vi.fn()} hostUserId="host" />
+      <MemoryRouter>
+        <HostGame state={state} send={vi.fn()} hostUserId="host" />
+      </MemoryRouter>
     </MantineProvider>,
   );
   expect(prepareVoice).toHaveBeenCalledWith("norman");
@@ -701,4 +726,28 @@ test("the correct response reports when it has been read", async () => {
   await waitFor(() => expect(spoken.at(-1)?.text).toBe("Sorry, we were looking for Nitrogen."));
   spoken.at(-1)?.onend?.();
   await waitFor(() => expect(send).toHaveBeenCalledWith({ type: "reading_done", clueId: "c1" }));
+});
+
+test("Home: the host is asked first mid-game; dimmed while the playing host answers", () => {
+  const playing: RoomState = { ...initialRoom, connection: "open", phase: "board", hostUserId: "host" };
+  render(
+    <MantineProvider>
+      <MemoryRouter>
+        <HostGame state={playing} send={vi.fn()} hostUserId="host" />
+      </MemoryRouter>
+    </MantineProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Home" }));
+  expect(screen.getByRole("dialog", { name: "Leave the game?" })).toBeInTheDocument();
+  cleanup();
+
+  const hostAnswering: RoomState = { ...playing, hostPlays: true, phase: "answering", answeringUserId: "host" };
+  render(
+    <MantineProvider>
+      <MemoryRouter>
+        <HostGame state={hostAnswering} send={vi.fn()} hostUserId="host" />
+      </MemoryRouter>
+    </MantineProvider>,
+  );
+  expect(screen.getByRole("button", { name: "Home" })).toHaveAttribute("aria-disabled", "true");
 });

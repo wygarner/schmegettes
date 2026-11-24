@@ -111,7 +111,11 @@ function openapi30(): string {
       const other = o.oneOf.find((s) => !isNull(s));
       if (other && o.oneOf.some(isNull)) {
         delete o.oneOf;
-        Object.assign(o, structuredClone(other), { nullable: true });
+        const converted = structuredClone(other) as Record<string, unknown>;
+        // OpenAPI 3.0 ignores siblings of $ref, including nullable. allOf keeps the
+        // reference and makes nullability visible to validators and generators.
+        if (typeof converted.$ref === "string") Object.assign(o, { allOf: [converted], nullable: true });
+        else Object.assign(o, converted, { nullable: true });
       }
     }
     if (typeof o.$ref === "string" && o.$ref.startsWith(ext)) {

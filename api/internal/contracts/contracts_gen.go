@@ -9,6 +9,8 @@ package contracts
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -27,11 +29,17 @@ const (
 	Guest   AdminHostKind = "guest"
 )
 
+// Defines values for AdminNoticeStatusPageSync.
+const (
+	AdminNoticeStatusPageSyncFailed AdminNoticeStatusPageSync = "failed"
+	AdminNoticeStatusPageSyncOk     AdminNoticeStatusPageSync = "ok"
+)
+
 // Defines values for CurrentRoomKind.
 const (
-	Game         CurrentRoomKind = "game"
-	Lobby        CurrentRoomKind = "lobby"
-	ResumeInvite CurrentRoomKind = "resume_invite"
+	CurrentRoomKindGame         CurrentRoomKind = "game"
+	CurrentRoomKindLobby        CurrentRoomKind = "lobby"
+	CurrentRoomKindResumeInvite CurrentRoomKind = "resume_invite"
 )
 
 // Defines values for CurrentRoomRole.
@@ -56,8 +64,42 @@ const (
 
 // Defines values for HealthStatus.
 const (
-	Degraded HealthStatus = "degraded"
-	Ok       HealthStatus = "ok"
+	HealthStatusDegraded HealthStatus = "degraded"
+	HealthStatusOk       HealthStatus = "ok"
+)
+
+// Defines values for LeaderboardMyState.
+const (
+	Hidden     LeaderboardMyState = "hidden"
+	NeedsGames LeaderboardMyState = "needs-games"
+	Ranked     LeaderboardMyState = "ranked"
+)
+
+// Defines values for NoticeKind.
+const (
+	Incident    NoticeKind = "incident"
+	Maintenance NoticeKind = "maintenance"
+	WhatsNew    NoticeKind = "whats_new"
+)
+
+// Defines values for NoticePhase.
+const (
+	Active   NoticePhase = "active"
+	Now      NoticePhase = "now"
+	Resolved NoticePhase = "resolved"
+	Upcoming NoticePhase = "upcoming"
+)
+
+// Defines values for QaAccountRole.
+const (
+	QaAccountRoleContestant QaAccountRole = "contestant"
+	QaAccountRoleHost       QaAccountRole = "host"
+)
+
+// Defines values for QaCleanupItemKind.
+const (
+	QaCleanupItemKindGame QaCleanupItemKind = "game"
+	QaCleanupItemKindRoom QaCleanupItemKind = "room"
 )
 
 // Defines values for RoomDifficulty.
@@ -89,8 +131,8 @@ const (
 
 // Defines values for PostV1RoomsJoinJSONBodyRole.
 const (
-	PostV1RoomsJoinJSONBodyRoleContestant PostV1RoomsJoinJSONBodyRole = "contestant"
-	PostV1RoomsJoinJSONBodyRoleSpectator  PostV1RoomsJoinJSONBodyRole = "spectator"
+	Contestant PostV1RoomsJoinJSONBodyRole = "contestant"
+	Spectator  PostV1RoomsJoinJSONBodyRole = "spectator"
 )
 
 // Defines values for PatchV1RoomsRoomIdJSONBodyDifficulty.
@@ -127,6 +169,67 @@ type AdminHostCode struct {
 	PreviousValidUntil *time.Time `json:"previousValidUntil"`
 	RotatesAt          time.Time  `json:"rotatesAt"`
 	ServerTime         time.Time  `json:"serverTime"`
+}
+
+// AdminNotice defines model for AdminNotice.
+type AdminNotice struct {
+	Body            string                    `json:"body"`
+	CreatedAt       time.Time                 `json:"createdAt"`
+	CreatedBy       openapi_types.UUID        `json:"createdBy"`
+	EndsAt          *time.Time                `json:"endsAt"`
+	History         int                       `json:"history"`
+	Id              openapi_types.UUID        `json:"id"`
+	Kind            NoticeKind                `json:"kind"`
+	Link            *string                   `json:"link"`
+	Phase           NoticePhase               `json:"phase"`
+	Resolution      *string                   `json:"resolution"`
+	ResolvedAt      *time.Time                `json:"resolvedAt"`
+	Revision        int                       `json:"revision"`
+	StartsAt        *time.Time                `json:"startsAt"`
+	StatusPageError *string                   `json:"statusPageError"`
+	StatusPageSync  AdminNoticeStatusPageSync `json:"statusPageSync"`
+	Title           string                    `json:"title"`
+	UpdatedAt       time.Time                 `json:"updatedAt"`
+}
+
+// AdminNoticeStatusPageSync defines model for AdminNotice.StatusPageSync.
+type AdminNoticeStatusPageSync string
+
+// AnswerRecord defines model for AnswerRecord.
+type AnswerRecord struct {
+	Right *int `json:"right"`
+	Wrong *int `json:"wrong"`
+}
+
+// AuditEntry defines model for AuditEntry.
+type AuditEntry struct {
+	Action string              `json:"action"`
+	Actor  *openapi_types.UUID `json:"actor"`
+	At     time.Time           `json:"at"`
+
+	// Details Counts, flags, and ids only; never emails, passwords, tokens, or reason text
+	Details     map[string]interface{} `json:"details"`
+	Id          int64                  `json:"id"`
+	RequestId   *string                `json:"requestId"`
+	SubjectId   *openapi_types.UUID    `json:"subjectId"`
+	SubjectType *string                `json:"subjectType"`
+}
+
+// CleanupRun defines model for CleanupRun.
+type CleanupRun struct {
+	// Deleted Guests deleted in this run
+	Deleted    int `json:"deleted"`
+	DurationMs int `json:"durationMs"`
+
+	// Error SQLSTATE: message when the run failed and deleted nothing
+	Error *string   `json:"error"`
+	RunAt time.Time `json:"runAt"`
+}
+
+// CorrectAnswers defines model for CorrectAnswers.
+type CorrectAnswers struct {
+	Judged *int `json:"judged"`
+	Right  *int `json:"right"`
 }
 
 // CurrentRoom defines model for CurrentRoom.
@@ -227,9 +330,35 @@ type Health struct {
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// HiddenState defines model for HiddenState.
+type HiddenState struct {
+	State string `json:"state"`
+}
+
 // HostAccess defines model for HostAccess.
 type HostAccess struct {
 	CanHost bool `json:"canHost"`
+}
+
+// Leaderboard defines model for Leaderboard.
+type Leaderboard struct {
+	GamesToGo *int               `json:"gamesToGo,omitempty"`
+	Me        *LeaderboardRow    `json:"me"`
+	MyState   LeaderboardMyState `json:"myState"`
+	Rows      []LeaderboardRow   `json:"rows"`
+}
+
+// LeaderboardMyState defines model for Leaderboard.MyState.
+type LeaderboardMyState string
+
+// LeaderboardRow defines model for LeaderboardRow.
+type LeaderboardRow struct {
+	Games   int    `json:"games"`
+	IsMe    bool   `json:"isMe"`
+	Name    string `json:"name"`
+	Rank    int    `json:"rank"`
+	WinRate int    `json:"winRate"`
+	Wins    int    `json:"wins"`
 }
 
 // MergeResult defines model for MergeResult.
@@ -252,6 +381,63 @@ type MergeTicket struct {
 	Ticket string `json:"ticket"`
 }
 
+// MyStats defines model for MyStats.
+type MyStats struct {
+	AverageScore *int                `json:"averageScore"`
+	BestGameId   *openapi_types.UUID `json:"bestGameId"`
+	BestScore    *int                `json:"bestScore"`
+	CareerTotal  *int                `json:"careerTotal"`
+	Correct      CorrectAnswers      `json:"correct"`
+	DailyDoubles AnswerRecord        `json:"dailyDoubles"`
+	Final        AnswerRecord        `json:"final"`
+	Games        int                 `json:"games"`
+	Leaderboard  MyStats_Leaderboard `json:"leaderboard"`
+	WinRate      *int                `json:"winRate"`
+	Wins         *int                `json:"wins"`
+}
+
+// MyStats_Leaderboard defines model for MyStats.Leaderboard.
+type MyStats_Leaderboard struct {
+	union json.RawMessage
+}
+
+// NeedsGamesState defines model for NeedsGamesState.
+type NeedsGamesState struct {
+	GamesToGo int    `json:"gamesToGo"`
+	State     string `json:"state"`
+}
+
+// Notice defines model for Notice.
+type Notice struct {
+	Body       string             `json:"body"`
+	EndsAt     *time.Time         `json:"endsAt"`
+	Id         openapi_types.UUID `json:"id"`
+	Kind       NoticeKind         `json:"kind"`
+	Link       *string            `json:"link"`
+	Phase      NoticePhase        `json:"phase"`
+	Resolution *string            `json:"resolution"`
+	ResolvedAt *time.Time         `json:"resolvedAt"`
+	Revision   int                `json:"revision"`
+	StartsAt   *time.Time         `json:"startsAt"`
+	Title      string             `json:"title"`
+}
+
+// NoticeInput defines model for NoticeInput.
+type NoticeInput struct {
+	Body     string     `json:"body"`
+	EndsAt   *time.Time `json:"endsAt"`
+	Kind     NoticeKind `json:"kind"`
+	Link     *string    `json:"link"`
+	StartsAt *time.Time `json:"startsAt"`
+	Title    string     `json:"title"`
+}
+
+// NoticeKind defines model for NoticeKind.
+type NoticeKind string
+
+// NoticePhase defines model for NoticePhase.
+type NoticePhase string
+
 // Problem defines model for Problem.
 type Problem struct {
 	Detail *string `json:"detail,omitempty"`
@@ -263,10 +449,41 @@ type Problem struct {
 // Profile defines model for Profile.
 type Profile struct {
 	// AccountName The signed-in player's name (leaderboard, name prefill); null for guests and new accounts
-	AccountName *string            `json:"accountName"`
-	DisplayName string             `json:"displayName"`
-	IsAnonymous bool               `json:"isAnonymous"`
-	UserId      openapi_types.UUID `json:"userId"`
+	AccountName *string `json:"accountName"`
+	DisplayName string  `json:"displayName"`
+
+	// IsAdmin Present, and true, only for an account on the admin list (the web app's Admin row). Absent for everyone else
+	IsAdmin     *bool `json:"isAdmin,omitempty"`
+	IsAnonymous bool  `json:"isAnonymous"`
+
+	// ShowOnLeaderboard Whether this account appears after it has ten counted games; true for guests and new profiles
+	ShowOnLeaderboard bool               `json:"showOnLeaderboard"`
+	UserId            openapi_types.UUID `json:"userId"`
+}
+
+// QaAccount defines model for QaAccount.
+type QaAccount struct {
+	Label  string             `json:"label"`
+	Role   QaAccountRole      `json:"role"`
+	UserId openapi_types.UUID `json:"userId"`
+}
+
+// QaAccountRole defines model for QaAccount.Role.
+type QaAccountRole string
+
+// QaCleanupItem defines model for QaCleanupItem.
+type QaCleanupItem struct {
+	Id   openapi_types.UUID `json:"id"`
+	Kind QaCleanupItemKind  `json:"kind"`
+}
+
+// QaCleanupItemKind defines model for QaCleanupItem.Kind.
+type QaCleanupItemKind string
+
+// RankedState defines model for RankedState.
+type RankedState struct {
+	Rank  int    `json:"rank"`
+	State string `json:"state"`
 }
 
 // Room defines model for Room.
@@ -274,7 +491,7 @@ type Room struct {
 	// Code Short code players type to join a room.
 	Code string `json:"code"`
 
-	// Difficulty A clue category's difficulty, and the level a host can keep a game to. Mirrors public.difficulty. A room or game without one (null) uses every category: Any.
+	// Difficulty The difficulty boards are kept to; null means Any (every category)
 	Difficulty *RoomDifficulty `json:"difficulty"`
 
 	// DoubleRound Play the Double Schmegettes board; false: Final follows Single
@@ -314,6 +531,140 @@ type RoomJoin struct {
 	Room          Room   `json:"room"`
 }
 
+// StaffGame defines model for StaffGame.
+type StaffGame struct {
+	Answers []struct {
+		Answer       string             `json:"answer"`
+		AnswerId     openapi_types.UUID `json:"answerId"`
+		BoardClueId  openapi_types.UUID `json:"boardClueId"`
+		CreatedAt    time.Time          `json:"createdAt"`
+		GamePlayerId openapi_types.UUID `json:"gamePlayerId"`
+		ScoreDelta   int                `json:"scoreDelta"`
+
+		// Verdict correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+		Verdict string `json:"verdict"`
+	} `json:"answers"`
+	Board []struct {
+		BoardClueId   openapi_types.UUID `json:"boardClueId"`
+		Category      string             `json:"category"`
+		ColumnIndex   int                `json:"columnIndex"`
+		IsDailyDouble bool               `json:"isDailyDouble"`
+		Round         string             `json:"round"`
+		RowIndex      int                `json:"rowIndex"`
+		State         string             `json:"state"`
+		Value         int                `json:"value"`
+	} `json:"board"`
+	FinishedAt *time.Time          `json:"finishedAt"`
+	GameId     openapi_types.UUID  `json:"gameId"`
+	HostUserId *openapi_types.UUID `json:"hostUserId"`
+	Kind       string              `json:"kind"`
+	Players    []struct {
+		DisplayName  *string            `json:"displayName"`
+		GamePlayerId openapi_types.UUID `json:"gamePlayerId"`
+		JoinedAt     time.Time          `json:"joinedAt"`
+		LeftAt       *time.Time         `json:"leftAt"`
+
+		// Role host runs the board and can override verdicts; contestants buzz and answer; spectators watch.
+		Role   string              `json:"role"`
+		Score  int                 `json:"score"`
+		UserId *openapi_types.UUID `json:"userId"`
+	} `json:"players"`
+	RoomId    *openapi_types.UUID `json:"roomId"`
+	StartedAt time.Time           `json:"startedAt"`
+
+	// Status A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).
+	Status string `json:"status"`
+}
+
+// StaffGrant defines model for StaffGrant.
+type StaffGrant struct {
+	ExpiresAt   time.Time          `json:"expiresAt"`
+	GrantId     openapi_types.UUID `json:"grantId"`
+	SubjectId   openapi_types.UUID `json:"subjectId"`
+	SubjectType StaffSubjectType   `json:"subjectType"`
+}
+
+// StaffRoom defines model for StaffRoom.
+type StaffRoom struct {
+	Code      string             `json:"code"`
+	CreatedAt time.Time          `json:"createdAt"`
+	HostId    openapi_types.UUID `json:"hostId"`
+	Kind      string             `json:"kind"`
+	Members   []struct {
+		DisplayName *string   `json:"displayName"`
+		JoinedAt    time.Time `json:"joinedAt"`
+
+		// Role host runs the board and can override verdicts; contestants buzz and answer; spectators watch.
+		Role   string             `json:"role"`
+		UserId openapi_types.UUID `json:"userId"`
+	} `json:"members"`
+	Options struct {
+		Difficulty  *string `json:"difficulty"`
+		DoubleRound bool    `json:"doubleRound"`
+		HostPlays   bool    `json:"hostPlays"`
+		MaxPlayers  int     `json:"maxPlayers"`
+		QuickPicks  bool    `json:"quickPicks"`
+		Seasons     *[]int  `json:"seasons"`
+
+		// Timers The game's pace, chosen in the lobby: how long buzzing stays open and how long a player has to answer. relaxed 15 s / 12 s, standard 9 s / 9 s, fast 5 s / 7 s. Mirrors public.timer_pace.
+		Timers string `json:"timers"`
+	} `json:"options"`
+	ResumeGameId *openapi_types.UUID `json:"resumeGameId"`
+	RoomId       openapi_types.UUID  `json:"roomId"`
+	Status       string              `json:"status"`
+}
+
+// StaffSubject defines model for StaffSubject.
+type StaffSubject struct {
+	union json.RawMessage
+}
+
+// StaffSubjectType defines model for StaffSubjectType.
+type StaffSubjectType = string
+
+// StaffUser A player as staff see them under a grant. No email, password hash, or tokens.
+type StaffUser struct {
+	// CreatedAt When the auth user was created
+	CreatedAt *time.Time `json:"createdAt"`
+	Games     []struct {
+		FinishedAt *time.Time         `json:"finishedAt"`
+		GameId     openapi_types.UUID `json:"gameId"`
+		Placement  *int               `json:"placement"`
+
+		// Role host runs the board and can override verdicts; contestants buzz and answer; spectators watch.
+		Role      string    `json:"role"`
+		Score     int       `json:"score"`
+		StartedAt time.Time `json:"startedAt"`
+
+		// Status A recorded game: in_progress until it ends as finished (Final revealed) or abandoned (room closed or everyone left).
+		Status string `json:"status"`
+	} `json:"games"`
+	Host *struct {
+		Note  *string   `json:"note"`
+		Since time.Time `json:"since"`
+	} `json:"host"`
+	IsAdmin     bool   `json:"isAdmin"`
+	IsAnonymous bool   `json:"isAnonymous"`
+	Kind        string `json:"kind"`
+	Profile     *struct {
+		AccountName       *string   `json:"accountName"`
+		CreatedAt         time.Time `json:"createdAt"`
+		DisplayName       string    `json:"displayName"`
+		ShowOnLeaderboard bool      `json:"showOnLeaderboard"`
+	} `json:"profile"`
+	Rooms []struct {
+		Code     string    `json:"code"`
+		JoinedAt time.Time `json:"joinedAt"`
+
+		// Role host runs the board and can override verdicts; contestants buzz and answer; spectators watch.
+		Role   string             `json:"role"`
+		RoomId openapi_types.UUID `json:"roomId"`
+		Status string             `json:"status"`
+	} `json:"rooms"`
+	SeenClueCount int                `json:"seenClueCount"`
+	UserId        openapi_types.UUID `json:"userId"`
+}
+
 // Version defines model for Version.
 type Version struct {
 	// Commit Full git SHA the build was made from
@@ -324,6 +675,13 @@ type Version struct {
 // RateLimited defines model for RateLimited.
 type RateLimited = Problem
 
+// GetV1AdminAuditParams defines parameters for GetV1AdminAudit.
+type GetV1AdminAuditParams struct {
+	Since   *time.Time          `form:"since,omitempty" json:"since,omitempty"`
+	Action  *string             `form:"action,omitempty" json:"action,omitempty"`
+	Subject *openapi_types.UUID `form:"subject,omitempty" json:"subject,omitempty"`
+}
+
 // PostV1AdminHostCodeRotateJSONBody defines parameters for PostV1AdminHostCodeRotate.
 type PostV1AdminHostCodeRotateJSONBody struct {
 	ExpectedCode string `json:"expectedCode"`
@@ -332,6 +690,44 @@ type PostV1AdminHostCodeRotateJSONBody struct {
 // PatchV1AdminHostsUserIdJSONBody defines parameters for PatchV1AdminHostsUserId.
 type PatchV1AdminHostsUserIdJSONBody struct {
 	Note *string `json:"note"`
+}
+
+// GetV1AdminNoticesParams defines parameters for GetV1AdminNotices.
+type GetV1AdminNoticesParams struct {
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
+}
+
+// PatchV1AdminNoticesIdJSONBody defines parameters for PatchV1AdminNoticesId.
+type PatchV1AdminNoticesIdJSONBody struct {
+	Body     *string    `json:"body,omitempty"`
+	EndsAt   *time.Time `json:"endsAt"`
+	Link     *string    `json:"link"`
+	StartsAt *time.Time `json:"startsAt"`
+	Title    *string    `json:"title,omitempty"`
+}
+
+// PostV1AdminNoticesIdResolveJSONBody defines parameters for PostV1AdminNoticesIdResolve.
+type PostV1AdminNoticesIdResolveJSONBody struct {
+	Resolution string `json:"resolution"`
+}
+
+// PostV1AdminQaAccountsJSONBody defines parameters for PostV1AdminQaAccounts.
+type PostV1AdminQaAccountsJSONBody struct {
+	Accounts []QaAccount `json:"accounts"`
+}
+
+// PostV1AdminQaCleanupJSONBody defines parameters for PostV1AdminQaCleanup.
+type PostV1AdminQaCleanupJSONBody struct {
+	DryRun         bool `json:"dryRun"`
+	OlderThanHours int  `json:"olderThanHours"`
+}
+
+// PostV1AdminStaffAccessJSONBody defines parameters for PostV1AdminStaffAccess.
+type PostV1AdminStaffAccessJSONBody struct {
+	Minutes     *int               `json:"minutes,omitempty"`
+	Reason      string             `json:"reason"`
+	SubjectId   openapi_types.UUID `json:"subjectId"`
+	SubjectType StaffSubjectType   `json:"subjectType"`
 }
 
 // GetV1GamesParams defines parameters for GetV1Games.
@@ -354,7 +750,8 @@ type PostV1HostAccessRedeemJSONBody struct {
 // PatchV1MeJSONBody defines parameters for PatchV1Me.
 type PatchV1MeJSONBody struct {
 	// AccountName Trimmed by the server; must not be blank
-	AccountName DisplayName `json:"accountName"`
+	AccountName       *DisplayName `json:"accountName,omitempty"`
+	ShowOnLeaderboard *bool        `json:"showOnLeaderboard,omitempty"`
 }
 
 // PostV1MeMergeJSONBody defines parameters for PostV1MeMerge.
@@ -383,7 +780,7 @@ type PostV1RoomsJoinJSONBodyRole string
 
 // PatchV1RoomsRoomIdJSONBody defines parameters for PatchV1RoomsRoomId.
 type PatchV1RoomsRoomIdJSONBody struct {
-	// Difficulty A clue category's difficulty, and the level a host can keep a game to. Mirrors public.difficulty. A room or game without one (null) uses every category: Any.
+	// Difficulty Keep boards to one difficulty; null means Any (every category)
 	Difficulty *PatchV1RoomsRoomIdJSONBodyDifficulty `json:"difficulty"`
 
 	// DoubleRound false: Final follows the Single board
@@ -412,6 +809,24 @@ type PostV1AdminHostCodeRotateJSONRequestBody PostV1AdminHostCodeRotateJSONBody
 // PatchV1AdminHostsUserIdJSONRequestBody defines body for PatchV1AdminHostsUserId for application/json ContentType.
 type PatchV1AdminHostsUserIdJSONRequestBody PatchV1AdminHostsUserIdJSONBody
 
+// PostV1AdminNoticesJSONRequestBody defines body for PostV1AdminNotices for application/json ContentType.
+type PostV1AdminNoticesJSONRequestBody = NoticeInput
+
+// PatchV1AdminNoticesIdJSONRequestBody defines body for PatchV1AdminNoticesId for application/json ContentType.
+type PatchV1AdminNoticesIdJSONRequestBody PatchV1AdminNoticesIdJSONBody
+
+// PostV1AdminNoticesIdResolveJSONRequestBody defines body for PostV1AdminNoticesIdResolve for application/json ContentType.
+type PostV1AdminNoticesIdResolveJSONRequestBody PostV1AdminNoticesIdResolveJSONBody
+
+// PostV1AdminQaAccountsJSONRequestBody defines body for PostV1AdminQaAccounts for application/json ContentType.
+type PostV1AdminQaAccountsJSONRequestBody PostV1AdminQaAccountsJSONBody
+
+// PostV1AdminQaCleanupJSONRequestBody defines body for PostV1AdminQaCleanup for application/json ContentType.
+type PostV1AdminQaCleanupJSONRequestBody PostV1AdminQaCleanupJSONBody
+
+// PostV1AdminStaffAccessJSONRequestBody defines body for PostV1AdminStaffAccess for application/json ContentType.
+type PostV1AdminStaffAccessJSONRequestBody PostV1AdminStaffAccessJSONBody
+
 // PostV1HostAccessRedeemJSONRequestBody defines body for PostV1HostAccessRedeem for application/json ContentType.
 type PostV1HostAccessRedeemJSONRequestBody PostV1HostAccessRedeemJSONBody
 
@@ -430,11 +845,224 @@ type PostV1RoomsJoinJSONRequestBody PostV1RoomsJoinJSONBody
 // PatchV1RoomsRoomIdJSONRequestBody defines body for PatchV1RoomsRoomId for application/json ContentType.
 type PatchV1RoomsRoomIdJSONRequestBody PatchV1RoomsRoomIdJSONBody
 
+// AsRankedState returns the union data inside the MyStats_Leaderboard as a RankedState
+func (t MyStats_Leaderboard) AsRankedState() (RankedState, error) {
+	var body RankedState
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRankedState overwrites any union data inside the MyStats_Leaderboard as the provided RankedState
+func (t *MyStats_Leaderboard) FromRankedState(v RankedState) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRankedState performs a merge with any union data inside the MyStats_Leaderboard, using the provided RankedState
+func (t *MyStats_Leaderboard) MergeRankedState(v RankedState) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsNeedsGamesState returns the union data inside the MyStats_Leaderboard as a NeedsGamesState
+func (t MyStats_Leaderboard) AsNeedsGamesState() (NeedsGamesState, error) {
+	var body NeedsGamesState
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromNeedsGamesState overwrites any union data inside the MyStats_Leaderboard as the provided NeedsGamesState
+func (t *MyStats_Leaderboard) FromNeedsGamesState(v NeedsGamesState) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeNeedsGamesState performs a merge with any union data inside the MyStats_Leaderboard, using the provided NeedsGamesState
+func (t *MyStats_Leaderboard) MergeNeedsGamesState(v NeedsGamesState) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsHiddenState returns the union data inside the MyStats_Leaderboard as a HiddenState
+func (t MyStats_Leaderboard) AsHiddenState() (HiddenState, error) {
+	var body HiddenState
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromHiddenState overwrites any union data inside the MyStats_Leaderboard as the provided HiddenState
+func (t *MyStats_Leaderboard) FromHiddenState(v HiddenState) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeHiddenState performs a merge with any union data inside the MyStats_Leaderboard, using the provided HiddenState
+func (t *MyStats_Leaderboard) MergeHiddenState(v HiddenState) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t MyStats_Leaderboard) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *MyStats_Leaderboard) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsStaffUser returns the union data inside the StaffSubject as a StaffUser
+func (t StaffSubject) AsStaffUser() (StaffUser, error) {
+	var body StaffUser
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStaffUser overwrites any union data inside the StaffSubject as the provided StaffUser
+func (t *StaffSubject) FromStaffUser(v StaffUser) error {
+	v.Kind = "user"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStaffUser performs a merge with any union data inside the StaffSubject, using the provided StaffUser
+func (t *StaffSubject) MergeStaffUser(v StaffUser) error {
+	v.Kind = "user"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsStaffRoom returns the union data inside the StaffSubject as a StaffRoom
+func (t StaffSubject) AsStaffRoom() (StaffRoom, error) {
+	var body StaffRoom
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStaffRoom overwrites any union data inside the StaffSubject as the provided StaffRoom
+func (t *StaffSubject) FromStaffRoom(v StaffRoom) error {
+	v.Kind = "room"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStaffRoom performs a merge with any union data inside the StaffSubject, using the provided StaffRoom
+func (t *StaffSubject) MergeStaffRoom(v StaffRoom) error {
+	v.Kind = "room"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsStaffGame returns the union data inside the StaffSubject as a StaffGame
+func (t StaffSubject) AsStaffGame() (StaffGame, error) {
+	var body StaffGame
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStaffGame overwrites any union data inside the StaffSubject as the provided StaffGame
+func (t *StaffSubject) FromStaffGame(v StaffGame) error {
+	v.Kind = "game"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStaffGame performs a merge with any union data inside the StaffSubject, using the provided StaffGame
+func (t *StaffSubject) MergeStaffGame(v StaffGame) error {
+	v.Kind = "game"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t StaffSubject) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"kind"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t StaffSubject) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "game":
+		return t.AsStaffGame()
+	case "room":
+		return t.AsStaffRoom()
+	case "user":
+		return t.AsStaffUser()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t StaffSubject) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *StaffSubject) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Liveness and dependency check
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
+	// Audit entries newest first, at most 500 (admins only)
+	// (GET /v1/admin/audit)
+	GetV1AdminAudit(w http.ResponseWriter, r *http.Request, params GetV1AdminAuditParams)
+	// The last 30 guest-cleanup runs, newest first (admins only)
+	// (GET /v1/admin/cleanup-runs)
+	GetV1AdminCleanupRuns(w http.ResponseWriter, r *http.Request)
 	// Read the current rotating host code (admins only)
 	// (GET /v1/admin/host-code)
 	GetV1AdminHostCode(w http.ResponseWriter, r *http.Request)
@@ -450,6 +1078,36 @@ type ServerInterface interface {
 	// Set or clear an admin-only host note
 	// (PATCH /v1/admin/hosts/{userId})
 	PatchV1AdminHostsUserId(w http.ResponseWriter, r *http.Request, userId openapi_types.UUID)
+	// Active and recent notices (admins only)
+	// (GET /v1/admin/notices)
+	GetV1AdminNotices(w http.ResponseWriter, r *http.Request, params GetV1AdminNoticesParams)
+	// Post a service notice (admins only)
+	// (POST /v1/admin/notices)
+	PostV1AdminNotices(w http.ResponseWriter, r *http.Request)
+	// Edit a notice and increment its revision (admins only)
+	// (PATCH /v1/admin/notices/{id})
+	PatchV1AdminNoticesId(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Resolve an incident (admins only)
+	// (POST /v1/admin/notices/{id}/resolve)
+	PostV1AdminNoticesIdResolve(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Retry status-page synchronization (admins only)
+	// (POST /v1/admin/notices/{id}/sync)
+	PostV1AdminNoticesIdSync(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// Mark ordinary accounts as dedicated QA identities (admins only)
+	// (POST /v1/admin/qa-accounts)
+	PostV1AdminQaAccounts(w http.ResponseWriter, r *http.Request)
+	// Preview or remove rooms and games belonging only to QA accounts (admins only)
+	// (POST /v1/admin/qa-cleanup)
+	PostV1AdminQaCleanup(w http.ResponseWriter, r *http.Request)
+	// Grant the caller time-limited read access to one subject (admins only)
+	// (POST /v1/admin/staff-access)
+	PostV1AdminStaffAccess(w http.ResponseWriter, r *http.Request)
+	// Revoke a grant early (admins only)
+	// (DELETE /v1/admin/staff-access/{grantId})
+	DeleteV1AdminStaffAccessGrantId(w http.ResponseWriter, r *http.Request, grantId openapi_types.UUID)
+	// Read the grant's subject while the grant is active (admins only)
+	// (GET /v1/admin/staff-access/{grantId})
+	GetV1AdminStaffAccessGrantId(w http.ResponseWriter, r *http.Request, grantId openapi_types.UUID)
 	// The caller's ended games (finished or abandoned), played or watched, newest first
 	// (GET /v1/games)
 	GetV1Games(w http.ResponseWriter, r *http.Request, params GetV1GamesParams)
@@ -465,13 +1123,16 @@ type ServerInterface interface {
 	// Redeem the current rotating host code to give the caller host access
 	// (POST /v1/host-access/redeem)
 	PostV1HostAccessRedeem(w http.ResponseWriter, r *http.Request)
+	// The all-time leaderboard
+	// (GET /v1/leaderboard)
+	GetV1Leaderboard(w http.ResponseWriter, r *http.Request)
 	// Delete the caller's account
 	// (DELETE /v1/me)
 	DeleteV1Me(w http.ResponseWriter, r *http.Request)
 	// The caller's profile
 	// (GET /v1/me)
 	GetV1Me(w http.ResponseWriter, r *http.Request)
-	// Set the account's name
+	// Update the caller's account
 	// (PATCH /v1/me)
 	PatchV1Me(w http.ResponseWriter, r *http.Request)
 	// The room the caller is in, to rejoin from Home (a game first, then a resume invite, then a lobby)
@@ -483,6 +1144,12 @@ type ServerInterface interface {
 	// A one-use ticket that lets this guest be moved into an account
 	// (POST /v1/me/merge-tickets)
 	PostV1MeMergeTickets(w http.ResponseWriter, r *http.Request)
+	// The caller's all-time stats
+	// (GET /v1/me/stats)
+	GetV1MeStats(w http.ResponseWriter, r *http.Request)
+	// Active service notices in display priority order
+	// (GET /v1/notices)
+	GetV1Notices(w http.ResponseWriter, r *http.Request)
 	// Create a room; the caller becomes host
 	// (POST /v1/rooms)
 	PostV1Rooms(w http.ResponseWriter, r *http.Request)
@@ -517,6 +1184,75 @@ func (siw *ServerInterfaceWrapper) GetHealthz(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealthz(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetV1AdminAudit operation middleware
+func (siw *ServerInterfaceWrapper) GetV1AdminAudit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetV1AdminAuditParams
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "since", r.URL.Query(), &params.Since)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "action" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "action", r.URL.Query(), &params.Action)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "action", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "subject" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "subject", r.URL.Query(), &params.Subject)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subject", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1AdminAudit(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetV1AdminCleanupRuns operation middleware
+func (siw *ServerInterfaceWrapper) GetV1AdminCleanupRuns(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1AdminCleanupRuns(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -639,6 +1375,274 @@ func (siw *ServerInterfaceWrapper) PatchV1AdminHostsUserId(w http.ResponseWriter
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchV1AdminHostsUserId(w, r, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetV1AdminNotices operation middleware
+func (siw *ServerInterfaceWrapper) GetV1AdminNotices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetV1AdminNoticesParams
+
+	// ------------- Optional query parameter "days" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "days", r.URL.Query(), &params.Days)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "days", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1AdminNotices(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1AdminNotices operation middleware
+func (siw *ServerInterfaceWrapper) PostV1AdminNotices(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1AdminNotices(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchV1AdminNoticesId operation middleware
+func (siw *ServerInterfaceWrapper) PatchV1AdminNoticesId(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchV1AdminNoticesId(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1AdminNoticesIdResolve operation middleware
+func (siw *ServerInterfaceWrapper) PostV1AdminNoticesIdResolve(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1AdminNoticesIdResolve(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1AdminNoticesIdSync operation middleware
+func (siw *ServerInterfaceWrapper) PostV1AdminNoticesIdSync(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1AdminNoticesIdSync(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1AdminQaAccounts operation middleware
+func (siw *ServerInterfaceWrapper) PostV1AdminQaAccounts(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1AdminQaAccounts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1AdminQaCleanup operation middleware
+func (siw *ServerInterfaceWrapper) PostV1AdminQaCleanup(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1AdminQaCleanup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostV1AdminStaffAccess operation middleware
+func (siw *ServerInterfaceWrapper) PostV1AdminStaffAccess(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostV1AdminStaffAccess(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteV1AdminStaffAccessGrantId operation middleware
+func (siw *ServerInterfaceWrapper) DeleteV1AdminStaffAccessGrantId(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "grantId" -------------
+	var grantId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "grantId", r.PathValue("grantId"), &grantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "grantId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteV1AdminStaffAccessGrantId(w, r, grantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetV1AdminStaffAccessGrantId operation middleware
+func (siw *ServerInterfaceWrapper) GetV1AdminStaffAccessGrantId(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "grantId" -------------
+	var grantId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "grantId", r.PathValue("grantId"), &grantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "grantId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1AdminStaffAccessGrantId(w, r, grantId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -791,6 +1795,26 @@ func (siw *ServerInterfaceWrapper) PostV1HostAccessRedeem(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// GetV1Leaderboard operation middleware
+func (siw *ServerInterfaceWrapper) GetV1Leaderboard(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1Leaderboard(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteV1Me operation middleware
 func (siw *ServerInterfaceWrapper) DeleteV1Me(w http.ResponseWriter, r *http.Request) {
 
@@ -902,6 +1926,46 @@ func (siw *ServerInterfaceWrapper) PostV1MeMergeTickets(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostV1MeMergeTickets(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetV1MeStats operation middleware
+func (siw *ServerInterfaceWrapper) GetV1MeStats(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1MeStats(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetV1Notices operation middleware
+func (siw *ServerInterfaceWrapper) GetV1Notices(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SupabaseJwtScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV1Notices(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1179,22 +2243,37 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc("GET "+options.BaseURL+"/healthz", wrapper.GetHealthz)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/audit", wrapper.GetV1AdminAudit)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/cleanup-runs", wrapper.GetV1AdminCleanupRuns)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/host-code", wrapper.GetV1AdminHostCode)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/host-code/rotate", wrapper.PostV1AdminHostCodeRotate)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/hosts", wrapper.GetV1AdminHosts)
 	m.HandleFunc("DELETE "+options.BaseURL+"/v1/admin/hosts/{userId}", wrapper.DeleteV1AdminHostsUserId)
 	m.HandleFunc("PATCH "+options.BaseURL+"/v1/admin/hosts/{userId}", wrapper.PatchV1AdminHostsUserId)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/notices", wrapper.GetV1AdminNotices)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/notices", wrapper.PostV1AdminNotices)
+	m.HandleFunc("PATCH "+options.BaseURL+"/v1/admin/notices/{id}", wrapper.PatchV1AdminNoticesId)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/notices/{id}/resolve", wrapper.PostV1AdminNoticesIdResolve)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/notices/{id}/sync", wrapper.PostV1AdminNoticesIdSync)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/qa-accounts", wrapper.PostV1AdminQaAccounts)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/qa-cleanup", wrapper.PostV1AdminQaCleanup)
+	m.HandleFunc("POST "+options.BaseURL+"/v1/admin/staff-access", wrapper.PostV1AdminStaffAccess)
+	m.HandleFunc("DELETE "+options.BaseURL+"/v1/admin/staff-access/{grantId}", wrapper.DeleteV1AdminStaffAccessGrantId)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/admin/staff-access/{grantId}", wrapper.GetV1AdminStaffAccessGrantId)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/games", wrapper.GetV1Games)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/games/{gameId}", wrapper.GetV1GamesGameId)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/games/{gameId}/resume", wrapper.PostV1GamesGameIdResume)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/host-access", wrapper.GetV1HostAccess)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/host-access/redeem", wrapper.PostV1HostAccessRedeem)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/leaderboard", wrapper.GetV1Leaderboard)
 	m.HandleFunc("DELETE "+options.BaseURL+"/v1/me", wrapper.DeleteV1Me)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/me", wrapper.GetV1Me)
 	m.HandleFunc("PATCH "+options.BaseURL+"/v1/me", wrapper.PatchV1Me)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/me/current-room", wrapper.GetV1MeCurrentRoom)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/me/merge", wrapper.PostV1MeMerge)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/me/merge-tickets", wrapper.PostV1MeMergeTickets)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/me/stats", wrapper.GetV1MeStats)
+	m.HandleFunc("GET "+options.BaseURL+"/v1/notices", wrapper.GetV1Notices)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/rooms", wrapper.PostV1Rooms)
 	m.HandleFunc("GET "+options.BaseURL+"/v1/rooms/by-code/{code}", wrapper.GetV1RoomsByCodeCode)
 	m.HandleFunc("POST "+options.BaseURL+"/v1/rooms/join", wrapper.PostV1RoomsJoin)

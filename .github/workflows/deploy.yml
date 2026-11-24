@@ -1,16 +1,15 @@
 name: Deploy
 
 # One deploy for both environments, called by deploy-staging.yml (push to develop) and
-# deploy-prod.yml (push to production). The deploy contract
-# (docs/system-docs/operations/deployment.md):
-#   1. build from the pushed commit (each image and bundle gets GIT_SHA)
-#   2. run migrations before new code takes traffic
-#   3. health-check the new version before it takes traffic (Fly waits for /healthz)
-#   4. verify every component reports the pushed commit at /version
-#   5. rollback is one command away (release-strategy.md, "Rollback")
+# deploy-prod.yml (push to production). It is a thin caller of scripts/deploy.mjs, the only
+# deploy implementation: an operator runs the same command when Actions is unavailable
+# (docs/system-docs/operations/deployment.md). Keep migration, Fly, Vercel and version-check
+# logic out of this file; scripts/deploy.test.mjs fails if any comes back.
 #
-# Every job reads the GitHub Environment named by `environment`. Owner URL and version URLs keep
-# their environment prefix (STAGING_ / PROD_); everything else has the same name in both.
+# The command, in order: checks the commit (clean, from develop for staging, the production tip
+# for production) and every setting; applies migrations; deploys api and game (Fly.io) and web
+# (Vercel), each built with this commit's SHA; then fails unless every component's version
+# endpoint reports that SHA. Rollback: release-strategy.md, "Rollback".
 on:
   workflow_call:
     inputs:
@@ -23,179 +22,41 @@ permissions:
   contents: read
 
 jobs:
-  migrate:
-    name: Migrate (${{ inputs.environment }})
+  deploy:
+    name: Deploy (${{ inputs.environment }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    timeout-minutes: 60
     steps:
+      # Full history and every branch, so the command can check the commit is on develop or is
+      # the production tip.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
-          install_args: aqua:supabase/cli
-      # supabase/config.toml points at a git-ignored local signing key, and the CLI won't load the
-      # config without the file. This throwaway key is never sent anywhere (as in ci.yml).
-      - name: Generate a throwaway local signing key
-        run: |
-          echo '[]' > supabase/signing_keys.json
-          supabase gen signing-key --algorithm ES256 --yes > /dev/null
-      # Migrations must work with the code already running: old and new code overlap during a
-      # rollout. Destructive changes (drop, rename) ship in a later release than the code change.
-      - name: Apply pending migrations
-        env:
-          ENVIRONMENT: ${{ inputs.environment }}
-          # Each environment reads only its own secret: no fallback from one to the other.
-          PROD_OWNER_URL: ${{ secrets.PROD_SUPABASE_DB_OWNER_URL }}
-          STAGING_OWNER_URL: ${{ secrets.STAGING_SUPABASE_DB_OWNER_URL }}
-        run: |
-          case "$ENVIRONMENT" in
-            production) url="$PROD_OWNER_URL"; name=PROD_SUPABASE_DB_OWNER_URL ;;
-            staging) url="$STAGING_OWNER_URL"; name=STAGING_SUPABASE_DB_OWNER_URL ;;
-            *) echo "::error::Unknown environment: $ENVIRONMENT"; exit 1 ;;
-          esac
-          if [ -z "$url" ]; then
-            echo "::error::$name is not set on the $ENVIRONMENT environment."
-            exit 1
-          fi
-          supabase db push --db-url "$url" --include-all
-
-  api:
-    name: Deploy api (${{ inputs.environment }})
-    needs: migrate
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@v5
-        with:
-          install_args: flyctl
-      # Builds on Fly's remote builder from the repo root (go.mod replaces golib with ../golib).
-      # The image is labelled with the commit, so rollback can name it.
+          install_args: node bun flyctl aqua:supabase/cli
+      # The GitHub Environment's values, under the names the command reads (deploy.mjs --help).
+      # Each environment holds only its own owner URL: there is no fallback between them.
       - name: Deploy
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_API }}
-          FLY_APP: ${{ vars.FLY_APP_API }}
           ENVIRONMENT: ${{ inputs.environment }}
-        run: |
-          if [ -z "$FLY_APP" ] || [ -z "$FLY_API_TOKEN" ]; then
-            echo "::error::FLY_APP_API and FLY_API_TOKEN_API must be set on the $ENVIRONMENT environment."
-            exit 1
-          fi
-          flyctl deploy . --config api/fly.toml --dockerfile api/Dockerfile --app "$FLY_APP" \
-            --remote-only --build-arg "GIT_SHA=$GITHUB_SHA" --image-label "$GITHUB_SHA" \
-            --env "APP_ENV=$ENVIRONMENT" --wait-timeout 10m
-
-  game:
-    name: Deploy game (${{ inputs.environment }})
-    needs: migrate
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@v5
-        with:
-          install_args: flyctl
-      # --ha=false: game runs on exactly one machine (game/fly.toml explains why).
-      - name: Deploy
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_GAME }}
-          FLY_APP: ${{ vars.FLY_APP_GAME }}
-          ENVIRONMENT: ${{ inputs.environment }}
-        run: |
-          if [ -z "$FLY_APP" ] || [ -z "$FLY_API_TOKEN" ]; then
-            echo "::error::FLY_APP_GAME and FLY_API_TOKEN_GAME must be set on the $ENVIRONMENT environment."
-            exit 1
-          fi
-          flyctl deploy . --config game/fly.toml --dockerfile game/Dockerfile --app "$FLY_APP" \
-            --remote-only --build-arg "GIT_SHA=$GITHUB_SHA" --image-label "$GITHUB_SHA" \
-            --env "APP_ENV=$ENVIRONMENT" --ha=false --wait-timeout 10m
-
-  web:
-    name: Deploy web (${{ inputs.environment }})
-    needs: migrate
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@v5
-        with:
-          install_args: node bun
-      - run: bun install --frozen-lockfile
-      # VITE_* values are public (bundled into the client), so they are variables, not secrets.
-      - name: Build
-        env:
+          STAGING_SUPABASE_DB_OWNER_URL: ${{ secrets.STAGING_SUPABASE_DB_OWNER_URL }}
+          PROD_SUPABASE_DB_OWNER_URL: ${{ secrets.PROD_SUPABASE_DB_OWNER_URL }}
+          FLY_APP_API: ${{ vars.FLY_APP_API }}
+          FLY_API_TOKEN_API: ${{ secrets.FLY_API_TOKEN_API }}
+          FLY_APP_GAME: ${{ vars.FLY_APP_GAME }}
+          FLY_API_TOKEN_GAME: ${{ secrets.FLY_API_TOKEN_GAME }}
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
-          GIT_SHA: ${{ github.sha }}
-        run: bun run --cwd web build
-      # Uploads web/dist with a vercel.json (SPA fallback, CSP built from these origins, HSTS)
-      # through Vercel's REST API, and waits until the production deployment is ready. Only this
-      # step sees the token, and it runs Node's standard library alone: no Vercel CLI, no packages.
-      # The Vercel project's Git integration is off: this is its only deployer.
-      - name: Deploy
-        env:
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_STATUS_URL: ${{ vars.VITE_STATUS_URL }}
           GAME_SOCKET_ORIGIN: ${{ vars.GAME_SOCKET_ORIGIN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-          GIT_SHA: ${{ github.sha }}
-        run: node web/scripts/vercel-deploy.mjs
-
-  verify:
-    name: Verify deployed commit (${{ inputs.environment }})
-    needs: [api, game, web]
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-    steps:
-      # {PROD,STAGING}_VERSION_URLS (environment variable) lists each component's version
-      # endpoint, e.g. "https://schmegettes.app/version.json
-      # https://schmegettes-api-prod.fly.dev/version https://schmegettes-game-prod.fly.dev/version"
-      - name: Every component runs the pushed commit
-        env:
-          ENVIRONMENT: ${{ inputs.environment }}
-          PROD_URLS: ${{ vars.PROD_VERSION_URLS }}
-          STAGING_URLS: ${{ vars.STAGING_VERSION_URLS }}
-          EXPECTED: ${{ github.sha }}
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          case "$ENVIRONMENT" in
-            production) URLS="$PROD_URLS"; name=PROD_VERSION_URLS; branch=production ;;
-            staging) URLS="$STAGING_URLS"; name=STAGING_VERSION_URLS; branch=develop ;;
-            *) echo "::error::Unknown environment: $ENVIRONMENT"; exit 1 ;;
-          esac
-          if [ -z "$URLS" ]; then
-            echo "::error::$name is not set on the $ENVIRONMENT environment."
-            exit 1
-          fi
-          # Up to 15 minutes, in case a component is still starting.
-          for _ in $(seq 1 45); do
-            waiting=""
-            for url in $URLS; do
-              commit="$(curl -fsS --max-time 10 "$url" | jq -r '.commit // empty' || true)"
-              [ "$commit" = "$EXPECTED" ] || waiting="$waiting $url($commit)"
-            done
-            if [ -z "$waiting" ]; then
-              echo "Every component reports $EXPECTED."
-              exit 0
-            fi
-            sleep 20
-          done
-
-          tip="$(gh api "repos/${GITHUB_REPOSITORY}/branches/$branch" --jq '.commit.sha')"
-          if [ "$tip" != "$EXPECTED" ]; then
-            echo "::notice::$branch has moved on to $tip; that run verifies the deploy."
-            exit 0
-          fi
-          echo "::error::Not running $EXPECTED after 15 minutes:$waiting"
-          exit 1
+          WEB_VERSION_URL: ${{ vars.WEB_VERSION_URL }}
+          API_VERSION_URL: ${{ vars.API_VERSION_URL }}
+          GAME_VERSION_URL: ${{ vars.GAME_VERSION_URL }}
+        run: node scripts/deploy.mjs run "$ENVIRONMENT" all

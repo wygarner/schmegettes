@@ -57,7 +57,7 @@ test("a tapped pick is confirmed before it's sent", async () => {
   expect(send).not.toHaveBeenCalled();
   expect(await screen.findByText("SCIENCE for $400?")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Pick" }));
-  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c1" });
+  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c1", via: "tap" });
 });
 
 test("Cancel sends nothing", async () => {
@@ -293,7 +293,7 @@ test("the controller presses the buzzer and says a clue instead of tapping it", 
   expect(buzzer).toHaveAttribute("data-state", "listening");
   act(() => rec.onFinal?.("science for four hundred"));
   // A spoken pick goes straight through: no confirmation.
-  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c1" });
+  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c1", via: "voice" });
   expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "buzz" }));
 });
 
@@ -308,13 +308,41 @@ test("pressing the buzzer again while listening cancels the pick", () => {
   expect(send).not.toHaveBeenCalled();
 });
 
-test("a voice pick that doesn't match says so and picks nothing", () => {
+test("a voice pick that doesn't match says so and reports one miss", () => {
   const { send } = setup({ ...base, phase: "board", controllingUserId: me });
   fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
   act(() => rec.onFinal?.("opera for 200"));
   expect(screen.getByText(/Didn't catch the category/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Buzz" })).toHaveAttribute("data-state", "pick");
-  expect(send).not.toHaveBeenCalled();
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(send).toHaveBeenCalledWith({
+    type: "voice_pick_missed",
+    problem: "no-category",
+    heard: "opera for 200",
+    alternatives: [],
+  });
+});
+
+test("a second hearing can pick while the UI keeps showing the top hearing", () => {
+  const { send } = setup({ ...base, phase: "board", controllingUserId: me });
+  fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
+  act(() => rec.onFinal?.("signs for 400", ["science for 400"]));
+  expect(screen.getByLabelText("What we heard")).toHaveTextContent("signs for 400");
+  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c1", via: "voice" });
+  expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "voice_pick_missed" }));
+});
+
+test("an empty hearing reports nothing-heard", () => {
+  const { send } = setup({ ...base, phase: "board", controllingUserId: me });
+  fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
+  act(() => rec.onFinal?.(""));
+  expect(screen.getByText(/Didn't hear anything\./)).toBeInTheDocument();
+  expect(send).toHaveBeenCalledWith({
+    type: "voice_pick_missed",
+    problem: "nothing-heard",
+    heard: "",
+    alternatives: [],
+  });
 });
 
 test("Quick picks: the hint says a category is enough, and it picks the lowest left", () => {
@@ -327,7 +355,7 @@ test("Quick picks: the hint says a category is enough, and it picks the lowest l
   fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
   expect(screen.getByText("Say a category, like “Opera”, or a category and value")).toBeInTheDocument();
   act(() => rec.onFinal?.("science"));
-  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "s4" });
+  expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "s4", via: "voice" });
 });
 
 test("without Quick picks, just a category asks for the amount", () => {
@@ -340,7 +368,12 @@ test("without Quick picks, just a category asks for the amount", () => {
   expect(screen.getByText("Say a category and value, like “Opera for 600”")).toBeInTheDocument();
   act(() => rec.onFinal?.("science"));
   expect(screen.getByText(/Didn't catch the amount/)).toBeInTheDocument();
-  expect(send).not.toHaveBeenCalled();
+  expect(send).toHaveBeenCalledWith({
+    type: "voice_pick_missed",
+    problem: "no-value",
+    heard: "science",
+    alternatives: [],
+  });
 });
 
 test("listening stops when control moves on", () => {

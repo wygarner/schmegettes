@@ -93,7 +93,7 @@ test("Show more loads the next page", async () => {
   show();
   fireEvent.click(await screen.findByRole("button", { name: "Show more" }));
   expect(await screen.findByText("−$800")).toBeInTheDocument();
-  expect(listGames).toHaveBeenLastCalledWith("abc", undefined);
+  expect(listGames).toHaveBeenLastCalledWith("abc");
   expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
 });
 
@@ -140,13 +140,19 @@ test("stats sum up every game; hidden for a player who only watched", async () =
   expect(screen.queryByText("Wins")).toBeNull();
 });
 
-test("the filter asks the server for that kind; an empty kind says so", async () => {
-  vi.mocked(listGames)
-    .mockResolvedValueOnce({ ok: true, data: { items: [game({})], nextCursor: null, stats } })
-    .mockResolvedValueOnce({ ok: true, data: { items: [], nextCursor: null, stats } });
+test("no filter: played and watched games are listed together, and the server gets no kind", async () => {
+  vi.mocked(listGames).mockResolvedValue({
+    ok: true,
+    data: {
+      items: [game({}), game({ gameId: "7a1e3b6f-9b1c-4d4a-8b5f-3e2a1c8b0d22", watched: true, placement: null })],
+      nextCursor: null,
+      stats,
+    },
+  });
   show();
-  await screen.findByLabelText("Your games");
-  fireEvent.click(screen.getByRole("radio", { name: "Watched" }));
-  expect(await screen.findByText("No watched games.")).toBeInTheDocument();
-  expect(listGames).toHaveBeenLastCalledWith(undefined, "watched");
+  const list = await screen.findByLabelText("Your games");
+  expect(screen.queryByRole("radiogroup")).toBeNull();
+  for (const name of ["All", "Played", "Watched"]) expect(screen.queryByRole("radio", { name })).toBeNull();
+  expect(within(list).getByText("Watched")).toBeInTheDocument();
+  expect(listGames).toHaveBeenCalledWith();
 });

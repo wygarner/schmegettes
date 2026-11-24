@@ -72,6 +72,8 @@ The implementation agent branches fresh from `develop` as `{task-type}/GH-{N}-{t
 
 Rules: preserve the contracts in `shared/` unless the spec says to change them; never weaken types; update docs when behavior changes; run validation for every package touched.
 
+Player-visible changes: agent QA on the local stack per [agent-qa.md](../quality/agent-qa.md), with the evidence record on the PR.
+
 ### Validation: targeted tests only
 
 **Never run a full test suite locally as routine validation.** Run the tests for the files you touched. CI runs everything, path-filtered, on the PR into `develop`, and the PR merges only when it is green.
@@ -118,8 +120,8 @@ See [release-strategy.md](../operations/release-strategy.md).
 
 | Workflow | Trigger | Result |
 |---|---|---|
-| `create-task-issue.yml` | PR opened into `develop` that adds a `tasks/**/task-brief.md` (edits and deletions are ignored); manual (`files`) | Creates the issue, commits `.task-meta.yml`, renames the folder. Task names must match `^[a-z0-9-]+$`. One issue per spec PR. A manual run on a spec branch pushes the rename to it; on `develop` it pushes `chore/assign-GH-{N}` instead and links the PR to open (Actions can't open PRs in this repo). |
-| `task-issue-transitions.yml` | PR opened / closed; manual (`issue`, `step`) | Spec merged → `status:in-progress`; spec closed unmerged → comment; implementation opened → `status:in-review`; merged → closed. |
+| `create-task-issue.yml` | PR opened into `develop` from a branch in this repository (fork PRs are skipped) that adds a `tasks/**/task-brief.md` (edits and deletions are ignored); manual (`files`) | Creates the issue, commits `.task-meta.yml`, renames the folder. Task names must match `^[a-z0-9-]+$`. One issue per spec PR. A manual run on a spec branch pushes the rename to it; on `develop` it pushes `chore/assign-GH-{N}` instead and links the PR to open (Actions can't open PRs in this repo). |
+| `task-issue-transitions.yml` | PR opened / closed from a branch in this repository (fork PRs are skipped); manual (`issue`, `step`) | Spec merged → `status:in-progress`; spec closed unmerged → comment; implementation opened → `status:in-review`; merged → closed. |
 | `ci.yml` | PR into `develop` or `production`; weekly; manual | Path-filtered checks per package; `CI Complete` must pass before a PR merges. Docs/task-only PRs skip the package jobs. |
 | `deploy-staging.yml` | Push to `develop` (every merged PR, except docs-only: only `docs/`, `tasks/`, `releases/` or `.md` files); manual | Calls `deploy.yml` for staging: migrations (the release rehearsal), deploy, deployed-commit verification. |
 | `deploy-prod.yml` | Push to `production`; manual | Calls `deploy.yml` for production: migrations, deploy, deployed-commit verification. |
@@ -137,6 +139,10 @@ See [release-strategy.md](../operations/release-strategy.md).
 | `status:in-review` | Implementation PR open |
 
 Done is a closed issue (reason: completed). A spec that merged without an issue (before 2026-11-20, when tasks had no tracker) gets one by hand: `gh workflow run create-task-issue.yml --ref develop -f files=tasks/{name}/task-brief.md`, open the PR it links, then `gh workflow run task-issue-transitions.yml --ref develop -f issue={N} -f step=inProgress`.
+
+Fork PRs get no task-issue automation and no secrets ([security-model.md](../security/security-model.md#7-public-repository)). A contribution from a fork is reviewed as an ordinary PR; if it should be tracked, a maintainer writes the task spec on a branch here.
+
+**Keyless exception (2026-11-23).** While Actions could not run (before the repository was public), `public-repo-hardening` had to merge before task-issue creation worked again, so it was specced, implemented and merged without a `GH-{N}` key, on `technical-improvement/public-repo-hardening-impl`. It is the only task handled this way; every later task follows the normal flow.
 
 ## Parallel work
 

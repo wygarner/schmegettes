@@ -6,6 +6,7 @@ import { VOICE_SAMPLE } from "../game/NarratorVoicePicker";
 import { DEFAULT_OPTIONS, type GameOptions } from "../lib/gameOptions";
 import { narrate, stopNarration } from "../lib/narrator";
 import { getSavedVoice, piperChoiceValue, saveVoice } from "../lib/narratorVoice";
+import type { NoticeResponse } from "../lib/notices";
 import { prepareVoice } from "../lib/piper/engine";
 import { markDeviceUnavailable, resetVoicesForTest, setVoiceStatus } from "../lib/piper/voices";
 import { initialRoom, type Player, type RoomState } from "../lib/room";
@@ -75,12 +76,18 @@ function renderView(state: RoomState) {
 /** The player list starts folded into a tab; this opens it. */
 const openPlayers = () => fireEvent.click(screen.getByRole("button", { name: /^Show players/ }));
 
-test("shows the code, join URL, host name, and an empty list", () => {
+test("shows the QR above the code, the join URL in the top line, and an empty list", () => {
   renderView(lobby());
-  expect(screen.getByLabelText("Room code")).toHaveTextContent("K7RXM");
+  const code = screen.getByLabelText("Room code");
+  expect(code).toHaveTextContent("K7RXM");
+  const qr = screen.getByRole("img", { name: "QR code to join room K7RXM" });
+  // The QR comes first: above the code.
+  expect(qr.compareDocumentPosition(code) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.getByText("Join at example.test/join")).toBeInTheDocument();
-  expect(screen.getByText("Hosted by Wyatt")).toBeInTheDocument();
+  // "Hosted by" moved into the player menu.
+  expect(screen.queryByText("Hosted by Wyatt")).toBeNull();
   openPlayers();
+  expect(screen.getByText("Hosted by Wyatt")).toBeInTheDocument();
   expect(screen.getByText("Waiting for players…")).toBeInTheDocument();
   expect(screen.getByText("Players 0 / 6")).toBeInTheDocument();
 });
@@ -134,6 +141,46 @@ test("Start with 1 player", () => {
   const send = renderView(lobby({ players: [player("a", "Alice")] }));
   fireEvent.click(screen.getByRole("button", { name: "Start" }));
   expect(send).toHaveBeenCalledWith({ type: "start_game" });
+});
+
+test("lobby warning shows at 90 minutes, but no notice appears after Start", () => {
+  const now = new Date("2026-11-28T20:00:00Z");
+  const noticeData: NoticeResponse = {
+    serverTime: now.toISOString(),
+    notices: [
+      {
+        id: "25210000-0000-4000-8000-000000000001",
+        revision: 1,
+        kind: "maintenance",
+        phase: "upcoming",
+        title: "Upgrade",
+        body: "Brief downtime",
+        link: null,
+        startsAt: new Date(now.getTime() + 90 * 60_000).toISOString(),
+        endsAt: new Date(now.getTime() + 120 * 60_000).toISOString(),
+        resolvedAt: null,
+        resolution: null,
+      },
+    ],
+  };
+  const view = (state: RoomState) => (
+    <MantineProvider>
+      <MemoryRouter>
+        <HostLobbyView
+          code="K7RXM"
+          joinAddress="example.test/join"
+          state={state}
+          send={vi.fn()}
+          noticeData={noticeData}
+        />
+      </MemoryRouter>
+    </MantineProvider>
+  );
+  const { rerender } = render(view(lobby()));
+  expect(screen.getByText(/Down for maintenance/)).toBeInTheDocument();
+  expect(screen.queryByText("A full game takes about 45 minutes.")).toBeNull();
+  rerender(view(lobby({ phase: "building_board" })));
+  expect(screen.queryByText(/Down for maintenance/)).toBeNull();
 });
 
 test("Start with 2 players, counting a playing host", () => {
@@ -195,12 +242,62 @@ test("a disconnected player is dimmed and still counted", () => {
   expect(screen.getByRole("button", { name: "Start" })).toBeEnabled();
 });
 
-test("the host renames themself", () => {
+test("the host renames themself from the player menu's footer: remembered, no userId", () => {
   const send = renderView(lobby());
+  openPlayers();
   fireEvent.click(screen.getByRole("button", { name: "Edit your name" }));
-  fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Wy" } });
+  expect(screen.getByRole("dialog", { name: "Rename Wyatt" })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("What's your name?"), { target: { value: "Wy" } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   expect(send).toHaveBeenCalledWith({ type: "set_display_name", displayName: "Wy" });
+  expect(window.localStorage.getItem("schmegettes.displayName")).toBe("Wy");
+});
+
+test("the host renames a player: their userId, and not remembered on this device", () => {
+  const send = renderView(lobby({ players: [player("a", "Poopface"), player("b", "Bob", { connected: false })] }));
+  expect(screen.queryByRole("button", { name: "Rename Poopface" })).toBeNull(); // folded
+  openPlayers();
+  fireEvent.click(screen.getByRole("button", { name: "Rename Poopface" }));
+  const input = screen.getByLabelText("What's your name?");
+  expect(input).toHaveValue("Poopface");
+  fireEvent.change(input, { target: { value: "  " } });
+  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  fireEvent.change(input, { target: { value: "Dan" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(send).toHaveBeenCalledWith({ type: "set_display_name", displayName: "Dan", userId: "a" });
+  expect(window.localStorage.getItem("schmegettes.displayName")).toBeNull();
+  // A disconnected player can be renamed too.
+  expect(screen.getByRole("button", { name: "Rename Bob" })).toBeInTheDocument();
+});
+
+test("a playing host's own row renames the host, without userId", () => {
+  const send = renderView(lobby({ hostPlays: true, players: [player("host", "Wyatt", { role: "host" })] }));
+  openPlayers();
+  // Two ways to the same name: the host's own row, and the "Hosted by" footer.
+  expect(screen.getAllByRole("button", { name: "Edit your name" })).toHaveLength(2);
+  fireEvent.click(screen.getAllByRole("button", { name: "Edit your name" })[0] as HTMLElement);
+  fireEvent.change(screen.getByLabelText("What's your name?"), { target: { value: "Wy" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(send).toHaveBeenCalledWith({ type: "set_display_name", displayName: "Wy" });
+});
+
+test("Start closes the rename sheet without saving", () => {
+  const send = vi.fn();
+  const view = (state: RoomState) => (
+    <MantineProvider>
+      <MemoryRouter>
+        <HostLobbyView code="K7RXM" joinAddress="example.test/join" state={state} send={send} />
+      </MemoryRouter>
+    </MantineProvider>
+  );
+  const { rerender } = render(view(lobby({ players: [player("a", "Alice")] })));
+  openPlayers();
+  fireEvent.click(screen.getByRole("button", { name: "Rename Alice" }));
+  expect(screen.getByRole("dialog", { name: "Rename Alice" })).toBeInTheDocument();
+  rerender(view(lobby({ phase: "building_board", players: [player("a", "Alice")] })));
+  rerender(view(lobby({ players: [player("a", "Alice")] })));
+  expect(screen.queryByRole("dialog", { name: "Rename Alice" })).toBeNull();
+  expect(send).not.toHaveBeenCalled();
 });
 
 test("building the board, server errors, and a closed room", () => {
@@ -340,7 +437,8 @@ describe("narrator voice", () => {
     act(() => markDeviceUnavailable());
     renderView(twoPlayers());
     expect(screen.getByText(/This device can't run the Schmegettes narrator/)).toBeInTheDocument();
-    expect(screen.queryByText("Join at example.test/join")).toBeNull();
+    // The join URL stays in the top line; the notice goes under the code.
+    expect(screen.getByText("Join at example.test/join")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Narrator voice:/ })).toBeNull();
     expect(screen.getByRole("button", { name: "Start" })).toBeDisabled();
   });
@@ -380,16 +478,11 @@ describe("game options", () => {
     return onOptions;
   };
 
-  test("the line under the code lists what isn't the default", () => {
-    withOptions({ seasons: [20, 40], doubleRound: false, quickPicks: false, difficulty: "easy" });
-    expect(screen.getByLabelText("Game options in use")).toHaveTextContent(
-      "Seasons 20–40 · Easy · No Double Schmegettes",
-    );
-  });
-
-  test("no line with the defaults", () => {
-    withOptions(DEFAULT_OPTIONS);
+  test("the lobby never shows the options, whatever they are", () => {
+    withOptions({ seasons: [20, 40], doubleRound: false, quickPicks: true, difficulty: "easy" });
     expect(screen.queryByLabelText("Game options in use")).toBeNull();
+    for (const text of [/Seasons 20/, /No Double Schmegettes/, /Quick picks/, /^Easy$/])
+      expect(screen.queryByText(text)).toBeNull();
   });
 
   test("the ⚙ icon opens the sheet: no Timers; Double changes at once", () => {
@@ -406,18 +499,14 @@ describe("game options", () => {
     expect(onOptions).toHaveBeenLastCalledWith({ ...DEFAULT_OPTIONS, doubleRound: false });
   });
 
-  test("Quick picks: off by default; the switch turns it on; the line under the code says so", () => {
+  test("Default spoken clue value: Ask by default; Lowest left turns quickPicks on", () => {
     const onOptions = withOptions(DEFAULT_OPTIONS);
     fireEvent.click(screen.getByRole("button", { name: "Game options" }));
     const sheet = screen.getByRole("dialog", { name: "Game options" });
-    const quick = within(sheet).getByRole("switch", { name: /Quick picks/ });
-    expect(quick).not.toBeChecked();
-    expect(sheet).toHaveTextContent("Say the category and amount");
-    fireEvent.click(quick);
+    expect(sheet).toHaveTextContent("Default spoken clue value");
+    expect(within(sheet).getByRole("radio", { name: "Ask" })).toBeChecked();
+    fireEvent.click(within(sheet).getByRole("radio", { name: "Lowest left" }));
     expect(onOptions).toHaveBeenLastCalledWith({ ...DEFAULT_OPTIONS, quickPicks: true });
-    cleanup();
-    withOptions({ ...DEFAULT_OPTIONS, quickPicks: true });
-    expect(screen.getByLabelText("Game options in use")).toHaveTextContent("Quick picks");
   });
 
   test("Difficulty: Any by default; picking Hard changes it at once", () => {
@@ -446,10 +535,27 @@ test("a resume lobby: the game's players with scores, dimmed until back; Resume"
   );
   expect(screen.getByRole("button", { name: "Show players (1 of 2)" })).toBeInTheDocument();
   openPlayers();
+  // A resumed game keeps its names: no ✎, and the QR still shows.
+  expect(screen.queryByRole("button", { name: /^Rename / })).toBeNull();
+  expect(screen.getByRole("img", { name: /QR code to join room/ })).toBeInTheDocument();
   expect(screen.getByText("Players 1 / 2")).toBeInTheDocument();
   expect(screen.getByLabelText("Bob, $400, not back yet")).toBeInTheDocument();
   expect(screen.getByText(/Resuming the game from/)).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Join" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Resume" }));
   expect(send).toHaveBeenCalledWith({ type: "start_game" });
+});
+
+test("Home: in the lobby at once; while the board builds it asks first, and never leaves the room", () => {
+  const send = renderView(lobby());
+  fireEvent.click(screen.getByRole("button", { name: "Home" }));
+  expect(screen.queryByRole("dialog", { name: "Leave the game?" })).toBeNull();
+  expect(send).not.toHaveBeenCalledWith({ type: "leave_room" });
+  cleanup();
+
+  renderView(lobby({ phase: "building_board" }));
+  fireEvent.click(screen.getByRole("button", { name: "Home" }));
+  expect(screen.getByRole("dialog", { name: "Leave the game?" })).toHaveTextContent(
+    "The game pauses for everyone until you rejoin from Home.",
+  );
 });

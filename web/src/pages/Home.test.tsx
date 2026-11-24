@@ -1,11 +1,12 @@
 import { MantineProvider } from "@mantine/core";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { currentAccount } from "../lib/account";
 import { markGamePlayed, setSignedOutNotice, shouldShowSavePrompt, signedOutNotice } from "../lib/accountFlags";
 import { lastGame } from "../lib/games";
 import { getHostAccess, redeemHostCode } from "../lib/hostAccess";
+import { fetchNotices } from "../lib/notices";
 import { type CurrentRoom, createRoom, currentRoom } from "../lib/rooms";
 import { Home, normalizeRoomCode } from "./Home";
 
@@ -20,6 +21,10 @@ vi.mock("../lib/hostAccess", async (original) => ({
   getHostAccess: vi.fn(),
   redeemHostCode: vi.fn(),
 }));
+vi.mock("../lib/notices", async (original) => ({
+  ...(await original<typeof import("../lib/notices")>()),
+  fetchNotices: vi.fn(),
+}));
 
 function renderHome() {
   render(
@@ -30,6 +35,7 @@ function renderHome() {
           <Route path="/host/:code" element={<p>host screen</p>} />
           <Route path="/join/:code" element={<p>join screen</p>} />
           <Route path="/account" element={<p>account screen</p>} />
+          <Route path="/stats" element={<p>stats screen</p>} />
         </Routes>
       </MemoryRouter>
     </MantineProvider>,
@@ -43,6 +49,7 @@ beforeEach(() => {
   vi.mocked(currentAccount).mockReset().mockResolvedValue({ kind: "guest" });
   vi.mocked(lastGame).mockReset().mockResolvedValue(null);
   vi.mocked(currentRoom).mockReset().mockResolvedValue(null);
+  vi.mocked(fetchNotices).mockReset().mockResolvedValue({ notices: [], serverTime: new Date().toISOString() });
   window.localStorage.clear();
 });
 
@@ -213,6 +220,14 @@ test("links to My games, with the last game under it", async () => {
   expect(screen.getByRole("link", { name: "My games" })).toHaveTextContent("−$400");
 });
 
+test("links to Stats next to My games", () => {
+  renderHome();
+  const link = screen.getByRole("link", { name: "Stats" });
+  expect(link).toHaveAttribute("href", "/stats");
+  fireEvent.click(link);
+  expect(screen.getByText("stats screen")).toBeInTheDocument();
+});
+
 describe("rejoin from Home", () => {
   const game: CurrentRoom = {
     kind: "game",
@@ -262,4 +277,18 @@ describe("rejoin from Home", () => {
     await screen.findByRole("button", { name: "Host a game" });
     expect(screen.queryByRole("button", { name: "Rejoin" })).toBeNull();
   });
+});
+
+test("the Admin row shows only for an admin", async () => {
+  vi.mocked(currentAccount).mockResolvedValue({ kind: "signed-in", name: "wyatt", isAdmin: true });
+  renderHome();
+  expect(await screen.findByText("Admin")).toBeInTheDocument();
+  expect(screen.getByText("Host code")).toBeInTheDocument();
+  cleanup();
+
+  vi.mocked(currentAccount).mockResolvedValue({ kind: "signed-in", name: "dave" });
+  renderHome();
+  await screen.findByText("Stats");
+  await act(async () => {});
+  expect(screen.queryByText("Admin")).toBeNull();
 });

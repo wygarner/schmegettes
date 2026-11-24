@@ -9,6 +9,7 @@ export type ClientMessage =
   | SetHostPlays
   | LeaveRoom
   | SelectClue
+  | VoicePickMissed
   | ReadingDone
   | Buzz
   | AnswerProgress
@@ -26,11 +27,12 @@ export interface StartGame {
   type: "start_game";
 }
 /**
- * Lobby only. Renames the sender in this room; the server adds a suffix when the name is taken.
+ * Lobby only. Without userId (or with your own), renames the sender and remembers the name for next time. With another member's userId, host only and not in a resume lobby: renames that member for this room without changing their remembered name. The server adds a suffix when the name is taken.
  */
 export interface SetDisplayName {
   type: "set_display_name";
   displayName: string;
+  userId?: string;
 }
 /**
  * Host only, lobby only. Joins or leaves the game as a contestant on the host device.
@@ -51,6 +53,19 @@ export interface LeaveRoom {
 export interface SelectClue {
   type: "select_clue";
   clueId: string;
+  via?: "tap" | "voice";
+}
+/**
+ * A spoken pick that the phone could not match. Logged by the server only; it never changes game state or broadcasts.
+ */
+export interface VoicePickMissed {
+  type: "voice_pick_missed";
+  problem: "no-category" | "ambiguous" | "no-value" | "taken" | "nothing-heard";
+  heard: string;
+  /**
+   * @maxItems 4
+   */
+  alternatives?: [] | [string] | [string, string] | [string, string, string] | [string, string, string, string];
 }
 /**
  * Host only. The host device finished reading the active clue aloud, so buzzing can open.

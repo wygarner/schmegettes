@@ -66,3 +66,33 @@ func TestRoleDoesNotLeakPastTheTransaction(t *testing.T) {
 		t.Errorf("after AsEngine the pool connection is %q", role)
 	}
 }
+
+func TestRequestIDIsSetPerTransaction(t *testing.T) {
+	d := open(t)
+	const user = "11111111-1111-4111-8111-111111111111"
+	claims := auth.Claims{UserID: user, Raw: []byte(`{"sub":"` + user + `","role":"authenticated"}`)}
+	ctx := WithRequestID(context.Background(), "req-123")
+
+	var asUser, asEngine string
+	if err := d.AsUser(ctx, claims, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, "select current_setting('request.id', true)").Scan(&asUser)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.AsEngine(ctx, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, "select current_setting('request.id', true)").Scan(&asEngine)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if asUser != "req-123" || asEngine != "req-123" {
+		t.Errorf("request.id as user %q, as engine %q", asUser, asEngine)
+	}
+
+	var after *string
+	if err := d.pool.QueryRow(context.Background(), "select nullif(current_setting('request.id', true), '')").Scan(&after); err != nil {
+		t.Fatal(err)
+	}
+	if after != nil {
+		t.Errorf("request.id leaked past the transaction: %q", *after)
+	}
+}

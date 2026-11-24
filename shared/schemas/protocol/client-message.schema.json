@@ -9,6 +9,7 @@
     { "$ref": "#/$defs/SetHostPlays" },
     { "$ref": "#/$defs/LeaveRoom" },
     { "$ref": "#/$defs/SelectClue" },
+    { "$ref": "#/$defs/VoicePickMissed" },
     { "$ref": "#/$defs/ReadingDone" },
     { "$ref": "#/$defs/Buzz" },
     { "$ref": "#/$defs/AnswerProgress" },
@@ -28,11 +29,12 @@
       "additionalProperties": false
     },
     "SetDisplayName": {
-      "description": "Lobby only. Renames the sender in this room; the server adds a suffix when the name is taken.",
+      "description": "Lobby only. Without userId (or with your own), renames the sender and remembers the name for next time. With another member's userId, host only and not in a resume lobby: renames that member for this room without changing their remembered name. The server adds a suffix when the name is taken.",
       "type": "object",
       "properties": {
         "type": { "const": "set_display_name" },
-        "displayName": { "type": "string", "minLength": 1, "maxLength": 20 }
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 20 },
+        "userId": { "type": "string", "format": "uuid" }
       },
       "required": ["type", "displayName"],
       "additionalProperties": false
@@ -59,9 +61,29 @@
       "type": "object",
       "properties": {
         "type": { "const": "select_clue" },
-        "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" }
+        "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
+        "via": { "type": "string", "enum": ["tap", "voice"] }
       },
       "required": ["type", "clueId"],
+      "additionalProperties": false
+    },
+    "VoicePickMissed": {
+      "description": "A spoken pick that the phone could not match. Logged by the server only; it never changes game state or broadcasts.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "voice_pick_missed" },
+        "problem": {
+          "type": "string",
+          "enum": ["no-category", "ambiguous", "no-value", "taken", "nothing-heard"]
+        },
+        "heard": { "type": "string", "maxLength": 200 },
+        "alternatives": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "maxItems": 4
+        }
+      },
+      "required": ["type", "problem", "heard"],
       "additionalProperties": false
     },
     "ReadingDone": {

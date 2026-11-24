@@ -1,13 +1,13 @@
 # Toolchain versions for every package, used by local machines and CI (jdx/mise-action).
-# After the first `mise install`, run `mise use --pin <tool>` to replace any prefix
-# below with the exact patch version, and commit the change.
+# Every runtime is pinned to an exact patch (last bumped 2026-11-20). The monthly bump
+# routine is in docs/system-docs/engineering/stack.md, "Runtime pins".
 # Changing a version here is a stack change: update docs/system-docs/engineering/stack.md too.
 
 [tools]
-node = "24"          # web, devtools, shared codegen, repo scripts
+node = "24.22.3"     # web, devtools, shared codegen, repo scripts
 bun = "1.3.14"       # package manager + workspace for the TypeScript packages
-go = "1.25"          # game/, api/
-python = "3.13"      # worker/, evals/, .github/scripts
+go = "1.25.14"       # game/, api/
+python = "3.13.18"   # worker/, evals/, .github/scripts
 uv = "0.13.5"        # Python package manager
 "aqua:supabase/cli" = "2.122.0" # database migrations, local Supabase
 flyctl = "0.4.123"   # api/ and game/ deploys and rollback (Fly.io)
@@ -107,8 +107,16 @@ description = "Usage: mise run test:worker -- tests/test_judging.py"
 dir = "worker"
 run = "uv run pytest"
 
+[tasks.deploy]
+description = "Deploy staging or production from this checkout, or check one (operator only; deployment.md). Run `mise run deploy -- --help`"
+run = "node scripts/deploy.mjs"
+
+[tasks."test:e2e"]
+description = "End-to-end suite against E2E_BASE_URL (default http://localhost:5173). Needs E2E_HOST_EMAIL and E2E_HOST_PASSWORD; locally also E2E_HOST_CODE (DEVSTEST). See testing-strategy.md"
+run = "bun run --cwd e2e test"
+
 [tasks."test:scripts"]
 run = [
-  "node --test scripts/*.test.cjs",
+  "node --test scripts/*.test.cjs scripts/*.test.mjs",
   "cd .github/scripts && python3 -m unittest discover -s tests -t .",
 ]

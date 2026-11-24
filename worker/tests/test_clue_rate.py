@@ -108,8 +108,15 @@ class MemoryStore:
 
     def unscored(self, kind: Kind) -> int:
         return sum(
-            1 for k, c in self.categories.items() if c.kind == kind and self.rows.get(k, {}).get("score") is None
+            1
+            for k, c in self.categories.items()
+            if c.kind == kind
+            and self.rows.get(k, {}).get("score") is None
+            and int(str(self.rows.get(k, {}).get("failures", 0))) < clue_rate.GIVE_UP_AFTER
         )
+
+    def names(self, keys: list[str]) -> dict[str, str]:
+        return {k: f"NAME {k} (season 1, single)" for k in keys if k in self.categories}
 
     def scores(self, kind: Kind) -> list[int]:
         return [int(str(r["score"])) for k, r in self.rows.items() if self.categories[k].kind == kind and r["score"]]
@@ -138,6 +145,11 @@ class MemoryStore:
 
     def decades(self) -> dict[str, Counter[str]]:
         return {}
+
+    def clear_labels(self) -> None:
+        self.scales.clear()
+        for r in self.rows.values():
+            r["difficulty"] = None
 
 
 def by_number(key: str) -> int:
@@ -201,14 +213,30 @@ def test_prompt_never_names_the_show() -> None:
 
 def test_cut_points_split_into_thirds() -> None:
     assert cut_points(list(range(1, 10))) == (3, 6)
-    assert cut_points(list(range(1, 101))) == (34, 67)
+    assert cut_points(list(range(1, 101))) == (33, 67)
     assert cut_points([50]) == (50, 50)
 
 
 def test_ties_at_a_cut_point_go_to_the_lower_level() -> None:
+    # Four categories tied at 20: putting them in Easy would make it 5 of 6, so the first cut goes
+    # below them, and the second cut takes them all into Medium.
     e, m = cut_points([10, 20, 20, 20, 20, 90])
-    assert (e, m) == (20, 20)
-    assert [level(s, e, m) for s in (10, 20, 90)] == ["easy", "easy", "hard"]
+    assert (e, m) == (10, 20)
+    assert [level(s, e, m) for s in (10, 20, 90)] == ["easy", "medium", "hard"]
+
+
+def test_a_big_tie_at_the_upper_cut_goes_to_hard_when_that_balances_better() -> None:
+    # 100 scores: 40 at 30, 20 at 45, 40 at 70. The first cut keeps the 30s in Easy (40% beats 60%);
+    # the second can take the 45s into Medium (60% at or below) or leave them for Hard (40% at or
+    # below): 60 is nearer 66.7 than 40, so Medium; Hard keeps the 70s.
+    scores = [30] * 40 + [45] * 20 + [70] * 40
+    assert cut_points(scores) == (30, 45)
+    # Staging's shape in small: under the old rule (the score at the 2/3 mark, ties down) the 45s
+    # all went to Medium and Hard got only 25%. Now the cut stops below them: Hard gets 37%.
+    scores = [20] * 33 + [40] * 30 + [45] * 12 + [60] * 25
+    e, m = cut_points(scores)
+    assert (e, m) == (20, 40)
+    assert Counter(level(s, e, m) for s in scores) == {"easy": 33, "medium": 30, "hard": 37}
 
 
 def test_cut_points_need_scores() -> None:
@@ -264,6 +292,34 @@ def test_the_scale_waits_while_a_category_of_its_kind_is_unscored() -> None:
     rate(store, FakeBatches(by_number), model="m", sleep=lambda _: None)  # the next run retries b05
     assert store.scales["board"] == (3, 6)
     assert store.rows["b05"]["difficulty"] == "medium" and store.rows["b05"]["failures"] == 1
+
+
+def test_a_category_that_keeps_failing_stops_holding_back_the_scale() -> None:
+    store = MemoryStore(catalog())
+    refuses_b05 = FakeBatches(lambda key: "refusal" if key == "b05" else by_number(key))
+    rate(store, refuses_b05, model="m", sleep=lambda _: None)
+    assert "board" not in store.scales  # one failure: still waits
+
+    second = rate(store, refuses_b05, model="m", sleep=lambda _: None)  # retried, fails again
+    assert second.submitted == 1 and store.rows["b05"]["failures"] == 2
+    assert store.scales["board"] == (3, 6)  # cut from the 8 that have scores: 1-4 and 6-9
+    assert store.rows["b05"]["difficulty"] is None  # unrated: plays as Medium
+    assert second.counts["still_unrated"] == 1 and second.counts["easy"] == 3 + 1  # b01-b03 + f01
+
+    third = rate(store, FakeBatches(by_number), model="m", sleep=lambda _: None)  # still retried
+    assert third.submitted == 1
+    assert store.rows["b05"]["difficulty"] == "medium"  # labelled on the scale already set
+    assert store.scales["board"] == (3, 6)
+
+
+def test_the_report_names_what_failed_and_why() -> None:
+    store = MemoryStore(catalog())
+    report = rate(
+        store, FakeBatches(lambda k: "refusal" if k == "b05" else by_number(k)), model="m", sleep=lambda _: None
+    )
+    assert report.failures == [("b05", "refusal")]
+    text = clue_rate.render_report(report, "m")
+    assert "failed this run" in text and "  NAME b05 (season 1, single): refusal" in text
 
 
 def test_an_interrupted_run_collects_its_batch_instead_of_resubmitting() -> None:
@@ -406,3 +462,13 @@ def test_key_hashing_helper_is_stable() -> None:
     # custom_id is the category_key: 32 hex characters, inside the API's 64-character limit.
     key = hashlib.md5(b"x", usedforsecurity=False).hexdigest()
     assert len(key) == 32 and len(f"{key}-3") <= 64
+
+
+def test_recut_relabels_from_stored_scores_without_calling_claude() -> None:
+    store, client = MemoryStore(catalog()), FakeBatches(by_number)
+    rate(store, client, model="m", sleep=lambda _: None)
+    store.scales["board"] = (1, 2)  # a scale cut under an older rule
+    store.rows["b05"]["difficulty"] = "hard"
+    report = clue_rate.recut(store, client, model="m")
+    assert len(client.submitted) == 1 and report.submitted == 0  # nothing new sent
+    assert store.scales["board"] == (3, 6) and store.rows["b05"]["difficulty"] == "medium"

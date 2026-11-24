@@ -7,6 +7,7 @@
 | `/` (Home) | anyone | **Host a game** on a device without host access opens the host-code sheet first. With host access, it goes straight to the name prompt. Code field + **Join** unchanged. |
 | Host-code sheet (over Home) | host device | "Schmegettes is invite-only", code field, **Continue** |
 | `/join/{code}` | phones | Unchanged |
+| `/admin` (from Home's **Admin** row, admins only) | admin | Current host code (hidden until tapped), Copy, Rotate now |
 | devtools → **Admin** (local only, never deployed) | admin | Current host code, rotate now, hosts list |
 
 ## States of the host device
@@ -62,6 +63,57 @@ Unchanged: room code, then name, then the buzzer. No host-code prompt ever appea
 | A device without host access calls the API directly (create room, Start) | Refused by the server. Nothing is created and no clue is read. |
 | A host joins someone else's room by code | Works like any contestant. Host access isn't needed or used. |
 | Lobby open at release with a host who has no access | Start is refused. The lobby closes after 30 minutes idle. |
+
+## Admin screen in the app (`/admin`)
+
+Built in `web/src/pages/Admin.tsx`. Rules: [feature brief](./feature-brief.md#admin-screen-in-the-app). A [menu screen](../../architecture/design-system.md#menu-screens), like Account.
+
+**Home**, for an admin only: one more row in the Host a game / My games list, after Stats.
+
+```text
+│ │ ▣ Admin                      › │ │
+│ │   Host code                    │ │
+```
+
+**`/admin`:**
+
+```text
+┌────────────────────────────────────┐
+│ ‹ Home                             │
+│ ADMIN                              │
+│ Staging                            │  ◀ environment, red on production
+│ ┌────────────────────────────────┐ │
+│ │ HOST CODE                      │ │
+│ │   ••••-••••         [ Show ]   │ │
+│ │   [        Copy code       ]   │ │
+│ │   Changes at 1:30 PM           │ │
+│ │   Previous code works until    │ │
+│ │   12:50 PM                     │ │
+│ └────────────────────────────────┘ │
+│   [        Rotate now          ]   │  ◀ ghost, red text
+│  Hosts and notes are on the        │
+│  devtools admin page.              │
+└────────────────────────────────────┘
+```
+
+- The code is masked (`••••-••••`) every time the screen opens. **Show** reveals `K7RX-M2PQ` in Oswald, large enough to read aloud, and becomes **Hide**. Leaving the screen or locking the phone hides it again.
+- **Copy code** copies it with the dash, shown or not, and toasts "Copied". Where the clipboard is blocked, it shows the code instead.
+- Times are in the device's own time zone (the devtools page uses UTC). The code and times update on their own at rotation, without a reload, and the new code starts masked.
+- **Rotate now** asks the same question as the admin page: "Retire K7RX-M2PQ now? Anyone who hasn't used it yet will need the new code." → **Rotate** / Cancel. The confirmation names the code even when it's masked: it's the admin's own phone. The new code appears masked.
+- The environment line names it (Local, Staging, Production), with Production in red, as on the admin page.
+- Laid out for a phone held upright and for the host device in landscape (844 × 390, no scrolling).
+
+### Edge cases (admin screen)
+
+| Situation | What happens |
+|---|---|
+| A signed-in account that isn't an admin, or a guest, opens `/admin` | Home, as for an unknown page. No Admin row on Home |
+| The admin's session expires on `/admin` | The next action opens sign-in; after it, back to `/admin` |
+| The admin is taken off the admin list while on `/admin` | The next refresh or action goes to Home, and the Admin row is gone |
+| Two admins press Rotate now at once | One new code results; both screens show it |
+| The api can't be reached | "Couldn't load the host code" with **Try again**. Nothing is stored on the device |
+| The admin opens `/admin` on the host device while it's mirrored | The code stays masked until Show. Copy works without showing it |
+| Rotation happens while the code is shown | The new code replaces it, masked |
 
 ## Admin page (devtools)
 

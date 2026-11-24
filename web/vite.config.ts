@@ -35,11 +35,20 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
+    // Floors: docs/system-docs/engineering/testing-strategy.md §3. `test:coverage` (CI) fails below them.
+    coverage: {
+      thresholds: {
+        "src/lib/**": { lines: 70, statements: 70 },
+        "src/pages/**": { lines: 50, statements: 50 },
+        "src/game/**": { lines: 50, statements: 50 },
+      },
+    },
     // Placeholders so modules that read env (src/lib/env.ts) can load; tests never call out.
     env: {
       VITE_SUPABASE_URL: "http://supabase.test",
       VITE_SUPABASE_ANON_KEY: "test-anon-key",
       VITE_API_URL: "http://api.test",
+      VITE_STATUS_URL: "https://status.test",
     },
   },
 });

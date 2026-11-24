@@ -147,6 +147,18 @@ def test_a_failure_is_counted_and_retried_next_run(conn: psycopg.Connection[Tupl
     assert scored is not None and scored[0] == hashed(b) and scored[1] is not None and scored[3] == 1
 
 
+def test_two_failures_stop_holding_back_the_scale(conn: psycopg.Connection[TupleRow]) -> None:
+    b = key_of(conn, "RATE DB B")
+    store = PgStore(conn)
+    rate(store, FakeBatches(fail={b}), model="m", sleep=lambda _: None)
+    second = rate(store, FakeBatches(fail={b}), model="m", sleep=lambda _: None)
+    assert "board" in second.scales and row(conn, b) == (None, None, None, 2, None)
+    assert second.failure_names[b] == "RATE DB B (season 9998, single)"
+    third = rate(store, FakeBatches(), model="m", sleep=lambda _: None)
+    labelled = row(conn, b)
+    assert third.submitted == 1 and labelled is not None and labelled[1] is not None
+
+
 def test_samples_and_labels_for_the_quality_gate(conn: psycopg.Connection[TupleRow]) -> None:
     store = PgStore(conn)
     rate(store, FakeBatches(), model="m", sleep=lambda _: None)
@@ -155,3 +167,20 @@ def test_samples_and_labels_for_the_quality_gate(conn: psycopg.Connection[TupleR
     hard = store.sample(1000, "hard")
     assert all(store.labels([c.key])[c.key] == "hard" for c in hard)
     assert store.decades()  # every rated category falls in some decade
+
+
+def test_recut_keeps_scores_and_cuts_again(conn: psycopg.Connection[TupleRow]) -> None:
+    store = PgStore(conn)
+    rate(store, FakeBatches(), model="m", sleep=lambda _: None)
+    scores = conn.execute("select category_key, score from public.category_difficulty order by 1").fetchall()
+    conn.execute("update public.difficulty_scale set easy_max = 1, medium_max = 2")
+    conn.execute("update public.category_difficulty set difficulty = 'hard'")
+    from schmegettes_worker.clue_rate import recut
+
+    report = recut(store, FakeBatches(), model="m")
+    assert report.submitted == 0
+    assert conn.execute("select category_key, score from public.category_difficulty order by 1").fetchall() == scores
+    assert conn.execute(
+        "select count(*) from public.difficulty_scale where easy_max = 1 and medium_max = 2"
+    ).fetchone() == (0,)
+    assert report.counts["easy"] > 0 and report.counts["medium"] > 0

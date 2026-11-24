@@ -37,6 +37,7 @@ flowchart LR
 | `clues` (catalog) | worker (owner role, imports) | game_engine only |
 | `board_clues`, `games`, `game_players`, `answers` | game (game_engine functions) | game members, permanently (read-only); game |
 | `seen_clues` | game (game_engine functions) | game_engine only |
+| `notices`, `private.notice_history` | api admin routes (as user, through security-definer functions) | api; players receive display-only active notices |
 | Live phase, timers, buzz order | game, in memory + Redis | clients via WebSocket |
 
 See [data-and-isolation.md](./data-and-isolation.md), [realtime-game-server.md](./realtime-game-server.md), and [api-contract.md](./api-contract.md).

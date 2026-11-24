@@ -112,11 +112,11 @@ func (h Handler) Join(w http.ResponseWriter, r *http.Request) {
 	if !server.DecodeJSON(w, r, &body) {
 		return
 	}
-	role := contracts.Contestant
+	role := contracts.PostV1RoomsJoinJSONBodyRoleContestant
 	if body.Role != nil {
 		role = *body.Role
 	}
-	if role != contracts.Contestant && role != contracts.Spectator {
+	if role != contracts.PostV1RoomsJoinJSONBodyRoleContestant && role != contracts.PostV1RoomsJoinJSONBodyRoleSpectator {
 		server.Problem(w, http.StatusBadRequest, "invalid-request", "Unknown role")
 		return
 	}

@@ -20,7 +20,7 @@ mise run db:start       # first time: prints the anon key for the .env files
 bun run dev             # starts local Supabase if needed, then web, api, game, and worker
 ```
 
-Agents: `/product`, `/engineering`, `/implement`, `/designer`, `/marketing`, `/revenue` (in `.claude/commands/`). The lifecycle is in [development-workflow.md](docs/system-docs/engineering/development-workflow.md).
+Agents: `/product`, `/engineering`, `/implement`, `/designer` (in `.claude/commands/`). The lifecycle is in [development-workflow.md](docs/system-docs/engineering/development-workflow.md).
 
 ## License
 

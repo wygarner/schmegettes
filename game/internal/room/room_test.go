@@ -292,7 +292,10 @@ func (f *fixture) readingDone(tv *conn, clueID string) {
 	tv.send(map[string]any{"type": "reading_done", "clueId": clueID})
 }
 
-func setup(t *testing.T) *fixture {
+func setup(t *testing.T) *fixture { t.Helper(); return setupWith(t, nil) }
+
+// setupWith is setup with the room config adjusted by opt.
+func setupWith(t *testing.T, opt func(*Config)) *fixture {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -300,6 +303,9 @@ func setup(t *testing.T) *fixture {
 	store := newFakeStore()
 	tm := &timers{}
 	cfg := Config{HostAbsence: 30 * time.Minute, Tick: 5 * time.Millisecond, Now: clk.Now, AfterFunc: tm.after}
+	if opt != nil {
+		opt(&cfg)
+	}
 	return &fixture{t: t, store: store, clock: clk, hub: NewHub(ctx, store, cfg), timers: tm}
 }
 

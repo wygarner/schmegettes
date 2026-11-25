@@ -19,16 +19,31 @@ import (
 	"schmegettes/golib/auth"
 	"schmegettes/golib/db"
 	"schmegettes/golib/logging"
+	"schmegettes/golib/telemetry"
 )
 
 // commit is set at build time: go build -ldflags "-X main.commit=$GIT_SHA".
 var commit = "unknown"
 
 func main() {
-	logging.Setup("game", getenv("APP_ENV", "local"), getenv("LOG_LEVEL", "info"))
+	appEnv := getenv("APP_ENV", "local")
+	logging.Setup("game", appEnv, getenv("LOG_LEVEL", "info"))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	shutdownTelemetry, err := telemetry.Setup(ctx, "game", appEnv, buildCommit())
+	if err != nil {
+		// Telemetry is optional: the service runs without it.
+		slog.Warn("telemetry unavailable", "err", err)
+	}
+	defer func() {
+		flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdownTelemetry(flushCtx); err != nil {
+			slog.Warn("telemetry flush failed", "err", err)
+		}
+	}()
 
 	database, err := db.Open(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -46,7 +61,12 @@ func main() {
 	// Rooms stop with roomsCtx, which ends at shutdown so sockets close cleanly.
 	roomsCtx, stopRooms := context.WithCancel(context.Background())
 	defer stopRooms()
-	hub := room.NewHub(roomsCtx, room.PGStore{DB: database}, room.DefaultConfig())
+	cfg := room.DefaultConfig()
+	cfg.TestPanic = testPanicRooms(appEnv, os.Getenv("TEST_PANIC_ROOMS"))
+	hub := room.NewHub(roomsCtx, room.Traced(room.PGStore{DB: database}), cfg)
+	if err := hub.RegisterGauges(); err != nil {
+		slog.Warn("room gauges unavailable", "err", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -88,6 +108,22 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("shutdown failed", "err", err)
 	}
+}
+
+// testPanicRooms is the staging-only crash hook (observability.md, "Forced panic"): a
+// select_clue in a listed room panics. Outside staging it is always off, whatever is set.
+func testPanicRooms(appEnv, list string) func(string) bool {
+	if appEnv != "staging" || strings.TrimSpace(list) == "" {
+		return nil
+	}
+	rooms := map[string]bool{}
+	for _, id := range strings.Split(list, ",") {
+		if id = strings.TrimSpace(id); id != "" {
+			rooms[id] = true
+		}
+	}
+	slog.Warn("test panic rooms enabled", "rooms", len(rooms))
+	return func(roomID string) bool { return rooms[roomID] }
 }
 
 func buildCommit() string {

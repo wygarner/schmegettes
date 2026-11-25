@@ -7,6 +7,7 @@ import (
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"schmegettes/api/internal/account"
 	"schmegettes/api/internal/admin"
@@ -242,5 +243,8 @@ func handler(rt routes, verifier server.Verifier, origins []string) http.Handler
 			server.Problem(w, http.StatusBadRequest, "invalid-request", "Invalid request")
 		},
 	})
-	return server.Log(server.CORS(origins)(server.AuthenticateWithAdminLimit(verifier, rt.limits.admin.AllowKey)(rt.limits.limit(h))))
+	return otelhttp.NewHandler(
+		server.Log(server.CORS(origins)(server.AuthenticateWithAdminLimit(verifier, rt.limits.admin.AllowKey)(rt.limits.limit(server.Route(h))))),
+		"api",
+	)
 }

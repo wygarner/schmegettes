@@ -7,7 +7,7 @@
 - **Agent QA on staging:** service notices (#291) and the web changes in #318 (Faro, socket reconnect, narrator). Evidence recorded below.
 - **Production values to set first:**
   - `STATUS_PAGE_API_TOKEN` and `STATUS_PAGE_ID` as Fly secrets on the production api, and `VITE_STATUS_URL` in the `production` environment (#291). Without them, notices work in the app but don't sync to Instatus.
-  - `GRAFANA_ANNOTATION_TOKEN`: returned 401 on staging (2026-11-25). Replace it with a Grafana service-account token in `staging` and `production`, or the release gets no deploy marker. It never fails the deploy.
+  - `GRAFANA_ANNOTATION_TOKEN`: the first token returned 401. It was replaced with a service-account token in `staging` and `production` on 2026-11-25, and a staging deploy (run 45705065001) wrote its annotation.
 
 ## Migrations
 One, additive:

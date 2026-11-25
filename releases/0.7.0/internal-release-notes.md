@@ -3,7 +3,7 @@
 ## Before merging
 - **CI:** green on every PR in this release; all 34 commits since 0.6.0 came through PRs.
 - **Staging rehearsal:** Deploy Staging has run on `develop` since #291 merged, most recently at `9291393` (2026-11-25, passed), so the migration below is applied on staging.
-- **End-to-end on staging:** run 45677299765 (2026-11-25), result recorded below.
+- **End-to-end on staging:** passed, run 45695000570 (2026-11-25); details below.
 - **Agent QA on staging:** service notices (#291) and the web changes in #318 (Faro, socket reconnect, narrator). Evidence recorded below.
 - **Production values to set first:**
   - `STATUS_PAGE_API_TOKEN` and `STATUS_PAGE_ID` as Fly secrets on the production api, and `VITE_STATUS_URL` in the `production` environment (#291). Without them, notices work in the app but don't sync to Instatus.
@@ -23,7 +23,7 @@ Additive: the notice REST routes (#291), and `contracts_gen.go` regenerated with
 - **Go 1.27.4** images (#313). New web dependency: `@grafana/faro-web-sdk` 2.15.0 (Apache-2.0).
 
 ## Verification
-- **E2E (staging):** pending.
+- **E2E (staging):** passed on 2026-11-25, run 45695000570, critical path in 4.8 min. It was the suite's first run on staging. The first run (45677299765) failed at sign-in: the E2E host account wasn't set up yet. Two more (45683075776, 45684006780) failed waiting for a Daily Double answer. The test gave up 20 s after the wager, before the clue had been read; the game accepted the wager and timed the answer out normally. Fixed in the test only (#320, merged into this release from `develop`).
 - **Agent QA (staging):** pending.
 
 ## After deploy

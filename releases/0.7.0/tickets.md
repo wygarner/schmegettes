@@ -13,6 +13,10 @@ Each line is the implementation PR.
 - GH-312 Go 1.27 (#313): Go 1.27.4, oapi-codegen v2.9.0, staticcheck v0.8.2, dependency updates
 - GH-316 remove the marketing and revenue agents (#317): `.claude/commands` only, plus the trademark rule in `product-overview.md`
 
+## Not a task
+
+- E2E Daily Double wait (#320): test only, found by this release's end-to-end run
+
 ## Not in this release
 
 - GH-250 backups-and-restore: spec only; the task was dropped on 2026-11-24

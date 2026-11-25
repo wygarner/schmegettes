@@ -11,6 +11,7 @@
 // - A voice that becomes ready mid-game (after a reload) is used from the next line on.
 
 import { e2eActive } from "./e2eFlag";
+import { track } from "./faro";
 import { narratorChoice } from "./narratorVoice";
 import { audioContext, narratorOutput, trimSilence } from "./piper/audio";
 import { type Audio, type PiperEngine, readyEngine } from "./piper/engine";
@@ -96,8 +97,18 @@ export function prepareNarration(text: string): void {
   prepared = { voiceId: id, engine, text: line, chunks, audio: prepareChunks(engine, chunks) };
 }
 
+/**
+ * Reports a skipped line to Faro (narrator_line_skipped) and returns "skipped". Carries the
+ * reason and the voice, never the line's text.
+ */
+function skipped(reason: string, voice: string): "skipped" {
+  track("narrator_line_skipped", { reason, voice });
+  return "skipped";
+}
+
 async function narratePiper(
   engine: PiperEngine,
+  voice: string,
   chunks: string[],
   startedAt: number,
   preparedAudio: Promise<Audio | null>[] | null,
@@ -107,7 +118,7 @@ async function narratePiper(
   const ctx = audioContext();
   if (!ctx) {
     if (current === run) current = null;
-    return "skipped";
+    return skipped("no_audio_context", voice);
   }
   if (ctx.state !== "running") {
     const resumed = ctx.resume().catch(() => undefined); // inside the tap, when there is one
@@ -144,12 +155,12 @@ async function narratePiper(
     first = await within(audio[0] ?? Promise.resolve(null), PIPER_START_TIMEOUT_MS - (performance.now() - startedAt));
   } catch {
     if (current === run) current = null;
-    return "skipped";
+    return skipped("synthesis_failed", voice);
   }
   if (run.stopped) return "stopped";
   if (first === TIMEOUT || first === null) {
     if (current === run) current = null;
-    return "skipped";
+    return skipped(first === TIMEOUT ? "start_timeout" : "synthesis_failed", voice);
   }
 
   let ended = play(first, 0);
@@ -158,7 +169,7 @@ async function narratePiper(
     if (!next) {
       await ended;
       if (current === run) current = null;
-      return run.stopped ? "stopped" : "skipped";
+      return run.stopped ? "stopped" : skipped("chunk_failed", voice);
     }
     if (run.stopped) return "stopped";
     ended = play(next, i);
@@ -191,10 +202,11 @@ export async function narrate(text: string): Promise<NarrateResult> {
   const chunks = narrationChunks(line);
   const { id } = narratorChoice();
   const engine = readyEngine(id);
-  if (!engine || chunks.length === 0) return "skipped";
+  if (chunks.length === 0) return "skipped"; // nothing to say is not a failure
+  if (!engine) return skipped("voice_not_ready", id);
   const match = prepared?.voiceId === id && prepared.engine === engine && prepared.text === line ? prepared : null;
   prepared = null;
-  return narratePiper(engine, match?.chunks ?? chunks, startedAt, match?.audio ?? null);
+  return narratePiper(engine, id, match?.chunks ?? chunks, startedAt, match?.audio ?? null);
 }
 
 /** Stops whatever the narrator is saying and forgets silent work for a screen that went away. */

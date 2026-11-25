@@ -30,6 +30,14 @@ describe("contentSecurityPolicy", () => {
     );
   });
 
+  it("allows the Faro collector's origin only when VITE_FARO_URL is set", () => {
+    expect(contentSecurityPolicy(env)).not.toContain("grafana");
+    const csp = contentSecurityPolicy({ ...env, VITE_FARO_URL: "https://faro-collector.grafana.net/collect/abc123" });
+    expect(directive(csp, "connect-src")).toContain(" https://faro-collector.grafana.net ");
+    expect(csp).not.toContain("abc123");
+    expect(() => contentSecurityPolicy({ ...env, VITE_FARO_URL: "http://faro.test/collect" })).toThrow(/https/);
+  });
+
   it("uses origins, not full URLs", () => {
     const csp = contentSecurityPolicy({ ...env, VITE_API_URL: "https://api.example.app/v1/" });
     expect(directive(csp, "connect-src")).toContain(" https://api.example.app ");

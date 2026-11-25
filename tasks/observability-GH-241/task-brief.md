@@ -30,7 +30,13 @@ With no exporter configured (local dev and tests), nothing is exported and nothi
 3. **(2026-11-24, public repository) Configuration, not committed names.** The Terraform `cloud {}` block names no organization or workspace; they come from `TF_CLOUD_ORGANIZATION` and `TF_WORKSPACE`. The Grafana URL, the health-check targets and the alert email come from Terraform variables set from the `grafana` environment. `observability.md` documents how to set up a stack and which values to set, not this deployment's stack name or URL.
 4. **(2026-11-24) No Terraform plan on PRs.** A plan needs a Grafana token, and a PR job must not hold one on a public repository. PRs run `terraform fmt -check` and `terraform validate` (no credentials, safe for forks). The apply job prints the plan before applying, in the run log.
 
-## Operator setup (Wyatt, once, before implementation starts)
+## Operator setup (Wyatt, once)
+
+**Status (2026-11-25).** Wyatt decided to finish the setup during implementation instead of before it. Done: steps 1 and 3, and every value in the table except four. Still to set:
+- `TF_API_TOKEN`, `TF_CLOUD_ORGANIZATION` and `TF_WORKSPACE` in `grafana` (step 2). These must be set **before the implementation PR merges**, because the merge to `develop` triggers the first `grafana.yml` apply.
+- `VITE_FARO_URL` in `staging` and `production`. Any time; until it is set, Faro stays off.
+
+The implementation agent doesn't wait for these values. Before the PR is opened for review, it asks Wyatt to confirm the `TF_*` values are set.
 
 1. Create the Schmegettes Grafana Cloud stack.
 2. Create an HCP Terraform organization and a workspace for `ops/grafana/` (execution mode: local), and a team or user API token for CI.

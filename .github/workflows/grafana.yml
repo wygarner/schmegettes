@@ -44,9 +44,12 @@ jobs:
         working-directory: ops/grafana
     env:
       TF_IN_AUTOMATION: "true"
-      TF_CLOUD_ORGANIZATION: ${{ vars.TF_CLOUD_ORGANIZATION }}
-      TF_WORKSPACE: ${{ vars.TF_WORKSPACE }}
-      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      # Terraform state: a private Supabase Storage bucket over its S3-compatible API.
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      AWS_ENDPOINT_URL_S3: ${{ vars.TF_STATE_ENDPOINT }}
+      AWS_REGION: ${{ vars.TF_STATE_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.TF_STATE_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.TF_STATE_SECRET_ACCESS_KEY }}
       TF_VAR_grafana_url: ${{ vars.GRAFANA_URL }}
       TF_VAR_grafana_auth: ${{ secrets.GRAFANA_TF_TOKEN }}
       TF_VAR_sm_url: ${{ vars.GRAFANA_SM_URL }}
@@ -65,11 +68,12 @@ jobs:
       - name: Check configuration
         run: |
           missing=""
-          for name in TF_CLOUD_ORGANIZATION TF_WORKSPACE TF_TOKEN_app_terraform_io TF_VAR_grafana_url \
+          for name in TF_STATE_BUCKET AWS_ENDPOINT_URL_S3 AWS_REGION AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY TF_VAR_grafana_url \
             TF_VAR_grafana_auth TF_VAR_sm_url TF_VAR_sm_access_token TF_VAR_alert_email TF_VAR_health_targets; do
             [ -n "${!name}" ] || missing="$missing $name"
           done
           if [ -n "$missing" ]; then
+            # AWS_* names are the TF_STATE_* values (TF_STATE_ENDPOINT, TF_STATE_REGION, TF_STATE_ACCESS_KEY_ID, …).
             echo "::error::Missing from the grafana environment:$missing (observability.md, \"Setting up a stack\")"
             exit 1
           fi
@@ -80,7 +84,7 @@ jobs:
             staging|production) echo "TF_VAR_test_alert_environments=[\"$TEST_ALERT\"]" >> "$GITHUB_ENV" ;;
             *) echo "::error::test_alert must be none, staging or production"; exit 1 ;;
           esac
-      - run: terraform init -input=false
+      - run: terraform init -input=false -backend-config="bucket=$TF_STATE_BUCKET"
       # The plan is printed in the run log before it is applied. Sensitive values print as (sensitive).
       - run: terraform plan -input=false -out=grafana.tfplan
       - run: terraform apply -input=false grafana.tfplan

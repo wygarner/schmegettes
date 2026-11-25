@@ -83,7 +83,7 @@ A secret found by a scan (`ci.yml`'s gitleaks job, GitHub secret scanning, or `s
 | `OTEL_EXPORTER_OTLP_HEADERS` | Create a new access-policy token (`metrics:write`, `logs:write`, `traces:write`) in the Grafana Cloud stack, update the GitHub Environment secret in both environments and the password-manager copies, deploy api and game (the deploy stages the new value), then delete the old token. |
 | `GRAFANA_ANNOTATION_TOKEN` | Add a new token to the annotations service account, update both GitHub Environment secrets and the password-manager copies, then delete the old token. |
 | `GRAFANA_TF_TOKEN`, `GRAFANA_SM_TOKEN` | Create a new token (Terraform service account; Synthetic Monitoring config), update the `grafana` environment secret, run Grafana apply on `develop`, then delete the old token. |
-| `TF_API_TOKEN` | Create a new HCP Terraform team or user token, update the `grafana` environment secret, run Grafana apply, then revoke the old one. |
+| `TF_STATE_ACCESS_KEY_ID`, `TF_STATE_SECRET_ACCESS_KEY` | In the staging Supabase project, create a new S3 access key (Storage → S3 Connection), update both `grafana` environment secrets, run Grafana apply, then revoke the old key. |
 | `ALERT_EMAIL` | Update the `grafana` environment secret and run Grafana apply. Send the contact point's test (observability.md, "Test alert"). |
 | `STATUS_PAGE_API_TOKEN` | Create a replacement Instatus key scoped to the page, set it with `fly secrets set STATUS_PAGE_API_TOKEN=… -a {api-app}`, confirm a notice sync, then revoke the old key. Free-plan keys expire after at most 90 days. |
 
@@ -107,8 +107,8 @@ Setup, step by step: [observability.md §1](../operations/observability.md#1-set
 | `GRAFANA_URL` | variable | The Terraform provider |
 | `GRAFANA_TF_TOKEN` | secret | The Terraform provider (Editor service account) |
 | `GRAFANA_SM_URL`, `GRAFANA_SM_TOKEN` | variable, secret | Synthetic Monitoring checks |
-| `TF_API_TOKEN` | secret | HCP Terraform (state and locking only) |
-| `TF_CLOUD_ORGANIZATION`, `TF_WORKSPACE` | variables | The `cloud {}` block |
+| `TF_STATE_BUCKET`, `TF_STATE_ENDPOINT`, `TF_STATE_REGION` | variables | Terraform state: a private bucket in the staging Supabase project's Storage, over its S3 API |
+| `TF_STATE_ACCESS_KEY_ID`, `TF_STATE_SECRET_ACCESS_KEY` | secrets | The state bucket. The key can read and write all of that project's Storage, bypassing RLS |
 | `ALERT_EMAIL` | secret | The contact point. Never committed |
 | `HEALTH_TARGETS` | variable | The uptime checks' URLs (JSON per environment) |
 

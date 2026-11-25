@@ -15,7 +15,7 @@ Every deployment, including a fork, uses its own dedicated Grafana Cloud stack (
    - a service account limited to annotations (`annotations:write`), and a token, for the deploy command;
    - a Synthetic Monitoring access token.
 3. **Faro.** Create a Frontend Observability app named `schmegettes-web`, one per stack (environments are told apart by `app_environment`). Copy its collector URL.
-4. **HCP Terraform.** Create an organization and a workspace for `ops/grafana/` with execution mode **local** (Actions runs plan and apply; HCP Terraform only stores and locks state), and a team or user API token.
+4. **Terraform state.** In the **staging** Supabase project, create a private Storage bucket (for example `terraform-state`) and an S3 access key pair (Storage → S3 Connection → Access keys). Note the S3 endpoint (`https://<project-ref>.storage.supabase.co/storage/v1/s3`) and the project's region. The state holds the alert email address, so the bucket stays private. An S3 access key can read and write every bucket in that project, bypassing RLS, which is why it lives only in the protected `grafana` environment. (HCP Terraform was the plan, but its sign-up couldn't create an organization, 2026-11-25.)
 5. **GitHub Environment `grafana`.** Create it with deployment branches limited to `develop`, so only the apply job on `develop` can read its secrets.
 6. **Secrets and variables.** Set these, and keep the deploy ones in the password manager too ([configuration-and-secrets.md](../security/configuration-and-secrets.md#4-observability-credentials)):
 
@@ -29,8 +29,10 @@ Every deployment, including a fork, uses its own dedicated Grafana Cloud stack (
 | `GRAFANA_TF_TOKEN` | secret | Environment `grafana` | The Terraform service-account token |
 | `GRAFANA_SM_TOKEN` | secret | Environment `grafana` | The Synthetic Monitoring token |
 | `GRAFANA_SM_URL` | variable | Environment `grafana` | The Synthetic Monitoring API URL |
-| `TF_API_TOKEN` | secret | Environment `grafana` | The HCP Terraform API token |
-| `TF_CLOUD_ORGANIZATION`, `TF_WORKSPACE` | variables | Environment `grafana` | The HCP Terraform organization and workspace |
+| `TF_STATE_BUCKET` | variable | Environment `grafana` | The state bucket's name |
+| `TF_STATE_ENDPOINT` | variable | Environment `grafana` | The Supabase S3 endpoint |
+| `TF_STATE_REGION` | variable | Environment `grafana` | The Supabase project's region, e.g. `us-east-1` |
+| `TF_STATE_ACCESS_KEY_ID`, `TF_STATE_SECRET_ACCESS_KEY` | secrets | Environment `grafana` | The S3 access key pair |
 | `ALERT_EMAIL` | secret | Environment `grafana` | Where alerts go. Never committed |
 | `HEALTH_TARGETS` | variable | Environment `grafana` | JSON: `{"production": {"api": "https://…/healthz", "game": "https://…/healthz", "web": "https://…/"}, "staging": {…}}` |
 
@@ -86,7 +88,8 @@ No metric attribute carries a user id or room code.
 `ops/grafana/` is Terraform (`grafana/grafana` provider): the contact point, notification policies, alert rules, the "tonight" dashboard and the uptime checks. Nothing is edited by hand in the Grafana UI: a hand edit is overwritten by the next apply, and deleting something from the repo deletes it in Grafana.
 
 - **Pull requests** that touch `ops/grafana/` run `grafana-check.yml`: `terraform fmt -check` and `terraform validate` with no backend and no credentials, safe for fork PRs. There is no plan on a PR, because a plan needs a Grafana token and a PR job must not hold one ([security-model.md](../security/security-model.md#7-public-repository)).
-- **Merge to `develop`** runs `grafana.yml` in the protected `grafana` environment: it plans, prints the plan in the run log, then applies. Runs never overlap.
+- **Merge to `develop`** runs `grafana.yml` in the protected `grafana` environment: it plans, prints the plan in the run log, then applies. Runs never overlap (the workflow's `concurrency` group). The state backend has no lock, so never run `terraform apply` against it from a laptop.
+- **State** is `grafana/terraform.tfstate` in the Supabase Storage bucket (`backend "s3"`). If it's ever lost, the next apply fails on resources that already exist: delete them in Grafana (or `terraform import` them) and apply again.
 - **Locally:** `cd ops/grafana && mise exec terraform@1.17.2 -- terraform fmt -recursive && mise exec terraform@1.17.2 -- terraform init -backend=false && mise exec terraform@1.17.2 -- terraform validate`.
 
 ## 4. Alert rules

@@ -1,6 +1,6 @@
 # Build from the repo root: docker build -f api/Dockerfile --build-arg GIT_SHA=$(git rev-parse HEAD) .
 # The root is the context because go.mod replaces schmegettes/golib with ../golib.
-FROM golang:1.25.14-bookworm AS build
+FROM golang:1.27.4-bookworm AS build
 WORKDIR /src
 COPY golib/ golib/
 COPY api/go.mod api/go.sum api/

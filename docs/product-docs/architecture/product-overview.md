@@ -34,7 +34,7 @@ Players reach the game at **schmegettes.app**; phones join at `schmegettes.app/j
 - **Generous judging.** Small mishearings, transcription slips, and a missing "What is" don't cost points; the host can always override.
 - **Correct responses stay secret** until a clue is judged. Phones never receive clue text or responses.
 - **Same room, one screen.** The TV is the shared view; phones are controllers.
-- **Our own names.** The rounds are Single, **Double Schmegettes**, and **Final Schmegettes**. Schmegettes never names or imitates the TV quiz show it resembles (its name, logo, music, or catchphrases), in the product, code, or docs.
+- **Our own names.** The rounds are Single, **Double Schmegettes**, and **Final Schmegettes**. Schmegettes never names or imitates the TV quiz show it resembles (its name, logo, music, or catchphrases), in the product, code, or docs, or anywhere it is promoted (store listings, ads, domains). Describe the format generically ("game-show trivia").
 
 ## Carry-overs from the prototype
 

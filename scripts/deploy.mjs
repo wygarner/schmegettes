@@ -86,7 +86,8 @@ export const USAGE = `Deploy staging or production from this checkout (docs/syst
       Check which commit is running (default: this checkout's HEAD). Changes nothing.
 
 The checkout must be clean. Staging deploys a commit on origin/develop; production deploys only
-the current origin/production tip. Run \`git fetch origin\` first: this command never fetches.
+the current origin/production tip, checked against GitHub. Run \`git fetch origin\` first: this command
+never fetches.
 
 Configuration (process environment only; use one shell or secret-manager profile per environment):
   migrate  STAGING_SUPABASE_DB_OWNER_URL or PROD_SUPABASE_DB_OWNER_URL
@@ -198,14 +199,17 @@ export async function checkCheckout(environment, git) {
     problems.push(`origin/${branch} is missing; run \`git fetch origin\``);
     return { sha, problems };
   }
-  const remote = await git(["ls-remote", "origin", `refs/heads/${branch}`]);
-  const remoteTip = remote.code === 0 ? remote.stdout.trim().split(/\s+/)[0] : "";
-  if (!remoteTip) problems.push(`could not read origin's ${branch} branch`);
-  else if (remoteTip !== local) problems.push(`origin/${branch} is stale; run \`git fetch origin\``);
-
   if (environment === "production") {
+    // Production deploys only the current tip, so a stale local ref is an error.
+    const remote = await git(["ls-remote", "origin", `refs/heads/${branch}`]);
+    const remoteTip = remote.code === 0 ? remote.stdout.trim().split(/\s+/)[0] : "";
+    if (!remoteTip) problems.push(`could not read origin's ${branch} branch`);
+    else if (remoteTip !== local) problems.push(`origin/${branch} is stale; run \`git fetch origin\``);
     if (sha !== local) problems.push("production deploys only the current origin/production tip; check it out exactly");
   } else {
+    // Staging deploys any commit on develop. A local origin/develop that lags GitHub's is still
+    // develop history (the branch is protected against force pushes), so it isn't an error: when
+    // several merges land together, each queued deploy run checks out a slightly older develop.
     const ancestor = await git(["merge-base", "--is-ancestor", sha, local]);
     if (ancestor.code !== 0) problems.push("staging deploys only a commit on origin/develop");
   }

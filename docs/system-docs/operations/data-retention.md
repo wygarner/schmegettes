@@ -25,7 +25,7 @@ What Schmegettes keeps about players, where, for how long, and what deletes it. 
 | Staff-access grants | `private.staff_grants` | Permanently (reason, admin, subject, times) | — | Kept |
 | Cleanup runs | `private.cleanup_runs` | Permanently (counts and durations only) | — | Not applicable: no IDs |
 | Service notices and notice history | `public.notices`, `private.notice_history` | Permanently | — | Kept; history holds the admin's user ID, while Instatus receives notice text only |
-| Server logs and error reports | Grafana Cloud | **30 days**, set by the `observability` task. **Not yet implemented**: today logs go only to stdout on Fly.io, kept by Fly's own log retention | Grafana Cloud retention setting | Kept until they expire. They hold user IDs and failed spoken-pick text, never emails, passwords, or answers ([logging-conventions.md](./logging-conventions.md)) |
+| Server logs and error reports | Grafana Cloud | **14 days** (the free tier's retention for logs, traces, metrics and Faro data; at most 30 days on any plan), recorded in [observability.md](./observability.md#8-retention-and-access). Fly.io also keeps its own short stdout log window | Grafana Cloud retention | Kept until they expire. They hold user IDs and failed spoken-pick text, never emails, passwords, or answers ([logging-conventions.md](./logging-conventions.md)) |
 | Database backups | Supabase | Supabase's own plan backups, on Supabase's schedule (at most 30 days). There is no off-site export: the `backups-and-restore` task was dropped (2026-11-24) | Supabase's backup expiry | Gone from backups when Supabase's last backup holding it expires |
 | Supabase Auth and API logs | Supabase | Supabase's retention for the project's plan (confirm on the plan page) | Supabase | Kept until they expire; they include emails and IP addresses |
 | Web request logs | Vercel | Vercel's retention for the plan. The web app is static, so only edge request logs exist | Vercel | Kept until they expire; IP addresses and paths, no player data |
@@ -62,7 +62,7 @@ Every outside service that stores or sees player data.
 | Supabase | The database (everything above) and Supabase Auth: emails, password hashes, sessions, IP addresses in auth logs | AWS us-east-1 |
 | Fly.io | Runs `api` and `game`: every request and game message passes through, and stdout logs (user IDs, no emails) | `iad` (Ashburn, Virginia) |
 | Vercel | Serves the web app: IP addresses and paths in edge request logs | Global edge network |
-| Grafana Labs | Logs, traces, and Faro error reports, once the `observability` task ships them (user and room IDs, no emails or answers) | The Grafana Cloud stack's region, named when the stack is created. **Not yet implemented** |
+| Grafana Labs | Logs, traces, metrics and Faro error reports (user and room IDs, no emails or answers) | The Grafana Cloud stack's region, chosen when the operator creates the stack ([observability.md](./observability.md#1-setting-up-a-stack)) |
 | Hugging Face | The host device downloads narrator voices from it, so it sees the host's IP address and browser | Hugging Face's CDN |
 | GitHub | Code and CI logs. No player data: CI uses synthetic test users | — |
 | Instatus | Incident and Maintenance notice title, body, schedule, and resolution; no player data | Instatus' hosting region for the selected page |

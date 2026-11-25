@@ -723,13 +723,14 @@ test("preflight rejects half-set or non-https telemetry settings", async () => {
 
 test("deploy.yml maps the optional telemetry values onto the command", () => {
   const text = workflow("deploy.yml");
-  for (const line of [
-    "OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}",
-    "OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}",
-    "VITE_FARO_URL: ${{ vars.VITE_FARO_URL }}",
-    "GRAFANA_URL: ${{ vars.GRAFANA_URL }}",
-    "GRAFANA_ANNOTATION_TOKEN: ${{ secrets.GRAFANA_ANNOTATION_TOKEN }}",
+  for (const [name, kind] of [
+    ["OTEL_EXPORTER_OTLP_ENDPOINT", "vars"],
+    ["OTEL_EXPORTER_OTLP_HEADERS", "secrets"],
+    ["VITE_FARO_URL", "vars"],
+    ["GRAFANA_URL", "vars"],
+    ["GRAFANA_ANNOTATION_TOKEN", "secrets"],
   ]) {
+    const line = `${name}: $\{{ ${kind}.${name} }}`;
     assert.ok(text.includes(line), `deploy.yml is missing ${line}`);
   }
 });

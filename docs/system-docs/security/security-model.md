@@ -93,11 +93,9 @@ Keep this list current. A PR that closes a gap removes its line.
 | **Supabase Data API is exposed** | Any signed-in player can query `public` directly with their JWT, so RLS and function grants are the only boundary there. Decide whether to stop exposing `public` (the services don't need the Data API) or keep it and test it as a public surface. |
 | **Alerts on audit failures and staff grants** | The api and `golib/db` write the log lines ("audit write failed", "staff access granted"), but the alert rules wait for observability. **Not yet implemented** |
 | **Web security headers** | Built: CSP, HSTS, `nosniff`, Referrer-Policy, Permissions-Policy and `X-Robots-Tag` on every web response, written into `vercel.json` by `web/scripts/vercel-deploy.mjs` with the CSP built from each environment's origins; `web/scripts/vercel-deploy.test.ts` fails if a header is dropped. `style-src` allows `'unsafe-inline'` because Mantine renders `<style>` elements at runtime. `script-src` allows `'wasm-unsafe-eval'` (WebAssembly compilation only, never JavaScript `eval`) and `connect-src` allows `https://huggingface.co` and `https://*.hf.co`, both for the host device's narrator; the voice files are pinned by commit and checked by SHA-256 before use ([stack](../engineering/stack.md), Narration). CORS is already tested in `api/internal/server/server_test.go`, and the game's Origin check in `game/internal/socket/socket_test.go`. |
-| **Telemetry and client error tracking** | Grafana Cloud shipping and Grafana Faro ([stack.md](../engineering/stack.md)). |
 | **Required checks** | Branch protection and rulesets were not available on the private repo's GitHub plan (the API returned 403). Once the repo is public, `develop` and `production` are protected (section 7), but `CI Complete` is not yet a required check, so never merge a release with red CI ([release-strategy.md](../operations/release-strategy.md)). |
 | **Security assessment** | First assessment before launch, then every six months and after major architecture changes. Findings go in `docs/security-assessments/{date}/remediation-tracker.md`, updated only through PRs. |
 | **LLM appeal judge** (when built) | Player answers are untrusted input to the model. Tools get the least privilege that works. |
-| **Docs that need hosting first** | `operations/observability.md`, `operations/incident-response.md`, `quality/agent-qa.md`. |
 
 ## 6. Scans
 
@@ -122,6 +120,7 @@ A **trusted PR** comes from a branch in this repository (`github.event.pull_requ
 - CI runs for fork PRs, without secrets. `evals` needs `ANTHROPIC_API_KEY`, so it runs only for trusted PRs.
 - `create-task-issue.yml` and `task-issue-transitions.yml` write issues, labels and commits, so their jobs run only for trusted PRs or a manual dispatch. A fork PR skips them; it doesn't fail.
 - Deploy, E2E and catalog workflows have no pull-request trigger. They run only from pushes by maintainers or a maintainer's dispatch, and use protected GitHub Environments.
+- Grafana config (`ops/grafana/`) is checked on PRs by `grafana-check.yml`, which holds no credentials and runs no plan: a plan needs a Grafana token. `grafana.yml` plans and applies only on pushes to `develop` (or a dispatch), in the `grafana` environment, whose deployment branches are `develop` only, so no other branch's workflow can read its secrets ([observability.md](../operations/observability.md#3-config-as-code)).
 - Jobs that hold an issue- or contents-write token run scripts from the base branch and check out the PR's files as data only. A PR that edits `.github/` doesn't get its own copy run with that token.
 
 ### Workflow rules

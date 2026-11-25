@@ -40,8 +40,9 @@ Every deploy, staging and production, automatic or by hand, runs `scripts/deploy
 2. **Runs migrations before new code takes traffic,** against that environment's database as the owner role. A failed migration stops the deploy before any service. On staging this is the rehearsal for the next release.
 3. **Deploys api, game, then web,** each health-checked by its platform (`/healthz` on Fly) before traffic shifts.
 4. **Verifies the deployed commit.** It reads each component's `/version` (web: `/version.json`) from `API_VERSION_URL`, `GAME_VERSION_URL` and `WEB_VERSION_URL` for up to 15 minutes and fails unless every one reports the commit. Without it, a skipped platform deploy looks like a release.
-5. **Reports partial state honestly.** On any failure it exits nonzero and lists which steps finished, which failed and which never started, plus the rollback reference. It never prints a secret.
-6. **Keeps rollback one command away** ([release-strategy.md](./release-strategy.md#rollback)). A code rollback does not undo migrations.
+5. **Adds telemetry when configured** ([observability.md](./observability.md)), each step skipped, and said so, when its values are unset. Before deploying api and game, it stages `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` on each Fly app (`flyctl secrets import --stage`, values on stdin), so the deploy applies them. The web build gets `VITE_FARO_URL`, whose origin goes into the CSP. After the run, on success or failure, it writes a Grafana annotation tagged `deploy`, the environment and the scope (plus `failed` and the step that failed). A failed annotation is a warning, never a failed deploy.
+6. **Reports partial state honestly.** On any failure it exits nonzero and lists which steps finished, which failed and which never started, plus the rollback reference. It never prints a secret.
+7. **Keeps rollback one command away** ([release-strategy.md](./release-strategy.md#rollback)). A code rollback does not undo migrations.
 
 Deploys of one environment never overlap: each workflow has a `concurrency` group, and an operator doesn't run a deploy while the workflow is running one.
 

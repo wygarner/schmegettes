@@ -1,8 +1,8 @@
 # Logging Conventions
 
-**Source of truth:** `golib/logging/`, `golib/db/`, `worker/src/schmegettes_worker/__main__.py`, `api/internal/server/server.go`
+**Source of truth:** `golib/logging/`, `golib/telemetry/`, `golib/db/`, `worker/src/schmegettes_worker/__main__.py`, `api/internal/server/server.go`
 
-Structured JSON logs from every service, written to stdout. Shipping them to Grafana Cloud over OpenTelemetry is **not yet implemented** ([stack.md](../engineering/stack.md)). This is the "how" for anyone writing or reviewing a log statement.
+Structured JSON logs from every service, written to stdout. `api` and `game` also send every record to Grafana Cloud over OpenTelemetry (OTLP) when an endpoint is configured, with the same fields and levels ([observability.md](./observability.md)). This is the "how" for anyone writing or reviewing a log statement.
 
 ## 1. Which logger
 
@@ -58,7 +58,7 @@ Gameplay events kept at `info`:
 | `user_id` | after auth |
 | `room_id`, `game_id` | everything in game/, and api/worker code about a room |
 | `job_id`, `job_kind` | every worker log line |
-| `trace_id`, `span_id` | added by OpenTelemetry when a span is active (**not yet implemented**) |
+| `trace_id`, `span_id` | added by `golib/logging` when the context carries a span: api requests, and game work done for a socket. Use the `…Context` logging calls (`slog.InfoContext(ctx, …)`) so they're found |
 | `duration_ms` | completions |
 
 ## 5. Never log
@@ -68,7 +68,7 @@ Gameplay events kept at `info`:
 - Whole request/response bodies or whole WebSocket messages
 - LLM prompts or completions in full (log the model, token counts, latency, verdict)
 
-Identifiers, counts, statuses, durations, and error types are safe. Players' typed answers may be logged at `debug` only. The one speech exception is `voice pick` at `info`: a pick contains a category and amount, not an answer, and failed-pick text is retained so matching failures can be measured.
+Identifiers, counts, statuses, durations, and error types are safe. Players' typed answers may be logged at `debug` only (production runs at `info`, so `debug` lines are neither printed nor exported). The one speech exception is `voice pick` at `info`: a pick contains a category and amount, not an answer, and failed-pick text is retained so matching failures can be measured.
 
 ## 6. Security events
 
@@ -76,14 +76,18 @@ Lines that alerts and investigations depend on. Keep the message and fields exac
 
 | Level | Message | Fields | Written by | Alert |
 |---|---|---|---|---|
-| `error` | `audit write failed` | `action`, `sqlstate`, `request_id` | `golib/db` (`logNotice`), from the `WARNING` `private.audit` raises when it can't write a row. The action itself went through | Critical, immediate (**not yet implemented**: waits for observability) |
+| `error` | `audit write failed` | `action`, `sqlstate`, `request_id` | `golib/db` (`logNotice`), from the `WARNING` `private.audit` raises when it can't write a row. The action itself went through | Counted by the "Server errors" rule ([observability.md](./observability.md#4-alert-rules)); a dedicated immediate rule is the `security-audit-and-staff-access` task's |
 | `warn` | `staff access granted` | `grant_id`, `subject_type`, `subject_id`, `minutes`, `user_id`, `request_id` | `api/internal/staffaccess` | Email to the admin on every line, both environments (**not yet implemented**) |
 | `info` | `staff access read`, `staff access revoked` | `grant_id`, `subject_type`, `subject_id`, `user_id`, `request_id` | `api/internal/staffaccess` | — |
+| `error` | `room crashed` | `room_id`, `game_id`, `phase`, `panic`, `stack` | `game/internal/room` (a room's loop panicked; its sockets close with 1011) | "Live game broken", immediate |
+| `error` | `phase stuck` | `room_id`, `game_id`, `phase`, `overdue_ms` | `game/internal/room` watchdog, once per phase entry | "Live game broken", immediate |
 | `info` | `rate limited` | `group`, `request_id` | `api/internal/ratelimit` | — |
 | `info` | `qa accounts marked` | `count`, `request_id` | `api/internal/admin` | — |
 | `info` | `qa cleanup` | `dry_run`, `rooms`, `games`, `request_id` | `api/internal/admin` | — |
 | `info` | `notice posted`, `notice edited`, `notice resolved` | `notice_id`, `kind`, `revision` | `api/internal/notices` | — |
 | `warn` | `status page sync failed` | `notice_id`, `provider_status` | `api/internal/notices` | — |
+
+**The web app (Faro)** reports errors, `console.warn`/`console.error` and named events, never session replays or page text. Its `beforeSend` strips query strings and drops values longer than 500 characters. Event attributes are codes and names (`reason`, `voice`), never player text ([observability.md §9](./observability.md#9-privacy)).
 
 Never logged: a grant's reason (it can contain personal data), what a staff read returned, and the text of other database notices (only their severity and code, at `debug`).
 QA operator logs contain counts only: never account IDs, emails, labels, passwords, room IDs, or game IDs.

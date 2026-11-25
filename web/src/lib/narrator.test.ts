@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { track } from "./faro";
 import { type NarrateResult, narrate, PIPER_START_TIMEOUT_MS, prepareNarration, stopNarration } from "./narrator";
 import { saveVoice } from "./narratorVoice";
 import { setAudioContextForTest } from "./piper/audio";
 import { type Audio, type PiperEngine, readyEngine } from "./piper/engine";
 
 vi.mock("./piper/engine", () => ({ readyEngine: vi.fn() }));
+vi.mock("./faro", () => ({ track: vi.fn() }));
 
 /** An AudioContext stand-in: buffers and sources the test can end by hand. */
 class FakeSource {
@@ -253,4 +255,35 @@ test("stopped synthesis cannot start stale audio later", async () => {
   await flush();
   expect(sources).toHaveLength(0);
   await expect(done).resolves.toBe("stopped");
+});
+
+test("a skipped line is reported to Faro with its reason and voice, never its text", async () => {
+  fakeAudio();
+  vi.mocked(track).mockClear();
+  engine.synthesize.mockReturnValue(new Promise(() => {}));
+  const done = narrate("Here's OPERA for 200.");
+  await vi.advanceTimersByTimeAsync(PIPER_START_TIMEOUT_MS);
+  await done;
+  vi.mocked(readyEngine).mockReturnValue(null);
+  await narrate("Verdi wrote this Egyptian opera.");
+
+  const calls = vi.mocked(track).mock.calls;
+  expect(calls.map(([name, attrs]) => [name, attrs?.reason])).toEqual([
+    ["narrator_line_skipped", "start_timeout"],
+    ["narrator_line_skipped", "voice_not_ready"],
+  ]);
+  for (const [, attrs] of calls) {
+    expect(attrs?.voice).toBeTruthy();
+    expect(JSON.stringify(attrs)).not.toMatch(/OPERA|Verdi|opera/);
+  }
+});
+
+test("a line that is played to the end reports nothing", async () => {
+  const sources = fakeAudio();
+  vi.mocked(track).mockClear();
+  const done = narrate("Lewis & Clark");
+  await flush();
+  for (const s of sources) s.onended?.();
+  await expect(done).resolves.toBe("ended");
+  expect(track).not.toHaveBeenCalled();
 });

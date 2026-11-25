@@ -24,6 +24,7 @@ import (
 	"schmegettes/golib/auth"
 	"schmegettes/golib/db"
 	"schmegettes/golib/logging"
+	"schmegettes/golib/telemetry"
 )
 
 // commit is set at build time: go build -ldflags "-X main.commit=$GIT_SHA".
@@ -34,6 +35,19 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	shutdownTelemetry, err := telemetry.Setup(ctx, "api", getenv("APP_ENV", "local"), buildCommit())
+	if err != nil {
+		// Telemetry is optional: the service runs without it.
+		slog.Warn("telemetry unavailable", "err", err)
+	}
+	defer func() {
+		flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdownTelemetry(flushCtx); err != nil {
+			slog.Warn("telemetry flush failed", "err", err)
+		}
+	}()
 
 	database, err := db.Open(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {

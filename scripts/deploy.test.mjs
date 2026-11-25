@@ -32,11 +32,22 @@ const SECRETS = {
   FLY_API_TOKEN_API: "FAKE-fly-api-token-1234567890",
   FLY_API_TOKEN_GAME: "FAKE-fly-game-token-1234567890",
   VERCEL_TOKEN: "FAKE-vercel-token-1234567890",
+  OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Basic%20FAKE-otlp-token-1234567890",
+  GRAFANA_ANNOTATION_TOKEN: "FAKE-grafana-annotation-token-1234567890",
 };
+
+// Telemetry is optional: CONFIG leaves it out, TELEMETRY adds it.
+const TELEMETRY = {
+  OTEL_EXPORTER_OTLP_ENDPOINT: "https://otlp.fake.test/otlp",
+  VITE_FARO_URL: "https://faro.fake.test/collect/app-key",
+  GRAFANA_URL: "https://stack.fake.test/",
+};
+
+const { OTEL_EXPORTER_OTLP_HEADERS: _otlp, GRAFANA_ANNOTATION_TOKEN: _annotation, ...BASE_SECRETS } = SECRETS;
 
 const CONFIG = {
   PATH: "/bin",
-  ...SECRETS,
+  ...BASE_SECRETS,
   FLY_APP_API: "schmegettes-api-staging",
   FLY_APP_GAME: "schmegettes-game-staging",
   VITE_SUPABASE_URL: "https://fake.supabase.test",
@@ -61,6 +72,7 @@ function harness({
   tools = ["git", "supabase", "flyctl", "bun", "node"],
   runCode = () => 0,
   versions = () => SHA,
+  annotation = () => 200,
   files = [],
 } = {}) {
   const branch = environment === "production" ? "production" : "develop";
@@ -79,6 +91,7 @@ function harness({
     if (key === `ls-remote origin refs/heads/${branch}`)
       return { code: 0, stdout: remoteTip ? `${remoteTip}\trefs/heads/${branch}\n` : "" };
     if (key.startsWith("merge-base --is-ancestor")) return { code: ancestor ? 0 : 1, stdout: "" };
+    if (key === `log -1 --format=%s ${head}`) return { code: 0, stdout: "Add the scoreboard (#42)\n" };
     throw new Error(`unexpected git ${key}`);
   };
   const deps = {
@@ -91,14 +104,19 @@ function harness({
         return { code: 0, stdout: "FAKE-generated-signing-key" };
       },
       run: async (command, args, options) => {
-        const call = { kind: "run", command, args, env: options.env };
+        const call = { kind: "run", command, args, env: options.env, input: options.input };
         calls.push(call);
         return runCode(call);
       },
     },
     hasTool: (tool) => tools.includes(tool),
-    fetchImpl: async (url) => {
-      calls.push({ kind: "fetch", url });
+    fetchImpl: async (url, options) => {
+      calls.push({ kind: "fetch", url, options });
+      if (url.endsWith("/api/annotations")) {
+        const status = annotation(url, options);
+        if (status instanceof Error) throw status;
+        return { ok: status < 300, status, json: async () => ({}) };
+      }
       const value = versions(url);
       if (value instanceof Error) throw value;
       if (typeof value === "number") return { ok: false, status: value, json: async () => ({}) };
@@ -578,5 +596,141 @@ test("deploy and CI triggers are unchanged", () => {
   assert.match(ci, /^ {2}workflow_dispatch:/m);
   for (const name of ["deploy-staging.yml", "deploy-prod.yml"]) {
     assert.match(workflow(name), /concurrency:\n {2}group: deploy-\w+\n {2}cancel-in-progress: false/);
+  }
+});
+
+// --- telemetry (GH-241) ------------------------------------------------------------------------
+
+const withTelemetry = { ...CONFIG, ...SECRETS, ...TELEMETRY };
+const annotations = (h) => h.calls.filter((c) => c.kind === "fetch" && c.url.endsWith("/api/annotations"));
+
+test("telemetry secrets are staged on each Fly app before its deploy, on stdin and never in arguments", async () => {
+  const h = harness({ env: withTelemetry });
+  const { code } = await h.run("run", "staging", "all");
+  assert.equal(code, 0);
+  const fly = h.runs().filter((c) => c.command === "flyctl");
+  assert.deepEqual(
+    fly.map((c) => `${c.args[0]} ${c.args.at(-1) === "10m" ? c.args[3] : c.args.at(-1)}`),
+    [
+      "secrets schmegettes-api-staging",
+      "deploy api/fly.toml",
+      "secrets schmegettes-game-staging",
+      "deploy game/fly.toml",
+    ],
+  );
+  const [apiSecrets, , gameSecrets] = fly;
+  assert.deepEqual(apiSecrets.args, ["secrets", "import", "--stage", "--app", "schmegettes-api-staging"]);
+  assert.equal(apiSecrets.env.FLY_API_TOKEN, SECRETS.FLY_API_TOKEN_API);
+  assert.equal(gameSecrets.env.FLY_API_TOKEN, SECRETS.FLY_API_TOKEN_GAME);
+  for (const c of [apiSecrets, gameSecrets]) {
+    assert.equal(
+      c.input,
+      `OTEL_EXPORTER_OTLP_ENDPOINT=${TELEMETRY.OTEL_EXPORTER_OTLP_ENDPOINT}\nOTEL_EXPORTER_OTLP_HEADERS=${SECRETS.OTEL_EXPORTER_OTLP_HEADERS}\n`,
+    );
+  }
+  for (const call of h.runs()) {
+    for (const name of ["OTEL_EXPORTER_OTLP_HEADERS", "GRAFANA_ANNOTATION_TOKEN"]) {
+      assert.ok(!call.args.some((a) => a.includes(SECRETS[name])), `${name} in ${call.command} arguments`);
+      assert.equal(call.env[name], undefined, `${name} in ${call.command}'s environment`);
+    }
+  }
+});
+
+test("a failed secret import stops that component's deploy", async () => {
+  const h = harness({ env: withTelemetry, runCode: (c) => (c.args[0] === "secrets" ? 1 : 0) });
+  const { code, text } = await h.run("run", "staging", "api");
+  assert.equal(code, 1);
+  assert.ok(!h.runs().some((c) => c.args[0] === "deploy"));
+  assert.match(text, /✖ api failed/);
+});
+
+test("the web build and the CSP get VITE_FARO_URL when it is set", async () => {
+  const h = harness({ env: withTelemetry });
+  await h.run("run", "staging", "web");
+  const [, build, upload] = h.runs();
+  assert.equal(build.env.VITE_FARO_URL, TELEMETRY.VITE_FARO_URL);
+  assert.equal(upload.env.VITE_FARO_URL, TELEMETRY.VITE_FARO_URL);
+});
+
+test("a deploy writes a Grafana annotation with the commit, environment and scope", async () => {
+  const h = harness({ env: withTelemetry });
+  const { code, text } = await h.run("run", "staging", "all");
+  assert.equal(code, 0);
+  const [call] = annotations(h);
+  assert.equal(call.url, "https://stack.fake.test/api/annotations");
+  assert.equal(call.options.method, "POST");
+  assert.equal(call.options.headers.Authorization, `Bearer ${SECRETS.GRAFANA_ANNOTATION_TOKEN}`);
+  assert.deepEqual(JSON.parse(call.options.body), {
+    tags: ["deploy", "staging", "all"],
+    text: "aaaaaaa Add the scoreboard (#42)",
+  });
+  assert.match(text, /deploy annotation written/);
+  // After verification: the version checks come first.
+  const fetches = h.calls.filter((c) => c.kind === "fetch").map((c) => c.url);
+  assert.equal(fetches.at(-1), call.url);
+});
+
+test("a failed deploy is annotated with failed and the step", async () => {
+  const h = harness({ env: withTelemetry, runCode: (c) => (c.args[3] === "game/fly.toml" ? 1 : 0) });
+  const { code } = await h.run("run", "staging", "all");
+  assert.equal(code, 1);
+  const body = JSON.parse(annotations(h)[0].options.body);
+  assert.deepEqual(body.tags, ["deploy", "staging", "all", "failed", "failed:game"]);
+  assert.match(body.text, /\(failed at game\)$/);
+});
+
+test("an annotation failure is a warning, never a failed deploy", async () => {
+  for (const annotation of [() => 500, () => new Error("network down")]) {
+    const h = harness({ env: withTelemetry, annotation });
+    const { code, text } = await h.run("run", "staging", "web");
+    assert.equal(code, 0);
+    assert.match(text, /⚠ deploy annotation not written/);
+  }
+});
+
+test("without telemetry configuration every telemetry step is skipped, and says so", async () => {
+  const h = harness();
+  const { code, text } = await h.run("run", "staging", "all");
+  assert.equal(code, 0);
+  assert.ok(!h.runs().some((c) => c.args[0] === "secrets"));
+  assert.equal(annotations(h).length, 0);
+  assert.match(text, /otel {5}not configured; skipped/);
+  assert.match(text, /faro {5}not configured; off/);
+  assert.match(text, /annotate not configured; skipped/);
+});
+
+test("preflight rejects half-set or non-https telemetry settings", async () => {
+  for (const [extra, problem] of [
+    [{ OTEL_EXPORTER_OTLP_ENDPOINT: TELEMETRY.OTEL_EXPORTER_OTLP_ENDPOINT }, /set both OTEL_EXPORTER_OTLP_ENDPOINT/],
+    [
+      {
+        ...TELEMETRY,
+        OTEL_EXPORTER_OTLP_HEADERS: "x".repeat(10),
+        OTEL_EXPORTER_OTLP_ENDPOINT: "http://otlp.fake.test",
+      },
+      /OTEL_EXPORTER_OTLP_ENDPOINT must be an https URL/,
+    ],
+    [{ VITE_FARO_URL: "http://faro.fake.test/collect" }, /VITE_FARO_URL must be an https URL/],
+    [{ GRAFANA_URL: "http://stack.fake.test" }, /GRAFANA_URL must be an https URL/],
+  ]) {
+    const h = harness({ env: { ...CONFIG, ...extra } });
+    const { code, text } = await h.run("preflight", "staging", "all");
+    assert.equal(code, 2);
+    assert.match(text, problem);
+    assert.equal(h.mutating(), 0);
+  }
+});
+
+test("deploy.yml maps the optional telemetry values onto the command", () => {
+  const text = workflow("deploy.yml");
+  for (const [name, kind] of [
+    ["OTEL_EXPORTER_OTLP_ENDPOINT", "vars"],
+    ["OTEL_EXPORTER_OTLP_HEADERS", "secrets"],
+    ["VITE_FARO_URL", "vars"],
+    ["GRAFANA_URL", "vars"],
+    ["GRAFANA_ANNOTATION_TOKEN", "secrets"],
+  ]) {
+    const line = `${name}: $\{{ ${kind}.${name} }}`;
+    assert.ok(text.includes(line), `deploy.yml is missing ${line}`);
   }
 });

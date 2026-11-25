@@ -8,10 +8,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
+	"runtime/debug"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
+
+	"go.opentelemetry.io/otel/trace"
 
 	"schmegettes/game/internal/contracts"
 	"schmegettes/game/internal/play"
@@ -95,7 +100,16 @@ type Config struct {
 	Now func() time.Time
 	// AfterFunc runs f after d and returns a function that cancels it (time.AfterFunc).
 	AfterFunc func(d time.Duration, f func()) (stop func() bool)
+	// Watch is how often a room checks for a stuck phase (watchStuck). Zero means 10 s.
+	Watch time.Duration
+	// TestPanic, when set, reports whether a room is a test room in which any select_clue
+	// panics on purpose. Only staging sets it (TEST_PANIC_ROOMS), to check that
+	// a crash is contained and alerted on. See observability.md.
+	TestPanic func(roomID string) bool
 }
+
+// StuckAfter is how far past its deadline a phase may run before the watchdog reports it.
+const StuckAfter = 30 * time.Second
 
 // DefaultConfig is the production timing.
 func DefaultConfig() Config {
@@ -114,11 +128,23 @@ type Client struct {
 	// CloseCode, when set before Done closes, is the WebSocket close code to send (for
 	// example CloseOtherDevice). Zero is a normal closure.
 	CloseCode int
+	// Trace is the socket session's span. Store calls made for this client's events are its
+	// children. Set before the client is attached.
+	Trace trace.SpanContext
+
+	host atomic.Bool // set by the room once it knows the client is the host's device
 }
+
+// IsHost reports whether the room has seen this client as the host's device.
+func (c *Client) IsHost() bool { return c.host.Load() }
 
 // CloseOtherDevice closes a player's older socket when they open the game on another
 // device: the old page says so and doesn't reconnect.
 const CloseOtherDevice = 4001
+
+// CloseRoomCrashed closes every socket of a room whose loop panicked (WebSocket 1011,
+// internal error). The client treats it as a drop and reconnects, which reloads the room.
+const CloseRoomCrashed = 1011
 
 // NewClient makes a client with a send buffer.
 func NewClient(userID string) *Client {
@@ -165,6 +191,10 @@ type Room struct {
 	stopTimer       func() bool
 	timerGen        int
 	voicePickMisses map[string]voicePickLimit
+
+	stuckReported string // phase and deadline the watchdog last reported, so once per entry
+	buzzWonAt     time.Time
+	group         atomic.Value // "lobby" or "in_game", read by the rooms.open gauge
 }
 
 type voicePickLimit struct {
@@ -231,17 +261,33 @@ func (r *Room) run(ctx context.Context, first *Client, onExit func()) {
 	// Leave the hub before closing done, so a socket that finds the room stopped gets a new one.
 	defer close(r.done)
 	defer onExit()
+	firstServed := false
+	// Runs first: a panic stops this room only, never the process.
+	defer func() {
+		if p := recover(); p != nil {
+			r.crashed(p, first, firstServed)
+		}
+	}()
 	if !r.load(ctx) {
 		// Tell the socket why before letting it go; a client that missed the original
 		// room_closed would otherwise keep reconnecting.
 		r.sendTo(first, contracts.RoomClosed{Type: "room_closed", RoomId: contracts.Uuid(r.id), Reason: contracts.RoomClosedReasonClosed})
+		firstServed = true
 		close(first.Done)
 		return
 	}
-	r.attach(ctx, first)
+	r.attach(traced(ctx, first), first)
+	firstServed = true
+	r.setGroup()
 
 	ticker := time.NewTicker(r.cfg.Tick)
 	defer ticker.Stop()
+	watch := r.cfg.Watch
+	if watch <= 0 {
+		watch = 10 * time.Second
+	}
+	watchdog := time.NewTicker(watch)
+	defer watchdog.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -253,11 +299,11 @@ func (r *Room) run(ctx context.Context, first *Client, onExit func()) {
 		case ev := <-r.events:
 			switch ev.kind {
 			case evAttach:
-				r.attach(ctx, ev.client)
+				r.attach(traced(ctx, ev.client), ev.client)
 			case evDetach:
 				r.detach(ev.client)
 			case evIntent:
-				r.handle(ctx, ev.client, ev.data)
+				r.handle(traced(ctx, ev.client), ev.client, ev.data)
 			case evTimer:
 				r.fire(ctx, ev.gen)
 			}
@@ -265,7 +311,10 @@ func (r *Room) run(ctx context.Context, first *Client, onExit func()) {
 			if r.tick(ctx) {
 				return
 			}
+		case <-watchdog.C:
+			r.watchStuck()
 		}
+		r.setGroup()
 		// A finished game has nothing left to run. A game in progress stays loaded so its
 		// pause and abandonment timers keep running; a lobby closes on host absence.
 		if len(r.clients) == 0 && r.phase == contracts.GamePhaseFinished {
@@ -273,6 +322,68 @@ func (r *Room) run(ctx context.Context, first *Client, onExit func()) {
 			return
 		}
 	}
+}
+
+// traced carries the client's socket session span, so store calls made for its events are
+// children of that session.
+func traced(ctx context.Context, c *Client) context.Context {
+	if c == nil || !c.Trace.IsValid() {
+		return ctx
+	}
+	return trace.ContextWithSpanContext(ctx, c.Trace)
+}
+
+func (r *Room) setGroup() {
+	if r.phase == contracts.GamePhaseLobby {
+		r.group.Store("lobby")
+	} else {
+		r.group.Store("in_game")
+	}
+}
+
+// crashed handles a panic in the room's loop. It logs the crash with its stack (no message
+// payloads), closes every socket with CloseRoomCrashed, and lets run return so the hub
+// forgets the room. A game in progress is not ended: a reconnect starts a fresh room that
+// reloads it from the database, and if nobody comes back the host-absence path applies.
+func (r *Room) crashed(p any, first *Client, firstServed bool) {
+	if r.stopTimer != nil {
+		r.stopTimer()
+		r.stopTimer = nil
+	}
+	r.log.Error("room crashed", "game_id", r.gameID, "phase", r.phase,
+		"panic", fmt.Sprint(p), "stack", string(debug.Stack()))
+	roomsCrashed.Add(context.Background(), 1)
+	if !firstServed && !r.clients[first] {
+		first.CloseCode = CloseRoomCrashed
+		close(first.Done)
+	}
+	for c := range r.clients {
+		c.CloseCode = CloseRoomCrashed
+		r.release(c)
+	}
+}
+
+// watchStuck reports a phase that has outlived its own deadline by more than StuckAfter:
+// the timer that should have moved the game on never fired. Once per phase entry.
+func (r *Room) watchStuck() {
+	if r.game == nil || r.game.Over() || r.game.Paused() {
+		return
+	}
+	deadline := r.game.Deadline()
+	if deadline.IsZero() {
+		return
+	}
+	overdue := r.cfg.Now().Sub(deadline)
+	if overdue <= StuckAfter {
+		return
+	}
+	key := string(r.phase) + "@" + deadline.String()
+	if r.stuckReported == key {
+		return
+	}
+	r.stuckReported = key
+	r.log.Error("phase stuck", "game_id", r.gameID, "phase", r.phase, "overdue_ms", overdue.Milliseconds())
+	phaseStuck.Add(context.Background(), 1)
 }
 
 // tick closes the room when its host has been gone too long or it was closed elsewhere.
@@ -357,6 +468,7 @@ func (r *Room) attach(ctx context.Context, c *Client) {
 	r.clients[c] = true
 	if c.UserID == r.lobby.HostID {
 		r.hostGoneAt = time.Time{}
+		c.host.Store(true)
 	}
 	// A new socket may be a new member (they joined through api/), so reload before telling
 	// anyone. The snapshot goes to the newcomer; the update goes to everyone.
@@ -590,6 +702,9 @@ func (r *Room) handle(ctx context.Context, c *Client, data []byte) {
 		return
 	}
 	isHost := c.UserID == r.lobby.HostID
+	if envelope.Type == "select_clue" && r.cfg.TestPanic != nil && r.cfg.TestPanic(r.id) {
+		panic("forced test panic (TEST_PANIC_ROOMS)")
+	}
 
 	switch envelope.Type {
 	case "ping":

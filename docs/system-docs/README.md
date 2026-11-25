@@ -16,6 +16,8 @@ Engineering-owned. Start with [stack.md](./engineering/stack.md).
 | Deployment and environments | [operations/deployment.md](./operations/deployment.md) |
 | Releases, hotfixes, rollback | [operations/release-strategy.md](./operations/release-strategy.md) |
 | Logging | [operations/logging-conventions.md](./operations/logging-conventions.md) |
+| Telemetry, alerts, dashboard, uptime checks (Grafana) | [operations/observability.md](./operations/observability.md) |
+| When an alert fires: first checks, rollback, postmortems | [operations/incident-response.md](./operations/incident-response.md) |
 | Production access: staff access, password resets, account deletion, clue loads | [operations/operator-scripts.md](./operations/operator-scripts.md) |
 | What we keep and for how long, guest cleanup, sub-processors | [operations/data-retention.md](./operations/data-retention.md) |
 | Tuning the answer judge | [operations/judge-tuning.md](./operations/judge-tuning.md) |

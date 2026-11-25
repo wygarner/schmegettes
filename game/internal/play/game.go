@@ -344,6 +344,9 @@ func (g *Game) Players() []Player { return g.s.Players }
 // Phase is the current phase.
 func (g *Game) Phase() contracts.GamePhase { return g.phase }
 
+// Paused reports whether the game is waiting for the host device.
+func (g *Game) Paused() bool { return g.paused }
+
 // Deadline is when Timeout must be called; zero when nothing is pending.
 func (g *Game) Deadline() time.Time {
 	if !g.deadline.IsZero() {

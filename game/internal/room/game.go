@@ -10,6 +10,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
 	"schmegettes/game/internal/contracts"
 	"schmegettes/game/internal/play"
@@ -73,6 +75,7 @@ func (r *Room) applyGame(ctx context.Context, e play.Effects) {
 	for _, b := range e.Broadcasts {
 		r.sendGame(b)
 	}
+	r.measure(e.Records)
 	r.pending = append(r.pending, e.Records...)
 	r.flush(ctx)
 	if r.game != nil {
@@ -142,6 +145,23 @@ func (r *Room) sendGame(b play.Broadcast) {
 	}
 }
 
+// measure records the judge metrics for answers judged in this step, once each (a write
+// retry doesn't count again).
+func (r *Room) measure(recs []play.Record) {
+	ctx := context.Background()
+	for _, rec := range recs {
+		if rec.Kind != play.RecordAnswer {
+			continue
+		}
+		judgeVerdicts.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("match_rule", string(rec.Rule)), attribute.String("verdict", string(rec.Verdict))))
+		if !r.buzzWonAt.IsZero() {
+			buzzToVerdict.Record(ctx, float64(r.cfg.Now().Sub(r.buzzWonAt).Milliseconds()))
+			r.buzzWonAt = time.Time{}
+		}
+	}
+}
+
 // maxWriteTries bounds retries of one record, so a write that can never succeed doesn't block
 // every record behind it for the rest of the game.
 const maxWriteTries = 3
@@ -153,6 +173,7 @@ func (r *Room) flush(ctx context.Context) {
 		rec := r.pending[0]
 		if err := r.write(ctx, rec); err != nil {
 			r.writeTries++
+			recordErrors.Add(ctx, 1, metric.WithAttributes(attribute.String("op", opName(rec.Kind))))
 			if r.writeTries < maxWriteTries {
 				r.log.Error("record write failed", "err", err, "game_id", r.gameID, "op", rec.Kind)
 				return
@@ -386,7 +407,11 @@ func (r *Room) handleGame(ctx context.Context, c *Client, kind string, data []by
 			r.fail(c, contracts.ErrorCodeWrongPhase, "")
 			return true
 		}
+		wasAnswering := r.game.Phase() == contracts.GamePhaseAnswering
 		e, err = r.game.Buzz(now, c.UserID, string(m.ClueId))
+		if err == nil && !wasAnswering && r.game.Phase() == contracts.GamePhaseAnswering {
+			r.buzzWonAt = now // the winning buzz; buzz_to_verdict ends at the judged answer
+		}
 		if m.ClientSentAt != nil && err == nil {
 			r.log.Debug("buzz", "user_id", c.UserID, "latency_ms", now.UnixMilli()-int64(*m.ClientSentAt))
 		}

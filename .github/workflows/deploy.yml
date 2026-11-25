@@ -59,4 +59,10 @@ jobs:
           WEB_VERSION_URL: ${{ vars.WEB_VERSION_URL }}
           API_VERSION_URL: ${{ vars.API_VERSION_URL }}
           GAME_VERSION_URL: ${{ vars.GAME_VERSION_URL }}
+          # Optional telemetry (observability.md): the command skips each one that is unset.
+          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+          VITE_FARO_URL: ${{ vars.VITE_FARO_URL }}
+          GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+          GRAFANA_ANNOTATION_TOKEN: ${{ secrets.GRAFANA_ANNOTATION_TOKEN }}
         run: node scripts/deploy.mjs run "$ENVIRONMENT" all

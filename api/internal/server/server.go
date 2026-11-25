@@ -34,6 +34,7 @@ const (
 type requestInfo struct {
 	id     string
 	userID string
+	route  string // the router's pattern, e.g. "GET /v1/rooms/{roomId}"; set by Route
 }
 
 // Claims returns the verified caller. Only valid behind Authenticate.
@@ -143,7 +144,8 @@ func (s *statusWriter) WriteHeader(code int) {
 }
 
 // Log assigns a request id (returned as X-Request-Id) and writes one line per request.
-// It never logs headers or bodies.
+// It never logs headers or bodies. Inside a trace span the line also carries trace_id and
+// span_id (added by golib/logging).
 func Log(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -153,6 +155,11 @@ func Log(next http.Handler) http.Handler {
 		// The database records the id with any audit row the request writes.
 		ctx := db.WithRequestID(context.WithValue(r.Context(), requestKey, info), info.id)
 		next.ServeHTTP(sw, r.WithContext(ctx))
+		if info.route != "" {
+			// The tracing middleware around Log names the span and labels the duration metric
+			// from this request's pattern, never the raw path with ids in it.
+			r.Pattern = info.route
+		}
 		attrs := []any{
 			"request_id", info.id, "method", r.Method, "route", r.URL.Path,
 			"status", sw.status, "duration_ms", time.Since(start).Milliseconds(),
@@ -161,6 +168,17 @@ func Log(next http.Handler) http.Handler {
 			attrs = append(attrs, "user_id", info.userID)
 		}
 		slog.InfoContext(r.Context(), "request", attrs...)
+	})
+}
+
+// Route goes directly around the router. After the router has matched, it records the
+// pattern for Log, so traces and metrics use the route rather than the path.
+func Route(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r)
+		if info, ok := r.Context().Value(requestKey).(*requestInfo); ok && r.Pattern != "" {
+			info.route = r.Pattern
+		}
 	})
 }
 

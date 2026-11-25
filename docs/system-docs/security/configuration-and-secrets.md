@@ -1,6 +1,6 @@
 # Configuration and Secrets
 
-**Source of truth:** `api/.env.example`, `game/.env.example`, `web/.env.example`, `worker/.env.example`, `devtools/.env.example`, `api/fly.toml`, `game/fly.toml`, `scripts/deploy.mjs`, `.github/workflows/deploy.yml`, `.github/workflows/ci.yml`
+**Source of truth:** `api/.env.example`, `game/.env.example`, `web/.env.example`, `worker/.env.example`, `devtools/.env.example`, `api/fly.toml`, `game/fly.toml`, `scripts/deploy.mjs`, `.github/workflows/deploy.yml`, `.github/workflows/grafana.yml`, `.github/workflows/ci.yml`
 
 Every variable each package reads, where it lives, who owns each secret and how to rotate it, and the config switches. `api` and `game` run on Fly.io: "Fly secret" means `fly secrets set` on that app (staging and production apps each have their own), and "`fly.toml`" means the value is in the repo or passed by the deploy. `web` runs on Vercel, but its values are built in by CI from the GitHub Environment, not set in Vercel.
 
@@ -21,6 +21,9 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `GAME_SOCKET_BASE_URL` | api | no | Fly secret: `wss://schmegettes-game-{staging,prod}.fly.dev` |
 | `STATUS_PAGE_API_TOKEN` | api | **yes** | Fly secret. Instatus API key for that environment's page; unset selects the no-op client |
 | `STATUS_PAGE_ID` | api | no | Fly secret alongside the token: the Instatus page ID for that environment |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | api, game | no | Fly secret, staged by the deploy command from the GitHub Environment variable. Unset: no telemetry is exported |
+| `OTEL_EXPORTER_OTLP_HEADERS` | api, game | **yes** (OTLP write token) | Fly secret, staged by the deploy command from the GitHub Environment secret |
+| `TEST_PANIC_ROOMS` | game | no | Staging game app only, as a Fly secret, set by hand for the forced-panic check and unset afterwards ([observability.md](../operations/observability.md#containment-in-the-game-server)). Ignored outside staging |
 | `REDIS_URL` | game | **yes** | host secret store. Listed in `game/.env.example` but not read yet: no service uses Redis |
 | `CLUE_DATASET_BASE_URL` | worker | no | `worker/.env`; in `load-clues.yml`, the repository or environment variable `CLUE_DATASET_BASE_URL` (required; the load fails without it). The repo ships no dataset or default URL: each operator, including anyone running a fork, supplies their own and is responsible for its rights |
 | `ANTHROPIC_API_KEY` | worker | **yes** | Read by `rate-clues` (and, later, the LLM judge). Local: `worker/.env`. Staging and production: `rate-clues.yml` sets it from `STAGING_ANTHROPIC_API_KEY` or `PROD_ANTHROPIC_API_KEY` (below) |
@@ -29,6 +32,7 @@ Each package's `.env.example` lists its variables with placeholder values. Local
 | `VITE_SUPABASE_ANON_KEY` | web | no (public by design) | GitHub Environment variable |
 | `VITE_API_URL` | web | no | GitHub Environment variable |
 | `VITE_STATUS_URL` | web | no | GitHub Environment variable: the public Instatus page opened by the unreachable banner |
+| `VITE_FARO_URL` | web | no (public by design: the Faro collector URL) | GitHub Environment variable. Unset: Faro is off. Its origin is added to the CSP's `connect-src` |
 | `VITE_{LOCAL,STAGING,PRODUCTION}_{SUPABASE_URL,SUPABASE_ANON_KEY,API_URL}` | devtools | no (public, like web's) | `devtools/.env.local` on the admin's computer only. Never a database URL or service-role key: the Admin page signs in as the admin |
 | `VITE_{LOCAL,STAGING,PRODUCTION}_QA_ACCOUNT_DOMAIN` | `scripts/qa-accounts.mjs` | no | `devtools/.env.local` on the admin's computer. Domain used for the seven QA email addresses; local defaults to `example.test` |
 
@@ -54,6 +58,9 @@ The deploy settings below (owner URLs, Fly and Vercel values, `VITE_*`, `GAME_SO
 | `E2E_HOST_PASSWORD` | secret | GitHub Environment `staging` (**not set yet**) | `e2e.yml` |
 | `VITE_ENV` | build value (not secret) | Set by the deploy command to the environment name; unset locally. `staging` allows E2E mode; any other value compiles it out | web build |
 | `WEB_VERSION_URL`, `API_VERSION_URL`, `GAME_VERSION_URL` | variables (not secret) | GitHub Environments `staging` / `production`: the web `/version.json` (primary domain) and the api and game `/version` URLs | The deploy command's deployed-commit check |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`, `VITE_FARO_URL`, `GRAFANA_URL` | variables | GitHub Environments `staging` and `production` | The deploy command (Fly telemetry secrets, the web build and CSP, the deploy annotation) |
+| `OTEL_EXPORTER_OTLP_HEADERS`, `GRAFANA_ANNOTATION_TOKEN` | secrets | GitHub Environments `staging` and `production` | The deploy command. Each telemetry step is skipped when its values are unset |
+| Grafana Terraform values | secrets and variables | GitHub Environment `grafana` only (section 4) | `grafana.yml` |
 | `STAGING_ANTHROPIC_API_KEY` | secret | GitHub Environment `staging` (**not set yet**) | `rate-clues.yml` |
 | `PROD_ANTHROPIC_API_KEY` | secret | GitHub Environment `production` (**not set yet**) | `rate-clues.yml` |
 | `ANTHROPIC_API_KEY` | secret | repo secret (**not set yet**) | `ci.yml` evals job |
@@ -73,6 +80,11 @@ A secret found by a scan (`ci.yml`'s gitleaks job, GitHub secret scanning, or `s
 | Supabase JWT signing keys | Rotate in Supabase (asymmetric signing keys). No redeploy: `golib/auth` caches the JWKS and refetches it when a token names a key it hasn't seen. Revoke the old key once tokens signed with it have expired. |
 | `REDIS_URL` credentials | Rotate in the Redis provider, then update the game's secret and restart it. |
 | `ANTHROPIC_API_KEY`, `STAGING_ANTHROPIC_API_KEY`, `PROD_ANTHROPIC_API_KEY` | Create a new key in the Anthropic console, update the secret where that key is kept (`worker/.env`, the GitHub Environment, or the repo secret), then revoke the old key. |
+| `OTEL_EXPORTER_OTLP_HEADERS` | Create a new access-policy token (`metrics:write`, `logs:write`, `traces:write`) in the Grafana Cloud stack, update the GitHub Environment secret in both environments and the password-manager copies, deploy api and game (the deploy stages the new value), then delete the old token. |
+| `GRAFANA_ANNOTATION_TOKEN` | Add a new token to the annotations service account, update both GitHub Environment secrets and the password-manager copies, then delete the old token. |
+| `GRAFANA_TF_TOKEN`, `GRAFANA_SM_TOKEN` | Create a new token (Terraform service account; Synthetic Monitoring config), update the `grafana` environment secret, run Grafana apply on `develop`, then delete the old token. |
+| `TF_STATE_ACCESS_KEY_ID`, `TF_STATE_SECRET_ACCESS_KEY` | In the staging Supabase project, create a new S3 access key (Storage → S3 Connection), update both `grafana` environment secrets, run Grafana apply, then revoke the old key. |
+| `ALERT_EMAIL` | Update the `grafana` environment secret and run Grafana apply. Send the contact point's test (observability.md, "Test alert"). |
 | `STATUS_PAGE_API_TOKEN` | Create a replacement Instatus key scoped to the page, set it with `fly secrets set STATUS_PAGE_API_TOKEN=… -a {api-app}`, confirm a notice sync, then revoke the old key. Free-plan keys expire after at most 90 days. |
 
 Rotate a secret:
@@ -84,11 +96,21 @@ Prefer short-lived tokens over long-lived ones. Don't write a new secret version
 
 ## 4. Observability credentials
 
-**Not yet implemented** (see [stack.md](../engineering/stack.md)). When telemetry ships, keep three kinds apart:
+Setup, step by step: [observability.md §1](../operations/observability.md#1-setting-up-a-stack). Three kinds, kept apart:
 
-- **Shipping credentials** (Grafana Cloud OTLP): runtime config for api, game, and worker, in each host's secret store.
-- **The Grafana Faro collector key**: public-safe by design and bundled into `web`.
-- **Operator and CI tokens** (alert provisioning, source-map upload, read-only telemetry access for automation): not app config. Kept in CI secrets or with the operator only.
+- **Shipping credentials:** `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS`, runtime config for api and game. The deploy command stages them as Fly secrets from the GitHub Environment, passing values on stdin, never in arguments or logs.
+- **The Faro collector URL** (`VITE_FARO_URL`): public-safe by design and bundled into `web`.
+- **Operator and CI tokens:** not app config. `GRAFANA_ANNOTATION_TOKEN` (annotations only) lives in the `staging` and `production` environments for the deploy command. The Terraform values live only in the protected GitHub Environment **`grafana`**, whose deployment branches are `develop` only, so only `grafana.yml`'s apply job on `develop` can read them:
+
+| Name | Kind | Used by |
+|---|---|---|
+| `GRAFANA_URL` | variable | The Terraform provider |
+| `GRAFANA_TF_TOKEN` | secret | The Terraform provider (Editor service account) |
+| `GRAFANA_SM_URL`, `GRAFANA_SM_TOKEN` | variable, secret | Synthetic Monitoring checks |
+| `TF_STATE_BUCKET`, `TF_STATE_ENDPOINT`, `TF_STATE_REGION` | variables | Terraform state: a private bucket in the staging Supabase project's Storage, over its S3 API |
+| `TF_STATE_ACCESS_KEY_ID`, `TF_STATE_SECRET_ACCESS_KEY` | secrets | The state bucket. The key can read and write all of that project's Storage, bypassing RLS |
+| `ALERT_EMAIL` | secret | The contact point. Never committed |
+| `HEALTH_TARGETS` | variable | The uptime checks' URLs (JSON per environment) |
 
 ## 5. Config switches
 

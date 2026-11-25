@@ -1,7 +1,9 @@
 import { afterEach, expect, test, vi } from "vitest";
+import { track } from "./faro";
 import { CLOSE_OTHER_DEVICE, GameSocket } from "./gameSocket";
 
 vi.mock("./supabase", () => ({ getAccessToken: vi.fn().mockResolvedValue("token") }));
+vi.mock("./faro", () => ({ track: vi.fn() }));
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
@@ -67,4 +69,22 @@ test("the drop listener hears the close code (4001: another device took the seat
   await socket.connect();
   FakeWebSocket.instances[0]?.onclose?.({ code: CLOSE_OTHER_DEVICE });
   expect(codes).toEqual([CLOSE_OTHER_DEVICE]);
+});
+
+test("reconnects are reported to Faro with the reason and close code; the first connect is not", async () => {
+  vi.stubGlobal("WebSocket", FakeWebSocket);
+  vi.mocked(track).mockClear();
+  const socket = new GameSocket("ws://game/rooms/r/ws");
+  await socket.connect();
+  expect(track).not.toHaveBeenCalled();
+
+  FakeWebSocket.instances[0]?.onclose?.({ code: 1011 }); // a crashed room
+  await socket.connect();
+  expect(track).toHaveBeenLastCalledWith("socket_reconnect", { reason: "drop", closeCode: "1011" });
+
+  const ws = FakeWebSocket.instances[1];
+  ws?.emit({ type: "room_snapshot", roomId: ROOM, seq: 1, phase: "lobby", round: "single", players: [], board: [] });
+  ws?.emit({ type: "phase_changed", roomId: ROOM, seq: 5, phase: "lobby" });
+  await vi.waitFor(() => expect(track).toHaveBeenCalledTimes(2));
+  expect(vi.mocked(track).mock.calls[1]?.[1]?.reason).toBe("seq_gap");
 });

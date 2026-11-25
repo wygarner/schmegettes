@@ -11,6 +11,7 @@ A multiplayer quiz-show party game: share a room code, buzz from your phone, ans
 | [`game/`](game/) | Go | Realtime game server (WebSockets) |
 | [`worker/`](worker/) | Python | Jobs: clue imports, boards, appeal judging |
 | [`supabase/`](supabase/) | SQL | Migrations, row-level security, tests |
+| [`ops/grafana/`](docs/system-docs/operations/observability.md) | Terraform | Alerts, dashboard and uptime checks in Grafana Cloud |
 
 Start with [docs/system-docs/engineering/stack.md](docs/system-docs/engineering/stack.md) and [developer-setup.md](docs/system-docs/engineering/developer-setup.md).
 

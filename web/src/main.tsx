@@ -14,6 +14,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { installE2E } from "./lib/e2e";
+import { initFaro } from "./lib/faro";
 import { enforceFullscreen } from "./lib/fullscreen";
 import { Account } from "./pages/Account";
 import { Admin } from "./pages/Admin";
@@ -92,6 +93,8 @@ export const theme = createTheme({
   headings: { fontFamily: "Oswald, Impact, sans-serif" },
 });
 
+// First, so errors from the rest of startup are reported. Off without VITE_FARO_URL.
+initFaro();
 enforceFullscreen();
 
 const root = document.getElementById("root");

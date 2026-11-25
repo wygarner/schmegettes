@@ -36,6 +36,9 @@ export const SECRET_NAMES = [
   "FLY_API_TOKEN_GAME",
   "FLY_API_TOKEN",
   "VERCEL_TOKEN",
+  // Telemetry (observability.md): an OTLP write token and a Grafana annotations token.
+  "OTEL_EXPORTER_OTLP_HEADERS",
+  "GRAFANA_ANNOTATION_TOKEN",
 ];
 
 const VERSION_URL = { api: "API_VERSION_URL", game: "GAME_VERSION_URL", web: "WEB_VERSION_URL" };
@@ -94,7 +97,11 @@ Configuration (process environment only; use one shell or secret-manager profile
   api      FLY_APP_API, FLY_API_TOKEN_API, API_VERSION_URL
   game     FLY_APP_GAME, FLY_API_TOKEN_GAME, GAME_VERSION_URL
   web      VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_API_URL, VITE_STATUS_URL (optional),
-           GAME_SOCKET_ORIGIN, VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID, WEB_VERSION_URL
+           GAME_SOCKET_ORIGIN, VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID, WEB_VERSION_URL,
+           VITE_FARO_URL (optional: web errors to Grafana Faro)
+Optional telemetry (docs/system-docs/operations/observability.md); each is skipped when unset:
+  api, game  OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_EXPORTER_OTLP_HEADERS, staged as Fly secrets
+  any run    GRAFANA_URL and GRAFANA_ANNOTATION_TOKEN, for a deploy annotation in Grafana
 
 Exit status: 0 success, 1 failed (the output says what deployed), 2 usage or preflight error.`;
 
@@ -156,11 +163,34 @@ function versionUrlProblems(components, env, { requireSet }) {
   return problems;
 }
 
+/** The optional telemetry settings that apply to this run, and their problems. */
+export function telemetryConfig(scope, env) {
+  const parts = scope === "all" ? ["migrate", ...COMPONENTS] : [scope];
+  const problems = [];
+  const https = (name) => {
+    if (env[name] && !/^https:\/\/[^/]+/.test(env[name])) problems.push(`${name} must be an https URL`);
+  };
+  const fly = parts.includes("api") || parts.includes("game");
+  const otel = Boolean(env.OTEL_EXPORTER_OTLP_ENDPOINT || env.OTEL_EXPORTER_OTLP_HEADERS);
+  if (fly && otel && !(env.OTEL_EXPORTER_OTLP_ENDPOINT && env.OTEL_EXPORTER_OTLP_HEADERS))
+    problems.push("set both OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_EXPORTER_OTLP_HEADERS, or neither");
+  if (fly) https("OTEL_EXPORTER_OTLP_ENDPOINT");
+  if (parts.includes("web")) https("VITE_FARO_URL");
+  https("GRAFANA_URL");
+  return {
+    flySecrets: fly && Boolean(env.OTEL_EXPORTER_OTLP_ENDPOINT && env.OTEL_EXPORTER_OTLP_HEADERS),
+    faro: parts.includes("web") && Boolean(env.VITE_FARO_URL),
+    annotate: Boolean(env.GRAFANA_URL && env.GRAFANA_ANNOTATION_TOKEN),
+    problems,
+  };
+}
+
 /** Checks that don't need git: configuration values and tools. Returns a list of problems. */
 export function checkConfig(environment, scope, env, hasTool) {
   const { vars, tools } = requirements(environment, scope);
   const problems = [];
   for (const name of vars) if (!env[name]) problems.push(`${name} is not set`);
+  problems.push(...telemetryConfig(scope, env).problems);
   problems.push(
     ...versionUrlProblems(
       COMPONENTS.filter((c) => vars.includes(VERSION_URL[c])),
@@ -311,6 +341,14 @@ export async function main(argv, deps) {
     if (vars.includes(VERSION_URL[component]) && env[VERSION_URL[component]])
       say(`  verify   ${component} at ${hostOf(env[VERSION_URL[component]])}`);
   }
+  const telemetry = telemetryConfig(scope, env);
+  if (vars.includes("FLY_APP_API") || vars.includes("FLY_APP_GAME"))
+    say(
+      `  otel     ${telemetry.flySecrets ? `staged on the Fly apps (${hostOf(env.OTEL_EXPORTER_OTLP_ENDPOINT)})` : "not configured; skipped"}`,
+    );
+  if (vars.includes("VERCEL_PROJECT_ID"))
+    say(`  faro     ${telemetry.faro ? `on (${hostOf(env.VITE_FARO_URL)})` : "not configured; off"}`);
+  say(`  annotate ${telemetry.annotate ? `Grafana at ${hostOf(env.GRAFANA_URL)}` : "not configured; skipped"}`);
   say(`  steps    ${plan(scope).join(" → ")}`);
   if (problems.length > 0) {
     err(redact(`Preflight failed; nothing was changed:\n${problems.map((p) => `  ✖ ${p}`).join("\n")}`));
@@ -328,12 +366,25 @@ async function runSteps(environment, scope, sha, deps, say) {
   const redact = redactor(env);
   const steps = plan(scope);
   const state = Object.fromEntries(steps.map((step) => [step, "not started"]));
-  const exec = (command, args, extra = {}) =>
-    runner.run(command, args, { cwd: root, env: childEnv(env, extra), redact });
+  const exec = (command, args, extra = {}, input) =>
+    runner.run(command, args, { cwd: root, env: childEnv(env, extra), redact, input });
+  const telemetry = telemetryConfig(scope, env);
 
-  const deployFly = (component) => {
+  const deployFly = async (component) => {
     const app = component === "api" ? env.FLY_APP_API : env.FLY_APP_GAME;
     const token = component === "api" ? env.FLY_API_TOKEN_API : env.FLY_API_TOKEN_GAME;
+    if (telemetry.flySecrets) {
+      // Staged, so the deploy below applies them. Values go on stdin, never in arguments.
+      const lines = `OTEL_EXPORTER_OTLP_ENDPOINT=${env.OTEL_EXPORTER_OTLP_ENDPOINT}\nOTEL_EXPORTER_OTLP_HEADERS=${env.OTEL_EXPORTER_OTLP_HEADERS}\n`;
+      say(`  staging telemetry secrets on ${app}`);
+      const staged = await exec(
+        "flyctl",
+        ["secrets", "import", "--stage", "--app", app],
+        { FLY_API_TOKEN: token },
+        lines,
+      );
+      if (staged !== 0) return staged;
+    }
     const args = ["deploy", ".", "--config", `${component}/fly.toml`, "--dockerfile", `${component}/Dockerfile`];
     args.push("--app", app, "--remote-only", "--build-arg", `GIT_SHA=${sha}`, "--image-label", sha);
     args.push("--env", `APP_ENV=${environment}`);
@@ -390,6 +441,27 @@ async function runSteps(environment, scope, sha, deps, say) {
     },
   };
 
+  // A deploy marker in Grafana, on success or failure. Never fails the deploy.
+  const annotate = async (failedStep) => {
+    if (!telemetry.annotate) return;
+    const subject = await runner.capture("git", ["log", "-1", "--format=%s", sha], { cwd: root, env: childEnv(env) });
+    const text = `${sha.slice(0, 7)} ${subject.code === 0 ? subject.stdout.trim() : ""}`.trim();
+    const tags = ["deploy", environment, scope];
+    if (failedStep) tags.push("failed", `failed:${failedStep}`);
+    try {
+      const response = await deps.fetchImpl(`${env.GRAFANA_URL.replace(/\/+$/, "")}/api/annotations`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${env.GRAFANA_ANNOTATION_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ tags, text: failedStep ? `${text} (failed at ${failedStep})` : text }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) say(`  ⚠ deploy annotation not written (HTTP ${response.status}); the deploy is unaffected`);
+      else say("  deploy annotation written to Grafana");
+    } catch (error) {
+      say(`  ⚠ deploy annotation not written (${error.message}); the deploy is unaffected`);
+    }
+  };
+
   for (const step of steps) {
     const started = deps.now();
     say(`▶ ${step}`);
@@ -405,12 +477,14 @@ async function runSteps(environment, scope, sha, deps, say) {
       state[step] = "failed";
       say(`✖ ${step} failed (exit ${code}, ${seconds}s)`);
       summarize(environment, scope, sha, state, say);
+      await annotate(step);
       return 1;
     }
     state[step] = "done";
     say(`✔ ${step} (${seconds}s)`);
   }
 
+  await annotate();
   if (scope === "all") say(`Deployed ${sha} to ${environment}: migrations, api, game and web all verified.`);
   else if (scope === "migrate") say(`Migrations applied to ${environment} from ${sha}. No service was deployed.`);
   else {
@@ -463,9 +537,15 @@ export const realRunner = {
     const result = spawnSync(command, args, { cwd, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     return { code: result.status ?? 1, stdout: result.stdout ?? "" };
   },
-  run(command, args, { cwd, env, redact }) {
+  run(command, args, { cwd, env, redact, input }) {
     return new Promise((resolve) => {
-      const child = spawn(command, args, { cwd, env, stdio: ["inherit", "pipe", "pipe"] });
+      // input (secret values, for example) goes to the child's stdin and is never printed.
+      const child = spawn(command, args, {
+        cwd,
+        env,
+        stdio: [input === undefined ? "inherit" : "pipe", "pipe", "pipe"],
+      });
+      if (input !== undefined) child.stdin.end(input);
       lineRedactingPipe(child.stdout, (text) => process.stdout.write(text), redact);
       lineRedactingPipe(child.stderr, (text) => process.stderr.write(text), redact);
       child.on("error", () => resolve(127));

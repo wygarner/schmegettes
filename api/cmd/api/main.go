@@ -17,12 +17,14 @@ import (
 	"schmegettes/api/internal/admin"
 	"schmegettes/api/internal/games"
 	"schmegettes/api/internal/hostaccess"
+	"schmegettes/api/internal/notices"
 	"schmegettes/api/internal/rooms"
 	"schmegettes/api/internal/staffaccess"
 	"schmegettes/api/internal/stats"
 	"schmegettes/golib/auth"
 	"schmegettes/golib/db"
 	"schmegettes/golib/logging"
+	"schmegettes/golib/telemetry"
 )
 
 // commit is set at build time: go build -ldflags "-X main.commit=$GIT_SHA".
@@ -33,6 +35,19 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	shutdownTelemetry, err := telemetry.Setup(ctx, "api", getenv("APP_ENV", "local"), buildCommit())
+	if err != nil {
+		// Telemetry is optional: the service runs without it.
+		slog.Warn("telemetry unavailable", "err", err)
+	}
+	defer func() {
+		flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdownTelemetry(flushCtx); err != nil {
+			slog.Warn("telemetry flush failed", "err", err)
+		}
+	}()
 
 	database, err := db.Open(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -48,16 +63,18 @@ func main() {
 	}
 
 	appEnv := getenv("APP_ENV", "local")
+	statusPage := notices.NewInstatus(os.Getenv("STATUS_PAGE_API_TOKEN"), os.Getenv("STATUS_PAGE_ID"))
 	rt := routes{
-		admin:  admin.Handler{Store: admin.PGStore{DB: database}, AppEnv: appEnv},
-		rooms:  rooms.Handler{Store: rooms.PGStore{DB: database}, SocketBase: getenv("GAME_SOCKET_BASE_URL", "ws://localhost:3002")},
-		games:  games.Handler{Store: games.PGStore{DB: database}},
-		host:   hostaccess.Handler{Store: hostaccess.PGStore{DB: database}},
-		me:     account.Handler{Store: account.PGStore{DB: database}},
-		stats:  stats.Handler{Store: stats.PGStore{DB: database}},
-		staff:  staffaccess.Handler{Store: staffaccess.PGStore{DB: database}},
-		limits: newLimits(),
-		ping:   database.Ping,
+		admin:   admin.Handler{Store: admin.PGStore{DB: database}, AppEnv: appEnv},
+		rooms:   rooms.Handler{Store: rooms.PGStore{DB: database}, SocketBase: getenv("GAME_SOCKET_BASE_URL", "ws://localhost:3002")},
+		games:   games.Handler{Store: games.PGStore{DB: database}},
+		host:    hostaccess.Handler{Store: hostaccess.PGStore{DB: database}},
+		notices: notices.Handler{Store: notices.PGStore{DB: database}, StatusPage: statusPage},
+		me:      account.Handler{Store: account.PGStore{DB: database}},
+		stats:   stats.Handler{Store: stats.PGStore{DB: database}},
+		staff:   staffaccess.Handler{Store: staffaccess.PGStore{DB: database}},
+		limits:  newLimits(),
+		ping:    database.Ping,
 	}
 	srv := &http.Server{
 		Addr:              ":" + getenv("PORT", "3001"),

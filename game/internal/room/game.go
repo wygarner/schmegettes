@@ -10,6 +10,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
 	"schmegettes/game/internal/contracts"
 	"schmegettes/game/internal/play"
@@ -73,6 +75,7 @@ func (r *Room) applyGame(ctx context.Context, e play.Effects) {
 	for _, b := range e.Broadcasts {
 		r.sendGame(b)
 	}
+	r.measure(e.Records)
 	r.pending = append(r.pending, e.Records...)
 	r.flush(ctx)
 	if r.game != nil {
@@ -142,6 +145,23 @@ func (r *Room) sendGame(b play.Broadcast) {
 	}
 }
 
+// measure records the judge metrics for answers judged in this step, once each (a write
+// retry doesn't count again).
+func (r *Room) measure(recs []play.Record) {
+	ctx := context.Background()
+	for _, rec := range recs {
+		if rec.Kind != play.RecordAnswer {
+			continue
+		}
+		judgeVerdicts.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("match_rule", string(rec.Rule)), attribute.String("verdict", string(rec.Verdict))))
+		if !r.buzzWonAt.IsZero() {
+			buzzToVerdict.Record(ctx, float64(r.cfg.Now().Sub(r.buzzWonAt).Milliseconds()))
+			r.buzzWonAt = time.Time{}
+		}
+	}
+}
+
 // maxWriteTries bounds retries of one record, so a write that can never succeed doesn't block
 // every record behind it for the rest of the game.
 const maxWriteTries = 3
@@ -153,6 +173,7 @@ func (r *Room) flush(ctx context.Context) {
 		rec := r.pending[0]
 		if err := r.write(ctx, rec); err != nil {
 			r.writeTries++
+			recordErrors.Add(ctx, 1, metric.WithAttributes(attribute.String("op", opName(rec.Kind))))
 			if r.writeTries < maxWriteTries {
 				r.log.Error("record write failed", "err", err, "game_id", r.gameID, "op", rec.Kind)
 				return
@@ -189,6 +210,63 @@ func alternatives(in []string) []string {
 		}
 	}
 	return out
+}
+
+func clippedStrings(in []string) []string {
+	out := make([]string, len(in))
+	for i, s := range in {
+		out[i] = clip(s)
+	}
+	return out
+}
+
+func validSelectClueVia(via *contracts.SelectClueVia) bool {
+	return via == nil || *via == contracts.SelectClueViaTap || *via == contracts.SelectClueViaVoice
+}
+
+func validVoicePickMissed(m contracts.VoicePickMissed) bool {
+	switch m.Problem {
+	case contracts.VoicePickMissedProblemNoCategory, contracts.VoicePickMissedProblemAmbiguous,
+		contracts.VoicePickMissedProblemNoValue, contracts.VoicePickMissedProblemTaken,
+		contracts.VoicePickMissedProblemNothingHeard:
+	default:
+		return false
+	}
+	if utf8.RuneCountInString(m.Heard) > 200 || len(m.Alternatives) > maxAlternatives {
+		return false
+	}
+	for _, alternative := range m.Alternatives {
+		if utf8.RuneCountInString(alternative) > 200 {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *Room) allowVoicePickMiss(userID string, now time.Time) bool {
+	limit := r.voicePickMisses[userID]
+	if limit.gameID != r.gameID {
+		limit = voicePickLimit{gameID: r.gameID}
+	}
+	if limit.count >= 20 || (!limit.last.IsZero() && now.Sub(limit.last) < time.Second) {
+		return false
+	}
+	limit.last = now
+	limit.count++
+	r.voicePickMisses[userID] = limit
+	return true
+}
+
+func (r *Room) openCategories() []string {
+	seen := map[string]bool{}
+	var categories []string
+	for _, clue := range r.game.Board(false) {
+		if clue.State == contracts.ClueStateUnplayed && !seen[clue.Category] {
+			seen[clue.Category] = true
+			categories = append(categories, clue.Category)
+		}
+	}
+	return categories
 }
 
 func (r *Room) write(ctx context.Context, rec play.Record) error {
@@ -278,7 +356,7 @@ func (r *Room) handleGame(ctx context.Context, c *Client, kind string, data []by
 	switch kind {
 	case "select_clue":
 		var m contracts.SelectClue
-		if !decode(data, &m) {
+		if !decode(data, &m) || !validSelectClueVia(m.Via) {
 			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
 			return true
 		}
@@ -286,8 +364,29 @@ func (r *Room) handleGame(ctx context.Context, c *Client, kind string, data []by
 			r.fail(c, contracts.ErrorCodeWrongPhase, "")
 			return true
 		}
-		r.log.Debug("clue picked", "game_id", r.gameID, "board_clue_id", m.ClueId, "user_id", c.UserID)
 		e, err = r.game.Pick(now, c.UserID, string(m.ClueId))
+		if err == nil && m.Via != nil && *m.Via == contracts.SelectClueViaVoice {
+			r.log.Info("voice pick", "outcome", "picked", "game_id", r.gameID, "user_id", c.UserID,
+				"board_clue_id", m.ClueId)
+		} else if err == nil {
+			r.log.Debug("clue picked", "game_id", r.gameID, "board_clue_id", m.ClueId, "user_id", c.UserID)
+		}
+	case "voice_pick_missed":
+		var m contracts.VoicePickMissed
+		if !decode(data, &m) || !validVoicePickMissed(m) {
+			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+			return true
+		}
+		if r.game == nil || r.phase != contracts.GamePhaseBoard || r.game.Controller() != c.UserID {
+			return true
+		}
+		if !r.allowVoicePickMiss(c.UserID, now) {
+			return true
+		}
+		r.log.Info("voice pick", "outcome", "missed", "game_id", r.gameID, "user_id", c.UserID,
+			"problem", m.Problem, "heard", clip(m.Heard), "alternatives", clippedStrings(m.Alternatives),
+			"categories", r.openCategories())
+		return true
 	case "reading_done":
 		var m contracts.ReadingDone
 		if !decode(data, &m) {
@@ -308,7 +407,11 @@ func (r *Room) handleGame(ctx context.Context, c *Client, kind string, data []by
 			r.fail(c, contracts.ErrorCodeWrongPhase, "")
 			return true
 		}
+		wasAnswering := r.game.Phase() == contracts.GamePhaseAnswering
 		e, err = r.game.Buzz(now, c.UserID, string(m.ClueId))
+		if err == nil && !wasAnswering && r.game.Phase() == contracts.GamePhaseAnswering {
+			r.buzzWonAt = now // the winning buzz; buzz_to_verdict ends at the judged answer
+		}
 		if m.ClientSentAt != nil && err == nil {
 			r.log.Debug("buzz", "user_id", c.UserID, "latency_ms", now.UnixMilli()-int64(*m.ClientSentAt))
 		}

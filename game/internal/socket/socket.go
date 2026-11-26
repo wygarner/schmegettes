@@ -15,10 +15,21 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 
 	"schmegettes/game/internal/room"
 	"schmegettes/golib/auth"
 	"schmegettes/golib/db"
+)
+
+var (
+	tracer = otel.Tracer("schmegettes/game/socket")
+	// connected is the number of open sockets on this instance (a gauge in Grafana).
+	connected, _ = otel.Meter("schmegettes/game/socket").Int64UpDownCounter("schmegettes.sockets.connected",
+		metric.WithDescription("Open game sockets on this instance"))
 )
 
 // Protocol is the only subprotocol the server accepts back.
@@ -124,7 +135,20 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	conn.SetReadLimit(4 << 10)
 
+	// One span per socket session; the room's store calls for this socket are its children.
+	_, span := tracer.Start(r.Context(), "socket.session", trace.WithAttributes(attribute.String("room_id", roomID)))
+	connected.Add(context.Background(), 1)
 	client := room.NewClient(claims.UserID)
+	client.Trace = span.SpanContext()
+	defer func() {
+		role := "player"
+		if client.IsHost() {
+			role = "host"
+		}
+		span.SetAttributes(attribute.String("role", role))
+		span.End()
+		connected.Add(context.Background(), -1)
+	}()
 	rm := h.Hub.Attach(roomID, client)
 	go write(conn, client)
 
@@ -163,8 +187,11 @@ func write(conn *websocket.Conn, c *room.Client) {
 					}
 				default:
 					code, reason := websocket.StatusNormalClosure, ""
-					if c.CloseCode == room.CloseOtherDevice {
+					switch c.CloseCode {
+					case room.CloseOtherDevice:
 						code, reason = websocket.StatusCode(room.CloseOtherDevice), "other_device"
+					case room.CloseRoomCrashed:
+						code, reason = websocket.StatusInternalError, "room_crashed"
 					}
 					err := conn.Close(code, reason)
 					if err != nil && !errors.Is(err, context.Canceled) {

@@ -8,6 +8,7 @@ import { collectFiles, contentSecurityPolicy, deploy, vercelConfig } from "./ver
 const env = {
   VITE_SUPABASE_URL: "https://abc.supabase.co",
   VITE_API_URL: "https://schmegettes-api-staging.fly.dev",
+  VITE_STATUS_URL: "https://status.schmegettes.com",
   GAME_SOCKET_ORIGIN: "wss://schmegettes-game-staging.fly.dev",
 };
 const vercelEnv = {
@@ -27,6 +28,14 @@ describe("contentSecurityPolicy", () => {
     expect(directive(contentSecurityPolicy(env), "connect-src")).toBe(
       "connect-src 'self' https://abc.supabase.co https://schmegettes-api-staging.fly.dev wss://schmegettes-game-staging.fly.dev https://huggingface.co https://*.hf.co",
     );
+  });
+
+  it("allows the Faro collector's origin only when VITE_FARO_URL is set", () => {
+    expect(contentSecurityPolicy(env)).not.toContain("grafana");
+    const csp = contentSecurityPolicy({ ...env, VITE_FARO_URL: "https://faro-collector.grafana.net/collect/abc123" });
+    expect(directive(csp, "connect-src")).toContain(" https://faro-collector.grafana.net ");
+    expect(csp).not.toContain("abc123");
+    expect(() => contentSecurityPolicy({ ...env, VITE_FARO_URL: "http://faro.test/collect" })).toThrow(/https/);
   });
 
   it("uses origins, not full URLs", () => {

@@ -1,6 +1,7 @@
 # api on Fly.io. One file for staging and production: .github/workflows/deploy.yml passes
 # --app (schmegettes-api-staging / schmegettes-api-prod) and --env APP_ENV=... Secrets
-# (DATABASE_URL, SUPABASE_URL, SUPABASE_JWKS_URL, ALLOWED_ORIGINS, GAME_SOCKET_BASE_URL) are set
+# (DATABASE_URL, SUPABASE_URL, SUPABASE_JWKS_URL, ALLOWED_ORIGINS, GAME_SOCKET_BASE_URL,
+# STATUS_PAGE_API_TOKEN, STATUS_PAGE_ID) are set
 # by hand with `fly secrets set`. See docs/system-docs/operations/deployment.md.
 
 # Keep next to the Supabase project's region (us-east-1).

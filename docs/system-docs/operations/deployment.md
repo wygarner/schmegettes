@@ -1,8 +1,8 @@
 # Deployment and Environments
 
-**Source of truth:** `.github/workflows/deploy.yml` (called by `deploy-staging.yml` and `deploy-prod.yml`), `api/fly.toml`, `game/fly.toml`, `web/scripts/vercel-deploy.mjs`
+**Source of truth:** `scripts/deploy.mjs` (the only deploy implementation; `mise run deploy -- --help`), `.github/workflows/deploy.yml` (its caller, from `deploy-staging.yml` and `deploy-prod.yml`), `api/fly.toml`, `game/fly.toml`, `web/scripts/vercel-deploy.mjs`
 
-Hosting was decided on 2026-11-10: **Fly.io** for `api` and `game`, **Vercel** for `web`, **Supabase** for the database. A push to `develop` deploys staging (`deploy-staging.yml`; skipped when the push changes only `docs/`, `tasks/`, `releases/` or `.md` files, so staging can trail `develop` by docs commits) and a push to `production` deploys production (`deploy-prod.yml`). Both run the same jobs (`deploy.yml`). Players use **`https://schmegettes.app`** (production) and **`https://staging.schmegettes.app`** (staging); see [Domains](#domains). The api and game keep their `fly.dev` hostnames (`schmegettes-{api,game}-{staging,prod}.fly.dev`). Every URL comes from configuration, so changing a domain changes configuration only.
+Hosting was decided on 2026-11-10: **Fly.io** for `api` and `game`, **Vercel** for `web`, **Supabase** for the database. A push to `develop` deploys staging (`deploy-staging.yml`; skipped when the push changes only `docs/`, `tasks/`, `releases/` or `.md` files, so staging can trail `develop` by docs commits) and a push to `production` deploys production (`deploy-prod.yml`). Both run `deploy.yml`, which calls the shared deploy command (`scripts/deploy.mjs`); an operator runs the same command when Actions is unavailable ([Deploying without Actions](#deploying-without-actions)). Players use **`https://schmegettes.app`** (production) and **`https://staging.schmegettes.app`** (staging); see [Domains](#domains). The api and game keep their `fly.dev` hostnames (`schmegettes-{api,game}-{staging,prod}.fly.dev`). Every URL comes from configuration, so changing a domain changes configuration only.
 
 ## Environments
 
@@ -18,13 +18,13 @@ Staging and production are separate projects with every provider: two Supabase p
 
 | Component | Requirement | Host | Deploy mode |
 |---|---|---|---|
-| web | Static/edge host, SPA fallback to `index.html`, CSP + HSTS headers, serves `/version.json` | Vercel (`schmegettes-web-staging`, `schmegettes-web-prod`) | CI builds the bundle; `web/scripts/vercel-deploy.mjs` uploads it with a `vercel.json` (headers, fallback) through Vercel's REST API and waits for the production deployment. No Vercel CLI: the job holding the token runs no npm packages. The projects' Git integration is off. The largest files are the narrator's `piper_phonemize.data` (about 17 MB) and `ort-wasm-simd-threaded.wasm` (about 14 MB), hashed and cached as immutable; keep every file under 25 MB |
-| api | Runs a build of an exact commit; pre-release step not needed (migrations run in CI); health check on `/healthz`; horizontal scaling | Fly.io (`schmegettes-api-staging`, `schmegettes-api-prod`) | `flyctl deploy` from CI, image built on Fly's remote builder and labelled with the commit; rolling, waits for `/healthz` |
-| game | Long-lived WebSockets (no request timeout under 1 h), graceful SIGTERM with ≥20 s drain, sticky sessions not required. **One instance** until room ownership exists | Fly.io (`schmegettes-game-staging`, `schmegettes-game-prod`) | `flyctl deploy --ha=false` from CI; one machine, replaced in place, waits for `/healthz`; `kill_timeout` 30 s |
+| web | Static/edge host, SPA fallback to `index.html`, CSP + HSTS headers, serves `/version.json` | Vercel (`schmegettes-web-staging`, `schmegettes-web-prod`) | The deploy command builds the bundle; `web/scripts/vercel-deploy.mjs` uploads it with a `vercel.json` (headers, fallback) through Vercel's REST API and waits for the production deployment. No Vercel CLI: the job holding the token runs no npm packages. The projects' Git integration is off. The largest files are the narrator's `piper_phonemize.data` (about 17 MB) and `ort-wasm-simd-threaded.wasm` (about 14 MB), hashed and cached as immutable; keep every file under 25 MB |
+| api | Runs a build of an exact commit; pre-release step not needed (migrations run in CI); health check on `/healthz`; horizontal scaling | Fly.io (`schmegettes-api-staging`, `schmegettes-api-prod`) | `flyctl deploy` from the deploy command, image built on Fly's remote builder and labelled with the commit; rolling, waits for `/healthz` |
+| game | Long-lived WebSockets (no request timeout under 1 h), graceful SIGTERM with ≥20 s drain, sticky sessions not required. **One instance** until room ownership exists | Fly.io (`schmegettes-game-staging`, `schmegettes-game-prod`) | `flyctl deploy --ha=false` from the deploy command; one machine, replaced in place, waits for `/healthz`; `kill_timeout` 30 s |
 | worker | Same commit as the others, separate process, no inbound traffic | None yet: the worker is only the `import-clues` command, run by `load-clues.yml`. **Not yet implemented:** a long-running worker process | — |
-| Database | Supabase (managed, backups, point-in-time restore, TLS); pooler connection for services | Supabase | `deploy-prod.yml` runs `supabase db push` |
+| Database | Supabase (managed, backups, point-in-time restore, TLS); pooler connection for services | Supabase | The deploy command runs `supabase db push` before any service deploys |
 | Redis | Managed, private network or TLS + auth | None yet: no service uses Redis | — |
-| Secrets | Fly secrets per app (set by hand); GitHub Environments `staging` and `production` for CI | — | — |
+| Secrets | Fly secrets per app (set by hand); GitHub Environments `staging` and `production` for the deploy workflows; the operator's copy for deploying without Actions ([configuration-and-secrets.md](../security/configuration-and-secrets.md#2-ci-and-operator-secrets)) | — | — |
 
 Each environment is built from its own branch's commit, so staging and production never share an image: a release merge commit on `production` is a different commit from anything on `develop`.
 
@@ -34,13 +34,36 @@ Rooms live in one `game` process until room ownership in Redis exists ([realtime
 
 ## The deploy contract
 
-Every deploy, staging and production, in order:
+Every deploy, staging and production, automatic or by hand, runs `scripts/deploy.mjs`, which in order:
 
-1. **Builds from the pushed commit** (`develop` for staging, the merge commit on `production` for production). Nothing built from a local checkout reaches an environment. Each build gets `GIT_SHA`.
-2. **Runs migrations before new code takes traffic.** `deploy.yml`'s `migrate` job, against that environment's database, as the owner role. On staging this is the rehearsal for the next release.
-3. **Health-checks the new version** (`/healthz`) before traffic shifts to it.
-4. **Verifies the deployed commit.** The last job reads each component's `/version` (web: `/version.json`) from the `STAGING_VERSION_URLS` or `PROD_VERSION_URLS` environment variable and fails unless every one reports the pushed commit. Without it, a skipped platform deploy looks like a release.
-5. **Keeps rollback one command away** (release-strategy.md, "Rollback"). A code rollback does not undo migrations.
+1. **Checks before changing anything.** The checkout is clean; staging deploys a commit on `origin/develop`, production only the current `origin/production` tip (the release merge commit); every setting and tool the scope needs is present. A failed check changes nothing. Each build gets the commit as `GIT_SHA`, the Fly image label, and `APP_ENV`.
+2. **Runs migrations before new code takes traffic,** against that environment's database as the owner role. A failed migration stops the deploy before any service. On staging this is the rehearsal for the next release.
+3. **Deploys api, game, then web,** each health-checked by its platform (`/healthz` on Fly) before traffic shifts.
+4. **Verifies the deployed commit.** It reads each component's `/version` (web: `/version.json`) from `API_VERSION_URL`, `GAME_VERSION_URL` and `WEB_VERSION_URL` for up to 15 minutes and fails unless every one reports the commit. Without it, a skipped platform deploy looks like a release.
+5. **Adds telemetry when configured** ([observability.md](./observability.md)), each step skipped, and said so, when its values are unset. Before deploying api and game, it stages `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` on each Fly app (`flyctl secrets import --stage`, values on stdin), so the deploy applies them. The web build gets `VITE_FARO_URL`, whose origin goes into the CSP. After the run, on success or failure, it writes a Grafana annotation tagged `deploy`, the environment and the scope (plus `failed` and the step that failed). A failed annotation is a warning, never a failed deploy.
+6. **Reports partial state honestly.** On any failure it exits nonzero and lists which steps finished, which failed and which never started, plus the rollback reference. It never prints a secret.
+7. **Keeps rollback one command away** ([release-strategy.md](./release-strategy.md#rollback)). A code rollback does not undo migrations.
+
+Deploys of one environment never overlap: each workflow has a `concurrency` group, and an operator doesn't run a deploy while the workflow is running one.
+
+## Deploying without Actions
+
+The workflows and the operator run the same command, so this path is the same deploy, not a second one. Use it when Actions can't start or finish a deploy, or to redeploy one component. Only Wyatt Garner runs it; implementation agents never deploy, migrate a hosted database, or release.
+
+1. A clean checkout of the exact commit: `git fetch origin`, then `git checkout --detach origin/develop` (or an older `develop` commit) for staging, or `git checkout --detach origin/production` for production.
+2. Load that environment's settings into the shell from the password manager ([configuration-and-secrets.md](../security/configuration-and-secrets.md#2-ci-and-operator-secrets)). Never write them to a file, and use a fresh shell per environment.
+3. `mise run deploy -- preflight staging all`. It prints the commit, the Fly apps, the Vercel project and the version hosts; check they're the environment you mean.
+4. `mise run deploy -- run staging all`, or one scope:
+
+| Scope | Does | Use when |
+|---|---|---|
+| `all` | migrations, api, game, web, then verifies all three | A normal deploy |
+| `migrate` | migrations only | Applying a schema change before a component-only deploy |
+| `api`, `game`, `web` | that component, then verifies it | Recovering one component. Never runs migrations; the output says the other components may run other commits |
+
+5. If it fails, it says what deployed. Fix the cause and run it again, or roll back ([release-strategy.md](./release-strategy.md#rollback)). `mise run deploy -- verify staging all --sha <commit>` checks any time which commit each component runs, without changing anything.
+
+A production deploy by hand doesn't replace the release steps: health confirmation and sign-off follow as usual ([release-strategy.md](./release-strategy.md)).
 
 ## Setting up an environment
 
@@ -49,7 +72,7 @@ Once per environment (staging, then production), by Wyatt Garner. Deploys fail u
 1. **Supabase:** create the project (`schmegettes-staging` / `schmegettes-prod`) in us-east-1, next to Fly's `iad` region set in both `fly.toml` files. Apply the [Supabase Auth settings](#supabase-auth-settings), and turn on asymmetric JWT signing keys (services verify tokens against the JWKS).
 2. **Fly.io:** create the two apps (`schmegettes-{api,game}-{staging,prod}`) and a deploy token per app: `fly tokens create deploy -a {app}`.
 3. **Vercel:** create the project (`schmegettes-web-staging` / `schmegettes-web-prod`) and disconnect its Git integration, so CI is its only deployer. On the staging project, turn off Deployment Protection for production deployments if testers have no Vercel login. Add the environment's domain and its redirects ([Domains](#domains)).
-4. **GitHub:** in the Environment (`staging` / `production`), add the secrets and variables listed in [configuration-and-secrets.md](../security/configuration-and-secrets.md#2-ci-and-operator-secrets).
+4. **GitHub and the operator copy:** in the Environment (`staging` / `production`), add the secrets and variables listed in [configuration-and-secrets.md](../security/configuration-and-secrets.md#2-ci-and-operator-secrets), and keep the same values in the password manager for [deploying without Actions](#deploying-without-actions).
 5. **First deploy:** run the deploy workflow from the Actions tab (Deploy Staging on `develop`). Migrate creates the `app_service` role; the app deploys fail until step 6.
 6. **App credentials:** set the `app_service` password ([below](#database-roles-per-environment)), then `fly secrets set` on each app ([configuration-and-secrets.md](../security/configuration-and-secrets.md#1-variables-per-package)). Run the deploy again.
 7. **Clues and hosting:** run Load Clues ([below](#loading-the-clue-catalog)) and give out the first host code ([Host access after a release](#host-access-after-a-release)).
@@ -74,7 +97,7 @@ Staging was down this way from 2026-11-19 03:54 UTC (the first deploy after the 
 
 A new environment has no clues: Start fails until the catalog is loaded. Run **Load Clues** (`.github/workflows/load-clues.yml`) from the Actions tab:
 
-- `environment`: `staging` or `production`; `seasons`: `1-40` for everything. It reads `STAGING_SUPABASE_DB_OWNER_URL` or `PROD_SUPABASE_DB_OWNER_URL` from that GitHub Environment.
+- `environment`: `staging` or `production`; `seasons`: `1-40` for everything. It reads `STAGING_SUPABASE_DB_OWNER_URL` or `PROD_SUPABASE_DB_OWNER_URL` from that GitHub Environment, and the dataset folder from the `CLUE_DATASET_BASE_URL` variable, which you set yourself (no default ships with the repo).
 - It takes about a minute for all 40 seasons (about 413,000 clues, 160 MB). The run's summary shows one row per season. Running it again inserts nothing; it retries seasons that failed.
 - **Production**: run it on the `production` branch, and only after private access is live. The loader refuses a database without `public.hosts` ([clue catalog](../../product-docs/features/clue-catalog/feature-brief.md#source)).
 
@@ -106,7 +129,7 @@ DNS for `schmegettes.app` is on Vercel (`ns1.vercel-dns.com`, `ns2.vercel-dns.co
 A new web origin also needs, on that environment:
 
 - `ALLOWED_ORIGINS` on its api and game (Fly secrets; [configuration-and-secrets.md](../security/configuration-and-secrets.md#1-variables-per-package)). Add the new origin first and remove the old one only once the redirect is live, because the api and game reject any origin not listed. Set it with `fly secrets set`, which applies at once (the dashboard only stages secrets until the next deploy).
-- The web entry of `{STAGING,PROD}_VERSION_URLS` (GitHub Environment variable), pointing at the primary domain. The deployed-commit check doesn't follow redirects.
+- `WEB_VERSION_URL` (GitHub Environment variable and the operator copy), pointing at the primary domain. The deployed-commit check doesn't follow redirects.
 - The Supabase Auth URL configuration ([below](#supabase-auth-settings)).
 
 ## Supabase Auth settings

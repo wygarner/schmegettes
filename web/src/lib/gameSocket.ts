@@ -1,4 +1,5 @@
 import type { ClientMessage, ServerMessage } from "@schmegettes/shared";
+import { track } from "./faro";
 import { getAccessToken } from "./supabase";
 
 type Listener = (message: ServerMessage) => void;
@@ -17,10 +18,18 @@ export class GameSocket {
   private lastSeq = -1;
   private listeners = new Set<Listener>();
   private dropListeners = new Set<(code?: number) => void>();
+  private connects = 0;
+  private lastCloseCode?: number;
+  private reconnectReason = "drop";
 
   constructor(private readonly url: string) {}
 
   async connect() {
+    if (this.connects++ > 0) {
+      // Every connect after the first is a reconnect: a drop (with its close code) or a seq gap.
+      track("socket_reconnect", { reason: this.reconnectReason, closeCode: String(this.lastCloseCode ?? "") });
+      this.reconnectReason = "drop";
+    }
     const token = await getAccessToken();
     // Browsers cannot set headers on a WebSocket, so the token travels as a subprotocol.
     const socket = new WebSocket(this.url, ["schmegettes.v1", `bearer.${token}`]);
@@ -30,6 +39,7 @@ export class GameSocket {
       // Ignore sockets this client replaced or closed on purpose.
       if (this.socket !== socket) return;
       this.socket = undefined;
+      this.lastCloseCode = event.code;
       for (const listener of this.dropListeners) listener(event.code);
     };
   }
@@ -61,6 +71,7 @@ export class GameSocket {
       // (a socket that reconnects to a closed room gets one without a snapshot first).
       const resets = message.type === "room_snapshot" || message.type === "room_closed";
       if (!resets && message.seq !== this.lastSeq + 1) {
+        this.reconnectReason = "seq_gap";
         this.close();
         void this.connect();
         return;

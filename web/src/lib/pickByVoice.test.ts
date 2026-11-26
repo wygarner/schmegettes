@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { matchPick, spokenValue } from "./pickByVoice";
+import { matchPick, matchPickAny, spokenValue } from "./pickByVoice";
 import type { BoardClue } from "./room";
 
 const clue = (clueId: string, category: string, value: number, state: BoardClue["state"] = "unplayed"): BoardClue => ({
@@ -8,77 +8,103 @@ const clue = (clueId: string, category: string, value: number, state: BoardClue[
   value,
   state,
 });
-const board = [
-  clue("s2", "SCIENCE", 200),
-  clue("s4", "SCIENCE", 400, "answered"),
-  clue("r2", "RHYME TIME", 200),
-  clue("r10", "RHYME TIME", 1000),
-  clue("o2", "WORLD CAPITALS", 200),
-  clue("o4", "WORLD CAPITALS", 400),
-  clue("p4", "POTENT POTABLES", 400),
+
+const categories = [
+  "SCIENCE",
+  "U.S. PRESIDENTS",
+  "'80S MUSIC",
+  "4-LETTER WORDS",
+  "BEFORE & AFTER",
+  "THE BIBLE",
+  "WORLD CAPITALS",
+  "POTENT POTABLES",
+  "& THE BEST SUPPORTING ACTOR OSCAR GOES TO...",
+  "SOUNDS LIKE TENNIS",
+  "THE 20TH CENTURY",
+  "WORLD WAR II",
+  "ST. LOUIS BLUES",
+  '"P" IN THE U.S.A.',
 ];
+const board = categories.flatMap((category, column) =>
+  [200, 400, 600, 800, 1000].map((value) => clue(`${column}-${value}`, category, value)),
+);
+const id = (category: string, value: number) => `${categories.indexOf(category)}-${value}`;
 
 test.each([
-  ["Science for 200", "s2"],
-  ["I'll take science for $200", "s2"],
-  ["rhyme time for 1000", "r10"],
-  ["rhyme time for 1,000", "r10"],
-  ["rhymetime a thousand", "r10"],
-  ["world capitals four hundred", "o4"],
-  ["capitals for 200", "o2"], // part of the name
-  ["potent potables 400", "p4"],
-  ["sciense for two hundred", "s2"], // a transcription slip
-  ["potent potables", "p4"], // only one clue left in it
-])("%s → %s", (said, id) => {
-  expect(matchPick(said, board)).toEqual({ clueId: id });
+  ["tennis for 200", "SOUNDS LIKE TENNIS", 200],
+  ["supporting actor for 400", "& THE BEST SUPPORTING ACTOR OSCAR GOES TO...", 400],
+  ["Oscar for 400", "& THE BEST SUPPORTING ACTOR OSCAR GOES TO...", 400],
+  ["capitals for one thousand", "WORLD CAPITALS", 1000],
+  ["twentieth century for 800", "THE 20TH CENTURY", 800],
+  ["eighties music for 600", "'80S MUSIC", 600],
+  ["Science 4400", "SCIENCE", 400],
+  ["Science for 4:00", "SCIENCE", 400],
+  ["science for 4 hundred", "SCIENCE", 400],
+  ["Science for 400", "SCIENCE", 400],
+  ["science for $400", "SCIENCE", 400],
+  ["sciences for 400", "SCIENCE", 400],
+  ["U.S. presidents for $200", "U.S. PRESIDENTS", 200],
+  ["presidents for 200", "U.S. PRESIDENTS", 200],
+  ["4 letter words for 800", "4-LETTER WORDS", 800],
+  ["before and after for 200", "BEFORE & AFTER", 200],
+  ["St. Louis Blues for 400", "ST. LOUIS BLUES", 400],
+  ["Saint Louis Blues for 400", "ST. LOUIS BLUES", 400],
+  ["P in the USA for 600", '"P" IN THE U.S.A.', 600],
+  ["World War 2 for 800", "WORLD WAR II", 800],
+  ["World War two for 800", "WORLD WAR II", 800],
+])("%s picks %s for %s", (said, category, value) => {
+  expect(matchPick(said, board)).toEqual({ clueId: id(category, value) });
 });
 
-test("problems", () => {
-  expect(matchPick("opera for 200", board)).toEqual({ problem: "no-category" });
-  expect(matchPick("world capitals", board)).toEqual({ problem: "no-value" });
-  expect(matchPick("science for 800", board)).toEqual({ problem: "no-value" });
-  expect(matchPick("science for 400", board)).toEqual({ problem: "taken" });
+test("ties fail until a competing category is cleared", () => {
+  const american = clue("american", "AMERICAN HISTORY", 200);
+  const art = clue("art", "HISTORY OF ART", 200);
+  const history = [american, art];
+  expect(matchPick("history for 200", history)).toEqual({ problem: "ambiguous" });
+  expect(matchPick("history for 200", [{ ...american, state: "answered" }, art])).toEqual({
+    clueId: "art",
+  });
 });
 
-describe("Quick picks: just the category picks the lowest clue left", () => {
-  const quick = { quickPicks: true };
-  const opera = [
-    clue("op2", "OPERA", 200, "answered"),
-    clue("op4", "OPERA", 400),
-    clue("op6", "OPERA", 600),
-    clue("op8", "OPERA", 800),
-  ];
-  test("the lowest one left", () => {
-    expect(matchPick("opera", opera, quick)).toEqual({ clueId: "op4" });
-    expect(matchPick("world capitals", board, quick)).toEqual({ clueId: "o2" });
+test("other hearings are tried in order, while total failure keeps the top problem", () => {
+  expect(matchPickAny(["signs for 400", "science for 400"], board)).toEqual({ clueId: id("SCIENCE", 400) });
+  expect(matchPickAny(["opera for 400", "still opera"], board)).toEqual({ problem: "no-category" });
+});
+
+test("the last amount wins", () => {
+  expect(matchPick("science for 400, no, 600", board)).toEqual({ clueId: id("SCIENCE", 600) });
+});
+
+test("amount problems remain conservative", () => {
+  const played = board.map((entry) =>
+    entry.category === "SCIENCE" && entry.value === 400 ? { ...entry, state: "answered" as const } : entry,
+  );
+  expect(matchPick("science for 400", played)).toEqual({ problem: "taken" });
+  expect(matchPick("science for 1400", board)).toEqual({ problem: "no-value" });
+  expect(matchPick("science", board)).toEqual({ problem: "no-value" });
+});
+
+describe("Quick picks", () => {
+  const opera = [clue("op2", "OPERA", 200, "answered"), clue("op4", "OPERA", 400), clue("op6", "OPERA", 600)];
+  test("no amount picks the lowest open clue", () => {
+    expect(matchPick("opera", opera, { quickPicks: true })).toEqual({ clueId: "op4" });
   });
-  test("on a Double board, whatever its values", () => {
-    const double = [clue("d8", "OPERA", 800), clue("d16", "OPERA", 1600), clue("d12", "OPERA", 1200)];
-    expect(matchPick("I'll take opera", double, quick)).toEqual({ clueId: "d8" });
+  test("an amount that was heard never falls back", () => {
+    expect(matchPick("opera for 200", opera, { quickPicks: true })).toEqual({ problem: "taken" });
+    expect(matchPick("opera for 1000", opera, { quickPicks: true })).toEqual({ problem: "no-value" });
   });
-  test("the lowest left may be the Daily Double: it's picked like any other", () => {
-    // Phones can't tell a Daily Double from the board; it's just the lowest unplayed clue.
-    expect(matchPick("opera", [clue("dd4", "OPERA", 400), clue("op6", "OPERA", 600)], quick)).toEqual({
-      clueId: "dd4",
-    });
-  });
-  test("nothing left in the category: already played", () => {
-    expect(matchPick("science", [clue("s2", "SCIENCE", 200, "answered")], quick)).toEqual({ problem: "taken" });
-  });
-  test("an amount that was heard always wins, and never falls back", () => {
-    expect(matchPick("opera for 600", opera, quick)).toEqual({ clueId: "op6" });
-    expect(matchPick("opera for 200", opera, quick)).toEqual({ problem: "taken" });
-    expect(matchPick("opera for 1000", opera, quick)).toEqual({ problem: "no-value" });
-  });
-  test("off: unchanged", () => {
+  test("off is unchanged", () => {
     expect(matchPick("opera", opera)).toEqual({ problem: "no-value" });
-    expect(matchPick("opera", opera, { quickPicks: false })).toEqual({ problem: "no-value" });
   });
 });
 
-test("spoken values", () => {
-  expect(spokenValue("for $1,600")).toBe(1600);
-  expect(spokenValue("two thousand")).toBe(2000);
-  expect(spokenValue("eight hundred")).toBe(800);
-  expect(spokenValue("science")).toBeNull();
+test("spoken values are board-aware and accept recognizer forms", () => {
+  const values = [200, 400, 600, 800, 1000, 1400, 2000];
+  expect(spokenValue("for $1,000", values)).toBe(1000);
+  expect(spokenValue("41000", values)).toBe(1000);
+  expect(spokenValue("10:00", values)).toBe(1000);
+  expect(spokenValue("two thousand", values)).toBe(2000);
+  expect(spokenValue("fourteen hundred", values)).toBe(1400);
+  expect(spokenValue("four hundreds", values)).toBe(400);
+  expect(spokenValue("science", values)).toBeNull();
 });

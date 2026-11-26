@@ -6,6 +6,7 @@ import { VOICE_SAMPLE } from "../game/NarratorVoicePicker";
 import { DEFAULT_OPTIONS, type GameOptions } from "../lib/gameOptions";
 import { narrate, stopNarration } from "../lib/narrator";
 import { getSavedVoice, piperChoiceValue, saveVoice } from "../lib/narratorVoice";
+import type { NoticeResponse } from "../lib/notices";
 import { prepareVoice } from "../lib/piper/engine";
 import { markDeviceUnavailable, resetVoicesForTest, setVoiceStatus } from "../lib/piper/voices";
 import { initialRoom, type Player, type RoomState } from "../lib/room";
@@ -140,6 +141,46 @@ test("Start with 1 player", () => {
   const send = renderView(lobby({ players: [player("a", "Alice")] }));
   fireEvent.click(screen.getByRole("button", { name: "Start" }));
   expect(send).toHaveBeenCalledWith({ type: "start_game" });
+});
+
+test("lobby warning shows at 90 minutes, but no notice appears after Start", () => {
+  const now = new Date("2026-11-28T20:00:00Z");
+  const noticeData: NoticeResponse = {
+    serverTime: now.toISOString(),
+    notices: [
+      {
+        id: "25210000-0000-4000-8000-000000000001",
+        revision: 1,
+        kind: "maintenance",
+        phase: "upcoming",
+        title: "Upgrade",
+        body: "Brief downtime",
+        link: null,
+        startsAt: new Date(now.getTime() + 90 * 60_000).toISOString(),
+        endsAt: new Date(now.getTime() + 120 * 60_000).toISOString(),
+        resolvedAt: null,
+        resolution: null,
+      },
+    ],
+  };
+  const view = (state: RoomState) => (
+    <MantineProvider>
+      <MemoryRouter>
+        <HostLobbyView
+          code="K7RXM"
+          joinAddress="example.test/join"
+          state={state}
+          send={vi.fn()}
+          noticeData={noticeData}
+        />
+      </MemoryRouter>
+    </MantineProvider>
+  );
+  const { rerender } = render(view(lobby()));
+  expect(screen.getByText(/Down for maintenance/)).toBeInTheDocument();
+  expect(screen.queryByText("A full game takes about 45 minutes.")).toBeNull();
+  rerender(view(lobby({ phase: "building_board" })));
+  expect(screen.queryByText(/Down for maintenance/)).toBeNull();
 });
 
 test("Start with 2 players, counting a playing host", () => {

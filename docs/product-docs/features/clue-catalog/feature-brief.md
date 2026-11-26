@@ -19,7 +19,7 @@ Every board is built from the catalog ([game history](../game-history/feature-br
 
 ### Source
 
-- The clue dataset repo, at the URL in `CLUE_DATASET_BASE_URL` (`worker/.env.example`): one file per season, `season1.tsv` to `season40.tsv` (1984–2024), about 523,000 clues.
+- A clue dataset at the https folder in `CLUE_DATASET_BASE_URL`, set by the operator (the repository ships no dataset or default URL; anyone running a fork supplies their own and is responsible for its rights): one file per season, `season1.tsv` to `season40.tsv` (1984–2024), about 523,000 clues.
 - Not loaded: the special-matches file (different round numbering) and the kids/teen file (its clues are already in the season files).
 - **Rights.** The clues belong to the show's producer, and the dataset asks not to be used in a public product. Decision (2026-11-09): we use it, and Schmegettes is private ([private access](../private-access/feature-brief.md)). **Production gets the catalog only after private access is live.** Local and staging can load it any time.
 

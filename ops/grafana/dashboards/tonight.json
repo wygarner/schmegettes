@@ -1,0 +1,371 @@
+{
+  "uid": "schmegettes-tonight",
+  "title": "Schmegettes: is tonight's game OK?",
+  "tags": [
+    "schmegettes"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "prom",
+        "label": "Metrics",
+        "type": "datasource",
+        "query": "prometheus",
+        "hide": 2
+      },
+      {
+        "name": "logs",
+        "label": "Logs",
+        "type": "datasource",
+        "query": "loki",
+        "hide": 2
+      },
+      {
+        "name": "env",
+        "label": "Environment",
+        "type": "custom",
+        "query": "production,staging",
+        "current": {
+          "text": "production",
+          "value": "production"
+        },
+        "options": [
+          {
+            "text": "production",
+            "value": "production",
+            "selected": true
+          },
+          {
+            "text": "staging",
+            "value": "staging",
+            "selected": false
+          }
+        ]
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "name": "Deploys",
+        "enable": true,
+        "iconColor": "blue",
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "target": {
+          "type": "tags",
+          "tags": [
+            "deploy",
+            "$env"
+          ],
+          "matchAny": false,
+          "limit": 100
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Rooms open",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "expr": "sum by (phase_group) (schmegettes_rooms_open{deployment_environment=\"$env\"})",
+          "legendFormat": "{{phase_group}}"
+        }
+      ],
+      "description": "Rooms running on the game server: lobby or in a game."
+    },
+    {
+      "id": 2,
+      "title": "Sockets connected",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "expr": "sum(schmegettes_sockets_connected{deployment_environment=\"$env\"})",
+          "legendFormat": "sockets"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Uptime checks",
+      "type": "stat",
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "expr": "max by (job) (probe_success{job=~\"schmegettes-$env-.*\"})",
+          "legendFormat": "{{job}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bool_yes_no"
+        },
+        "overrides": []
+      },
+      "description": "1 while at least one probe reaches the target (synthetic.tf)."
+    },
+    {
+      "id": 4,
+      "title": "Buzz to verdict",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(schmegettes_buzz_to_verdict_milliseconds_bucket{deployment_environment=\"$env\"}[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(schmegettes_buzz_to_verdict_milliseconds_bucket{deployment_environment=\"$env\"}[5m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "title": "Judge verdicts",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 8,
+        "y": 7,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "expr": "sum by (match_rule, verdict) (increase(schmegettes_judge_verdicts_total{deployment_environment=\"$env\"}[5m]))",
+          "legendFormat": "{{verdict}} by {{match_rule}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Judge and record errors",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 16,
+        "y": 7,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "expr": "sum by (op) (increase(schmegettes_judge_errors_total{deployment_environment=\"$env\"}[5m]))",
+          "legendFormat": "{{op}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Room crashes and stuck phases",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "expr": "sum(increase(schmegettes_rooms_crashed_total{deployment_environment=\"$env\"}[5m]))",
+          "legendFormat": "crashed"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "expr": "sum(increase(schmegettes_phase_stuck_total{deployment_environment=\"$env\"}[5m]))",
+          "legendFormat": "stuck"
+        }
+      ],
+      "description": "Each one fires the \"Live game broken\" alert. The room_id is on the \"room crashed\" / \"phase stuck\" log line."
+    },
+    {
+      "id": 8,
+      "title": "Narrator lines skipped (host device)",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 8,
+        "y": 14,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${logs}"
+          },
+          "expr": "sum by (reason) (count_over_time({app_name=\"schmegettes-web\", kind=\"event\"} | logfmt | event_name=\"narrator_line_skipped\" | app_environment=\"$env\" [5m]))",
+          "legendFormat": "{{reason}}",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Client errors (Faro)",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 16,
+        "y": 14,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${logs}"
+          },
+          "expr": "sum(count_over_time({app_name=\"schmegettes-web\", kind=\"exception\"} | logfmt | app_environment=\"$env\" [5m]))",
+          "legendFormat": "errors",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "api 5xx and server ERROR logs",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "expr": "sum by (http_route) (increase(http_server_request_duration_seconds_count{deployment_environment=\"$env\", http_response_status_code=~\"5..\"}[5m]))",
+          "legendFormat": "5xx {{http_route}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "${logs}"
+          },
+          "expr": "sum by (service_name) (count_over_time({deployment_environment=\"$env\", service_name=~\"api|game\"} | severity_text=\"ERROR\" [5m]))",
+          "legendFormat": "ERROR {{service_name}}",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "api request duration p95",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, http_route) (rate(http_server_request_duration_seconds_bucket{deployment_environment=\"$env\"}[5m])))",
+          "legendFormat": "{{http_route}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    }
+  ]
+}

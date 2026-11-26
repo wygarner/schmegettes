@@ -7,6 +7,7 @@ import {
   AdminApiError,
   type AdminHost,
   type AdminHostCode,
+  type AdminNotice,
   SignInError,
   UnreachableError,
 } from "./client";
@@ -49,6 +50,25 @@ const guest: AdminHost = {
   hostSince: "2026-11-17T08:00:00Z",
   note: null,
 };
+const notice: AdminNotice = {
+  id: "25210000-0000-4000-8000-000000000001",
+  revision: 1,
+  kind: "incident",
+  phase: "active",
+  title: "Buzzers lag",
+  body: "Looking into it",
+  link: null,
+  startsAt: null,
+  endsAt: null,
+  resolvedAt: null,
+  resolution: null,
+  statusPageSync: "ok",
+  statusPageError: null,
+  createdBy: "25200000-0000-4000-8000-000000000001",
+  history: 1,
+  createdAt: "2026-11-17T12:00:00Z",
+  updatedAt: "2026-11-17T12:00:00Z",
+};
 
 function fakeApi(over: Partial<AdminApi> = {}): AdminApi {
   return {
@@ -60,6 +80,11 @@ function fakeApi(over: Partial<AdminApi> = {}): AdminApi {
     rotate: vi.fn(async () => ({ ...code, code: "ZZ9QHN4B" })),
     setNote: vi.fn(async (_id: string, note: string | null) => ({ ...account, note })),
     removeHost: vi.fn(async () => {}),
+    notices: vi.fn(async () => []),
+    postNotice: vi.fn(async (input) => ({ ...notice, ...input })),
+    editNotice: vi.fn(async (_id, patch) => ({ ...notice, ...patch, revision: 2 })),
+    resolveNotice: vi.fn(async (_id, resolution) => ({ ...notice, phase: "resolved" as const, resolution })),
+    syncNotice: vi.fn(async () => ({ ...notice, statusPageSync: "ok" as const, statusPageError: null })),
     ...over,
   };
 }
@@ -237,6 +262,62 @@ describe("hosts", () => {
     await act(async () => {});
     expect(api.removeHost).toHaveBeenCalledWith(account.userId);
     expect(screen.getAllByTestId("host-row")).toHaveLength(1);
+  });
+});
+
+describe("notices", () => {
+  it("shows title and body counters in the new notice form", async () => {
+    setup(fakeApi());
+    await signIn();
+    fireEvent.click(await screen.findByRole("button", { name: "New notice" }));
+    expect(screen.getByText("0/60")).toBeInTheDocument();
+    expect(screen.getByText("0/280")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Release" } });
+    fireEvent.change(screen.getByLabelText("Body"), { target: { value: "New quick picks" } });
+    expect(screen.getByText("7/60")).toBeInTheDocument();
+    expect(screen.getByText("15/280")).toBeInTheDocument();
+  });
+
+  it("confirms maintenance posted with less than 24 hours notice", async () => {
+    const api = fakeApi();
+    setup(api);
+    await signIn();
+    fireEvent.click(await screen.findByRole("button", { name: "New notice" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Kind" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Maintenance" }));
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Upgrade" } });
+    fireEvent.change(screen.getByLabelText("Start"), { target: { value: "2026-11-17T13:00" } });
+    fireEvent.change(screen.getByLabelText("End"), { target: { value: "2026-11-17T14:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Post" }));
+    expect(await screen.findByText("This is less than 24 hours' notice. Post anyway?")).toBeInTheDocument();
+    expect(api.postNotice).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Post anyway" }));
+    await act(async () => {});
+    expect(api.postNotice).toHaveBeenCalledOnce();
+  });
+
+  it("requires a closing line to resolve an incident", async () => {
+    const api = fakeApi({ notices: vi.fn(async () => [notice]) });
+    setup(api);
+    await signIn();
+    fireEvent.click(await screen.findByRole("button", { name: "Resolve" }));
+    const dialog = screen.getByRole("dialog", { name: "Resolve incident" });
+    expect(within(dialog).getByRole("button", { name: "Resolve" })).toBeDisabled();
+    fireEvent.change(within(dialog).getByLabelText("Closing line"), { target: { value: "Fixed" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Resolve" }));
+    await act(async () => {});
+    expect(api.resolveNotice).toHaveBeenCalledWith(notice.id, "Fixed");
+  });
+
+  it("offers Retry when status-page sync failed", async () => {
+    const failedNotice = { ...notice, statusPageSync: "failed" as const, statusPageError: "provider unavailable" };
+    const api = fakeApi({ notices: vi.fn(async () => [failedNotice]) });
+    setup(api);
+    await signIn();
+    expect(await screen.findByText(/status page didn't update/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await act(async () => {});
+    expect(api.syncNotice).toHaveBeenCalledWith(notice.id);
   });
 });
 

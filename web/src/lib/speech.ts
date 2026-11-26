@@ -4,6 +4,8 @@
 
 import { restorePlaybackSession } from "./piper/audio";
 
+export { spokenText } from "./spokenText";
+
 /**
  * Said on the correct-response screen. After a clue someone got right: "Correct, …"; after
  * one nobody got: "Sorry, we were looking for …". Final is neutral, because finalists can
@@ -224,9 +226,4 @@ export function onMicPermissionChange(cb: (state: "granted" | "denied" | "ask") 
     stopped = true;
     status?.removeEventListener("change", handler);
   };
-}
-
-/** Clue text as it should sound: "&" is read as "and" (the dataset writes "Lewis & Clark"). */
-export function spokenText(text: string): string {
-  return text.replace(/\s*&(?:amp;)?\s*/g, " and ");
 }

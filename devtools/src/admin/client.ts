@@ -7,6 +7,9 @@ import type { EnvironmentConfig } from "./env";
 
 export type AdminHost = ApiComponents["schemas"]["AdminHost"];
 export type AdminHostCode = ApiComponents["schemas"]["AdminHostCode"];
+export type AdminNotice = ApiComponents["schemas"]["AdminNotice"];
+export type NoticeInput = ApiComponents["schemas"]["NoticeInput"];
+export type NoticePatch = ApiPaths["/v1/admin/notices/{id}"]["patch"]["requestBody"]["content"]["application/json"];
 
 /** The api answered with an error status. 404 covers every "not an admin here" case. */
 export class AdminApiError extends Error {
@@ -34,6 +37,11 @@ export interface AdminApi {
   rotate(expectedCode: string): Promise<AdminHostCode>;
   setNote(userId: string, note: string | null): Promise<AdminHost>;
   removeHost(userId: string): Promise<void>;
+  notices(days?: number): Promise<AdminNotice[]>;
+  postNotice(input: NoticeInput): Promise<AdminNotice>;
+  editNotice(id: string, patch: NoticePatch): Promise<AdminNotice>;
+  resolveNotice(id: string, resolution: string): Promise<AdminNotice>;
+  syncNotice(id: string): Promise<AdminNotice>;
 }
 
 function failure(response: Response): never {
@@ -104,6 +112,33 @@ export function createAdminApi(config: EnvironmentConfig): AdminApi {
     async removeHost(userId) {
       const result = await reach(() => api.DELETE("/v1/admin/hosts/{userId}", { params: { path: { userId } } }));
       if (result.response.status !== 204) failure(result.response);
+    },
+    async notices(days = 30) {
+      const result = await reach(() => api.GET("/v1/admin/notices", { params: { query: { days } } }));
+      if (!result.data) failure(result.response);
+      return result.data;
+    },
+    async postNotice(input) {
+      const result = await reach(() => api.POST("/v1/admin/notices", { body: input }));
+      if (!result.data) failure(result.response);
+      return result.data;
+    },
+    async editNotice(id, patch) {
+      const result = await reach(() => api.PATCH("/v1/admin/notices/{id}", { params: { path: { id } }, body: patch }));
+      if (!result.data) failure(result.response);
+      return result.data;
+    },
+    async resolveNotice(id, resolution) {
+      const result = await reach(() =>
+        api.POST("/v1/admin/notices/{id}/resolve", { params: { path: { id } }, body: { resolution } }),
+      );
+      if (!result.data) failure(result.response);
+      return result.data;
+    },
+    async syncNotice(id) {
+      const result = await reach(() => api.POST("/v1/admin/notices/{id}/sync", { params: { path: { id } } }));
+      if (!result.data) failure(result.response);
+      return result.data;
     },
   };
 }

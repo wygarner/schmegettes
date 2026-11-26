@@ -395,6 +395,192 @@ paths:
                 $ref: "#/components/schemas/Problem"
         "429":
           $ref: "#/components/responses/RateLimited"
+  /v1/notices:
+    get:
+      summary: Active service notices in display priority order
+      responses:
+        "200":
+          description: Active notices, evaluated using the server clock
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notices:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notice"
+                  serverTime:
+                    type: string
+                    format: date-time
+                required:
+                  - notices
+                  - serverTime
+                additionalProperties: false
+  /v1/admin/notices:
+    get:
+      summary: Active and recent notices (admins only)
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        "200":
+          description: Notices newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminNotice"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    post:
+      summary: Post a service notice (admins only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoticeInput"
+      responses:
+        "201":
+          description: Posted; status-page failure does not fail this response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNotice"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/admin/notices/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      summary: Edit a notice and increment its revision (admins only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+                body:
+                  type: string
+                  maxLength: 280
+                link:
+                  type: string
+                  format: uri
+                  pattern: ^https://
+                  nullable: true
+                startsAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+                endsAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+              minProperties: 1
+              additionalProperties: false
+      responses:
+        "200":
+          description: Updated notice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNotice"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/admin/notices/{id}/resolve:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Resolve an incident (admins only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                resolution:
+                  type: string
+                  minLength: 1
+                  maxLength: 280
+              required:
+                - resolution
+              additionalProperties: false
+      responses:
+        "200":
+          description: Resolved incident
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNotice"
+        "400":
+          description: Invalid notice or an attempt to resolve a non-incident
+            (`invalid-notice` or `not-an-incident`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/admin/notices/{id}/sync:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Retry status-page synchronization (admins only)
+      responses:
+        "200":
+          description: Notice with its latest synchronization state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNotice"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
   /v1/admin/host-code:
     get:
       summary: Read the current rotating host code (admins only)
@@ -1477,6 +1663,181 @@ components:
           type: boolean
       required:
         - canHost
+      additionalProperties: false
+    NoticeKind:
+      type: string
+      enum:
+        - incident
+        - maintenance
+        - whats_new
+    NoticePhase:
+      type: string
+      enum:
+        - active
+        - resolved
+        - upcoming
+        - now
+    Notice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          minimum: 1
+        kind:
+          $ref: "#/components/schemas/NoticeKind"
+        phase:
+          $ref: "#/components/schemas/NoticePhase"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 60
+        body:
+          type: string
+          maxLength: 280
+        link:
+          type: string
+          format: uri
+          nullable: true
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolution:
+          type: string
+          maxLength: 280
+          nullable: true
+      required:
+        - id
+        - revision
+        - kind
+        - phase
+        - title
+        - body
+        - link
+        - startsAt
+        - endsAt
+        - resolvedAt
+        - resolution
+      additionalProperties: false
+    NoticeInput:
+      type: object
+      properties:
+        kind:
+          $ref: "#/components/schemas/NoticeKind"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 60
+        body:
+          type: string
+          maxLength: 280
+        link:
+          type: string
+          format: uri
+          pattern: ^https://
+          nullable: true
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - kind
+        - title
+        - body
+      additionalProperties: false
+    AdminNotice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          minimum: 1
+        kind:
+          $ref: "#/components/schemas/NoticeKind"
+        phase:
+          $ref: "#/components/schemas/NoticePhase"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 60
+        body:
+          type: string
+          maxLength: 280
+        link:
+          type: string
+          format: uri
+          nullable: true
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolution:
+          type: string
+          maxLength: 280
+          nullable: true
+        statusPageSync:
+          type: string
+          enum:
+            - ok
+            - failed
+        statusPageError:
+          type: string
+          nullable: true
+        createdBy:
+          type: string
+          format: uuid
+        history:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - revision
+        - kind
+        - phase
+        - title
+        - body
+        - link
+        - startsAt
+        - endsAt
+        - resolvedAt
+        - resolution
+        - statusPageSync
+        - statusPageError
+        - createdBy
+        - history
+        - createdAt
+        - updatedAt
       additionalProperties: false
     AdminHostCode:
       type: object

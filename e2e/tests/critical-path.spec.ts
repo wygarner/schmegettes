@@ -135,8 +135,12 @@ async function controller(players: Player[]): Promise<Player> {
   return found as Player;
 }
 
-/** Says `text` into the phone's microphone once it's listening for an answer. */
-async function say(phone: Page, text: string) {
+/**
+ * Says `text` into the phone's microphone once it's listening for an answer. After a buzz that
+ * is moments away; after a Daily Double wager the clue is revealed and read first, so that
+ * caller waits up to `timeout` (CLUE_TIMEOUT).
+ */
+async function say(phone: Page, text: string, timeout = 20_000) {
   const controls = async () =>
     (
       (await phone
@@ -146,10 +150,14 @@ async function say(phone: Page, text: string) {
     ).replace(/\s+/g, " ");
   await expect
     .poll(() => phone.evaluate(() => window.__e2e?.listening() ?? false), {
-      timeout: 20_000,
-      message: `the phone listens for an answer (it shows: ${await controls()})`,
+      timeout,
+      message: "the phone listens for an answer",
     })
-    .toBe(true);
+    .toBe(true)
+    .catch(async (error: Error) => {
+      // What the phone shows when the wait gave up (read now, not when it started).
+      throw new Error(`${error.message}\nThe phone shows: ${await controls()}`);
+    });
   expect(await phone.evaluate((t) => window.__e2e?.say(t) ?? false, text)).toBe(true);
 }
 
@@ -184,7 +192,7 @@ async function playDailyDouble(ctl: Player) {
   const wager = ctl.page.getByRole("region", { name: "Wager" });
   await wager.getByRole("button", { name: "5", exact: true }).click();
   await wager.getByRole("button", { name: "Wager" }).click();
-  await say(ctl.page, "a daily double guess");
+  await say(ctl.page, "a daily double guess", CLUE_TIMEOUT);
 }
 
 /** Waits until the board is back (or Final has started). */

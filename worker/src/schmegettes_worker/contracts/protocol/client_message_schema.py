@@ -43,13 +43,36 @@ class LeaveRoom(BaseModel):
     type: Literal['leave_room']
 
 
-class Source(Enum):
+class Via(Enum):
+    tap = 'tap'
     voice = 'voice'
-    typed = 'typed'
+
+
+class Problem(Enum):
+    no_category = 'no-category'
+    ambiguous = 'ambiguous'
+    no_value = 'no-value'
+    taken = 'taken'
+    nothing_heard = 'nothing-heard'
 
 
 class Alternative(RootModel[constr(max_length=200)]):
     root: constr(max_length=200)
+
+
+class VoicePickMissed(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['voice_pick_missed']
+    problem: Problem
+    heard: constr(max_length=200)
+    alternatives: Optional[List[Alternative]] = Field(None, max_length=4)
+
+
+class Source(Enum):
+    voice = 'voice'
+    typed = 'typed'
 
 
 class SubmitWager(BaseModel):
@@ -88,6 +111,7 @@ class SelectClue(BaseModel):
     )
     type: Literal['select_clue']
     clueId: domain_schema.Uuid
+    via: Optional[Via] = None
 
 
 class ReadingDone(BaseModel):
@@ -153,6 +177,7 @@ class ClientMessage(
             SetHostPlays,
             LeaveRoom,
             SelectClue,
+            VoicePickMissed,
             ReadingDone,
             Buzz,
             AnswerProgress,
@@ -171,6 +196,7 @@ class ClientMessage(
         SetHostPlays,
         LeaveRoom,
         SelectClue,
+        VoicePickMissed,
         ReadingDone,
         Buzz,
         AnswerProgress,

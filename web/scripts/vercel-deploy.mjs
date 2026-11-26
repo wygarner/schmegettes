@@ -5,7 +5,8 @@
 // that blocks the app or allows plain http.
 //
 // Inputs (environment): VITE_SUPABASE_URL, VITE_API_URL (https), GAME_SOCKET_ORIGIN (wss),
-// VERCEL_TOKEN, VERCEL_ORG_ID (team id), VERCEL_PROJECT_ID.
+// VERCEL_TOKEN, VERCEL_ORG_ID (team id), VERCEL_PROJECT_ID. Optional: VITE_FARO_URL (https),
+// whose origin is allowed in connect-src so the app can report to Grafana Faro.
 
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -42,6 +43,7 @@ export function contentSecurityPolicy(env) {
     originOf("VITE_API_URL", env.VITE_API_URL, ["https:"]),
     originOf("GAME_SOCKET_ORIGIN", env.GAME_SOCKET_ORIGIN, ["wss:"]),
   ];
+  if (env.VITE_FARO_URL) connect.push(originOf("VITE_FARO_URL", env.VITE_FARO_URL, ["https:"]));
   return [
     "default-src 'self'",
     `connect-src 'self' ${[...new Set([...connect, ...VOICE_ORIGINS])].join(" ")}`,

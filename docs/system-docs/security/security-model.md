@@ -93,17 +93,104 @@ Keep this list current. A PR that closes a gap removes its line.
 | **Supabase Data API is exposed** | Any signed-in player can query `public` directly with their JWT, so RLS and function grants are the only boundary there. Decide whether to stop exposing `public` (the services don't need the Data API) or keep it and test it as a public surface. |
 | **Alerts on audit failures and staff grants** | The api and `golib/db` write the log lines ("audit write failed", "staff access granted"), but the alert rules wait for observability. **Not yet implemented** |
 | **Web security headers** | Built: CSP, HSTS, `nosniff`, Referrer-Policy, Permissions-Policy and `X-Robots-Tag` on every web response, written into `vercel.json` by `web/scripts/vercel-deploy.mjs` with the CSP built from each environment's origins; `web/scripts/vercel-deploy.test.ts` fails if a header is dropped. `style-src` allows `'unsafe-inline'` because Mantine renders `<style>` elements at runtime. `script-src` allows `'wasm-unsafe-eval'` (WebAssembly compilation only, never JavaScript `eval`) and `connect-src` allows `https://huggingface.co` and `https://*.hf.co`, both for the host device's narrator; the voice files are pinned by commit and checked by SHA-256 before use ([stack](../engineering/stack.md), Narration). CORS is already tested in `api/internal/server/server_test.go`, and the game's Origin check in `game/internal/socket/socket_test.go`. |
-| **Telemetry and client error tracking** | Grafana Cloud shipping and Grafana Faro ([stack.md](../engineering/stack.md)). |
-| **Required checks** | Branch protection and rulesets are not available on this private repo's GitHub plan (the API returns 403), so `CI Complete` cannot be a required check on `production`. Until it can, never merge a release with red CI ([release-strategy.md](../operations/release-strategy.md)). |
+| **Required checks** | Branch protection and rulesets were not available on the private repo's GitHub plan (the API returned 403). Once the repo is public, `develop` and `production` are protected (section 7), but `CI Complete` is not yet a required check, so never merge a release with red CI ([release-strategy.md](../operations/release-strategy.md)). |
 | **Security assessment** | First assessment before launch, then every six months and after major architecture changes. Findings go in `docs/security-assessments/{date}/remediation-tracker.md`, updated only through PRs. |
 | **LLM appeal judge** (when built) | Player answers are untrusted input to the model. Tools get the least privilege that works. |
-| **Docs that need hosting first** | `operations/observability.md`, `operations/incident-response.md`, `operations/disaster-recovery.md`, `quality/agent-qa.md`. |
 
 ## 6. Scans
 
 In `ci.yml` on every PR into `develop` or `production`:
 
-- secret scan: gitleaks
+- secret scan: gitleaks, over the PR's commits
+- workflow policy: `scripts/workflow-policy.test.mjs` (in `mise run test:scripts`), the rules in section 7
 - dependency audits: `bun audit` (web, devtools), `govulncheck` (api, game), `pip-audit` (worker)
 
 Dependabot keeps bun, Go (`api/`, `game/`, `golib/`), uv, and GitHub Actions dependencies current. A high-severity finding blocks a release until it is fixed or explicitly accepted in the release's internal notes.
+
+A full-history secret scan (`scripts/history-scan.sh`, [operator-scripts.md](../operations/operator-scripts.md#history-secret-scan)) ran clean before the repository was made public: 0 findings over 563 commits on every ref (2026-11-23). Run it again before any other history is published, for example a long-lived branch pushed from elsewhere.
+
+## 7. Public repository
+
+The repository has been public since 2026-11-23 (runbook below, steps 1–8 applied that day), so anyone can read every branch, tag, issue and pull request, fork it, and open a pull request that starts workflows.
+
+### Trusted and untrusted pull requests
+
+A **trusted PR** comes from a branch in this repository (`github.event.pull_request.head.repo.full_name == github.repository`). A **fork PR** does not. GitHub gives a fork PR a read-only `GITHUB_TOKEN` and no secrets, and a maintainer must approve its workflows before they run.
+
+- CI runs for fork PRs, without secrets. `evals` needs `ANTHROPIC_API_KEY`, so it runs only for trusted PRs.
+- `create-task-issue.yml` and `task-issue-transitions.yml` write issues, labels and commits, so their jobs run only for trusted PRs or a manual dispatch. A fork PR skips them; it doesn't fail.
+- Deploy, E2E and catalog workflows have no pull-request trigger. They run only from pushes by maintainers or a maintainer's dispatch, and use protected GitHub Environments.
+- Grafana config (`ops/grafana/`) is checked on PRs by `grafana-check.yml`, which holds no credentials and runs no plan: a plan needs a Grafana token. `grafana.yml` plans and applies only on pushes to `develop` (or a dispatch), in the `grafana` environment, whose deployment branches are `develop` only, so no other branch's workflow can read its secrets ([observability.md](../operations/observability.md#3-config-as-code)).
+- Jobs that hold an issue- or contents-write token run scripts from the base branch and check out the PR's files as data only. A PR that edits `.github/` doesn't get its own copy run with that token.
+
+### Workflow rules
+
+`scripts/workflow-policy.test.mjs` fails CI when a workflow breaks one of these:
+
+| Rule | Why |
+|---|---|
+| No `pull_request_target` or `workflow_run` trigger | Both run with the base repository's secrets and write token, which makes running a fork's code dangerous. |
+| `permissions` at the workflow level, or on every job | No job falls back to the repository's default token permissions. |
+| Every non-local `uses:` is pinned to a full commit SHA (Docker actions by `sha256` digest) | A moved tag can't change what runs. Dependabot (`github-actions`) updates the pins. |
+| No `${{ github.event.pull_request.title/body/head.ref }}`, `github.head_ref`, issue, comment, review, commit or `inputs.*` expression inside a `run:` script | Script injection. Pass those values through `env:` and quote the variable. |
+| A job that a `pull_request` can start and that has write permissions or a secret (other than `GITHUB_TOKEN`) carries the trusted-PR guard | A fork PR fails cleanly instead of reaching a write path. |
+| No self-hosted runner | A fork PR could run code on the machine. |
+
+### Publishing runbook
+
+Run by the maintainer, in order. `{repo}` is `gh repo view --json nameWithOwner -q .nameWithOwner`. Branch protection and environment rules need the public plan, so they're applied right after the visibility change, before the repository is announced.
+
+**Before the change**
+
+1. Run `scripts/history-scan.sh` against freshly fetched refs; it must report 0 unclassified findings. Rotate any real finding at its provider ([configuration-and-secrets.md](./configuration-and-secrets.md#3-owners-and-rotation)) before continuing.
+2. Settle the content review recorded on the hardening PR.
+3. Delete merged remote branches. List them, read the list, then delete the ones you confirm:
+   ```bash
+   git fetch --prune origin
+   git branch -r --merged origin/develop | grep -vE 'origin/(HEAD|develop|production|main)$' | sed 's|^ *origin/||'
+   git push origin --delete <branch> [<branch> ...]
+   ```
+
+**The change**
+
+4. `gh repo edit {repo} --visibility public --accept-visibility-change-consequences`
+
+**Right after**
+
+5. Require approval before any outside contributor's workflows run:
+   `gh api -X PUT repos/{repo}/actions/permissions/fork-pr-contributor-approval -f approval_policy=all_external_contributors`
+6. Protect `develop` and `production` (PRs required, no force pushes or deletion; required status checks left off for now):
+   ```bash
+   for branch in develop production; do
+     gh api -X PUT "repos/{repo}/branches/$branch/protection" --input - <<'JSON'
+   {"required_status_checks": null, "enforce_admins": true,
+    "required_pull_request_reviews": {"required_approving_review_count": 0},
+    "restrictions": null, "allow_force_pushes": false, "allow_deletions": false}
+   JSON
+   done
+   ```
+7. Protect the environments. `production`: the maintainer approves every run, and only the `production` branch may deploy. `staging`: only `develop` and `releases/*`:
+   ```bash
+   me=$(gh api user -q .id)
+   gh api -X PUT repos/{repo}/environments/production --input - <<JSON
+   {"reviewers": [{"type": "User", "id": $me}],
+    "deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": true}}
+   JSON
+   gh api -X POST repos/{repo}/environments/production/deployment-branch-policies -f name=production -f type=branch
+   gh api -X PUT repos/{repo}/environments/staging --input - <<'JSON'
+   {"deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": true}}
+   JSON
+   gh api -X POST repos/{repo}/environments/staging/deployment-branch-policies -f name=develop -f type=branch
+   gh api -X POST repos/{repo}/environments/staging/deployment-branch-policies -f name='releases/*' -f type=branch
+   ```
+8. Turn on private vulnerability reporting, secret scanning with push protection, Dependabot alerts, and code scanning:
+   ```bash
+   gh api -X PUT repos/{repo}/private-vulnerability-reporting
+   gh api -X PUT repos/{repo}/vulnerability-alerts
+   gh api -X PATCH repos/{repo} --input - <<'JSON'
+   {"security_and_analysis": {"secret_scanning": {"status": "enabled"},
+                              "secret_scanning_push_protection": {"status": "enabled"}}}
+   JSON
+   gh api -X PATCH repos/{repo}/code-scanning/default-setup -f state=configured
+   ```
+9. Verify: open one PR from a fork and one from a branch here. The fork PR waits for approval, then runs CI without `evals` and creates no issue; the trusted PR runs CI and task-issue automation as before. Record both on the hardening PR.

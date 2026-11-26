@@ -19,6 +19,8 @@ jobs:
   # branch, so a PR that edits .github/ does not get its own version run with
   # that token. The PR head is checked out only as data.
   create-issue:
+    # A fork PR gets a read-only token and no secrets: skip it instead of failing.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -87,7 +89,7 @@ jobs:
   # values above.
   commit-key:
     needs: create-issue
-    if: needs.create-issue.outputs.tickets != '' && needs.create-issue.outputs.tickets != '[]'
+    if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.create-issue.outputs.tickets != '' && needs.create-issue.outputs.tickets != '[]'
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -203,7 +203,9 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
     case "room_snapshot": {
       // A snapshot is the whole truth: nothing from a previous game or clue survives it.
       const finished = event.phase === "finished";
-      const scores = event.scores ?? state.scores;
+      // No scores means no game (the lobby, or a rematch): everyone is at $0. Keeping the
+      // previous scores left last game's totals on screen until the next Start.
+      const scores = event.scores ?? {};
       return {
         ...state,
         ...clueReset(),

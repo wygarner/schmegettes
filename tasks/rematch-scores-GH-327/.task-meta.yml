@@ -1,5 +1,0 @@
-issue: 327
-key: GH-327
-title: "Scores reset to $0 as soon as the host presses Rematch"
-task-type: bug-fix
-created: 2026-11-28

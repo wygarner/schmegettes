@@ -32,7 +32,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`.
 | "DAILY DOUBLE" reveal | 2 s |
 | Daily Double wager | 30 s, then $5 |
 | "Alice wagers $1,000" | 2 s |
-| Daily Double answer | From end of reading until quiet, at most 9 s |
+| Daily Double answer | From end of reading, once the microphone is listening: up to 10 s to begin, then up to 6 s to finish (**Not yet implemented**: `lenient-judging`; today until quiet, at most 9 s) |
 | "FINAL SCHMEGETTES" title | 3 s |
 | Final category on screen | Until the narrator finishes, at least 3 s |
 | Final wager | 30 s, or until every finalist locks in. Unlocked: $0 |
@@ -95,7 +95,7 @@ Lines appear about 2 s apart. The score in that player's tile updates on the las
 | `final_reveal` | "Look at the TV." | `idle` |
 | `finished` | My final score and place | `idle` |
 
-**Number pad.** Digits, backspace, **Min**, **Max**. The confirm button is disabled until the amount is inside the limits, and the hint under the amount says why ("At most $1,200"). Leading zeros are dropped. **Final answer field.** One line, autofocused, autocorrect and autocapitalize off (so the phone doesn't "fix" a name), at most 200 characters. **Submit** (or the keyboard's return key) is disabled while the field is empty. The countdown sits above the field so the keyboard never covers it. A phone shows its own answer after submitting, because it's the player's own phone. The host device never does (below).
+**Number pad.** Digits, backspace, **Min**, **Max**. A digit that would take the amount past the limit isn't accepted: the amount shakes once and the hint says "At most $1,200" (**Not yet implemented**: `wager-pad-limit`; today the digit is accepted and only the confirm button is disabled). The confirm button is disabled until the amount is at least the minimum. Leading zeros are dropped. **Final answer field.** One line, autofocused, autocorrect and autocapitalize off (so the phone doesn't "fix" a name), at most 200 characters. **Submit** (or the keyboard's return key) is disabled while the field is empty. The countdown sits above the field so the keyboard never covers it. A phone shows its own answer after submitting, because it's the player's own phone. The host device never does (below).
 
 ### Host device when the host plays
 

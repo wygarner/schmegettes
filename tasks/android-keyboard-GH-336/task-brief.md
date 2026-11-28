@@ -50,3 +50,6 @@ None.
 ## Docs to update
 
 `docs/product-docs/architecture/design-system.md`: one line under layout saying screens follow the keyboard on Android (`interactive-widget=resizes-content`), and fixed-height containers holding a field must scroll.
+
+## Branch
+`bug-fix/GH-336-android-keyboard`, from and into `develop`

@@ -236,8 +236,12 @@ type Game struct {
 	// handoffAt is when control passes from a disconnected controller (board only).
 	handoffAt time.Time
 	paused    bool
-	online    map[string]int // user -> open sockets
-	over      bool
+	// soundOff: the host device reported it has no sound (HostSound). The game is paused
+	// while the host has no socket or no sound; pausedAt is when the current pause began.
+	soundOff bool
+	pausedAt time.Time
+	online   map[string]int // user -> open sockets
+	over     bool
 	// remaining is the time left on a wager-flow step when the host device left.
 	remaining time.Duration
 
@@ -346,6 +350,51 @@ func (g *Game) Phase() contracts.GamePhase { return g.phase }
 
 // Paused reports whether the game is waiting for the host device.
 func (g *Game) Paused() bool { return g.paused }
+
+// SoundOff reports whether the host device last said it has no sound.
+func (g *Game) SoundOff() bool { return g.soundOff }
+
+// PausedAt is when the current pause began (zero while running, or before the host first
+// connected).
+func (g *Game) PausedAt() time.Time { return g.pausedAt }
+
+// PauseReason is why the game is paused: no host socket wins over no host sound.
+func (g *Game) PauseReason() contracts.PauseReason {
+	if g.online[g.s.HostID] == 0 {
+		return contracts.PauseReasonHostAway
+	}
+	return contracts.PauseReasonHostSound
+}
+
+func (g *Game) pausedMsg() contracts.GamePaused {
+	reason := g.PauseReason()
+	return contracts.GamePaused{
+		Type: "game_paused", RoomId: contracts.Uuid(g.s.RoomID), Seq: g.s.NextSeq(), Paused: true, Reason: &reason,
+	}
+}
+
+// HostSound records whether the host device has sound. Without it the game pauses as if
+// the host had left, and it resumes only when the host has both a socket and sound.
+func (g *Game) HostSound(now time.Time, user string, on bool) (Effects, error) {
+	var e Effects
+	if user != g.s.HostID {
+		return e, reject(contracts.ErrorCodeNotHost)
+	}
+	if g.over || g.soundOff == !on {
+		return e, ErrIgnored
+	}
+	g.soundOff = !on
+	switch {
+	case !on && !g.paused:
+		return g.pause(now), nil
+	case !on:
+		// Already paused (the host is away): the reason stays host_away until it's back.
+		return e, nil
+	case g.paused && g.online[g.s.HostID] > 0:
+		return g.resume(now), nil
+	}
+	return e, nil
+}
 
 // Deadline is when Timeout must be called; zero when nothing is pending.
 func (g *Game) Deadline() time.Time {
@@ -504,6 +553,10 @@ func (g *Game) SnapshotFields(m *contracts.RoomSnapshot, host bool) {
 	m.AttemptedUserIds = g.attemptedList()
 	paused := g.paused
 	m.Paused = &paused
+	if g.paused {
+		reason := g.PauseReason()
+		m.PauseReason = &reason
+	}
 	m.Scores = contracts.RoomSnapshotScores(g.Scores())
 	if g.active != nil {
 		bc := g.boardClue(g.active, host)
@@ -933,6 +986,14 @@ func (g *Game) Results() []contracts.GameOverResultsElem {
 func (g *Game) Connect(now time.Time, user string) Effects {
 	g.online[user]++
 	if user == g.s.HostID && g.online[user] == 1 && g.paused {
+		if g.soundOff {
+			// Back, but still without sound: paused now for that reason.
+			var e Effects
+			if !g.over {
+				e.send(g.pausedMsg())
+			}
+			return e
+		}
 		return g.resume(now)
 	}
 	if g.isContestant(user) {
@@ -969,6 +1030,10 @@ func (g *Game) Disconnect(now time.Time, user string) Effects {
 func (g *Game) pause(now time.Time) Effects {
 	var e Effects
 	if g.paused || g.over {
+		if g.paused && !g.over && g.soundOff {
+			// Paused for sound, and now the host left too: say so.
+			e.send(g.pausedMsg())
+		}
 		g.paused = true
 		return e
 	}
@@ -987,13 +1052,15 @@ func (g *Game) pause(now time.Time) Effects {
 	if g.step == stepAnswering {
 		g.answering = ""
 	}
-	e.send(contracts.GamePaused{Type: "game_paused", RoomId: contracts.Uuid(g.s.RoomID), Seq: g.s.NextSeq(), Paused: true})
+	g.pausedAt = now
+	e.send(g.pausedMsg())
 	return e
 }
 
 func (g *Game) resume(now time.Time) Effects {
 	var e Effects
 	g.paused = false
+	g.pausedAt = time.Time{}
 	if g.over {
 		return e
 	}

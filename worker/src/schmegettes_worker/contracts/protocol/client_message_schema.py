@@ -70,6 +70,14 @@ class VoicePickMissed(BaseModel):
     alternatives: Optional[List[Alternative]] = Field(None, max_length=4)
 
 
+class HostSound(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['host_sound']
+    on: bool
+
+
 class Source(Enum):
     voice = 'voice'
     typed = 'typed'
@@ -179,6 +187,7 @@ class ClientMessage(
             SelectClue,
             VoicePickMissed,
             ReadingDone,
+            HostSound,
             Buzz,
             AnswerProgress,
             SubmitAnswer,
@@ -198,6 +207,7 @@ class ClientMessage(
         SelectClue,
         VoicePickMissed,
         ReadingDone,
+        HostSound,
         Buzz,
         AnswerProgress,
         SubmitAnswer,

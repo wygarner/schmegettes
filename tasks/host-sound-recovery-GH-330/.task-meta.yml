@@ -1,5 +1,0 @@
-issue: 330
-key: GH-330
-title: "The host device gets its sound back after an app switch or interruption, and the game waits for it"
-task-type: bug-fix
-created: 2026-11-28

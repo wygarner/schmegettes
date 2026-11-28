@@ -321,6 +321,29 @@ describe("overrides, the scoreboard and Rematch", () => {
     expect(s.phase).toBe("lobby");
   });
 
+  test("a pause says why, and a resume clears it", () => {
+    let s = reduceRoom(playing, { type: "game_paused", roomId: "r", seq: 1, paused: true, reason: "host_sound" });
+    expect(s.paused).toBe(true);
+    expect(s.pauseReason).toBe("host_sound");
+    s = reduceRoom(s, { type: "game_paused", roomId: "r", seq: 2, paused: true, reason: "host_away" });
+    expect(s.pauseReason).toBe("host_away");
+    s = reduceRoom(s, { type: "game_paused", roomId: "r", seq: 3, paused: false });
+    expect(s.paused).toBe(false);
+    expect(s.pauseReason).toBeUndefined();
+    s = reduceRoom(initialRoom, {
+      type: "room_snapshot",
+      roomId: "r",
+      seq: 4,
+      phase: "board",
+      round: "single",
+      players,
+      board: [],
+      paused: true,
+      pauseReason: "host_sound",
+    });
+    expect(s.pauseReason).toBe("host_sound");
+  });
+
   test("a rematch snapshot resets every score to $0 at once", () => {
     let s = reduceRoom(initialRoom, {
       type: "room_snapshot",

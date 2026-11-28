@@ -209,6 +209,11 @@ test("an early buzz doesn't open the microphone", () => {
   expect(rec.started).toBe(0);
 });
 
+test("paused because the TV has no sound", () => {
+  setup({ ...base, phase: "buzzing_open", activeClue: clue, paused: true, pauseReason: "host_sound" });
+  expect(screen.getByText("Waiting for the TV's sound…")).toBeInTheDocument();
+});
+
 test("paused and game over", () => {
   const { update } = setup({ ...base, phase: "buzzing_open", activeClue: clue, paused: true });
   expect(screen.getByText("Waiting for the TV…")).toBeInTheDocument();

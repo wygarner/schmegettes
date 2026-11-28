@@ -228,7 +228,12 @@ function PlayerStatus({
   // and Final keypad are on the stage; the column keeps only voice-pick problems and the
   // host's own verdict.
   if (compact) return <CompactStatus state={state} userId={userId} voice={voice} />;
-  if (state.paused) return <Status sub="The game picks up where it left off.">Waiting for the TV…</Status>;
+  if (state.paused)
+    return (
+      <Status sub="The game picks up where it left off.">
+        {state.pauseReason === "host_sound" ? "Waiting for the TV's sound…" : "Waiting for the TV…"}
+      </Status>
+    );
 
   if (state.results) return <GameOver state={state} userId={userId} onLeave={onLeave} />;
 

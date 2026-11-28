@@ -67,89 +67,6 @@ class ClueAnswer(BaseModel):
     scoreDelta: int
 
 
-class RoomSnapshot(BaseModel):
-    model_config = ConfigDict(
-        extra='forbid',
-    )
-    resume: Optional[ResumeLobby] = None
-    type: Literal['room_snapshot']
-    roomId: domain_schema.Uuid
-    seq: conint(ge=0)
-    phase: domain_schema.GamePhase
-    round: domain_schema.Round
-    players: List[Player]
-    board: List[BoardClue]
-    controllingUserId: Optional[domain_schema.Uuid] = None
-    activeClueId: Optional[domain_schema.Uuid] = None
-    hostDisplayName: Optional[str] = None
-    hostPlays: Optional[bool] = None
-    maxPlayers: Optional[conint(ge=2)] = None
-    activeClue: Optional[BoardClue] = None
-    deadlineAt: Optional[int] = Field(
-        None,
-        description='Server clock, ms since epoch, when the current step times out.',
-    )
-    buzzWindowMs: Optional[int] = Field(
-        None,
-        description="This game's buzz window (each reopen too), from its timer pace. Absent before a game starts.",
-    )
-    answerWindowMs: Optional[int] = Field(
-        None,
-        description="How long this game's players have to say an answer, from its timer pace. Absent before a game starts.",
-    )
-    quickPicks: Optional[bool] = Field(
-        None,
-        description="This game's Quick picks option: a spoken pick of just a category picks the lowest clue left in it. Absent before a game starts.",
-    )
-    answeringUserId: Optional[domain_schema.Uuid] = None
-    attemptedUserIds: Optional[List[domain_schema.Uuid]] = None
-    paused: Optional[bool] = None
-    wagerMin: Optional[int] = Field(
-        None,
-        description='Daily Double: the lowest wager the picker may make ($5). Public.',
-    )
-    wagerMax: Optional[int] = Field(
-        None,
-        description="Daily Double: the highest wager the picker may make, max(score, round's top value). Public.",
-    )
-    wager: Optional[int] = Field(
-        None,
-        description="Daily Double: the picker's wager once locked. Public. Never set for Final.",
-    )
-    finalistUserIds: Optional[List[domain_schema.Uuid]] = Field(
-        None,
-        description='Final: contestants above $0 when Double ended, in join order.',
-    )
-    lockedUserIds: Optional[List[domain_schema.Uuid]] = Field(
-        None,
-        description='Final: finalists who locked a wager (final_wager) or submitted an answer (final_answer). Never amounts or answers.',
-    )
-    revealOrder: Optional[List[domain_schema.Uuid]] = Field(
-        None,
-        description='final_reveal: finalists in reveal order, lowest pre-Final score first.',
-    )
-    myWager: Optional[int] = Field(
-        None,
-        description="This socket's user's own locked wager. Only in that user's copy, never for the host device.",
-    )
-    myFinalAnswer: Optional[constr(max_length=200)] = Field(
-        None,
-        description="This socket's user's own Final draft or submitted answer. Only in that user's copy, never for the host device.",
-    )
-    myFinalSubmitted: Optional[bool] = Field(
-        None,
-        description='Whether myFinalAnswer is submitted (locked) rather than a draft.',
-    )
-    clueAnswers: Optional[List[ClueAnswer]] = Field(
-        None,
-        description='Host copy only: the answers that can still be overridden (the clue just played, or the Final answer being revealed).',
-    )
-    overrideReview: Optional[bool] = Field(
-        None, description='The host is reviewing a verdict; the clock is paused.'
-    )
-    scores: Optional[Dict[str, int]] = Field(None, description='userId -> score.')
-
-
 class LobbyUpdated(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -362,16 +279,6 @@ class GameOver(BaseModel):
     )
 
 
-class GamePaused(BaseModel):
-    model_config = ConfigDict(
-        extra='forbid',
-    )
-    type: Literal['game_paused']
-    roomId: domain_schema.Uuid
-    seq: conint(ge=0)
-    paused: bool
-
-
 class TimerTick(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -452,6 +359,106 @@ class Pong(BaseModel):
     )
     type: Literal['pong']
     serverTime: int
+
+
+class PauseReason(Enum):
+    host_away = 'host_away'
+    host_sound = 'host_sound'
+
+
+class RoomSnapshot(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    resume: Optional[ResumeLobby] = None
+    type: Literal['room_snapshot']
+    roomId: domain_schema.Uuid
+    seq: conint(ge=0)
+    phase: domain_schema.GamePhase
+    round: domain_schema.Round
+    players: List[Player]
+    board: List[BoardClue]
+    controllingUserId: Optional[domain_schema.Uuid] = None
+    activeClueId: Optional[domain_schema.Uuid] = None
+    hostDisplayName: Optional[str] = None
+    hostPlays: Optional[bool] = None
+    maxPlayers: Optional[conint(ge=2)] = None
+    activeClue: Optional[BoardClue] = None
+    deadlineAt: Optional[int] = Field(
+        None,
+        description='Server clock, ms since epoch, when the current step times out.',
+    )
+    buzzWindowMs: Optional[int] = Field(
+        None,
+        description="This game's buzz window (each reopen too), from its timer pace. Absent before a game starts.",
+    )
+    answerWindowMs: Optional[int] = Field(
+        None,
+        description="How long this game's players have to say an answer, from its timer pace. Absent before a game starts.",
+    )
+    quickPicks: Optional[bool] = Field(
+        None,
+        description="This game's Quick picks option: a spoken pick of just a category picks the lowest clue left in it. Absent before a game starts.",
+    )
+    answeringUserId: Optional[domain_schema.Uuid] = None
+    attemptedUserIds: Optional[List[domain_schema.Uuid]] = None
+    paused: Optional[bool] = None
+    pauseReason: Optional[PauseReason] = None
+    wagerMin: Optional[int] = Field(
+        None,
+        description='Daily Double: the lowest wager the picker may make ($5). Public.',
+    )
+    wagerMax: Optional[int] = Field(
+        None,
+        description="Daily Double: the highest wager the picker may make, max(score, round's top value). Public.",
+    )
+    wager: Optional[int] = Field(
+        None,
+        description="Daily Double: the picker's wager once locked. Public. Never set for Final.",
+    )
+    finalistUserIds: Optional[List[domain_schema.Uuid]] = Field(
+        None,
+        description='Final: contestants above $0 when Double ended, in join order.',
+    )
+    lockedUserIds: Optional[List[domain_schema.Uuid]] = Field(
+        None,
+        description='Final: finalists who locked a wager (final_wager) or submitted an answer (final_answer). Never amounts or answers.',
+    )
+    revealOrder: Optional[List[domain_schema.Uuid]] = Field(
+        None,
+        description='final_reveal: finalists in reveal order, lowest pre-Final score first.',
+    )
+    myWager: Optional[int] = Field(
+        None,
+        description="This socket's user's own locked wager. Only in that user's copy, never for the host device.",
+    )
+    myFinalAnswer: Optional[constr(max_length=200)] = Field(
+        None,
+        description="This socket's user's own Final draft or submitted answer. Only in that user's copy, never for the host device.",
+    )
+    myFinalSubmitted: Optional[bool] = Field(
+        None,
+        description='Whether myFinalAnswer is submitted (locked) rather than a draft.',
+    )
+    clueAnswers: Optional[List[ClueAnswer]] = Field(
+        None,
+        description='Host copy only: the answers that can still be overridden (the clue just played, or the Final answer being revealed).',
+    )
+    overrideReview: Optional[bool] = Field(
+        None, description='The host is reviewing a verdict; the clock is paused.'
+    )
+    scores: Optional[Dict[str, int]] = Field(None, description='userId -> score.')
+
+
+class GamePaused(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['game_paused']
+    roomId: domain_schema.Uuid
+    seq: conint(ge=0)
+    paused: bool
+    reason: Optional[PauseReason] = None
 
 
 class ServerMessage(

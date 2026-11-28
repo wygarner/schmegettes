@@ -22,6 +22,10 @@ export type ServerMessage =
   | TimerTick
   | Error
   | Pong;
+/**
+ * Why a game is paused: the host device has no socket (host_away, which wins when both hold) or no sound (host_sound).
+ */
+export type PauseReason = "host_away" | "host_sound";
 
 /**
  * Full state, sent on connect and reconnect. In the lobby, round is single, board is empty, and the lobby fields are present.
@@ -75,6 +79,7 @@ export interface RoomSnapshot {
   answeringUserId?: string;
   attemptedUserIds?: string[];
   paused?: boolean;
+  pauseReason?: PauseReason;
   /**
    * Daily Double: the lowest wager the picker may make ($5). Public.
    */
@@ -423,13 +428,14 @@ export interface GameOver {
   finishedAt?: number;
 }
 /**
- * The host device left (paused) or came back (resumed). Timers stop while paused.
+ * The game paused or resumed. Timers stop while paused. reason says why, when paused: the host device left (host_away) or has no sound (host_sound).
  */
 export interface GamePaused {
   type: "game_paused";
   roomId: string;
   seq: number;
   paused: boolean;
+  reason?: PauseReason;
 }
 /**
  * Sent at most once per second. Clients render from deadlineAt and use ticks only to correct drift.

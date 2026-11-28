@@ -124,3 +124,6 @@ Web and game deploy together. An old phone never sends `answer_status`, so it ge
 
 - `docs/product-docs/features/gameplay/feature-brief.md`, `interaction-design.md`, `features/wagers/interaction-design.md`, `features/lobby/feature-brief.md`: remove **Not yet implemented** (`lenient-judging`), and make the lobby line say "6 s to begin and 6 s to finish".
 - `docs/system-docs/architecture/realtime-game-server.md`: the judge rules paragraph (`same_words`, silent letters) and the answering stages (`answer_status`, `answerStage`, the deadlines).
+
+## Branch
+`enhancement/GH-339-lenient-judging`, from and into `develop`

@@ -90,3 +90,6 @@ An old web client would show a `voided` verdict as not correct. Web and game dep
 - `docs/product-docs/features/scoreboard-and-overrides/feature-brief.md` and `interaction-design.md`: remove **Not yet implemented** (`override-ends-clue`)
 - `docs/system-docs/architecture/realtime-game-server.md`: the Overrides section (voiding and restoring, `answer_voided`)
 - `docs/system-docs/architecture/data-and-isolation.md`: if it lists verdict values, add `voided`
+
+## Branch
+`enhancement/GH-338-override-ends-clue`, from and into `develop`

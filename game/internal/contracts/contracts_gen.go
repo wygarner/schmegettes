@@ -278,10 +278,14 @@ type GameOverResultsElem struct {
 	UserId Uuid `json:"userId" yaml:"userId" mapstructure:"userId"`
 }
 
-// The host device left (paused) or came back (resumed). Timers stop while paused.
+// The game paused or resumed. Timers stop while paused. reason says why, when
+// paused: the host device left (host_away) or has no sound (host_sound).
 type GamePaused struct {
 	// Paused corresponds to the JSON schema field "paused".
 	Paused bool `json:"paused" yaml:"paused" mapstructure:"paused"`
+
+	// Reason corresponds to the JSON schema field "reason".
+	Reason *PauseReason `json:"reason,omitempty" yaml:"reason,omitempty" mapstructure:"reason,omitempty"`
 
 	// RoomId corresponds to the JSON schema field "roomId".
 	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
@@ -313,6 +317,17 @@ type GameStatus string
 const GameStatusAbandoned GameStatus = "abandoned"
 const GameStatusFinished GameStatus = "finished"
 const GameStatusInProgress GameStatus = "in_progress"
+
+// Host only. The host device's sound stopped (on: false: the page was hidden, or
+// audio couldn't resume without a tap) or came back (on: true). The game is paused
+// while the host device has no sound.
+type HostSound struct {
+	// On corresponds to the JSON schema field "on".
+	On bool `json:"on" yaml:"on" mapstructure:"on"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
 
 type ImportClueSeason struct {
 	// EnqueuedAt corresponds to the JSON schema field "enqueuedAt".
@@ -439,6 +454,11 @@ type OverrideVerdict struct {
 	// Type corresponds to the JSON schema field "type".
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
 }
+
+type PauseReason string
+
+const PauseReasonHostAway PauseReason = "host_away"
+const PauseReasonHostSound PauseReason = "host_sound"
 
 type PhaseChanged struct {
 	// ActiveClue corresponds to the JSON schema field "activeClue".
@@ -669,6 +689,9 @@ type RoomSnapshot struct {
 
 	// The host is reviewing a verdict; the clock is paused.
 	OverrideReview *bool `json:"overrideReview,omitempty" yaml:"overrideReview,omitempty" mapstructure:"overrideReview,omitempty"`
+
+	// PauseReason corresponds to the JSON schema field "pauseReason".
+	PauseReason *PauseReason `json:"pauseReason,omitempty" yaml:"pauseReason,omitempty" mapstructure:"pauseReason,omitempty"`
 
 	// Paused corresponds to the JSON schema field "paused".
 	Paused *bool `json:"paused,omitempty" yaml:"paused,omitempty" mapstructure:"paused,omitempty"`

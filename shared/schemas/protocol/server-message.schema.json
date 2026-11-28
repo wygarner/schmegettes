@@ -216,6 +216,9 @@
         "paused": {
           "type": "boolean"
         },
+        "pauseReason": {
+          "$ref": "#/$defs/PauseReason"
+        },
         "wagerMin": {
           "type": "integer",
           "description": "Daily Double: the lowest wager the picker may make ($5). Public."
@@ -715,7 +718,7 @@
       "additionalProperties": false
     },
     "GamePaused": {
-      "description": "The host device left (paused) or came back (resumed). Timers stop while paused.",
+      "description": "The game paused or resumed. Timers stop while paused. reason says why, when paused: the host device left (host_away) or has no sound (host_sound).",
       "type": "object",
       "properties": {
         "type": {
@@ -730,6 +733,9 @@
         },
         "paused": {
           "type": "boolean"
+        },
+        "reason": {
+          "$ref": "#/$defs/PauseReason"
         }
       },
       "required": ["type", "roomId", "seq", "paused"],
@@ -879,6 +885,11 @@
       },
       "required": ["type", "serverTime"],
       "additionalProperties": false
+    },
+    "PauseReason": {
+      "description": "Why a game is paused: the host device has no socket (host_away, which wins when both hold) or no sound (host_sound).",
+      "type": "string",
+      "enum": ["host_away", "host_sound"]
     }
   }
 }

@@ -41,7 +41,7 @@ test("Min, Max, and leading zeros", () => {
 });
 
 test("masked never shows the amount or the limits", () => {
-  const { tap, confirm } = setup({ min: 0, max: 900, masked: true });
+  const { tap } = setup({ min: 0, max: 900, masked: true });
   expect(screen.queryByText(/\$900/)).toBeNull();
   tap("6", "0", "0");
   expect(screen.getByLabelText("Wager amount")).toHaveTextContent("$ •••••");

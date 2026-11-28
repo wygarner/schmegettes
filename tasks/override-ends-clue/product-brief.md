@@ -31,4 +31,4 @@ task-title: "An override to correct ends the clue: later answers on it don't cou
 
 **Out of scope:** overriding earlier clues, Final reveal changes.
 
-**Decision needed (Wyatt):** confirm option 1.
+**Decided (Wyatt, 2026-11-28):** option 1, later answers don't count.

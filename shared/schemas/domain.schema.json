@@ -65,9 +65,9 @@
       "enum": ["unplayed", "active", "answered", "unanswered"]
     },
     "Verdict": {
-      "description": "correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.",
+      "description": "correct/incorrect from the judge; overridden when the host changes a verdict; voided for an answer given after an earlier answer on the clue was overridden to correct (it scores 0); appeal_pending while the worker's appeal judge decides.",
       "type": "string",
-      "enum": ["correct", "incorrect", "overridden_correct", "overridden_incorrect", "appeal_pending"]
+      "enum": ["correct", "incorrect", "overridden_correct", "overridden_incorrect", "voided", "appeal_pending"]
     },
     "Uuid": {
       "type": "string",

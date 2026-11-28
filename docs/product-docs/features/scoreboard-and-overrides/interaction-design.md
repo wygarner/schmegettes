@@ -119,7 +119,7 @@ ROOM K7RXM                         $800
 | A buzz that disconnected before answering | Never judged, so not listed and not overridable |
 | "No answer heard" (silence for 9 s) | Overridable, like any judged answer. The sheet says "No answer heard" |
 | Host overrides their own answer | Allowed; labeled HOST OVERRIDE like any other |
-| Override to correct on a clue someone else then answered | The overridden answer counts; every later answer on the clue shows **DOESN'T COUNT** and scores $0 (a later wrong answer's loss is given back). Control goes to the overridden player. Flipped back to incorrect: the later answers count again as judged. **Not yet implemented**: `override-ends-clue` (today both correct answers score) |
+| Override to correct on a clue someone else then answered | The overridden answer counts; every later answer on the clue shows **DOESN'T COUNT** and scores $0 (a later wrong answer's loss is given back). Control goes to the overridden player. Flipped back to incorrect: the later answers count again as judged. |
 | Override a correct answer to incorrect | −value in place of +value; control goes to the latest remaining correct answer on the clue, or back to who had it when the clue was picked |
 | Daily Double override | ± the wager; control doesn't move |
 | Host device disconnects while the review is open | The game pauses as usual. On return the sheet is closed and the correct-response timer resumes with its time left |

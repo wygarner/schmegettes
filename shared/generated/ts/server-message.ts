@@ -124,9 +124,9 @@ export interface RoomSnapshot {
     userId: string;
     answer: string;
     /**
-     * correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+     * correct/incorrect from the judge; overridden when the host changes a verdict; voided for an answer given after an earlier answer on the clue was overridden to correct (it scores 0); appeal_pending while the worker's appeal judge decides.
      */
-    verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
+    verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "voided" | "appeal_pending";
     scoreDelta: number;
   }[];
   /**
@@ -277,9 +277,9 @@ export interface AnswerJudged {
   userId: string;
   answer: string;
   /**
-   * correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+   * correct/incorrect from the judge; overridden when the host changes a verdict; voided for an answer given after an earlier answer on the clue was overridden to correct (it scores 0); appeal_pending while the worker's appeal judge decides.
    */
-  verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
+  verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "voided" | "appeal_pending";
   /**
    * Sent only to the host device (the TV).
    */
@@ -306,9 +306,9 @@ export interface VerdictOverridden {
   answerId: string;
   userId: string;
   /**
-   * correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+   * correct/incorrect from the judge; overridden when the host changes a verdict; voided for an answer given after an earlier answer on the clue was overridden to correct (it scores 0); appeal_pending while the worker's appeal judge decides.
    */
-  verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
+  verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "voided" | "appeal_pending";
   /**
    * The answer's new score change.
    */
@@ -324,6 +324,18 @@ export interface VerdictOverridden {
    * Server ms when the current step ends; absent while the review is open.
    */
   deadlineAt?: number;
+  /**
+   * Later answers on the clue this override changed: voided by an override to correct, or restored when it's flipped back.
+   */
+  voided?: {
+    answerId: string;
+    userId: string;
+    /**
+     * correct/incorrect from the judge; overridden when the host changes a verdict; voided for an answer given after an earlier answer on the clue was overridden to correct (it scores 0); appeal_pending while the worker's appeal judge decides.
+     */
+    verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "voided" | "appeal_pending";
+    scoreDelta: number;
+  }[];
 }
 /**
  * The host opened or closed a verdict review. While open, the clock is paused and the reviewed players' phones say so.
@@ -463,7 +475,8 @@ export interface Error {
     | "invalid_wager"
     | "not_a_finalist"
     | "unknown_answer"
-    | "not_a_host";
+    | "not_a_host"
+    | "answer_voided";
   message?: string;
 }
 export interface Pong {

@@ -3,7 +3,7 @@ import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { money } from "../lib/money";
 import { ordinal, PLACE_COLOR } from "../lib/placement";
-import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
+import { inFinal, isCorrect, isVoided, nameOf, type RoomState } from "../lib/room";
 import { Meter } from "../ui/Meter";
 import { ACCENT, DISPLAY, GREEN, RED, SOFT } from "../ui/tokens";
 import { Board } from "./Board";
@@ -240,6 +240,21 @@ function PlayerStatus({
   // The host is reviewing this player's answer: the clock is paused.
   if (state.review?.open && state.review.userIds.includes(userId)) {
     return <Status sub="The clock is paused.">{state.hostDisplayName} is reviewing your answer…</Status>;
+  }
+  // A later answer the host's override voided: it doesn't count either way.
+  const mineNow = state.clueEnd ? state.answers.find((a) => a.userId === userId) : undefined;
+  if (mineNow && isVoided(mineNow.verdict)) {
+    return (
+      <div className="sg-pop" style={{ textAlign: "center" }}>
+        <Text c="dimmed" fw={800} size="xs" style={{ letterSpacing: ".14em" }}>
+          DOESN'T COUNT
+        </Text>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 40 }}>{money(0)}</div>
+        <Text size="sm" c={SOFT}>
+          Doesn't count: the host overrode an earlier answer.
+        </Text>
+      </div>
+    );
   }
   const override = state.lastOverride;
   if (override?.userId === userId && (state.clueEnd || state.phase === "final_reveal")) {

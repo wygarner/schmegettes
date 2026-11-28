@@ -181,3 +181,6 @@ There's no change to `shared/`, REST, or socket contracts, and no `mise run gen`
 - `docs/system-docs/operations/observability.md`: section 1, the Viewer token; and a pointer to `release-health.mjs`.
 - `releases/README.md`: the `whats-new` block.
 - `.claude/CLAUDE.md`, `.claude/commands/engineering.md`.
+
+## Branch
+`technical-improvement/GH-322-autonomous-release`, from and into `develop`

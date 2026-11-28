@@ -86,3 +86,74 @@ describe("requestAnswerPermissions", () => {
     await expect(requestAnswerPermissions()).resolves.toBe("unsupported");
   });
 });
+
+describe("the browser recognizer", () => {
+  /** A stand-in for the browser's SpeechRecognition: the test drives its events. */
+  class FakeRecognition {
+    static last: FakeRecognition | null = null;
+    lang = "";
+    continuous = false;
+    interimResults = false;
+    maxAlternatives = 1;
+    starts = 0;
+    onresult: ((e: { results: RecognitionResultList }) => void) | null = null;
+    onstart: (() => void) | null = null;
+    onend: (() => void) | null = null;
+    onerror: ((e: { error: string }) => void) | null = null;
+    constructor() {
+      FakeRecognition.last = this;
+    }
+    start() {
+      this.starts++;
+      this.onstart?.();
+    }
+    stop() {
+      this.onend?.();
+    }
+    abort() {}
+  }
+  const w = window as unknown as { SpeechRecognition?: unknown };
+  afterEach(() => {
+    delete w.SpeechRecognition;
+    setRecognizerFactory(null);
+  });
+
+  test("a pause doesn't end it: it listens again and keeps what it heard", async () => {
+    w.SpeechRecognition = FakeRecognition;
+    const { createRecognizer } = await import("./speech");
+    const rec = createRecognizer();
+    if (!rec) throw new Error("no recognizer");
+    const onStart = vi.fn();
+    const onFinal = vi.fn();
+    rec.onStart = onStart;
+    rec.onFinal = onFinal;
+    rec.start();
+    const fake = FakeRecognition.last as FakeRecognition;
+    expect(fake.continuous).toBe(true);
+    fake.onresult?.({ results: results(["exploring"]) });
+    fake.onend?.(); // the browser stopped on its own
+    expect(fake.starts).toBe(2);
+    expect(onStart).toHaveBeenCalledTimes(1); // a restart isn't a new start
+    fake.onresult?.({ results: results(["caves"]) });
+    rec.stop();
+    expect(onFinal).toHaveBeenCalledWith("exploring caves", []);
+  });
+
+  test("a refusal ends it without listening again", async () => {
+    w.SpeechRecognition = FakeRecognition;
+    const { createRecognizer } = await import("./speech");
+    const rec = createRecognizer();
+    if (!rec) throw new Error("no recognizer");
+    const onDenied = vi.fn();
+    const onFinal = vi.fn();
+    rec.onDenied = onDenied;
+    rec.onFinal = onFinal;
+    rec.start();
+    const fake = FakeRecognition.last as FakeRecognition;
+    fake.onerror?.({ error: "not-allowed" });
+    fake.onend?.();
+    expect(onDenied).toHaveBeenCalled();
+    expect(onFinal).toHaveBeenCalledWith("", []);
+    expect(fake.starts).toBe(1);
+  });
+});

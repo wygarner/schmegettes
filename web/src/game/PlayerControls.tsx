@@ -13,7 +13,7 @@ import { Countdown } from "./Countdown";
 import { FinalAnswerField } from "./FinalAnswerField";
 import { usePickConfirm } from "./PickConfirm";
 import { usePickReveal } from "./PickReveal";
-import { ANSWER_GRACE_MS, answerMs, buzzWindowMs, WAGER_MS } from "./timing";
+import { answerStageMs, buzzWindowMs, WAGER_MS } from "./timing";
 import { useAnswerCapture } from "./useAnswerCapture";
 import { useVoicePick, type VoicePick } from "./VoicePick";
 import { WagerPad } from "./WagerPad";
@@ -360,7 +360,7 @@ function PlayerStatus({
         return (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
             <Text ff={DISPLAY} fw={600} fz={34} lh={1.1}>
-              Say your answer
+              {state.answerStage === "finish" ? "Finishing…" : "Say your answer"}
             </Text>
             <Meter color="var(--mantine-color-teal-5)" height={44} />
             <Text fz={22} fs="italic" mih={60} aria-label="What we heard">
@@ -368,11 +368,11 @@ function PlayerStatus({
             </Text>
             <Countdown
               deadlineAt={state.deadlineAt}
-              total={answerMs(state) + ANSWER_GRACE_MS}
+              total={answerStageMs(state.answerStage)}
               color="var(--mantine-color-teal-6)"
             />
             <Text size="sm" c={SOFT}>
-              “What is” is optional. It stops when you go quiet.
+              “What is” is optional. Take a moment: you have 6 s to start, then 6 s to finish.
             </Text>
           </div>
         );

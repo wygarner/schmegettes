@@ -206,6 +206,7 @@ type Error struct {
 type ErrorCode string
 
 const ErrorCodeAlreadyAttempted ErrorCode = "already_attempted"
+const ErrorCodeAnswerVoided ErrorCode = "answer_voided"
 const ErrorCodeGameStarted ErrorCode = "game_started"
 const ErrorCodeInternal ErrorCode = "internal"
 const ErrorCodeInvalidMessage ErrorCode = "invalid_message"
@@ -938,6 +939,10 @@ type VerdictOverridden struct {
 
 	// Verdict corresponds to the JSON schema field "verdict".
 	Verdict Verdict `json:"verdict" yaml:"verdict" mapstructure:"verdict"`
+
+	// Later answers on the clue this override changed: voided by an override to
+	// correct, or restored when it's flipped back.
+	Voided []VerdictOverriddenVoidedElem `json:"voided,omitempty" yaml:"voided,omitempty" mapstructure:"voided,omitempty"`
 }
 
 const VerdictOverriddenCorrect Verdict = "overridden_correct"
@@ -945,6 +950,22 @@ const VerdictOverriddenIncorrect Verdict = "overridden_incorrect"
 
 // userId -> score after the override.
 type VerdictOverriddenScores map[string]int
+
+type VerdictOverriddenVoidedElem struct {
+	// AnswerId corresponds to the JSON schema field "answerId".
+	AnswerId Uuid `json:"answerId" yaml:"answerId" mapstructure:"answerId"`
+
+	// ScoreDelta corresponds to the JSON schema field "scoreDelta".
+	ScoreDelta int `json:"scoreDelta" yaml:"scoreDelta" mapstructure:"scoreDelta"`
+
+	// UserId corresponds to the JSON schema field "userId".
+	UserId Uuid `json:"userId" yaml:"userId" mapstructure:"userId"`
+
+	// Verdict corresponds to the JSON schema field "verdict".
+	Verdict Verdict `json:"verdict" yaml:"verdict" mapstructure:"verdict"`
+}
+
+const VerdictVoided Verdict = "voided"
 
 // A spoken pick that the phone could not match. Logged by the server only; it
 // never changes game state or broadcasts.

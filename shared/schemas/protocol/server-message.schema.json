@@ -786,7 +786,8 @@
             "invalid_wager",
             "not_a_finalist",
             "unknown_answer",
-            "not_a_host"
+            "not_a_host",
+            "answer_voided"
           ]
         },
         "message": {
@@ -836,6 +837,29 @@
         "deadlineAt": {
           "type": "integer",
           "description": "Server ms when the current step ends; absent while the review is open."
+        },
+        "voided": {
+          "type": "array",
+          "description": "Later answers on the clue this override changed: voided by an override to correct, or restored when it's flipped back.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "answerId": {
+                "$ref": "../domain.schema.json#/$defs/Uuid"
+              },
+              "userId": {
+                "$ref": "../domain.schema.json#/$defs/Uuid"
+              },
+              "verdict": {
+                "$ref": "../domain.schema.json#/$defs/Verdict"
+              },
+              "scoreDelta": {
+                "type": "integer"
+              }
+            },
+            "required": ["answerId", "userId", "verdict", "scoreDelta"],
+            "additionalProperties": false
+          }
         }
       },
       "required": ["type", "roomId", "seq", "answerId", "userId", "verdict", "scoreDelta", "scores"],

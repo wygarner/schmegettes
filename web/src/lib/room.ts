@@ -68,6 +68,8 @@ export interface RoomState {
   quickPicks: boolean;
   controllingUserId?: string;
   answeringUserId?: string;
+  /** The answering player's stage: begin (time to start speaking) or finish. */
+  answerStage?: Server.AnswerStage;
   attemptedUserIds: string[];
   paused: boolean;
   /** Why the game is paused: the host device left, or it has no sound. */
@@ -245,6 +247,7 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         deadlineAt: event.deadlineAt,
         controllingUserId: event.controllingUserId,
         answeringUserId: event.answeringUserId,
+        answerStage: event.answerStage,
         attemptedUserIds: event.attemptedUserIds ?? [],
         paused: event.paused ?? false,
         pauseReason: event.paused ? event.pauseReason : undefined,
@@ -275,6 +278,7 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         phase: event.phase,
         deadlineAt: event.deadlineAt,
         answeringUserId: event.answeringUserId,
+        answerStage: event.answerStage,
         // phase_changed carries the whole list; the server's encoder drops it when empty.
         attemptedUserIds: event.attemptedUserIds ?? [],
         controllingUserId: event.controllingUserId ?? state.controllingUserId,

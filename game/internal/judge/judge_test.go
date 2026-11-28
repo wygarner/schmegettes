@@ -65,6 +65,7 @@ func TestJudgeRules(t *testing.T) {
 		slip    = contracts.MatchRuleSpellingSlip
 		sounds  = contracts.MatchRuleSoundsAlike
 		noMatch = contracts.MatchRuleNoMatch
+		same    = contracts.MatchRuleSameWords
 	)
 	cases := []struct {
 		heard, response string
@@ -85,6 +86,24 @@ func TestJudgeRules(t *testing.T) {
 		{"kilauea", "Mauna Loa", false, noMatch},
 		{"eighteen twenty one", "1812", false, noMatch},
 		{"soos", "Zeus", false, noMatch},
+
+		// Same words, any order or form (lenient-judging, GH-339)
+		{"cave exploration", "Exploring Caves", true, same},
+		{"the battle of hastings", "Hastings, Battle of", true, same},
+		{"exploreing cave", "Exploring Caves", true, slip}, // close enough as a whole
+		{"eighteen twelve war", "War of 1812", true, same},
+		{"roll and rock", "Rock & Roll", true, same},
+		{"cave", "Exploring Caves", false, noMatch},
+		{"exploring dark caves", "Exploring Caves", false, noMatch},
+		{"northern ireland", "Ireland", false, noMatch},
+		{"war of 1813", "War of 1812", false, noMatch},
+		{"russia", "Prussia", false, noMatch},
+
+		// Silent first letters
+		{"nee", "Knee", true, exact},
+		{"rap", "Wrap", true, exact},
+		{"nome", "Gnome", true, exact},
+		{"sychology", "Psychology", true, exact},
 		// More sound-alikes
 		{"maunaloa", "Mauna Loa", true, slip},
 		{"chi kof ski", "Tchaikovsky", true, sounds},
@@ -161,5 +180,26 @@ func BenchmarkJudge(b *testing.B) {
 	heard := []string{"what is mona lowa", "mona lower", "moaner lower", "mauna lower", "mona low a"}
 	for b.Loop() {
 		Judge(heard, "Mauna Loa (in Hawaii)")
+	}
+}
+
+func TestStem(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{"exploration", "explor"}, {"exploring", "explor"}, {"explore", "explor"}, {"explored", "explor"},
+		{"caves", "cav"}, {"cave", "cav"}, {"stories", "story"}, {"1812", "1812"}, {"bus", "bus"},
+	} {
+		if got := stem(c.in); got != c.want {
+			t.Errorf("stem(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+// The strongest pairing goes first, so a loose match can't take a word a stronger one needs.
+func TestSameWordsPairsStrongestFirst(t *testing.T) {
+	if !sameWords("lake loch", "loch lake") {
+		t.Error("swapped words should pair")
+	}
+	if sameWords("lake lake", "loch lake") {
+		t.Error("one answer word can't pair twice")
 	}
 }

@@ -216,6 +216,9 @@
         "paused": {
           "type": "boolean"
         },
+        "answerStage": {
+          "$ref": "#/$defs/AnswerStage"
+        },
         "pauseReason": {
           "$ref": "#/$defs/PauseReason"
         },
@@ -409,6 +412,9 @@
         },
         "paused": {
           "type": "boolean"
+        },
+        "answerStage": {
+          "$ref": "#/$defs/AnswerStage"
         },
         "wagerMin": {
           "type": "integer",
@@ -914,6 +920,11 @@
       "description": "Why a game is paused: the host device has no socket (host_away, which wins when both hold) or no sound (host_sound).",
       "type": "string",
       "enum": ["host_away", "host_sound"]
+    },
+    "AnswerStage": {
+      "description": "While a player answers: begin (up to 6 s to start speaking, from when their microphone is listening) or finish (up to 6 s after their first word). deadlineAt is the stage's deadline.",
+      "type": "string",
+      "enum": ["begin", "finish"]
     }
   }
 }

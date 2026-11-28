@@ -39,7 +39,7 @@ export type TimerPace = "relaxed" | "standard" | "fast";
  * This interface was referenced by `Domain`'s JSON-Schema
  * via the `definition` "MatchRule".
  */
-export type MatchRule = "exact" | "spelling_slip" | "sounds_alike" | "no_match" | "nothing_heard";
+export type MatchRule = "exact" | "spelling_slip" | "sounds_alike" | "same_words" | "no_match" | "nothing_heard";
 /**
  * This interface was referenced by `Domain`'s JSON-Schema
  * via the `definition` "Round".

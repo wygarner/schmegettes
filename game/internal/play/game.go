@@ -37,6 +37,12 @@ const (
 	ProgressEvery = 250 * time.Millisecond
 	// ControlGrace is how long a disconnected controller keeps control on the board.
 	ControlGrace = 10 * time.Second
+	// The answer's two stages: up to AnswerBegin to start speaking, counted from when the
+	// player's microphone is listening (ListenWait at most after the buzz), then up to
+	// AnswerFinish after their first word. AnswerGrace is added to each stage's deadline.
+	ListenWait   = 2 * time.Second
+	AnswerBegin  = 6 * time.Second
+	AnswerFinish = 6 * time.Second
 )
 
 // Windows is a timer pace's buzz window (each reopen too) and answer time: the lobby's
@@ -227,6 +233,13 @@ type Game struct {
 	answering string
 	lockouts  map[string]time.Time
 	lastProg  time.Time
+	// The answering player's stage (begin or finish, empty when nobody answers), whether
+	// their device has said it's listening, the begin stage's latest deadline, and their
+	// latest interim transcript, judged if the finish stage runs out.
+	answerStage  contracts.AnswerStage
+	listened     bool
+	answerCap    time.Time
+	lastProgText string
 
 	deadline time.Time
 	// revealUntil is when the pick reveal ends; buzzing waits for it. sendReveal puts it on
@@ -514,6 +527,7 @@ func (g *Game) phaseChanged(host bool) contracts.PhaseChanged {
 		Type: "phase_changed", RoomId: contracts.Uuid(g.s.RoomID), Seq: 0, Phase: g.phase,
 		DeadlineAt: ms(g.deadline), AnsweringUserId: uid(g.answering),
 		AttemptedUserIds: g.attemptedList(), ControllingUserId: uid(g.control), Paused: &paused,
+		AnswerStage: g.stage(),
 	}
 	if g.active != nil {
 		bc := g.boardClue(g.active, host)
@@ -530,6 +544,15 @@ func (g *Game) phaseChanged(host bool) contracts.PhaseChanged {
 
 // emitPhase broadcasts the current phase, with the clue text for the host only. Both
 // copies share one seq.
+// stage is the answering player's stage, or nil when nobody is answering.
+func (g *Game) stage() *contracts.AnswerStage {
+	if g.step != stepAnswering || g.answering == "" || g.answerStage == "" {
+		return nil
+	}
+	s := g.answerStage
+	return &s
+}
+
 func (g *Game) emitPhase(e *Effects) {
 	seq := g.s.NextSeq()
 	all, host := g.phaseChanged(false), g.phaseChanged(true)
@@ -545,11 +568,14 @@ func (g *Game) SnapshotFields(m *contracts.RoomSnapshot, host bool) {
 	m.Board = g.Board(host)
 	m.ControllingUserId = uid(g.control)
 	m.DeadlineAt = ms(g.deadline)
-	buzz, answer := int(g.buzzWindow.Milliseconds()), int(g.answerWindow.Milliseconds())
+	// answerWindowMs is the begin stage, for older clients; answerStage and deadlineAt are
+	// the real clock.
+	buzz, answer := int(g.buzzWindow.Milliseconds()), int(AnswerBegin.Milliseconds())
 	m.BuzzWindowMs, m.AnswerWindowMs = &buzz, &answer
 	quick := g.s.QuickPicks
 	m.QuickPicks = &quick
 	m.AnsweringUserId = uid(g.answering)
+	m.AnswerStage = g.stage()
 	m.AttemptedUserIds = g.attemptedList()
 	paused := g.paused
 	m.Paused = &paused
@@ -714,8 +740,7 @@ func (g *Game) Buzz(now time.Time, user, clueID string) (Effects, error) {
 		g.answering = user
 		g.phase = contracts.GamePhaseAnswering
 		g.step = stepAnswering
-		g.lastProg = time.Time{}
-		g.deadline = now.Add(g.answerWindow + AnswerGrace)
+		g.startAnswer(now)
 		e.send(contracts.BuzzResult{
 			Type: "buzz_result", RoomId: contracts.Uuid(g.s.RoomID), Seq: g.s.NextSeq(),
 			UserId: contracts.Uuid(user), Outcome: contracts.BuzzResultOutcomeWon,
@@ -724,6 +749,40 @@ func (g *Game) Buzz(now time.Time, user, clueID string) (Effects, error) {
 		return e, nil
 	}
 	return e, ErrIgnored
+}
+
+// startAnswer opens the begin stage. Its deadline is a cap until the player's device says
+// it's listening, so a phone that never says so still gets ListenWait + AnswerBegin.
+func (g *Game) startAnswer(now time.Time) {
+	g.lastProg = time.Time{}
+	g.lastProgText = ""
+	g.answerStage = contracts.AnswerStageBegin
+	g.listened = false
+	g.answerCap = now.Add(ListenWait + AnswerBegin + AnswerGrace)
+	g.deadline = g.answerCap
+}
+
+// AnswerStatus moves the answer's stages along: listening starts the begin stage's clock,
+// and begun (the first word that isn't a filler) starts the finish stage.
+func (g *Game) AnswerStatus(now time.Time, user, clueID string, status contracts.AnswerStatusStatus) (Effects, error) {
+	var e Effects
+	if g.step != stepAnswering || user != g.answering || g.active == nil || g.active.ID != clueID || g.paused {
+		return e, ErrIgnored
+	}
+	switch {
+	case status == contracts.AnswerStatusStatusListening && g.answerStage == contracts.AnswerStageBegin && !g.listened:
+		g.listened = true
+		if d := now.Add(AnswerBegin + AnswerGrace); d.Before(g.answerCap) {
+			g.deadline = d
+		}
+	case status == contracts.AnswerStatusStatusBegun && g.answerStage == contracts.AnswerStageBegin:
+		g.answerStage = contracts.AnswerStageFinish
+		g.deadline = now.Add(AnswerFinish + AnswerGrace)
+	default:
+		return e, ErrIgnored
+	}
+	g.emitPhase(&e)
+	return e, nil
 }
 
 // Progress relays the answering player's interim transcript, at most every 250 ms.
@@ -735,6 +794,7 @@ func (g *Game) Progress(now time.Time, user, text string) (Effects, error) {
 	if g.step != stepAnswering || user != g.answering || g.paused {
 		return e, ErrIgnored
 	}
+	g.lastProgText = text // judged if the finish stage runs out before the final transcript
 	if !g.lastProg.IsZero() && now.Sub(g.lastProg) < ProgressEvery {
 		return e, ErrIgnored
 	}
@@ -778,6 +838,7 @@ func (g *Game) judge(now time.Time, e *Effects, heard []string) {
 	g.scores[user] += delta
 	g.attempted[user] = true
 	g.answering = ""
+	g.answerStage = ""
 	id := g.s.NewID()
 	e.record(Record{Kind: RecordAnswer, AnswerID: id, ClueID: c.ID, UserID: user, Answer: text, Verdict: verdict, Delta: delta,
 		Source: contracts.AnswerSourceVoice, Rule: res.Rule, Heard: heard, MatchedIndex: res.Index})
@@ -866,8 +927,13 @@ func (g *Game) Timeout(now time.Time) Effects {
 	case stepBuzzing:
 		g.endClue(now, &e, contracts.ClueStateUnanswered)
 	case stepAnswering:
-		// Silence counts as wrong, as on the show.
-		g.judge(now, &e, []string{""})
+		// Out of time while finishing: judge what was heard. Silence counts as wrong, as on
+		// the show.
+		heard := ""
+		if g.answerStage == contracts.AnswerStageFinish {
+			heard = g.lastProgText
+		}
+		g.judge(now, &e, []string{heard})
 	case stepClueEnd:
 		g.active = nil
 		g.attempted = map[string]bool{}
@@ -1051,6 +1117,7 @@ func (g *Game) pause(now time.Time) Effects {
 	// A player cut off mid-answer may try again when the clue is re-read.
 	if g.step == stepAnswering {
 		g.answering = ""
+		g.answerStage = ""
 	}
 	g.pausedAt = now
 	e.send(g.pausedMsg())

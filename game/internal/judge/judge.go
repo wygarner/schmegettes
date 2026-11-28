@@ -28,8 +28,8 @@ var abbreviations = map[string]string{"st": "saint", "mt": "mount", "dr": "docto
 var foldLetters = map[rune]string{'ø': "o", 'æ': "ae", 'œ': "oe", 'ß': "ss", 'ł': "l", 'đ': "d", 'ð': "d", 'þ': "th"}
 
 // Normalize lowercases, folds accents, strips punctuation and parenthetical hints, removes
-// question phrasing ("What is ...") and articles, expands St/Mt/Dr, and writes spoken numbers
-// as digits.
+// question phrasing ("What is ...") and articles, expands St/Mt/Dr, drops silent first
+// letters (kn, gn, wr, ps, wh), and writes spoken numbers as digits.
 func Normalize(s string) string { return normalize(s, false) }
 
 // spoken is Normalize, but filler words are dropped only at the start ("what is the ..."). An
@@ -65,7 +65,7 @@ func normalize(s string, leadingFillersOnly bool) string {
 		if full, ok := abbreviations[w]; ok {
 			w = full
 		}
-		kept = append(kept, w)
+		kept = append(kept, unsilence(w))
 	}
 	return strings.Join(foldNumbers(kept), " ")
 }
@@ -79,7 +79,8 @@ type Result struct {
 }
 
 // Judge checks each transcript in order, most likely first. The first that matches decides,
-// with the strongest rule it passed: exact, then spelling_slip, then sounds_alike.
+// with the strongest rule it passed: exact, then spelling_slip, then sounds_alike, then
+// same_words.
 func Judge(heard []string, response string) Result {
 	if allEmpty(heard) {
 		return Result{Rule: contracts.MatchRuleNothingHeard}
@@ -131,6 +132,9 @@ func match(a, r, as, rs string) (contracts.MatchRule, bool) {
 	}
 	if soundsAlike(a, r) || soundsAlike(as, rs) {
 		return contracts.MatchRuleSoundsAlike, true
+	}
+	if sameWords(a, r) {
+		return contracts.MatchRuleSameWords, true
 	}
 	return "", false
 }

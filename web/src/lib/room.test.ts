@@ -321,6 +321,31 @@ describe("overrides, the scoreboard and Rematch", () => {
     expect(s.phase).toBe("lobby");
   });
 
+  test("a rematch snapshot resets every score to $0 at once", () => {
+    let s = reduceRoom(initialRoom, {
+      type: "room_snapshot",
+      roomId: "r",
+      seq: 1,
+      phase: "finished",
+      round: "final",
+      players,
+      board: [],
+      scores: { a: 1200, b: -400 },
+    });
+    expect(s.scores).toEqual({ a: 1200, b: -400 });
+    s = reduceRoom(s, {
+      type: "room_snapshot",
+      roomId: "r",
+      seq: 2,
+      phase: "lobby",
+      round: "single",
+      players,
+      board: [],
+    });
+    expect(s.scores).toEqual({});
+    expect(s.scores.a ?? 0).toBe(0);
+  });
+
   test("a reconnect on the final scoreboard rebuilds the results from the scores", () => {
     const s = reduceRoom(initialRoom, {
       type: "room_snapshot",

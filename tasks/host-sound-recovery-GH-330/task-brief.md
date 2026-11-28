@@ -112,3 +112,6 @@ None.
 - `docs/system-docs/architecture/realtime-game-server.md` (subtask 4)
 - `docs/system-docs/operations/observability.md`: the two Faro events in "Web events"
 - `docs/product-docs/features/sound-effects/feature-brief.md` and `features/gameplay/feature-brief.md`: remove **Not yet implemented**
+
+## Branch
+`bug-fix/GH-330-host-sound-recovery`, from and into `develop`

@@ -13,8 +13,8 @@ insert into auth.users (id, email) values
   ('22222222-2222-4222-8222-222222222222', 'alice@example.test'),
   ('33333333-3333-4333-8333-333333333333', 'outsider@example.test');
 
-insert into public.host_codes (code) values ('TESTVOID');
-insert into public.hosts (user_id, code) values ('11111111-1111-4111-8111-111111111111', 'TESTVOID');
+insert into public.host_codes (code) values ('TESTVXDE');
+insert into public.hosts (user_id, code) values ('11111111-1111-4111-8111-111111111111', 'TESTVXDE');
 insert into public.profiles (user_id, display_name) values
   ('11111111-1111-4111-8111-111111111111', 'Wyatt'),
   ('22222222-2222-4222-8222-222222222222', 'Alice'),

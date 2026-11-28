@@ -28,5 +28,6 @@ Additive: the notice REST routes (#291), and `contracts_gen.go` regenerated with
 
 ## After deploy
 - **Production health** (release-strategy.md step 6), for the first time on the Grafana dashboard: uptime checks green, no new server errors, client errors, room crashes or stuck phases since the deploy annotation, no production alert firing. Then the QA-account smoke.
-- **Production health confirmed by Wyatt:** pending (the sign-off merges only after it).
+- **Deployed on 2026-11-26** by `deploy-prod.yml` run 45907386726 at `1b907a4` (the merge of #319), after Wyatt approved the `production` environment. Migrations applied; api, game and web deployed; the deployed-commit check passed for all three (`schmegettes-api-prod.fly.dev`, `schmegettes-game-prod.fly.dev`, `schmegettes.app` all report `1b907a47`); deploy annotation written to Grafana.
+- **Production health confirmed by Wyatt** on 2026-11-28, with a production play session. Its QA notes became the 2026-11-28 product briefs (#323, #324). None came from this release's changes.
 - **Post What's new** from the production Admin page using `user-release-notes.md` (release-strategy.md step 8). This is the first release with the notices feature live.

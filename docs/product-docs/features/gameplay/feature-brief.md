@@ -69,12 +69,12 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
 - The winning player's phone (or the host device, when the host buzzed) **starts listening on its own**. The player speaks their answer, with no button to hold. **Answer time** (**Not yet implemented**: `lenient-judging`; today 9 s from the buzz, and listening stops at the first pause):
   - The clock starts when the microphone is actually listening, not at the buzz, so the phone's start-up (and the iPhone's dictation chime) doesn't eat into it. The server waits at most 2 s for the phone to say it's listening.
-  - **Up to 10 s to begin.** Fillers on their own ("um", "uh", "what is…") don't count as beginning.
+  - **Up to 6 s to begin.** Fillers on their own ("um", "uh", "what is…") don't count as beginning.
   - **Once the player has begun, up to 6 s to finish.** It ends earlier when they've been quiet for 1.5 s.
-  - So a quick answer is judged as fast as today, and the longest possible answer is 16 s.
+  - So a quick answer is judged as fast as today, and the longest possible answer is 12 s.
 - "What is…" is optional. Judging is generous: small mishearings and transcription slips don't cost points ([product overview](../../architecture/product-overview.md), Principles).
 - **Correct:** the player gains the clue's value and takes control. The TV shows the correct response, and the clue is done.
-- **Answer time:** 9 s from the buzz, the same in every game (to become up to 10 s to begin and 6 s to finish, above).
+- **Answer time:** 9 s from the buzz, the same in every game (to become up to 6 s to begin and 6 s to finish, above).
 - **Incorrect:** the player loses the clue's value. Buzzing **reopens** for players who haven't tried this clue, with a fresh 9 s window. Each player gets one attempt per clue.
 - **No answer heard** within 9 s counts as incorrect, as on the show, with one exception for disconnects (Fairness below).
 - A clue ends when someone answers correctly, everyone has tried, or a buzz window closes with no buzz. Then the TV shows the correct response: a short sound plays ([sound effects](../sound-effects/feature-brief.md)), the narrator says the line ("Correct, Mauna Loa is the right answer." / "Sorry, we were looking for Mauna Loa."), and **1 s after the line ends** the TV returns to the board. If the host device never reports the end of the line, the board returns **6 s** after the clue ended at the latest. The correct-response screen does not show the clue text.
@@ -121,16 +121,6 @@ Both sides are lowercased, and punctuation, parenthetical hints ("(Abraham) Linc
 - **Final Schmegettes** uses the same rules for typed answers, so a phonetic spelling of the right answer counts.
 - Judging stays instant and on the server. The host can still override any verdict ([overrides](../scoreboard-and-overrides/feature-brief.md)).
 - **Why it was judged that way is recorded.** Every judged answer keeps which rule decided it (**exact**, **spelling slip**, **sounds alike**, **same words**, **no match**, or **nothing heard**) and every transcript the phone heard. No screen shows this. Together with host overrides ([overrides](../scoreboard-and-overrides/feature-brief.md#host-overrides)), it shows where the judge is too strict or too generous so the rules can be tuned.
-
-### Second opinion (proposed)
-
-**Not yet implemented**: `llm-answer-judge`. Whether and when to build it is undecided.
-
-- When the rules above say an answer is wrong, a language model is asked whether it means the same as the response ("The Big Apple" for New York City, "a coin collector" for Numismatist).
-- **It never slows a right answer and never adds more than 1.5 s.** If it hasn't answered in 1.5 s, or fails, the rules' verdict stands. During the wait the TV shows the answer with "Checking…".
-- It can only turn wrong into right, never right into wrong. The host can still override either way.
-- Its verdict is recorded as the rule **second opinion**, with the rules' verdict kept as the judge's original.
-- Players' answers and the response are the only things sent to the model: no names, no accounts.
 
 ### Rounds and the end
 

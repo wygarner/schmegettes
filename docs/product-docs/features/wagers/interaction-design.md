@@ -32,7 +32,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`.
 | "DAILY DOUBLE" reveal | 2 s |
 | Daily Double wager | 30 s, then $5 |
 | "Alice wagers $1,000" | 2 s |
-| Daily Double answer | From end of reading, once the microphone is listening: up to 10 s to begin, then up to 6 s to finish (**Not yet implemented**: `lenient-judging`; today until quiet, at most 9 s) |
+| Daily Double answer | From end of reading, once the microphone is listening: up to 6 s to begin, then up to 6 s to finish (**Not yet implemented**: `lenient-judging`; today until quiet, at most 9 s) |
 | "FINAL SCHMEGETTES" title | 3 s |
 | Final category on screen | Until the narrator finishes, at least 3 s |
 | Final wager | 30 s, or until every finalist locks in. Unlocked: $0 |

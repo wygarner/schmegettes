@@ -21,7 +21,7 @@ Phase names are the contract in `shared/schemas/domain.schema.json`: `board`, `c
 | Reading | The clue only, until speech ends. Fallback: 2.25 s + about 2.5 words per second + 1 s, at most 14 s for the reading part |
 | Early-buzz lockout | 250 ms |
 | Buzz window (and each reopen) | 9 s |
-| Answer | Until the player goes quiet, at most 9 s |
+| Answer | From when the microphone is listening: up to 6 s to begin, then up to 6 s to finish, ending after 1.5 s of quiet (**Not yet implemented**: `lenient-judging`; today 9 s from the buzz, ending at the first pause) |
 | Correct response on screen | Sound (under 1 s), the narrator's line, then 1 s. At most 6 s from the clue's end if the host device never reports the line's end |
 | "Double Schmegettes!" interstitial | 3 s |
 

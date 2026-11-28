@@ -52,3 +52,6 @@ None.
 ## Docs to update
 
 `docs/product-docs/features/wagers/interaction-design.md`: remove **Not yet implemented** (`wager-pad-limit`) from Number pad.
+
+## Branch
+`enhancement/GH-337-wager-pad-limit`, from and into `develop`

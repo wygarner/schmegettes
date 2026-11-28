@@ -29,21 +29,28 @@ export function WagerPad({
   onWager: (amount: number) => void;
 }) {
   const [digits, setDigits] = useState("");
+  // How many digits in a row were refused for going past the limit; it replays the shake.
+  const [refused, setRefused] = useState(0);
   const amount = digits === "" ? undefined : Number(digits);
   const inRange = amount !== undefined && amount >= min && amount <= max;
   const phone = layout === "phone";
 
+  const set = (next: string) => {
+    setRefused(0);
+    setDigits(next);
+  };
   const press = (key: string) => {
-    if (key === "⌫") setDigits((d) => d.slice(0, -1));
-    else setDigits((d) => String(Number(d + key)).slice(0, 7)); // drops leading zeros
+    if (key === "⌫") return set(digits.slice(0, -1));
+    const next = String(Number(digits + key)); // drops leading zeros
+    // A digit that would pass the limit isn't added: the amount shakes instead.
+    if (Number(next) > max) setRefused((n) => n + 1);
+    else set(next);
   };
 
   let hint = masked ? "" : `${money(min)} – ${money(max)}`;
-  const bad = amount !== undefined && !inRange;
-  if (bad) {
-    if (masked) hint = "Out of range";
-    else hint = amount > max ? `At most ${money(max)}` : `At least ${money(min)}`;
-  }
+  const bad = refused > 0 || (amount !== undefined && !inRange);
+  if (refused > 0) hint = masked ? "Over the limit" : `At most ${money(max)}`;
+  else if (bad) hint = masked ? "Out of range" : `At least ${money(min)}`;
 
   const key = (label: string, onClick: () => void, name = label) => (
     <UnstyledButton
@@ -73,7 +80,9 @@ export function WagerPad({
   const display = (
     <div style={{ textAlign: phone ? "center" : "left" }}>
       <output
+        key={refused}
         aria-label="Wager amount"
+        className={refused > 0 ? "sg-shake" : undefined}
         style={{
           display: "block",
           fontFamily: DISPLAY,
@@ -96,8 +105,8 @@ export function WagerPad({
   );
   const minMax = (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-      {key("Min", () => setDigits(String(min)))}
-      {key("Max", () => setDigits(String(max)))}
+      {key("Min", () => set(String(min)))}
+      {key("Max", () => set(String(max)))}
     </div>
   );
   const pad = (

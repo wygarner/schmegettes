@@ -11,8 +11,10 @@ export type ClientMessage =
   | SelectClue
   | VoicePickMissed
   | ReadingDone
+  | HostSound
   | Buzz
   | AnswerProgress
+  | AnswerStatus
   | SubmitAnswer
   | SubmitWager
   | OverrideVerdict
@@ -75,6 +77,13 @@ export interface ReadingDone {
   clueId: string;
 }
 /**
+ * Host only. The host device's sound stopped (on: false: the page was hidden, or audio couldn't resume without a tap) or came back (on: true). The game is paused while the host device has no sound.
+ */
+export interface HostSound {
+  type: "host_sound";
+  on: boolean;
+}
+/**
  * clientSentAt is advisory only; the server orders buzzes by its own receive time, with lockout for early buzzes.
  */
 export interface Buzz {
@@ -92,6 +101,14 @@ export interface AnswerProgress {
   type: "answer_progress";
   clueId: string;
   text: string;
+}
+/**
+ * The answering player's device started listening (listening), or heard the first word that isn't a filler (begun). Drives the two answer stages: up to 6 s to begin, then up to 6 s to finish.
+ */
+export interface AnswerStatus {
+  type: "answer_status";
+  clueId: string;
+  status: "listening" | "begun";
 }
 export interface SubmitAnswer {
   type: "submit_answer";

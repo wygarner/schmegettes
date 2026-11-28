@@ -8,19 +8,23 @@ export const PICK_BLINK_MS = 600;
 
 /** How long buzzing stays open (and each reopen). */
 export const BUZZ_WINDOW_MS = 9000;
-/** How long a phone listens for an answer. */
-export const ANSWER_MS = 9000;
-/** How long the server waits after that for the final transcript. */
+/** Answering has two stages (play.AnswerBegin, play.AnswerFinish): up to 6 s to begin, from
+ * when the microphone is listening, then up to 6 s after the first word. */
+export const ANSWER_BEGIN_MS = 6000;
+export const ANSWER_FINISH_MS = 6000;
+/** How long the server waits after each stage for the final transcript. */
 export const ANSWER_GRACE_MS = 1500;
-/** The answering countdown: the server's whole answer deadline. */
-export const ANSWER_TOTAL_MS = ANSWER_MS + ANSWER_GRACE_MS;
+/** Listening ends this long after the last new words, once the player has begun. */
+export const ANSWER_QUIET_MS = 1500;
+
+/** The answering countdown's full length for a stage: the server's deadline for it. */
+export function answerStageMs(stage: "begin" | "finish" | undefined): number {
+  return (stage === "finish" ? ANSWER_FINISH_MS : ANSWER_BEGIN_MS) + ANSWER_GRACE_MS;
+}
 
 /** This game's windows (the lobby's timer pace, from the snapshot); Standard when unknown. */
 export function buzzWindowMs(s: { buzzWindowMs?: number }): number {
   return s.buzzWindowMs ?? BUZZ_WINDOW_MS;
-}
-export function answerMs(s: { answerWindowMs?: number }): number {
-  return s.answerWindowMs ?? ANSWER_MS;
 }
 
 // Wagers (docs/product-docs/features/wagers/interaction-design.md, "Timing").

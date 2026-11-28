@@ -63,6 +63,30 @@ type AnswerSource string
 const AnswerSourceTyped AnswerSource = "typed"
 const AnswerSourceVoice AnswerSource = "voice"
 
+type AnswerStage string
+
+const AnswerStageBegin AnswerStage = "begin"
+const AnswerStageFinish AnswerStage = "finish"
+
+// The answering player's device started listening (listening), or heard the first
+// word that isn't a filler (begun). Drives the two answer stages: up to 6 s to
+// begin, then up to 6 s to finish.
+type AnswerStatus struct {
+	// ClueId corresponds to the JSON schema field "clueId".
+	ClueId Uuid `json:"clueId" yaml:"clueId" mapstructure:"clueId"`
+
+	// Status corresponds to the JSON schema field "status".
+	Status AnswerStatusStatus `json:"status" yaml:"status" mapstructure:"status"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
+
+type AnswerStatusStatus string
+
+const AnswerStatusStatusBegun AnswerStatusStatus = "begun"
+const AnswerStatusStatusListening AnswerStatusStatus = "listening"
+
 type AppealAnswer struct {
 	// AnswerId corresponds to the JSON schema field "answerId".
 	AnswerId Uuid `json:"answerId" yaml:"answerId" mapstructure:"answerId"`
@@ -206,6 +230,7 @@ type Error struct {
 type ErrorCode string
 
 const ErrorCodeAlreadyAttempted ErrorCode = "already_attempted"
+const ErrorCodeAnswerVoided ErrorCode = "answer_voided"
 const ErrorCodeGameStarted ErrorCode = "game_started"
 const ErrorCodeInternal ErrorCode = "internal"
 const ErrorCodeInvalidMessage ErrorCode = "invalid_message"
@@ -278,10 +303,14 @@ type GameOverResultsElem struct {
 	UserId Uuid `json:"userId" yaml:"userId" mapstructure:"userId"`
 }
 
-// The host device left (paused) or came back (resumed). Timers stop while paused.
+// The game paused or resumed. Timers stop while paused. reason says why, when
+// paused: the host device left (host_away) or has no sound (host_sound).
 type GamePaused struct {
 	// Paused corresponds to the JSON schema field "paused".
 	Paused bool `json:"paused" yaml:"paused" mapstructure:"paused"`
+
+	// Reason corresponds to the JSON schema field "reason".
+	Reason *PauseReason `json:"reason,omitempty" yaml:"reason,omitempty" mapstructure:"reason,omitempty"`
 
 	// RoomId corresponds to the JSON schema field "roomId".
 	RoomId Uuid `json:"roomId" yaml:"roomId" mapstructure:"roomId"`
@@ -313,6 +342,17 @@ type GameStatus string
 const GameStatusAbandoned GameStatus = "abandoned"
 const GameStatusFinished GameStatus = "finished"
 const GameStatusInProgress GameStatus = "in_progress"
+
+// Host only. The host device's sound stopped (on: false: the page was hidden, or
+// audio couldn't resume without a tap) or came back (on: true). The game is paused
+// while the host device has no sound.
+type HostSound struct {
+	// On corresponds to the JSON schema field "on".
+	On bool `json:"on" yaml:"on" mapstructure:"on"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
 
 type ImportClueSeason struct {
 	// EnqueuedAt corresponds to the JSON schema field "enqueuedAt".
@@ -392,6 +432,7 @@ type MatchRule string
 const MatchRuleExact MatchRule = "exact"
 const MatchRuleNoMatch MatchRule = "no_match"
 const MatchRuleNothingHeard MatchRule = "nothing_heard"
+const MatchRuleSameWords MatchRule = "same_words"
 const MatchRuleSoundsAlike MatchRule = "sounds_alike"
 const MatchRuleSpellingSlip MatchRule = "spelling_slip"
 
@@ -440,9 +481,17 @@ type OverrideVerdict struct {
 	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
 }
 
+type PauseReason string
+
+const PauseReasonHostAway PauseReason = "host_away"
+const PauseReasonHostSound PauseReason = "host_sound"
+
 type PhaseChanged struct {
 	// ActiveClue corresponds to the JSON schema field "activeClue".
 	ActiveClue *BoardClue `json:"activeClue,omitempty" yaml:"activeClue,omitempty" mapstructure:"activeClue,omitempty"`
+
+	// AnswerStage corresponds to the JSON schema field "answerStage".
+	AnswerStage *AnswerStage `json:"answerStage,omitempty" yaml:"answerStage,omitempty" mapstructure:"answerStage,omitempty"`
 
 	// AnsweringUserId corresponds to the JSON schema field "answeringUserId".
 	AnsweringUserId *Uuid `json:"answeringUserId,omitempty" yaml:"answeringUserId,omitempty" mapstructure:"answeringUserId,omitempty"`
@@ -613,6 +662,9 @@ type RoomSnapshot struct {
 	// ActiveClueId corresponds to the JSON schema field "activeClueId".
 	ActiveClueId *Uuid `json:"activeClueId,omitempty" yaml:"activeClueId,omitempty" mapstructure:"activeClueId,omitempty"`
 
+	// AnswerStage corresponds to the JSON schema field "answerStage".
+	AnswerStage *AnswerStage `json:"answerStage,omitempty" yaml:"answerStage,omitempty" mapstructure:"answerStage,omitempty"`
+
 	// How long this game's players have to say an answer, from its timer pace. Absent
 	// before a game starts.
 	AnswerWindowMs *int `json:"answerWindowMs,omitempty" yaml:"answerWindowMs,omitempty" mapstructure:"answerWindowMs,omitempty"`
@@ -669,6 +721,9 @@ type RoomSnapshot struct {
 
 	// The host is reviewing a verdict; the clock is paused.
 	OverrideReview *bool `json:"overrideReview,omitempty" yaml:"overrideReview,omitempty" mapstructure:"overrideReview,omitempty"`
+
+	// PauseReason corresponds to the JSON schema field "pauseReason".
+	PauseReason *PauseReason `json:"pauseReason,omitempty" yaml:"pauseReason,omitempty" mapstructure:"pauseReason,omitempty"`
 
 	// Paused corresponds to the JSON schema field "paused".
 	Paused *bool `json:"paused,omitempty" yaml:"paused,omitempty" mapstructure:"paused,omitempty"`
@@ -915,6 +970,10 @@ type VerdictOverridden struct {
 
 	// Verdict corresponds to the JSON schema field "verdict".
 	Verdict Verdict `json:"verdict" yaml:"verdict" mapstructure:"verdict"`
+
+	// Later answers on the clue this override changed: voided by an override to
+	// correct, or restored when it's flipped back.
+	Voided []VerdictOverriddenVoidedElem `json:"voided,omitempty" yaml:"voided,omitempty" mapstructure:"voided,omitempty"`
 }
 
 const VerdictOverriddenCorrect Verdict = "overridden_correct"
@@ -922,6 +981,22 @@ const VerdictOverriddenIncorrect Verdict = "overridden_incorrect"
 
 // userId -> score after the override.
 type VerdictOverriddenScores map[string]int
+
+type VerdictOverriddenVoidedElem struct {
+	// AnswerId corresponds to the JSON schema field "answerId".
+	AnswerId Uuid `json:"answerId" yaml:"answerId" mapstructure:"answerId"`
+
+	// ScoreDelta corresponds to the JSON schema field "scoreDelta".
+	ScoreDelta int `json:"scoreDelta" yaml:"scoreDelta" mapstructure:"scoreDelta"`
+
+	// UserId corresponds to the JSON schema field "userId".
+	UserId Uuid `json:"userId" yaml:"userId" mapstructure:"userId"`
+
+	// Verdict corresponds to the JSON schema field "verdict".
+	Verdict Verdict `json:"verdict" yaml:"verdict" mapstructure:"verdict"`
+}
+
+const VerdictVoided Verdict = "voided"
 
 // A spoken pick that the phone could not match. Logged by the server only; it
 // never changes game state or broadcasts.

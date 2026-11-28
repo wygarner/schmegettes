@@ -21,6 +21,10 @@ type judged struct {
 	// judgeVerdict and rule are the judge's verdict and why; an override never changes them.
 	judgeVerdict contracts.Verdict
 	rule         contracts.MatchRule
+	// prevVerdict and prevDelta are what a voided answer was before an earlier answer on
+	// the clue was overridden to correct, so flipping that override back restores it.
+	prevVerdict contracts.Verdict
+	prevDelta   int
 }
 
 func (a *judged) correct() bool {
@@ -111,6 +115,9 @@ func (g *Game) Override(now time.Time, user, answerID string, correct bool) (Eff
 	if a == nil {
 		return e, reject(contracts.ErrorCodeUnknownAnswer)
 	}
+	if a.verdict == contracts.VerdictVoided {
+		return e, reject(contracts.ErrorCodeAnswerVoided)
+	}
 	if a.correct() == correct {
 		return e, ErrIgnored
 	}
@@ -121,22 +128,56 @@ func (g *Game) Override(now time.Time, user, answerID string, correct bool) (Eff
 	g.scores[a.user] += delta - a.delta
 	a.verdict, a.delta = verdict, delta
 
-	if g.step == stepClueEnd && !g.ddActive() {
+	// On a regular clue an override to correct ends the clue there: the answers after it
+	// only happened because of the judge's mistake, so they don't count. Flipping it back
+	// restores them as they were.
+	var changed []*judged
+	regular := g.step == stepClueEnd && !g.ddActive()
+	if regular {
+		after := false
+		for _, x := range answers {
+			if x == a {
+				after = true
+				continue
+			}
+			if !after {
+				continue
+			}
+			switch {
+			case correct && x.verdict != contracts.VerdictVoided:
+				x.prevVerdict, x.prevDelta = x.verdict, x.delta
+				g.scores[x.user] -= x.delta
+				x.verdict, x.delta = contracts.VerdictVoided, 0
+				changed = append(changed, x)
+			case !correct && x.verdict == contracts.VerdictVoided:
+				x.verdict, x.delta = x.prevVerdict, x.prevDelta
+				g.scores[x.user] += x.delta
+				changed = append(changed, x)
+			}
+		}
 		g.control = g.controlAtPick
 		for _, x := range answers {
 			if x.correct() {
-				g.control = x.user // the latest correct answer wins
+				g.control = x.user // the latest counted correct answer wins
 			}
 		}
 	}
 
 	e.record(Record{Kind: UpdateVerdict, AnswerID: a.id, UserID: a.user, Verdict: verdict, Delta: delta,
 		JudgeVerdict: a.judgeVerdict, Rule: a.rule})
+	var others []contracts.VerdictOverriddenVoidedElem
+	for _, x := range changed {
+		e.record(Record{Kind: UpdateVerdict, AnswerID: x.id, UserID: x.user, Verdict: x.verdict, Delta: x.delta,
+			JudgeVerdict: x.judgeVerdict, Rule: x.rule})
+		others = append(others, contracts.VerdictOverriddenVoidedElem{
+			AnswerId: contracts.Uuid(x.id), UserId: contracts.Uuid(x.user), Verdict: x.verdict, ScoreDelta: x.delta,
+		})
+	}
 	e.send(contracts.VerdictOverridden{
 		Type: "verdict_overridden", RoomId: contracts.Uuid(g.s.RoomID), Seq: g.s.NextSeq(),
 		AnswerId: contracts.Uuid(a.id), UserId: contracts.Uuid(a.user), Verdict: verdict, ScoreDelta: delta,
 		Scores: contracts.VerdictOverriddenScores(g.Scores()), ControllingUserId: uid(g.control),
-		DeadlineAt: ms(g.deadline),
+		DeadlineAt: ms(g.deadline), Voided: others,
 	})
 	return e, nil
 }

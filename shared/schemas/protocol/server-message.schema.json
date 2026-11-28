@@ -216,6 +216,12 @@
         "paused": {
           "type": "boolean"
         },
+        "answerStage": {
+          "$ref": "#/$defs/AnswerStage"
+        },
+        "pauseReason": {
+          "$ref": "#/$defs/PauseReason"
+        },
         "wagerMin": {
           "type": "integer",
           "description": "Daily Double: the lowest wager the picker may make ($5). Public."
@@ -406,6 +412,9 @@
         },
         "paused": {
           "type": "boolean"
+        },
+        "answerStage": {
+          "$ref": "#/$defs/AnswerStage"
         },
         "wagerMin": {
           "type": "integer",
@@ -715,7 +724,7 @@
       "additionalProperties": false
     },
     "GamePaused": {
-      "description": "The host device left (paused) or came back (resumed). Timers stop while paused.",
+      "description": "The game paused or resumed. Timers stop while paused. reason says why, when paused: the host device left (host_away) or has no sound (host_sound).",
       "type": "object",
       "properties": {
         "type": {
@@ -730,6 +739,9 @@
         },
         "paused": {
           "type": "boolean"
+        },
+        "reason": {
+          "$ref": "#/$defs/PauseReason"
         }
       },
       "required": ["type", "roomId", "seq", "paused"],
@@ -780,7 +792,8 @@
             "invalid_wager",
             "not_a_finalist",
             "unknown_answer",
-            "not_a_host"
+            "not_a_host",
+            "answer_voided"
           ]
         },
         "message": {
@@ -830,6 +843,29 @@
         "deadlineAt": {
           "type": "integer",
           "description": "Server ms when the current step ends; absent while the review is open."
+        },
+        "voided": {
+          "type": "array",
+          "description": "Later answers on the clue this override changed: voided by an override to correct, or restored when it's flipped back.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "answerId": {
+                "$ref": "../domain.schema.json#/$defs/Uuid"
+              },
+              "userId": {
+                "$ref": "../domain.schema.json#/$defs/Uuid"
+              },
+              "verdict": {
+                "$ref": "../domain.schema.json#/$defs/Verdict"
+              },
+              "scoreDelta": {
+                "type": "integer"
+              }
+            },
+            "required": ["answerId", "userId", "verdict", "scoreDelta"],
+            "additionalProperties": false
+          }
         }
       },
       "required": ["type", "roomId", "seq", "answerId", "userId", "verdict", "scoreDelta", "scores"],
@@ -879,6 +915,16 @@
       },
       "required": ["type", "serverTime"],
       "additionalProperties": false
+    },
+    "PauseReason": {
+      "description": "Why a game is paused: the host device has no socket (host_away, which wins when both hold) or no sound (host_sound).",
+      "type": "string",
+      "enum": ["host_away", "host_sound"]
+    },
+    "AnswerStage": {
+      "description": "While a player answers: begin (up to 6 s to start speaking, from when their microphone is listening) or finish (up to 6 s after their first word). deadlineAt is the stage's deadline.",
+      "type": "string",
+      "enum": ["begin", "finish"]
     }
   }
 }

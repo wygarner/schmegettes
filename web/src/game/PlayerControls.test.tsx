@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { initialRoom, type RoomState } from "../lib/room";
 import { type Recognizer, setRecognizerFactory } from "../lib/speech";
 import { PlayerControls } from "./PlayerControls";
-import { ANSWER_MS, PICK_REVEAL_MS } from "./timing";
+import { ANSWER_QUIET_MS, PICK_REVEAL_MS } from "./timing";
 
 const me = "me";
 const clue = { clueId: "c1", category: "SCIENCE", value: 400, state: "active" as const };
@@ -176,20 +176,40 @@ test("the recognizer's other guesses go with the answer", () => {
   });
 });
 
-test("listening stops after ANSWER_MS (9 s)", () => {
+test("a pause before answering doesn't stop listening; 1.5 s of quiet after words does", () => {
   vi.useFakeTimers();
   try {
     const open: RoomState = { ...base, phase: "buzzing_open", activeClue: clue };
-    const { update } = setup(open);
+    const { send, update } = setup(open);
     fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
-    update({ ...open, phase: "answering", answeringUserId: me });
-    vi.advanceTimersByTime(ANSWER_MS - 100);
+    act(() => rec.onStart?.()); // listening before the server confirms: reported once it does
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "answer_status" }));
+    update({ ...open, phase: "answering", answeringUserId: me, answerStage: "begin" });
+    expect(send).toHaveBeenCalledWith({ type: "answer_status", clueId: "c1", status: "listening" });
+
+    // Thinking out loud isn't beginning, and no timer stops the microphone.
+    act(() => rec.onInterim?.("um"));
+    act(() => vi.advanceTimersByTime(20_000));
     expect(rec.stopped).toBe(0);
-    vi.advanceTimersByTime(100);
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ status: "begun" }));
+
+    act(() => rec.onInterim?.("um nitrogen"));
+    expect(send).toHaveBeenCalledWith({ type: "answer_status", clueId: "c1", status: "begun" });
+    act(() => vi.advanceTimersByTime(ANSWER_QUIET_MS - 100));
+    act(() => rec.onInterim?.("um nitrogen gas")); // still talking: the quiet timer restarts
+    act(() => vi.advanceTimersByTime(ANSWER_QUIET_MS - 100));
+    expect(rec.stopped).toBe(0);
+    act(() => vi.advanceTimersByTime(100));
     expect(rec.stopped).toBe(1);
+    expect(send.mock.calls.filter(([m]) => m.type === "answer_status")).toHaveLength(2);
   } finally {
     vi.useRealTimers();
   }
+});
+
+test("the countdown says when the player is finishing", () => {
+  setup({ ...base, phase: "answering", activeClue: clue, answeringUserId: me, answerStage: "finish" });
+  expect(screen.getByText("Finishing…")).toBeInTheDocument();
 });
 
 test("losing the buzz throws the recording away", () => {
@@ -207,6 +227,11 @@ test("an early buzz doesn't open the microphone", () => {
   setup({ ...base, phase: "clue_reading", activeClue: clue });
   fireEvent.click(screen.getByRole("button", { name: "Buzz" }));
   expect(rec.started).toBe(0);
+});
+
+test("paused because the TV has no sound", () => {
+  setup({ ...base, phase: "buzzing_open", activeClue: clue, paused: true, pauseReason: "host_sound" });
+  expect(screen.getByText("Waiting for the TV's sound…")).toBeInTheDocument();
 });
 
 test("paused and game over", () => {
@@ -265,6 +290,23 @@ test("while the host reviews my answer, and after an override", () => {
   expect(screen.getByText("HOST OVERRIDE")).toBeInTheDocument();
   expect(screen.getByText("+$400")).toBeInTheDocument();
   expect(screen.getByText("Wyatt changed your answer to correct.")).toBeInTheDocument();
+});
+
+test("my answer voided by an override says it doesn't count", () => {
+  setup({
+    ...base,
+    hostDisplayName: "Wyatt",
+    phase: "buzzing_open",
+    activeClue: clue,
+    clueEnd: { state: "answered" },
+    answers: [
+      { answerId: "a0", userId: "bob", answer: "crack a toe a", verdict: "overridden_correct", delta: 400 },
+      { answerId: "a1", userId: me, answer: "krakatoa", verdict: "voided", delta: 0 },
+    ],
+    lastOverride: { answerId: "a0", userId: "bob", answer: "crack a toe a", verdict: "overridden_correct", delta: 400 },
+  });
+  expect(screen.getByText("DOESN'T COUNT")).toBeInTheDocument();
+  expect(screen.getByText("Doesn't count: the host overrode an earlier answer.")).toBeInTheDocument();
 });
 
 test("no lit buzzer once the clue has ended or between rounds", () => {

@@ -22,6 +22,14 @@ export type ServerMessage =
   | TimerTick
   | Error
   | Pong;
+/**
+ * While a player answers: begin (up to 6 s to start speaking, from when their microphone is listening) or finish (up to 6 s after their first word). deadlineAt is the stage's deadline.
+ */
+export type AnswerStage = "begin" | "finish";
+/**
+ * Why a game is paused: the host device has no socket (host_away, which wins when both hold) or no sound (host_sound).
+ */
+export type PauseReason = "host_away" | "host_sound";
 
 /**
  * Full state, sent on connect and reconnect. In the lobby, round is single, board is empty, and the lobby fields are present.
@@ -75,6 +83,8 @@ export interface RoomSnapshot {
   answeringUserId?: string;
   attemptedUserIds?: string[];
   paused?: boolean;
+  answerStage?: AnswerStage;
+  pauseReason?: PauseReason;
   /**
    * Daily Double: the lowest wager the picker may make ($5). Public.
    */
@@ -119,9 +129,9 @@ export interface RoomSnapshot {
     userId: string;
     answer: string;
     /**
-     * correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+     * correct/incorrect from the judge; overridden when the host changes a verdict; voided for an answer given after an earlier answer on the clue was overridden to correct (it scores 0); appeal_pending while the worker's appeal judge decides.
      */
-    verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
+    verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "voided" | "appeal_pending";
     scoreDelta: number;
   }[];
   /**
@@ -231,6 +241,7 @@ export interface PhaseChanged {
   attemptedUserIds?: string[];
   controllingUserId?: string;
   paused?: boolean;
+  answerStage?: AnswerStage;
   /**
    * Daily Double: the lowest wager the picker may make ($5). Public.
    */
@@ -272,9 +283,9 @@ export interface AnswerJudged {
   userId: string;
   answer: string;
   /**
-   * correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+   * correct/incorrect from the judge; overridden when the host changes a verdict; voided for an answer given after an earlier answer on the clue was overridden to correct (it scores 0); appeal_pending while the worker's appeal judge decides.
    */
-  verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
+  verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "voided" | "appeal_pending";
   /**
    * Sent only to the host device (the TV).
    */
@@ -301,9 +312,9 @@ export interface VerdictOverridden {
   answerId: string;
   userId: string;
   /**
-   * correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+   * correct/incorrect from the judge; overridden when the host changes a verdict; voided for an answer given after an earlier answer on the clue was overridden to correct (it scores 0); appeal_pending while the worker's appeal judge decides.
    */
-  verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
+  verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "voided" | "appeal_pending";
   /**
    * The answer's new score change.
    */
@@ -319,6 +330,18 @@ export interface VerdictOverridden {
    * Server ms when the current step ends; absent while the review is open.
    */
   deadlineAt?: number;
+  /**
+   * Later answers on the clue this override changed: voided by an override to correct, or restored when it's flipped back.
+   */
+  voided?: {
+    answerId: string;
+    userId: string;
+    /**
+     * correct/incorrect from the judge; overridden when the host changes a verdict; voided for an answer given after an earlier answer on the clue was overridden to correct (it scores 0); appeal_pending while the worker's appeal judge decides.
+     */
+    verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "voided" | "appeal_pending";
+    scoreDelta: number;
+  }[];
 }
 /**
  * The host opened or closed a verdict review. While open, the clock is paused and the reviewed players' phones say so.
@@ -423,13 +446,14 @@ export interface GameOver {
   finishedAt?: number;
 }
 /**
- * The host device left (paused) or came back (resumed). Timers stop while paused.
+ * The game paused or resumed. Timers stop while paused. reason says why, when paused: the host device left (host_away) or has no sound (host_sound).
  */
 export interface GamePaused {
   type: "game_paused";
   roomId: string;
   seq: number;
   paused: boolean;
+  reason?: PauseReason;
 }
 /**
  * Sent at most once per second. Clients render from deadlineAt and use ticks only to correct drift.
@@ -457,7 +481,8 @@ export interface Error {
     | "invalid_wager"
     | "not_a_finalist"
     | "unknown_answer"
-    | "not_a_host";
+    | "not_a_host"
+    | "answer_voided";
   message?: string;
 }
 export interface Pong {

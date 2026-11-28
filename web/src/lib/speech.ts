@@ -31,7 +31,11 @@ export function finalAnnouncement(category: string): string {
   return `The Final Schmegettes category is: ${category}.`;
 }
 
-/** A one-shot listener: interim text while the player talks, then one final result. */
+/**
+ * A listener: interim text while the player talks, then one final result when stop() is
+ * called. A pause doesn't end it: when the browser stops listening on its own, it starts
+ * again and keeps what was heard (lenient-judging).
+ */
 export interface Recognizer {
   start(): void;
   stop(): void;
@@ -99,21 +103,35 @@ function browserRecognition(): RecognitionConstructor | undefined {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition;
 }
 
+/** How many times a recognizer starts again after the browser stops it on its own. */
+export const MAX_RESTARTS = 8;
+
+const join = (a: string, b: string) => [a, b].filter(Boolean).join(" ");
+
 function createBrowserRecognizer(): Recognizer | null {
   const Recognition = browserRecognition();
   if (!Recognition) return null;
   const rec = new Recognition();
   rec.lang = "en-US";
-  rec.continuous = false; // ends on its own when the player goes quiet
+  rec.continuous = true; // keep listening through a pause; stop() ends it
   rec.interimResults = true;
   rec.maxAlternatives = MAX_ALTERNATIVES + 1;
 
+  // heard: what earlier listening sessions heard, before the browser stopped on its own.
+  let heard = "";
   let transcript = "";
   let alternatives: string[] = [];
+  let stopping = false;
+  let denied = false;
+  let started = false;
+  let restarts = 0;
   let done = false;
   const recognizer: Recognizer = {
     start: () => rec.start(),
-    stop: () => rec.stop(),
+    stop: () => {
+      stopping = true;
+      rec.stop();
+    },
     abort: () => {
       done = true;
       rec.abort();
@@ -121,7 +139,9 @@ function createBrowserRecognizer(): Recognizer | null {
     },
   };
   rec.onresult = (e) => {
-    ({ text: transcript, alternatives } = transcripts(e.results));
+    const now = transcripts(e.results);
+    transcript = join(heard, now.text);
+    alternatives = now.alternatives.map((a) => join(heard, a));
     recognizer.onInterim?.(transcript);
   };
   const finish = () => {
@@ -131,11 +151,31 @@ function createBrowserRecognizer(): Recognizer | null {
     restorePlaybackSession();
     recognizer.onFinal?.(transcript, alternatives);
   };
-  rec.onstart = () => recognizer.onStart?.();
-  rec.onend = finish;
-  rec.onerror = (e) => {
-    if (e.error === "not-allowed" || e.error === "service-not-allowed") recognizer.onDenied?.();
+  rec.onstart = () => {
+    if (started) return; // a restart: the player already knows we're listening
+    started = true;
+    recognizer.onStart?.();
+  };
+  rec.onend = () => {
+    // The browser stopped on its own (a pause, or its own time limit): listen again.
+    if (!stopping && !denied && !done && restarts < MAX_RESTARTS) {
+      restarts++;
+      heard = transcript;
+      try {
+        rec.start();
+        return;
+      } catch {
+        // can't start again: finish with what was heard
+      }
+    }
     finish();
+  };
+  rec.onerror = (e) => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      denied = true;
+      recognizer.onDenied?.();
+    }
+    // onend follows and decides whether to listen again.
   };
   return recognizer;
 }

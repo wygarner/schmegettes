@@ -394,6 +394,11 @@ func (r *Room) tick(ctx context.Context) bool {
 		r.cfg.Now().Sub(r.hostGoneAt) >= r.cfg.HostAbsence {
 		return r.abandon(ctx)
 	}
+	// Paused because the host device has no sound counts the same as no host device.
+	if r.game != nil && !r.game.Over() && r.game.SoundOff() && !r.game.PausedAt().IsZero() &&
+		r.cfg.Now().Sub(r.game.PausedAt()) >= r.cfg.HostAbsence {
+		return r.abandon(ctx)
+	}
 	if r.phase == contracts.GamePhaseLobby && !r.hostGoneAt.IsZero() &&
 		r.cfg.Now().Sub(r.hostGoneAt) >= r.cfg.HostAbsence {
 		if err := r.store.Close(ctx, r.id); err != nil {

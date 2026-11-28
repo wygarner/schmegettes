@@ -397,6 +397,25 @@ func (r *Room) handleGame(ctx context.Context, c *Client, kind string, data []by
 			return true
 		}
 		e, err = r.game.ReadingDone(now, c.UserID, string(m.ClueId))
+	case "host_sound":
+		var m contracts.HostSound
+		if !decode(data, &m) {
+			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+			return true
+		}
+		if r.game == nil {
+			return true // the lobby: Start is a tap, which turns sound on
+		}
+		wasPaused := r.game.Paused()
+		e, err = r.game.HostSound(now, c.UserID, m.On)
+		if err == nil {
+			switch {
+			case !wasPaused && r.game.Paused():
+				r.log.Info("game paused", "game_id", r.gameID, "reason", r.game.PauseReason())
+			case wasPaused && !r.game.Paused():
+				r.log.Info("game resumed", "game_id", r.gameID, "reason", contracts.PauseReasonHostSound)
+			}
+		}
 	case "buzz":
 		var m contracts.Buzz
 		if !decode(data, &m) {
@@ -425,6 +444,19 @@ func (r *Room) handleGame(ctx context.Context, c *Client, kind string, data []by
 			return true
 		}
 		e, err = r.game.Progress(now, c.UserID, clip(m.Text))
+	case "answer_status":
+		var m contracts.AnswerStatus
+		if !decode(data, &m) {
+			r.fail(c, contracts.ErrorCodeInvalidMessage, "")
+			return true
+		}
+		if r.game == nil {
+			return true
+		}
+		e, err = r.game.AnswerStatus(now, c.UserID, string(m.ClueId), m.Status)
+		if err == nil {
+			r.log.Debug("answer status", "game_id", r.gameID, "user_id", c.UserID, "status", m.Status)
+		}
 	case "submit_answer":
 		var m contracts.SubmitAnswer
 		if !decode(data, &m) {

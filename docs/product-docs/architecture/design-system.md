@@ -138,6 +138,8 @@ Confirmations and reviews open as a sheet inside the screen: centered on the hos
 
 A slim top bar ("ROOM K7RXM" on the left, my score in Oswald on the right), the content, and the buzzer pinned to the bottom. Big headlines are Oswald 600, 34 px ("Alice is picking…", "Listen…", "Look at the TV."). Moments are bigger and in the accent green ("DAILY DOUBLE!", "BUZZ IN!").
 
+**The on-screen keyboard.** Screens are sized to the visible height (`100dvh`), and on Android the page asks the browser to shrink the layout when the keyboard opens (`interactive-widget=resizes-content` in the viewport tag), so a field being typed in and its button stay above the keyboard. A fixed-height area that holds a text field must scroll (`overflow: auto`), never clip.
+
 ## Menu screens
 
 Home, My games, Account and the sheets they open. Calmer than the game screens: one green button per screen, quiet surfaces, native-feeling lists. Game screens keep the look above.

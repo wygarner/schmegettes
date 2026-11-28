@@ -11,8 +11,10 @@
     { "$ref": "#/$defs/SelectClue" },
     { "$ref": "#/$defs/VoicePickMissed" },
     { "$ref": "#/$defs/ReadingDone" },
+    { "$ref": "#/$defs/HostSound" },
     { "$ref": "#/$defs/Buzz" },
     { "$ref": "#/$defs/AnswerProgress" },
+    { "$ref": "#/$defs/AnswerStatus" },
     { "$ref": "#/$defs/SubmitAnswer" },
     { "$ref": "#/$defs/SubmitWager" },
     { "$ref": "#/$defs/OverrideVerdict" },
@@ -96,6 +98,16 @@
       "required": ["type", "clueId"],
       "additionalProperties": false
     },
+    "HostSound": {
+      "description": "Host only. The host device's sound stopped (on: false: the page was hidden, or audio couldn't resume without a tap) or came back (on: true). The game is paused while the host device has no sound.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "host_sound" },
+        "on": { "type": "boolean" }
+      },
+      "required": ["type", "on"],
+      "additionalProperties": false
+    },
     "Buzz": {
       "description": "clientSentAt is advisory only; the server orders buzzes by its own receive time, with lockout for early buzzes.",
       "type": "object",
@@ -116,6 +128,17 @@
         "text": { "type": "string", "maxLength": 200 }
       },
       "required": ["type", "clueId", "text"],
+      "additionalProperties": false
+    },
+    "AnswerStatus": {
+      "description": "The answering player's device started listening (listening), or heard the first word that isn't a filler (begun). Drives the two answer stages: up to 6 s to begin, then up to 6 s to finish.",
+      "type": "object",
+      "properties": {
+        "type": { "const": "answer_status" },
+        "clueId": { "$ref": "../domain.schema.json#/$defs/Uuid" },
+        "status": { "enum": ["listening", "begun"] }
+      },
+      "required": ["type", "clueId", "status"],
       "additionalProperties": false
     },
     "SubmitAnswer": {

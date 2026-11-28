@@ -211,6 +211,27 @@ func TestAbandonAfterHostAbsence(t *testing.T) {
 	}
 }
 
+func TestHostSoundPausesAndAbandonsAfterHostAbsence(t *testing.T) {
+	f, host, a, _ := startedGame(t)
+	a.send(map[string]any{"type": "host_sound", "on": false})
+	if m := a.until("error"); m.Code != "not_host" {
+		t.Fatalf("a phone's host_sound: code %q", m.Code)
+	}
+	host.send(map[string]any{"type": "host_sound", "on": false})
+	if m, _ := a.raw("game_paused"); !m.Paused || m.Reason != "host_sound" {
+		t.Fatalf("game_paused %+v", m)
+	}
+	f.clock.advance(31 * time.Minute)
+	if m, _ := a.raw("room_closed"); m.Reason != "host_absent" {
+		t.Errorf("reason %q", m.Reason)
+	}
+	f.store.mu.Lock()
+	defer f.store.mu.Unlock()
+	if f.store.ended != contracts.GameStatusAbandoned {
+		t.Errorf("ended %q", f.store.ended)
+	}
+}
+
 func TestPickByNonController(t *testing.T) {
 	f, _, a, b := startedGame(t)
 	notPicker := map[string]*conn{alice: b, bob: a}[controller(f)]

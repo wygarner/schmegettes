@@ -20,6 +20,11 @@ export function isCorrect(verdict: string): boolean {
   return verdict === "correct" || verdict === "overridden_correct";
 }
 
+/** An answer after an earlier one on the clue was overridden to correct: it scores 0. */
+export function isVoided(verdict: string): boolean {
+  return verdict === "voided";
+}
+
 /** One Final Schmegettes reveal step, in reveal order. */
 export interface Reveal extends Verdict {
   wager: number;
@@ -63,8 +68,12 @@ export interface RoomState {
   quickPicks: boolean;
   controllingUserId?: string;
   answeringUserId?: string;
+  /** The answering player's stage: begin (time to start speaking) or finish. */
+  answerStage?: Server.AnswerStage;
   attemptedUserIds: string[];
   paused: boolean;
+  /** Why the game is paused: the host device left, or it has no sound. */
+  pauseReason?: Server.PauseReason;
   scores: Record<string, number>;
   /** user -> server ms until which their buzzer is locked out */
   lockouts: Record<string, number>;
@@ -203,7 +212,9 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
     case "room_snapshot": {
       // A snapshot is the whole truth: nothing from a previous game or clue survives it.
       const finished = event.phase === "finished";
-      const scores = event.scores ?? state.scores;
+      // No scores means no game (the lobby, or a rematch): everyone is at $0. Keeping the
+      // previous scores left last game's totals on screen until the next Start.
+      const scores = event.scores ?? {};
       return {
         ...state,
         ...clueReset(),
@@ -236,8 +247,10 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         deadlineAt: event.deadlineAt,
         controllingUserId: event.controllingUserId,
         answeringUserId: event.answeringUserId,
+        answerStage: event.answerStage,
         attemptedUserIds: event.attemptedUserIds ?? [],
         paused: event.paused ?? false,
+        pauseReason: event.paused ? event.pauseReason : undefined,
         liveText: undefined,
         roundIntro: undefined,
         ...wagerFields(event),
@@ -265,10 +278,12 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         phase: event.phase,
         deadlineAt: event.deadlineAt,
         answeringUserId: event.answeringUserId,
+        answerStage: event.answerStage,
         // phase_changed carries the whole list; the server's encoder drops it when empty.
         attemptedUserIds: event.attemptedUserIds ?? [],
         controllingUserId: event.controllingUserId ?? state.controllingUserId,
         paused: event.paused ?? state.paused,
+        pauseReason: (event.paused ?? state.paused) ? state.pauseReason : undefined,
         activeClue: event.activeClue,
         board: withClue(state.board, event.activeClue),
         reveal:
@@ -340,8 +355,13 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
       };
     }
     case "verdict_overridden": {
-      const fix = <T extends Verdict>(v: T): T =>
-        v.answerId === event.answerId ? { ...v, verdict: event.verdict, delta: event.scoreDelta } : v;
+      // The overridden answer, plus any later answers on the clue it voided or restored.
+      const others = new Map((event.voided ?? []).map((v) => [v.answerId, v]));
+      const fix = <T extends Verdict>(v: T): T => {
+        if (v.answerId === event.answerId) return { ...v, verdict: event.verdict, delta: event.scoreDelta };
+        const o = v.answerId ? others.get(v.answerId) : undefined;
+        return o ? { ...v, verdict: o.verdict, delta: o.scoreDelta } : v;
+      };
       const changed = state.answers.find((a) => a.answerId === event.answerId);
       return {
         ...state,
@@ -412,7 +432,12 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         ...clueReset(),
       };
     case "game_paused":
-      return { ...state, paused: event.paused, deadlineAt: event.paused ? undefined : state.deadlineAt };
+      return {
+        ...state,
+        paused: event.paused,
+        pauseReason: event.paused ? event.reason : undefined,
+        deadlineAt: event.paused ? undefined : state.deadlineAt,
+      };
     case "room_closed":
     case "left":
       return { ...state, connection: "closed" };

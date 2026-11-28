@@ -48,6 +48,7 @@ class MatchRule(Enum):
     exact = 'exact'
     spelling_slip = 'spelling_slip'
     sounds_alike = 'sounds_alike'
+    same_words = 'same_words'
     no_match = 'no_match'
     nothing_heard = 'nothing_heard'
 
@@ -94,6 +95,7 @@ class Verdict(Enum):
     incorrect = 'incorrect'
     overridden_correct = 'overridden_correct'
     overridden_incorrect = 'overridden_incorrect'
+    voided = 'voided'
     appeal_pending = 'appeal_pending'
 
 

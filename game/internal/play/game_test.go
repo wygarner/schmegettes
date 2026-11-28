@@ -333,7 +333,7 @@ func TestFirstBuzzWins(t *testing.T) {
 	if f.g.answering != alice || f.g.Phase() != contracts.GamePhaseAnswering {
 		t.Errorf("answering %q phase %s", f.g.answering, f.g.Phase())
 	}
-	if f.g.Deadline() != f.now.Add(AnswerWindow+AnswerGrace) {
+	if f.g.Deadline() != f.now.Add(ListenWait+AnswerBegin+AnswerGrace) {
 		t.Errorf("answer deadline %v", f.g.Deadline().Sub(f.now))
 	}
 }
@@ -682,14 +682,16 @@ func TestResponseTail(t *testing.T) {
 }
 
 func TestTimerPace(t *testing.T) {
+	// The pace sets the buzz window only; answering always has its two stages.
+	answer := ListenWait + AnswerBegin + AnswerGrace
 	for _, c := range []struct {
-		pace         contracts.TimerPace
-		buzz, answer time.Duration
+		pace contracts.TimerPace
+		buzz time.Duration
 	}{
-		{"", 9 * time.Second, 9 * time.Second},
-		{contracts.TimerPaceStandard, 9 * time.Second, 9 * time.Second},
-		{contracts.TimerPaceRelaxed, 15 * time.Second, 12 * time.Second},
-		{contracts.TimerPaceFast, 5 * time.Second, 7 * time.Second},
+		{"", 9 * time.Second},
+		{contracts.TimerPaceStandard, 9 * time.Second},
+		{contracts.TimerPaceRelaxed, 15 * time.Second},
+		{contracts.TimerPaceFast, 5 * time.Second},
 	} {
 		t.Run(string(c.pace), func(t *testing.T) {
 			f := setup(t, func(s *Setup) { s.Pace = c.pace })
@@ -698,24 +700,94 @@ func TestTimerPace(t *testing.T) {
 				t.Errorf("buzz window %v, want %v", got, c.buzz)
 			}
 			f.must(f.g.Buzz(f.now, bob, "s1"))
-			if got := f.g.Deadline().Sub(f.now); got != c.answer+AnswerGrace {
-				t.Errorf("answer time %v, want %v", got, c.answer+AnswerGrace)
+			if got := f.g.Deadline().Sub(f.now); got != answer {
+				t.Errorf("answer cap %v, want %v", got, answer)
 			}
 			var m contracts.RoomSnapshot
 			f.g.SnapshotFields(&m, false)
-			if *m.BuzzWindowMs != int(c.buzz.Milliseconds()) || *m.AnswerWindowMs != int(c.answer.Milliseconds()) {
+			if *m.BuzzWindowMs != int(c.buzz.Milliseconds()) || *m.AnswerWindowMs != int(AnswerBegin.Milliseconds()) {
 				t.Errorf("snapshot %d / %d", *m.BuzzWindowMs, *m.AnswerWindowMs)
 			}
 		})
 	}
-	t.Run("a Daily Double answer uses the pace too", func(t *testing.T) {
+	t.Run("a Daily Double answer has the same stages", func(t *testing.T) {
 		f := setup(t, func(s *Setup) { ddBoard(s); s.Pace = contracts.TimerPaceFast })
 		f.must(f.g.Pick(f.now, alice, "s1"))
 		f.must(f.g.Wager(f.now, alice, 100))
 		f.toDeadline() // the wager shown, then the clue read
 		f.must(f.g.ReadingDone(f.now, host, "s1"))
-		if f.g.Phase() != contracts.GamePhaseAnswering || f.g.Deadline().Sub(f.now) != 7*time.Second+AnswerGrace {
-			t.Errorf("phase %s, answer time %v", f.g.Phase(), f.g.Deadline().Sub(f.now))
+		if f.g.Phase() != contracts.GamePhaseAnswering || f.g.Deadline().Sub(f.now) != answer {
+			t.Errorf("phase %s, answer cap %v", f.g.Phase(), f.g.Deadline().Sub(f.now))
+		}
+	})
+}
+
+func TestAnswerStages(t *testing.T) {
+	stage := func(f *fixture) contracts.AnswerStage {
+		var m contracts.RoomSnapshot
+		f.g.SnapshotFields(&m, false)
+		if m.AnswerStage == nil {
+			return ""
+		}
+		return *m.AnswerStage
+	}
+	t.Run("listening starts the begin clock", func(t *testing.T) {
+		f := setup(t, nil)
+		f.openBuzzing("s1")
+		f.must(f.g.Buzz(f.now, bob, "s1"))
+		if stage(f) != contracts.AnswerStageBegin {
+			t.Fatalf("stage %q", stage(f))
+		}
+		f.now = f.now.Add(800 * time.Millisecond)
+		f.must(f.g.AnswerStatus(f.now, bob, "s1", contracts.AnswerStatusStatusListening))
+		if got := f.g.Deadline().Sub(f.now); got != AnswerBegin+AnswerGrace {
+			t.Errorf("begin deadline %v", got)
+		}
+		if err := f.do(f.g.AnswerStatus(f.now, bob, "s1", contracts.AnswerStatusStatusListening)); !errors.Is(err, ErrIgnored) {
+			t.Errorf("a second listening: %v", err)
+		}
+		f.toDeadline() // silence
+		if f.g.scores[bob] != -200 || f.g.Phase() == contracts.GamePhaseAnswering {
+			t.Errorf("score %d phase %s", f.g.scores[bob], f.g.Phase())
+		}
+	})
+	t.Run("begun opens the finish stage, and its deadline judges what was heard", func(t *testing.T) {
+		f := setup(t, nil)
+		f.openBuzzing("s1")
+		f.must(f.g.Buzz(f.now, bob, "s1"))
+		f.must(f.g.AnswerStatus(f.now, bob, "s1", contracts.AnswerStatusStatusListening))
+		f.now = f.now.Add(5 * time.Second) // thinking
+		f.must(f.g.AnswerStatus(f.now, bob, "s1", contracts.AnswerStatusStatusBegun))
+		if stage(f) != contracts.AnswerStageFinish || f.g.Deadline().Sub(f.now) != AnswerFinish+AnswerGrace {
+			t.Fatalf("stage %q deadline %v", stage(f), f.g.Deadline().Sub(f.now))
+		}
+		f.must(f.g.Progress(f.now, bob, "nitrogen"))
+		f.toDeadline() // the final transcript never came
+		if f.g.scores[bob] != 200 {
+			t.Errorf("bob %d, want +200 from the last thing heard", f.g.scores[bob])
+		}
+	})
+	t.Run("only the answering player moves the stages", func(t *testing.T) {
+		f := setup(t, nil)
+		f.openBuzzing("s1")
+		f.must(f.g.Buzz(f.now, bob, "s1"))
+		if err := f.do(f.g.AnswerStatus(f.now, alice, "s1", contracts.AnswerStatusStatusBegun)); !errors.Is(err, ErrIgnored) {
+			t.Errorf("alice moved bob's stage: %v", err)
+		}
+		if err := f.do(f.g.AnswerStatus(f.now, bob, "s2", contracts.AnswerStatusStatusBegun)); !errors.Is(err, ErrIgnored) {
+			t.Errorf("another clue: %v", err)
+		}
+		if stage(f) != contracts.AnswerStageBegin {
+			t.Errorf("stage %q", stage(f))
+		}
+	})
+	t.Run("a submitted answer is judged at once", func(t *testing.T) {
+		f := setup(t, nil)
+		f.openBuzzing("s1")
+		f.must(f.g.Buzz(f.now, bob, "s1"))
+		f.must(f.g.Answer(f.now, bob, "s1", "nitrogen"))
+		if f.g.scores[bob] != 200 || stage(f) != "" {
+			t.Errorf("bob %d stage %q", f.g.scores[bob], stage(f))
 		}
 	})
 }

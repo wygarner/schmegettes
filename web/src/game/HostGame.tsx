@@ -1,6 +1,6 @@
 import { Box, Loader, Text, Title } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef } from "react";
 import { money } from "../lib/money";
 import { narrate, prepareNarration, stopNarration } from "../lib/narrator";
 import { narratorChoice } from "../lib/narratorVoice";
@@ -13,7 +13,6 @@ import {
   dailyDoubleAnnouncement,
   finalAnnouncement,
 } from "../lib/speech";
-import { GoldButton } from "../ui/GoldButton";
 import { answering, HomeButton, inGame } from "../ui/HomeButton";
 import { Meter } from "../ui/Meter";
 import { BigMoment, Stage, StageBody, StageHeader } from "../ui/Stage";
@@ -32,6 +31,7 @@ import { PlayerColumn } from "./PlayerColumn";
 import { PlayerControls } from "./PlayerControls";
 import { Scoreboard } from "./Scoreboard";
 import { buzzWindowMs, FINAL_SKIPPED_MS } from "./timing";
+import { useHostSound } from "./useHostSound";
 import { useSince } from "./useSince";
 import { WagerPad } from "./WagerPad";
 
@@ -131,7 +131,8 @@ export function HostGame({
 }) {
   const clue = state.activeClue;
   const spokenRef = useRef("");
-  const [soundBlocked, setSoundBlocked] = useState(false);
+  const hostSound = useHostSound(send, state.connection === "open");
+  const failSound = hostSound.fail;
   const confirm = usePickConfirm(state, hostUserId, send);
 
   // After a reload mid-game, the chosen voice loads from the device in the background; lines
@@ -147,9 +148,9 @@ export function HostGame({
     (speech: Speech) => {
       const read = () =>
         void narrate(speech.text).then((result) => {
-          if (result === "failed") setSoundBlocked(true);
+          // No sound: the game pauses until the host taps (host_sound).
+          if (result === "failed") failSound();
           if (result === "ended") {
-            setSoundBlocked(false);
             if (speech.reportDone && spokenRef.current === speech.key)
               send({ type: "reading_done", clueId: speech.clueId });
           }
@@ -161,7 +162,7 @@ export function HostGame({
         });
       else read();
     },
-    [send],
+    [send, failSound],
   );
   const revealStage = usePickReveal(state.reveal);
   const speech = currentSpeech(state, revealStage !== null);
@@ -197,11 +198,10 @@ export function HostGame({
     say(current);
   }, [speechKey, state.paused, say]);
 
-  // The tap is the user gesture the browser wants before it plays sound.
+  // The tap is the user gesture the browser wants before it plays sound. The game resumes
+  // when the server hears sound is back, and the clue is read again from the start.
   const unblockSound = () => {
-    setSoundBlocked(false);
-    if (speech) say(speech);
-    else void narrate("Sound on");
+    void hostSound.tap();
   };
 
   // "Double Schmegettes!" gets its fanfare, once per round, inside the 3 s interstitial.
@@ -273,11 +273,6 @@ export function HostGame({
 
   const stage = (
     <>
-      {soundBlocked && (
-        <GoldButton mb={8} onClick={unblockSound}>
-          Tap to turn on sound
-        </GoldButton>
-      )}
       <Box style={{ position: "relative", flex: 1, minHeight: 0 }}>
         {main}
         {state.paused && (
@@ -301,10 +296,13 @@ export function HostGame({
               Paused
             </Text>
             <Text size="sm" c={SOFT}>
-              Waiting for the TV to reconnect…
+              {state.pauseReason === "host_sound"
+                ? "Turn on sound on this device."
+                : "Waiting for the TV to reconnect…"}
             </Text>
           </div>
         )}
+        {hostSound.blocked && <SoundOverlay onTap={unblockSound} />}
       </Box>
       {confirm.modal}
       {override.sheet}
@@ -472,3 +470,36 @@ const VISUALLY_HIDDEN = {
   clip: "rect(0 0 0 0)",
   whiteSpace: "nowrap",
 } as const;
+
+/** Covers the stage until the host taps: the game is paused while this device has no sound. */
+function SoundOverlay({ onTap }: { onTap: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onTap}
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 2,
+        borderRadius: 12,
+        border: 0,
+        cursor: "pointer",
+        background: "rgba(20,11,43,.96)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        color: "#fff",
+        font: "inherit",
+      }}
+    >
+      <Text ff={DISPLAY} fz={36} fw={700} c={ACCENT}>
+        Tap to turn on sound
+      </Text>
+      <Text size="sm" c={SOFT}>
+        The game is paused until sound is back on.
+      </Text>
+    </button>
+  );
+}

@@ -3,7 +3,7 @@ import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { money } from "../lib/money";
 import { ordinal, PLACE_COLOR } from "../lib/placement";
-import { inFinal, isCorrect, nameOf, type RoomState } from "../lib/room";
+import { inFinal, isCorrect, isVoided, nameOf, type RoomState } from "../lib/room";
 import { Meter } from "../ui/Meter";
 import { ACCENT, DISPLAY, GREEN, RED, SOFT } from "../ui/tokens";
 import { Board } from "./Board";
@@ -13,7 +13,7 @@ import { Countdown } from "./Countdown";
 import { FinalAnswerField } from "./FinalAnswerField";
 import { usePickConfirm } from "./PickConfirm";
 import { usePickReveal } from "./PickReveal";
-import { ANSWER_GRACE_MS, answerMs, buzzWindowMs, WAGER_MS } from "./timing";
+import { answerStageMs, buzzWindowMs, WAGER_MS } from "./timing";
 import { useAnswerCapture } from "./useAnswerCapture";
 import { useVoicePick, type VoicePick } from "./VoicePick";
 import { WagerPad } from "./WagerPad";
@@ -228,13 +228,33 @@ function PlayerStatus({
   // and Final keypad are on the stage; the column keeps only voice-pick problems and the
   // host's own verdict.
   if (compact) return <CompactStatus state={state} userId={userId} voice={voice} />;
-  if (state.paused) return <Status sub="The game picks up where it left off.">Waiting for the TV…</Status>;
+  if (state.paused)
+    return (
+      <Status sub="The game picks up where it left off.">
+        {state.pauseReason === "host_sound" ? "Waiting for the TV's sound…" : "Waiting for the TV…"}
+      </Status>
+    );
 
   if (state.results) return <GameOver state={state} userId={userId} onLeave={onLeave} />;
 
   // The host is reviewing this player's answer: the clock is paused.
   if (state.review?.open && state.review.userIds.includes(userId)) {
     return <Status sub="The clock is paused.">{state.hostDisplayName} is reviewing your answer…</Status>;
+  }
+  // A later answer the host's override voided: it doesn't count either way.
+  const mineNow = state.clueEnd ? state.answers.find((a) => a.userId === userId) : undefined;
+  if (mineNow && isVoided(mineNow.verdict)) {
+    return (
+      <div className="sg-pop" style={{ textAlign: "center" }}>
+        <Text c="dimmed" fw={800} size="xs" style={{ letterSpacing: ".14em" }}>
+          DOESN'T COUNT
+        </Text>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 40 }}>{money(0)}</div>
+        <Text size="sm" c={SOFT}>
+          Doesn't count: the host overrode an earlier answer.
+        </Text>
+      </div>
+    );
   }
   const override = state.lastOverride;
   if (override?.userId === userId && (state.clueEnd || state.phase === "final_reveal")) {
@@ -355,7 +375,7 @@ function PlayerStatus({
         return (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
             <Text ff={DISPLAY} fw={600} fz={34} lh={1.1}>
-              Say your answer
+              {state.answerStage === "finish" ? "Finishing…" : "Say your answer"}
             </Text>
             <Meter color="var(--mantine-color-teal-5)" height={44} />
             <Text fz={22} fs="italic" mih={60} aria-label="What we heard">
@@ -363,11 +383,11 @@ function PlayerStatus({
             </Text>
             <Countdown
               deadlineAt={state.deadlineAt}
-              total={answerMs(state) + ANSWER_GRACE_MS}
+              total={answerStageMs(state.answerStage)}
               color="var(--mantine-color-teal-6)"
             />
             <Text size="sm" c={SOFT}>
-              “What is” is optional. It stops when you go quiet.
+              “What is” is optional. Take a moment: you have 6 s to start, then 6 s to finish.
             </Text>
           </div>
         );

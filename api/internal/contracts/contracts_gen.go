@@ -786,7 +786,7 @@ type StaffGame struct {
 		GamePlayerId openapi_types.UUID `json:"gamePlayerId"`
 		ScoreDelta   int                `json:"scoreDelta"`
 
-		// Verdict correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+		// Verdict correct/incorrect from the judge; overridden when the host changes a verdict; voided for an answer given after an earlier answer on the clue was overridden to correct (it scores 0); appeal_pending while the worker's appeal judge decides.
 		Verdict string `json:"verdict"`
 	} `json:"answers"`
 	Board []struct {

@@ -89,6 +89,21 @@ test("an overridden verdict is labeled HOST OVERRIDE", () => {
   expect(screen.getByText(/✓ Bob:/)).toBeInTheDocument();
 });
 
+test("a voided answer says DOESN'T COUNT and can't be overridden", () => {
+  const right = { answerId: "ans-a", userId: "a", answer: "krakatoa", verdict: "voided", delta: 0 };
+  show({ ...ended, overridden: ["ans-b"], answers: [{ ...wrong, verdict: "overridden_correct", delta: 400 }, right] });
+  expect(screen.getByText("DOESN'T COUNT")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Override Alice's answer" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Override Bob's answer" })).toBeInTheDocument();
+});
+
+test("marking an earlier answer correct says the later ones won't count", () => {
+  const right = { answerId: "ans-a", userId: "a", answer: "krakatoa", verdict: "correct", delta: 400 };
+  show({ ...ended, answers: [wrong, right] });
+  fireEvent.click(screen.getByRole("button", { name: "Override Bob's answer" }));
+  expect(screen.getByText(/The answer after it won't count\./)).toBeInTheDocument();
+});
+
 test("the review closes itself when the screen moves on", () => {
   const { rerender } = show();
   fireEvent.click(screen.getByRole("button", { name: "Override Bob's answer" }));

@@ -2,7 +2,7 @@ import { Button, Group, Stack, Text } from "@mantine/core";
 import type { ClientMessage } from "@schmegettes/shared";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { money } from "../lib/money";
-import { isCorrect, nameOf, type RoomState, type Verdict } from "../lib/room";
+import { isCorrect, isVoided, nameOf, type RoomState, type Verdict } from "../lib/room";
 import { Sheet } from "../ui/Sheet";
 import { GREEN, SOFT } from "../ui/tokens";
 
@@ -71,9 +71,11 @@ function Review({
   const after = now - answer.delta + (right ? -amount : amount);
   const response = state.clueEnd?.correctResponse;
   const regularClue = state.phase !== "final_reveal" && !state.activeClue?.dailyDouble;
-  // Marking it correct makes it the latest correct answer only if nothing after it is correct.
-  const later = state.answers.slice(state.answers.indexOf(answer) + 1);
-  const takesControl = regularClue && !right && !later.some((a) => isCorrect(a.verdict));
+  // Marking it correct ends the clue there: it takes control, and the answers after it
+  // don't count.
+  const later = state.answers.slice(state.answers.indexOf(answer) + 1).filter((a) => !isVoided(a.verdict));
+  const takesControl = regularClue && !right;
+  const voidsLater = regularClue && !right && later.length > 0;
 
   return (
     <Stack gap="sm">
@@ -103,6 +105,7 @@ function Review({
         <b style={{ color: right ? undefined : GREEN }}>{right ? money(-amount) : `+${money(amount)}`}</b> instead of{" "}
         {right ? `+${money(amount)}` : money(-amount)} ({money(now)} → {money(after)})
         {takesControl ? ` and gives ${name} control` : ""}.
+        {voidsLater ? ` The ${later.length === 1 ? "answer" : `${later.length} answers`} after it won't count.` : ""}
       </Text>
       <Group grow gap="xs">
         <Button variant="default" onClick={onKeep} disabled={done}>
@@ -129,6 +132,7 @@ export function VerdictRow({
   small?: boolean;
 }) {
   const right = isCorrect(verdict.verdict);
+  const voided = isVoided(verdict.verdict);
   const overridden = verdict.answerId !== undefined && state.overridden.includes(verdict.answerId);
   return (
     <div
@@ -139,11 +143,30 @@ export function VerdictRow({
         justifyContent: "center",
         flexWrap: "wrap",
         gap: 10,
-        color: right ? "var(--mantine-color-teal-4)" : "var(--mantine-color-red-4)",
+        color: voided
+          ? "var(--mantine-color-gray-5)"
+          : right
+            ? "var(--mantine-color-teal-4)"
+            : "var(--mantine-color-red-4)",
         fontWeight: 700,
         fontSize: small ? "clamp(11px, 4.6cqh, 20px)" : "clamp(14px, 7cqh, 32px)",
       }}
     >
+      {voided && (
+        <span
+          style={{
+            background: "var(--mantine-color-gray-6)",
+            color: "#fff",
+            fontWeight: 800,
+            fontSize: "clamp(9px, 3.6cqh, 14px)",
+            letterSpacing: ".1em",
+            padding: "2px 7px",
+            borderRadius: 4,
+          }}
+        >
+          DOESN'T COUNT
+        </span>
+      )}
       {overridden && (
         <span
           style={{
@@ -160,14 +183,14 @@ export function VerdictRow({
         </span>
       )}
       <span>
-        {right ? "✓" : "✗"} {nameOf(state, verdict.userId)}:{" "}
+        {voided ? "–" : right ? "✓" : "✗"} {nameOf(state, verdict.userId)}:{" "}
         <i style={{ fontWeight: 500 }}>{verdict.answer || "no answer"}</i>
       </span>
       <span style={{ fontFamily: "Oswald, Impact, sans-serif" }}>
         {verdict.delta > 0 ? "+" : ""}
         {money(verdict.delta)}
       </span>
-      {onOverride && verdict.answerId && (
+      {onOverride && verdict.answerId && !voided && (
         <Button
           size="compact-xs"
           variant="outline"

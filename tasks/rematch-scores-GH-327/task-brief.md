@@ -47,3 +47,6 @@ None. No logs or failure paths change.
 ## Docs to update
 
 None. `scoreboard-and-overrides/feature-brief.md` (Rematch: "scores at $0") and `realtime-game-server.md` (`rematch`: "a fresh `room_snapshot` in `lobby` at $0") already describe the fixed behaviour.
+
+## Branch
+`bug-fix/GH-327-rematch-scores`, from and into `develop`

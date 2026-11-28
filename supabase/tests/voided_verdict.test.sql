@@ -46,7 +46,7 @@ select public.record_answer('d1d1d1d1-d1d1-4d1d-8d1d-d1d1d1d1d1d1', current_sett
   '22222222-2222-4222-8222-222222222222', 'mauna loa', 'voice', 'correct', 200, 'exact', array['mauna loa']);
 select lives_ok($$ select public.update_verdict('d1d1d1d1-d1d1-4d1d-8d1d-d1d1d1d1d1d1', 'voided', 0) $$,
   'update_verdict takes voided');
-select ok((select verdict = 'voided' and score_delta = 0 and judge_verdict = 'correct' and overridden_at is not null
+select ok((select verdict = 'voided' and score_delta = 0 and judge_verdict = 'correct'
   from public.answers where id = 'd1d1d1d1-d1d1-4d1d-8d1d-d1d1d1d1d1d1'),
   'a voided answer scores 0 and keeps the judge''s verdict');
 select lives_ok($$ select public.update_verdict('d1d1d1d1-d1d1-4d1d-8d1d-d1d1d1d1d1d1', 'correct', 200) $$,

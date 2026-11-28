@@ -20,6 +20,11 @@ export function isCorrect(verdict: string): boolean {
   return verdict === "correct" || verdict === "overridden_correct";
 }
 
+/** An answer after an earlier one on the clue was overridden to correct: it scores 0. */
+export function isVoided(verdict: string): boolean {
+  return verdict === "voided";
+}
+
 /** One Final Schmegettes reveal step, in reveal order. */
 export interface Reveal extends Verdict {
   wager: number;
@@ -350,8 +355,13 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
       };
     }
     case "verdict_overridden": {
-      const fix = <T extends Verdict>(v: T): T =>
-        v.answerId === event.answerId ? { ...v, verdict: event.verdict, delta: event.scoreDelta } : v;
+      // The overridden answer, plus any later answers on the clue it voided or restored.
+      const others = new Map((event.voided ?? []).map((v) => [v.answerId, v]));
+      const fix = <T extends Verdict>(v: T): T => {
+        if (v.answerId === event.answerId) return { ...v, verdict: event.verdict, delta: event.scoreDelta };
+        const o = v.answerId ? others.get(v.answerId) : undefined;
+        return o ? { ...v, verdict: o.verdict, delta: o.scoreDelta } : v;
+      };
       const changed = state.answers.find((a) => a.answerId === event.answerId);
       return {
         ...state,

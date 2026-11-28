@@ -164,7 +164,7 @@ function useGameOptions(room: RoomJoin): [GameOptions, (next: GameOptions) => vo
 
 function Centered({ children }: { children: ReactNode }) {
   return (
-    <Center mih="100vh" p="md">
+    <Center mih="100dvh" p="md">
       <HomeButton floating />
       <Stack align="center">{children}</Stack>
     </Center>

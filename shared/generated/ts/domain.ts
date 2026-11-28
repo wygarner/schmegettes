@@ -77,12 +77,13 @@ export type GameStatus = "in_progress" | "finished" | "abandoned";
  */
 export type ClueState = "unplayed" | "active" | "answered" | "unanswered";
 /**
- * correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+ * correct/incorrect from the judge; overridden when the host changes a verdict; voided for an answer given after an earlier answer on the clue was overridden to correct (it scores 0); appeal_pending while the worker's appeal judge decides.
  *
  * This interface was referenced by `Domain`'s JSON-Schema
  * via the `definition` "Verdict".
  */
-export type Verdict = "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
+export type Verdict =
+  "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "voided" | "appeal_pending";
 /**
  * This interface was referenced by `Domain`'s JSON-Schema
  * via the `definition` "Uuid".

@@ -252,6 +252,26 @@ describe("overrides, the scoreboard and Rematch", () => {
       scores: {},
     });
 
+  test("an override applies the later answers it voided", () => {
+    let s = judged(playing, "a1", "b", "incorrect", -400);
+    s = judged(s, "a2", "a", "correct", 400);
+    s = reduceRoom(s, {
+      type: "verdict_overridden",
+      roomId: "r",
+      seq: 2,
+      answerId: "a1",
+      userId: "b",
+      verdict: "overridden_correct",
+      scoreDelta: 400,
+      scores: { a: 0, b: 400 },
+      controllingUserId: "b",
+      voided: [{ answerId: "a2", userId: "a", verdict: "voided", scoreDelta: 0 }],
+    });
+    expect(s.answers[1]).toMatchObject({ verdict: "voided", delta: 0 });
+    expect(s.scores).toEqual({ a: 0, b: 400 });
+    expect(s.controllingUserId).toBe("b");
+  });
+
   test("a clue's judged answers are kept for overrides; an override flips one", () => {
     let s = judged(playing, "a1", "b", "incorrect", -400);
     s = judged(s, "a2", "a", "correct", 400);
@@ -268,6 +288,7 @@ describe("overrides, the scoreboard and Rematch", () => {
       controllingUserId: "a",
     });
     expect(s.answers[0]).toMatchObject({ verdict: "overridden_correct", delta: 400 });
+    expect(s.answers[1]).toMatchObject({ verdict: "correct", delta: 400 }); // no voided list: unchanged
     expect(s.overridden).toEqual(["a1"]);
     expect(s.lastOverride).toMatchObject({ userId: "b", delta: 400 });
     expect(s.scores).toEqual({ a: 400, b: 400 });

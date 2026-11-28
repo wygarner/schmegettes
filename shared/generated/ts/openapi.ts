@@ -2265,10 +2265,10 @@ export interface components {
         /** @enum {string} */
         ClueState: "unplayed" | "active" | "answered" | "unanswered";
         /**
-         * @description correct/incorrect from the judge; overridden when the host changes a verdict; appeal_pending while the worker's appeal judge decides.
+         * @description correct/incorrect from the judge; overridden when the host changes a verdict; voided for an answer given after an earlier answer on the clue was overridden to correct (it scores 0); appeal_pending while the worker's appeal judge decides.
          * @enum {string}
          */
-        Verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "appeal_pending";
+        Verdict: "correct" | "incorrect" | "overridden_correct" | "overridden_incorrect" | "voided" | "appeal_pending";
     };
     responses: {
         /** @description Error (RFC 9457 problem details) */

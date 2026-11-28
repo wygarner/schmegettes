@@ -74,21 +74,79 @@ func TestOverrideMisheardAnswerToCorrect(t *testing.T) {
 	}
 }
 
-func TestOverrideControlGoesToTheLatestCorrectAnswer(t *testing.T) {
-	f := atClueEnd(t, "crack a toe a", "nitrogen")
+func TestOverrideToCorrectVoidsTheLaterAnswers(t *testing.T) {
+	f := atClueEnd(t, "crack a toe a", "nitrogen") // Bob wrong, then Alice right
 	if f.g.Controller() != alice {
 		t.Fatalf("control %s", f.g.Controller())
 	}
-	f.must(f.g.Override(f.now, host, answerOf(t, f, bob), true))
-	if f.g.Scores()[bob] != 200 || f.g.Scores()[alice] != 200 {
-		t.Errorf("both right answers score: %v", f.g.Scores())
+	bobID, aliceID := answerOf(t, f, bob), answerOf(t, f, alice)
+	f.must(f.g.Override(f.now, host, bobID, true))
+	if f.g.Scores()[bob] != 200 || f.g.Scores()[alice] != 0 {
+		t.Errorf("scores %v, want bob 200 and alice 0 (her answer doesn't count)", f.g.Scores())
+	}
+	if f.g.Controller() != bob {
+		t.Errorf("control %s, want bob", f.g.Controller())
+	}
+	vo := last[contracts.VerdictOverridden](t, f)
+	if len(vo.Voided) != 1 || string(vo.Voided[0].AnswerId) != aliceID ||
+		vo.Voided[0].Verdict != contracts.VerdictVoided || vo.Voided[0].ScoreDelta != 0 {
+		t.Errorf("voided %+v", vo.Voided)
+	}
+	r := recs(f, UpdateVerdict)
+	if len(r) != 2 || r[0].AnswerID != bobID || r[1].AnswerID != aliceID ||
+		r[1].Verdict != contracts.VerdictVoided || r[1].Delta != 0 || r[1].JudgeVerdict != contracts.VerdictCorrect {
+		t.Errorf("records %+v", r)
+	}
+
+	// A voided answer can't be overridden.
+	if err := f.do(f.g.Override(f.now, host, aliceID, false)); code(err) != contracts.ErrorCodeAnswerVoided {
+		t.Errorf("override of a voided answer: %v", err)
+	}
+
+	// Flipping Bob back restores Alice's answer as it was judged.
+	f.must(f.g.Override(f.now, host, bobID, false))
+	if f.g.Scores()[bob] != -200 || f.g.Scores()[alice] != 200 {
+		t.Errorf("after undoing: scores %v", f.g.Scores())
 	}
 	if f.g.Controller() != alice {
-		t.Errorf("control %s, want alice (the later correct answer)", f.g.Controller())
+		t.Errorf("control %s, want alice", f.g.Controller())
 	}
-	f.must(f.g.Override(f.now, host, answerOf(t, f, alice), false))
-	if f.g.Controller() != bob {
-		t.Errorf("control %s, want bob (now the only correct answer)", f.g.Controller())
+	vo = last[contracts.VerdictOverridden](t, f)
+	if len(vo.Voided) != 1 || vo.Voided[0].Verdict != contracts.VerdictCorrect || vo.Voided[0].ScoreDelta != 200 {
+		t.Errorf("restored %+v", vo.Voided)
+	}
+}
+
+func TestOverrideToCorrectGivesBackALaterWrongAnswer(t *testing.T) {
+	f := atClueEnd(t, "crack a toe a", "oxygen") // Bob wrong, then Alice wrong
+	if f.g.Scores()[alice] != -200 {
+		t.Fatalf("alice %d", f.g.Scores()[alice])
+	}
+	f.must(f.g.Override(f.now, host, answerOf(t, f, bob), true))
+	if f.g.Scores()[bob] != 200 || f.g.Scores()[alice] != 0 {
+		t.Errorf("scores %v, want bob 200 and alice 0 (her loss given back)", f.g.Scores())
+	}
+	// Twice more: back and forth leaves the same totals.
+	f.must(f.g.Override(f.now, host, answerOf(t, f, bob), false))
+	f.must(f.g.Override(f.now, host, answerOf(t, f, bob), true))
+	if f.g.Scores()[bob] != 200 || f.g.Scores()[alice] != 0 {
+		t.Errorf("after flipping twice: %v", f.g.Scores())
+	}
+}
+
+func TestSnapshotListsVoidedAnswers(t *testing.T) {
+	f := atClueEnd(t, "crack a toe a", "nitrogen")
+	f.must(f.g.Override(f.now, host, answerOf(t, f, bob), true))
+	var snap contracts.RoomSnapshot
+	f.g.SnapshotFields(&snap, true)
+	var found bool
+	for _, a := range snap.ClueAnswers {
+		if string(a.UserId) == alice {
+			found = a.Verdict == contracts.VerdictVoided && a.ScoreDelta == 0
+		}
+	}
+	if !found {
+		t.Errorf("clue answers %+v", snap.ClueAnswers)
 	}
 }
 

@@ -95,6 +95,7 @@ class Verdict(Enum):
     incorrect = 'incorrect'
     overridden_correct = 'overridden_correct'
     overridden_incorrect = 'overridden_incorrect'
+    voided = 'voided'
     appeal_pending = 'appeal_pending'
 
 

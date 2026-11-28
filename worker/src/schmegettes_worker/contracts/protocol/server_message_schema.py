@@ -259,6 +259,7 @@ class Code(Enum):
     not_a_finalist = 'not_a_finalist'
     unknown_answer = 'unknown_answer'
     not_a_host = 'not_a_host'
+    answer_voided = 'answer_voided'
 
 
 class Error(BaseModel):
@@ -268,6 +269,16 @@ class Error(BaseModel):
     type: Literal['error']
     code: Code
     message: Optional[str] = None
+
+
+class VoidedItem(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    answerId: domain_schema.Uuid
+    userId: domain_schema.Uuid
+    verdict: domain_schema.Verdict
+    scoreDelta: int
 
 
 class VerdictOverridden(BaseModel):
@@ -288,6 +299,10 @@ class VerdictOverridden(BaseModel):
     deadlineAt: Optional[int] = Field(
         None,
         description='Server ms when the current step ends; absent while the review is open.',
+    )
+    voided: Optional[List[VoidedItem]] = Field(
+        None,
+        description="Later answers on the clue this override changed: voided by an override to correct, or restored when it's flipped back.",
     )
 
 

@@ -292,6 +292,23 @@ test("while the host reviews my answer, and after an override", () => {
   expect(screen.getByText("Wyatt changed your answer to correct.")).toBeInTheDocument();
 });
 
+test("my answer voided by an override says it doesn't count", () => {
+  setup({
+    ...base,
+    hostDisplayName: "Wyatt",
+    phase: "buzzing_open",
+    activeClue: clue,
+    clueEnd: { state: "answered" },
+    answers: [
+      { answerId: "a0", userId: "bob", answer: "crack a toe a", verdict: "overridden_correct", delta: 400 },
+      { answerId: "a1", userId: me, answer: "krakatoa", verdict: "voided", delta: 0 },
+    ],
+    lastOverride: { answerId: "a0", userId: "bob", answer: "crack a toe a", verdict: "overridden_correct", delta: 400 },
+  });
+  expect(screen.getByText("DOESN'T COUNT")).toBeInTheDocument();
+  expect(screen.getByText("Doesn't count: the host overrode an earlier answer.")).toBeInTheDocument();
+});
+
 test("no lit buzzer once the clue has ended or between rounds", () => {
   const { update } = setup({
     ...base,

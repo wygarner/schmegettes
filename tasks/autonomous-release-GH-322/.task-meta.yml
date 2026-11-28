@@ -1,0 +1,5 @@
+issue: 322
+key: GH-322
+title: "Claude runs a production release end to end"
+task-type: improvement
+created: 2026-11-28

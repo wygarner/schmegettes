@@ -67,10 +67,14 @@ This is feature 1 of 3. Feature 2 adds Daily Doubles and Final Schmegettes. Feat
 
 ### Answering and judging
 
-- The winning player's phone (or the host device, when the host buzzed) **starts listening on its own**. The player speaks their answer, with no button to hold. It stops when the player goes quiet or after **9 s**.
+- The winning player's phone (or the host device, when the host buzzed) **starts listening on its own**. The player speaks their answer, with no button to hold. **Answer time** (**Not yet implemented**: `lenient-judging`; today 9 s from the buzz, and listening stops at the first pause):
+  - The clock starts when the microphone is actually listening, not at the buzz, so the phone's start-up (and the iPhone's dictation chime) doesn't eat into it. The server waits at most 2 s for the phone to say it's listening.
+  - **Up to 6 s to begin.** Fillers on their own ("um", "uh", "what is…") don't count as beginning.
+  - **Once the player has begun, up to 6 s to finish.** It ends earlier when they've been quiet for 1.5 s.
+  - So a quick answer is judged as fast as today, and the longest possible answer is 12 s.
 - "What is…" is optional. Judging is generous: small mishearings and transcription slips don't cost points ([product overview](../../architecture/product-overview.md), Principles).
 - **Correct:** the player gains the clue's value and takes control. The TV shows the correct response, and the clue is done.
-- **Answer time: 9 s**, the same in every game.
+- **Answer time:** 9 s from the buzz, the same in every game (to become up to 6 s to begin and 6 s to finish, above).
 - **Incorrect:** the player loses the clue's value. Buzzing **reopens** for players who haven't tried this clue, with a fresh 9 s window. Each player gets one attempt per clue.
 - **No answer heard** within 9 s counts as incorrect, as on the show, with one exception for disconnects (Fairness below).
 - A clue ends when someone answers correctly, everyone has tried, or a buzz window closes with no buzz. Then the TV shows the correct response: a short sound plays ([sound effects](../sound-effects/feature-brief.md)), the narrator says the line ("Correct, Mauna Loa is the right answer." / "Sorry, we were looking for Mauna Loa."), and **1 s after the line ends** the TV returns to the board. If the host device never reports the end of the line, the board returns **6 s** after the clue ended at the latest. The correct-response screen does not show the clue text.
@@ -99,12 +103,24 @@ Both sides are lowercased, and punctuation, parenthetical hints ("(Abraham) Linc
 | "eighteen twenty one" | 1812 | ✗ numbers must be the same number |
 | "soos" | Zeus | ✗ short responses keep the spelling rule |
 
-- **The whole response, in order.** Sounding like part of it, or like a different word that shares some sounds, is wrong.
+- **Same words, any order or form** (**Not yet implemented**: `lenient-judging`). An answer that uses the same meaningful words as the response, in any order and in any form, is correct: plurals and endings (-s, -es, -ing, -ion, -ed, -er) don't matter, and small linking words (of, and, in, on, to, for, with) are ignored. Each word may also have a spelling slip or sound alike on its own.
+- **Silent first letters** (**Not yet implemented**: `lenient-judging`). kn/n, gn/n, wr/r, ps/s and wh/w at the start of a word count as the same, for short responses too.
+
+| Heard as | Correct response | Verdict |
+|---|---|---|
+| "cave exploration" | Exploring Caves | ✓ same words, different form and order |
+| "the battle of hastings" | Hastings, Battle of | ✓ same words, different order |
+| "exploreing cave" | Exploring Caves | ✓ a spelling slip in one word |
+| "nee" | Knee | ✓ silent first letter |
+| "cave" | Exploring Caves | ✗ a word is missing |
+| "northern ireland" | Ireland | ✗ an extra word changes the answer |
+
+- **Every meaningful word must be there, and nothing extra.** Sounding like part of the response, leaving out one of its meaningful words, or adding one it doesn't have, is wrong.
 - **Short one-word responses** (4 letters or fewer: Zeus, Oslo, Ra) keep the spelling rule above, because short words sound like too many others.
 - **Several hearings.** When the phone's speech recognition offers more than one possible transcript, the answer is correct if any of them matches. The TV shows the one that matched, or the most likely one when none did.
 - **Final Schmegettes** uses the same rules for typed answers, so a phonetic spelling of the right answer counts.
 - Judging stays instant and on the server. The host can still override any verdict ([overrides](../scoreboard-and-overrides/feature-brief.md)).
-- **Why it was judged that way is recorded.** Every judged answer keeps which rule decided it (**exact**, **spelling slip**, **sounds alike**, **no match**, or **nothing heard**) and every transcript the phone heard. No screen shows this. Together with host overrides ([overrides](../scoreboard-and-overrides/feature-brief.md#host-overrides)), it shows where the judge is too strict or too generous so the rules can be tuned.
+- **Why it was judged that way is recorded.** Every judged answer keeps which rule decided it (**exact**, **spelling slip**, **sounds alike**, **same words**, **no match**, or **nothing heard**) and every transcript the phone heard. No screen shows this. Together with host overrides ([overrides](../scoreboard-and-overrides/feature-brief.md#host-overrides)), it shows where the judge is too strict or too generous so the rules can be tuned.
 
 ### Rounds and the end
 
@@ -131,6 +147,7 @@ Both sides are lowercased, and punctuation, parenthetical hints ("(Abraham) Linc
 | The player in control disconnects | While the board is up, control passes after 10 s to the next connected contestant in join order. If they reconnect within 10 s, they keep it. Control lost this way isn't given back. |
 | A connected player in control never picks | The game waits. Nobody else can pick, the host device included. |
 | A player disconnects mid-game | Their score is kept. They can reconnect and keep playing: reloading, or **Rejoin** on Home after closing the tab ([rejoin and resume](../rejoin-games/feature-brief.md)). The server never closes a game because of a phone. |
+| The host device can't play sound (it was switched away from, or the phone interrupted its audio) | The game **pauses** as for a disconnect, and the TV shows **Tap to turn on sound**. One tap turns sound back on and resumes. A clue being read is read again from the start. **Not yet implemented**: `host-sound-recovery`. |
 | The host device disconnects | The game **pauses**: no timers run and buzzers go dim. It resumes when the host device reconnects. After 30 minutes with no host device, the game is abandoned ([game history](../game-history/feature-brief.md)); its host can **resume** it later ([rejoin and resume](../rejoin-games/feature-brief.md)). |
 | The correct response | Never reaches a phone. The TV gets it only once the clue is judged or ends. |
 | The host plays | Same rules. The host device shows clue text, as the TV always does, and never shows a correct response early. |

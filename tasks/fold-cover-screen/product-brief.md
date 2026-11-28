@@ -8,7 +8,7 @@ task-title: "The app fits the Galaxy Z Fold 8's cover screen"
 
 **Problem:** On the Fold 8's front (cover) screen, the app renders very small. Nothing in the app scales the page, so the likely causes are the viewport the browser reports on that screen (CSS width, `devicePixelRatio`, the `viewport` meta tag) or a layout with a fixed minimum width that the browser shrinks to fit. **Not reproduced yet.**
 
-**Known (Wyatt, 2026-11-28):** a contestant's phone (not the host), in Chrome. The wager pad also got stuck in the same QA session, possibly on this phone (`wager-pad-limit`).
+**Known (Wyatt, 2026-11-28):** a contestant's phone (not the host), in Chrome.
 
 **Still needed before a spec:**
 - A screenshot from the cover screen, and which page (Home, join, lobby, game).

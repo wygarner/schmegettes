@@ -25,4 +25,4 @@ task-title: "On Android, the on-screen keyboard never covers the field being typ
 - On a real Android phone in Chrome (QA's Fold 8, and any other Android phone): the Final answer, join and sign-in fields are typeable and visible. Record this in the evidence as a human-checklist item.
 - No change on iPhone Safari at 390 × 844 (screenshot comparison).
 
-**Out of scope:** the cover-screen size issue (`fold-cover-screen`), and the wager pad, which uses no keyboard (`wager-pad-limit`).
+**Out of scope:** the cover-screen size issue (`fold-cover-screen`), and the wager pad, which uses no keyboard.

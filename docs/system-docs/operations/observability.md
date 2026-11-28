@@ -76,6 +76,8 @@ No metric attribute carries a user id or room code.
 |---|---|---|
 | `narrator_line_skipped` | `reason` (`voice_not_ready`, `no_audio_context`, `start_timeout`, `synthesis_failed`, `chunk_failed`), `voice` | The host device's narrator skips a line. Never the line's text |
 | `socket_reconnect` | `reason` (`drop`, `seq_gap`), `closeCode` | The game socket reconnects |
+| `host_sound_off` | `cause` (`hidden`, `resume_failed`, `interrupted`, `narrator_failed`) | The host device lost sound in a game, so the game pauses |
+| `host_sound_on` | `via` (`auto`, `tap`) | The host device's sound is back, by itself or after the host's tap |
 
 ### Containment in the game server
 

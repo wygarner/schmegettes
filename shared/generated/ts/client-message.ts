@@ -14,6 +14,7 @@ export type ClientMessage =
   | HostSound
   | Buzz
   | AnswerProgress
+  | AnswerStatus
   | SubmitAnswer
   | SubmitWager
   | OverrideVerdict
@@ -100,6 +101,14 @@ export interface AnswerProgress {
   type: "answer_progress";
   clueId: string;
   text: string;
+}
+/**
+ * The answering player's device started listening (listening), or heard the first word that isn't a filler (begun). Drives the two answer stages: up to 6 s to begin, then up to 6 s to finish.
+ */
+export interface AnswerStatus {
+  type: "answer_status";
+  clueId: string;
+  status: "listening" | "begun";
 }
 export interface SubmitAnswer {
   type: "submit_answer";

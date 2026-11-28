@@ -78,6 +78,11 @@ class HostSound(BaseModel):
     on: bool
 
 
+class Status(Enum):
+    listening = 'listening'
+    begun = 'begun'
+
+
 class Source(Enum):
     voice = 'voice'
     typed = 'typed'
@@ -150,6 +155,15 @@ class AnswerProgress(BaseModel):
     text: constr(max_length=200)
 
 
+class AnswerStatus(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['answer_status']
+    clueId: domain_schema.Uuid
+    status: Status
+
+
 class SubmitAnswer(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -190,6 +204,7 @@ class ClientMessage(
             HostSound,
             Buzz,
             AnswerProgress,
+            AnswerStatus,
             SubmitAnswer,
             SubmitWager,
             OverrideVerdict,
@@ -210,6 +225,7 @@ class ClientMessage(
         HostSound,
         Buzz,
         AnswerProgress,
+        AnswerStatus,
         SubmitAnswer,
         SubmitWager,
         OverrideVerdict,

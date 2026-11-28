@@ -98,52 +98,6 @@ class RoomClosed(BaseModel):
     reason: Reason
 
 
-class PhaseChanged(BaseModel):
-    model_config = ConfigDict(
-        extra='forbid',
-    )
-    type: Literal['phase_changed']
-    roomId: domain_schema.Uuid
-    seq: conint(ge=0)
-    phase: domain_schema.GamePhase
-    activeClue: Optional[BoardClue] = None
-    deadlineAt: Optional[int] = Field(
-        None, description='Server clock, ms since epoch, when this phase times out.'
-    )
-    revealUntil: Optional[int] = Field(
-        None,
-        description="Server clock, ms since epoch, when the pick reveal ends (the cell's blink and the category card; a Daily Double's blink). Present only right after a pick, never on a re-read after a pause or reload, so the reveal is never replayed.",
-    )
-    answeringUserId: Optional[domain_schema.Uuid] = None
-    attemptedUserIds: Optional[List[domain_schema.Uuid]] = None
-    controllingUserId: Optional[domain_schema.Uuid] = None
-    paused: Optional[bool] = None
-    wagerMin: Optional[int] = Field(
-        None,
-        description='Daily Double: the lowest wager the picker may make ($5). Public.',
-    )
-    wagerMax: Optional[int] = Field(
-        None,
-        description="Daily Double: the highest wager the picker may make, max(score, round's top value). Public.",
-    )
-    wager: Optional[int] = Field(
-        None,
-        description="Daily Double: the picker's wager once locked. Public. Never set for Final.",
-    )
-    finalistUserIds: Optional[List[domain_schema.Uuid]] = Field(
-        None,
-        description='Final: contestants above $0 when Double ended, in join order.',
-    )
-    lockedUserIds: Optional[List[domain_schema.Uuid]] = Field(
-        None,
-        description='Final: finalists who locked a wager (final_wager) or submitted an answer (final_answer). Never amounts or answers.',
-    )
-    revealOrder: Optional[List[domain_schema.Uuid]] = Field(
-        None,
-        description='final_reveal: finalists in reveal order, lowest pre-Final score first.',
-    )
-
-
 class Outcome(Enum):
     won = 'won'
     too_late = 'too_late'
@@ -366,6 +320,11 @@ class PauseReason(Enum):
     host_sound = 'host_sound'
 
 
+class AnswerStage(Enum):
+    begin = 'begin'
+    finish = 'finish'
+
+
 class RoomSnapshot(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -403,6 +362,7 @@ class RoomSnapshot(BaseModel):
     answeringUserId: Optional[domain_schema.Uuid] = None
     attemptedUserIds: Optional[List[domain_schema.Uuid]] = None
     paused: Optional[bool] = None
+    answerStage: Optional[AnswerStage] = None
     pauseReason: Optional[PauseReason] = None
     wagerMin: Optional[int] = Field(
         None,
@@ -448,6 +408,53 @@ class RoomSnapshot(BaseModel):
         None, description='The host is reviewing a verdict; the clock is paused.'
     )
     scores: Optional[Dict[str, int]] = Field(None, description='userId -> score.')
+
+
+class PhaseChanged(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    type: Literal['phase_changed']
+    roomId: domain_schema.Uuid
+    seq: conint(ge=0)
+    phase: domain_schema.GamePhase
+    activeClue: Optional[BoardClue] = None
+    deadlineAt: Optional[int] = Field(
+        None, description='Server clock, ms since epoch, when this phase times out.'
+    )
+    revealUntil: Optional[int] = Field(
+        None,
+        description="Server clock, ms since epoch, when the pick reveal ends (the cell's blink and the category card; a Daily Double's blink). Present only right after a pick, never on a re-read after a pause or reload, so the reveal is never replayed.",
+    )
+    answeringUserId: Optional[domain_schema.Uuid] = None
+    attemptedUserIds: Optional[List[domain_schema.Uuid]] = None
+    controllingUserId: Optional[domain_schema.Uuid] = None
+    paused: Optional[bool] = None
+    answerStage: Optional[AnswerStage] = None
+    wagerMin: Optional[int] = Field(
+        None,
+        description='Daily Double: the lowest wager the picker may make ($5). Public.',
+    )
+    wagerMax: Optional[int] = Field(
+        None,
+        description="Daily Double: the highest wager the picker may make, max(score, round's top value). Public.",
+    )
+    wager: Optional[int] = Field(
+        None,
+        description="Daily Double: the picker's wager once locked. Public. Never set for Final.",
+    )
+    finalistUserIds: Optional[List[domain_schema.Uuid]] = Field(
+        None,
+        description='Final: contestants above $0 when Double ended, in join order.',
+    )
+    lockedUserIds: Optional[List[domain_schema.Uuid]] = Field(
+        None,
+        description='Final: finalists who locked a wager (final_wager) or submitted an answer (final_answer). Never amounts or answers.',
+    )
+    revealOrder: Optional[List[domain_schema.Uuid]] = Field(
+        None,
+        description='final_reveal: finalists in reveal order, lowest pre-Final score first.',
+    )
 
 
 class GamePaused(BaseModel):

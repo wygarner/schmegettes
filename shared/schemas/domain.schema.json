@@ -35,7 +35,7 @@
     "MatchRule": {
       "description": "Which judging rule decided an answer. Mirrors public.match_rule.",
       "type": "string",
-      "enum": ["exact", "spelling_slip", "sounds_alike", "no_match", "nothing_heard"]
+      "enum": ["exact", "spelling_slip", "sounds_alike", "same_words", "no_match", "nothing_heard"]
     },
     "Round": {
       "type": "string",

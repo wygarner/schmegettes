@@ -23,6 +23,10 @@ export type ServerMessage =
   | Error
   | Pong;
 /**
+ * While a player answers: begin (up to 6 s to start speaking, from when their microphone is listening) or finish (up to 6 s after their first word). deadlineAt is the stage's deadline.
+ */
+export type AnswerStage = "begin" | "finish";
+/**
  * Why a game is paused: the host device has no socket (host_away, which wins when both hold) or no sound (host_sound).
  */
 export type PauseReason = "host_away" | "host_sound";
@@ -79,6 +83,7 @@ export interface RoomSnapshot {
   answeringUserId?: string;
   attemptedUserIds?: string[];
   paused?: boolean;
+  answerStage?: AnswerStage;
   pauseReason?: PauseReason;
   /**
    * Daily Double: the lowest wager the picker may make ($5). Public.
@@ -236,6 +241,7 @@ export interface PhaseChanged {
   attemptedUserIds?: string[];
   controllingUserId?: string;
   paused?: boolean;
+  answerStage?: AnswerStage;
   /**
    * Daily Double: the lowest wager the picker may make ($5). Public.
    */

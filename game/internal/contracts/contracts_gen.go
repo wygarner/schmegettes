@@ -63,6 +63,30 @@ type AnswerSource string
 const AnswerSourceTyped AnswerSource = "typed"
 const AnswerSourceVoice AnswerSource = "voice"
 
+type AnswerStage string
+
+const AnswerStageBegin AnswerStage = "begin"
+const AnswerStageFinish AnswerStage = "finish"
+
+// The answering player's device started listening (listening), or heard the first
+// word that isn't a filler (begun). Drives the two answer stages: up to 6 s to
+// begin, then up to 6 s to finish.
+type AnswerStatus struct {
+	// ClueId corresponds to the JSON schema field "clueId".
+	ClueId Uuid `json:"clueId" yaml:"clueId" mapstructure:"clueId"`
+
+	// Status corresponds to the JSON schema field "status".
+	Status AnswerStatusStatus `json:"status" yaml:"status" mapstructure:"status"`
+
+	// Type corresponds to the JSON schema field "type".
+	Type interface{} `json:"type" yaml:"type" mapstructure:"type"`
+}
+
+type AnswerStatusStatus string
+
+const AnswerStatusStatusBegun AnswerStatusStatus = "begun"
+const AnswerStatusStatusListening AnswerStatusStatus = "listening"
+
 type AppealAnswer struct {
 	// AnswerId corresponds to the JSON schema field "answerId".
 	AnswerId Uuid `json:"answerId" yaml:"answerId" mapstructure:"answerId"`
@@ -407,6 +431,7 @@ type MatchRule string
 const MatchRuleExact MatchRule = "exact"
 const MatchRuleNoMatch MatchRule = "no_match"
 const MatchRuleNothingHeard MatchRule = "nothing_heard"
+const MatchRuleSameWords MatchRule = "same_words"
 const MatchRuleSoundsAlike MatchRule = "sounds_alike"
 const MatchRuleSpellingSlip MatchRule = "spelling_slip"
 
@@ -463,6 +488,9 @@ const PauseReasonHostSound PauseReason = "host_sound"
 type PhaseChanged struct {
 	// ActiveClue corresponds to the JSON schema field "activeClue".
 	ActiveClue *BoardClue `json:"activeClue,omitempty" yaml:"activeClue,omitempty" mapstructure:"activeClue,omitempty"`
+
+	// AnswerStage corresponds to the JSON schema field "answerStage".
+	AnswerStage *AnswerStage `json:"answerStage,omitempty" yaml:"answerStage,omitempty" mapstructure:"answerStage,omitempty"`
 
 	// AnsweringUserId corresponds to the JSON schema field "answeringUserId".
 	AnsweringUserId *Uuid `json:"answeringUserId,omitempty" yaml:"answeringUserId,omitempty" mapstructure:"answeringUserId,omitempty"`
@@ -632,6 +660,9 @@ type RoomSnapshot struct {
 
 	// ActiveClueId corresponds to the JSON schema field "activeClueId".
 	ActiveClueId *Uuid `json:"activeClueId,omitempty" yaml:"activeClueId,omitempty" mapstructure:"activeClueId,omitempty"`
+
+	// AnswerStage corresponds to the JSON schema field "answerStage".
+	AnswerStage *AnswerStage `json:"answerStage,omitempty" yaml:"answerStage,omitempty" mapstructure:"answerStage,omitempty"`
 
 	// How long this game's players have to say an answer, from its timer pace. Absent
 	// before a game starts.

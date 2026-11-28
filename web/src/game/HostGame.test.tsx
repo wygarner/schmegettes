@@ -145,7 +145,7 @@ test("final scores", () => {
   expect(screen.getByLabelText("2nd Bob −$400")).toBeInTheDocument();
 });
 
-test("when the browser blocks speech, buzzing is left to the server timer and the TV asks for a tap", async () => {
+test("when the browser blocks speech, the game pauses for sound and the TV asks for a tap", async () => {
   const send = vi.fn();
   render(
     <MantineProvider>
@@ -155,14 +155,19 @@ test("when the browser blocks speech, buzzing is left to the server timer and th
     </MantineProvider>,
   );
   spoken[0]?.onerror?.();
-  const tap = await screen.findByRole("button", { name: "Tap to turn on sound" });
+  const tap = await screen.findByRole("button", { name: /Tap to turn on sound/ });
+  expect(send).toHaveBeenLastCalledWith({ type: "host_sound", on: false });
   expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "reading_done" }));
 
+  // The tap turns sound back on; the server resumes and the clue is read again from there.
   tap.click();
-  const read = "THIS GAS";
-  expect(spoken.map((u) => u.text)).toEqual([read, read]); // read again from the tap
-  spoken[1]?.onend?.();
-  await waitFor(() => expect(send).toHaveBeenCalledWith({ type: "reading_done", clueId: "c1" }));
+  await waitFor(() => expect(send).toHaveBeenLastCalledWith({ type: "host_sound", on: true }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: /Tap to turn on sound/ })).toBeNull());
+});
+
+test("paused for sound, the stage says so", () => {
+  showHost({ ...state, paused: true, pauseReason: "host_sound" });
+  expect(screen.getByText("Turn on sound on this device.")).toBeInTheDocument();
 });
 
 test("a skipped line (voice not ready in time) reports nothing and asks for no tap", async () => {
@@ -176,8 +181,9 @@ test("a skipped line (voice not ready in time) reports nothing and asks for no t
   );
   spoken[0]?.skip();
   await new Promise((r) => setTimeout(r, 20));
-  expect(send).not.toHaveBeenCalled();
-  expect(screen.queryByRole("button", { name: "Tap to turn on sound" })).toBeNull();
+  expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "reading_done" }));
+  expect(send).not.toHaveBeenCalledWith({ type: "host_sound", on: false });
+  expect(screen.queryByRole("button", { name: /Tap to turn on sound/ })).toBeNull();
 });
 
 test("pausing stops narration and resume reads the clue again", () => {
@@ -226,7 +232,7 @@ test("the TV board can't be tapped when it isn't the host's pick", () => {
 test("a playing host with control taps and confirms", async () => {
   const send = host({ ...onBoard, hostPlays: true, controllingUserId: "host" });
   fireEvent.click(screen.getByRole("button", { name: "OPERA for 200" }));
-  expect(send).not.toHaveBeenCalled();
+  expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "select_clue" }));
   fireEvent.click(await screen.findByRole("button", { name: "Pick" }));
   expect(send).toHaveBeenCalledWith({ type: "select_clue", clueId: "c2", via: "tap" });
 });

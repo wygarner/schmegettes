@@ -65,6 +65,8 @@ export interface RoomState {
   answeringUserId?: string;
   attemptedUserIds: string[];
   paused: boolean;
+  /** Why the game is paused: the host device left, or it has no sound. */
+  pauseReason?: Server.PauseReason;
   scores: Record<string, number>;
   /** user -> server ms until which their buzzer is locked out */
   lockouts: Record<string, number>;
@@ -240,6 +242,7 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         answeringUserId: event.answeringUserId,
         attemptedUserIds: event.attemptedUserIds ?? [],
         paused: event.paused ?? false,
+        pauseReason: event.paused ? event.pauseReason : undefined,
         liveText: undefined,
         roundIntro: undefined,
         ...wagerFields(event),
@@ -271,6 +274,7 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         attemptedUserIds: event.attemptedUserIds ?? [],
         controllingUserId: event.controllingUserId ?? state.controllingUserId,
         paused: event.paused ?? state.paused,
+        pauseReason: (event.paused ?? state.paused) ? state.pauseReason : undefined,
         activeClue: event.activeClue,
         board: withClue(state.board, event.activeClue),
         reveal:
@@ -414,7 +418,12 @@ export function reduceRoom(state: RoomState, event: RoomEvent): RoomState {
         ...clueReset(),
       };
     case "game_paused":
-      return { ...state, paused: event.paused, deadlineAt: event.paused ? undefined : state.deadlineAt };
+      return {
+        ...state,
+        paused: event.paused,
+        pauseReason: event.paused ? event.reason : undefined,
+        deadlineAt: event.paused ? undefined : state.deadlineAt,
+      };
     case "room_closed":
     case "left":
       return { ...state, connection: "closed" };
